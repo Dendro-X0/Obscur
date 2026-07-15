@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/app/components/theme-toggle";
 import { LanguageSelector } from "@/app/components/language-selector";
 import { ProfileCompletenessIndicator } from "@/app/features/profile/components/profile-completeness-indicator";
 import { RelayReadinessSettingsBanner } from "@/app/features/relays/components/relay-readiness-settings-banner";
+import { ConduitMeshSettingsPanel } from "@/app/features/relays/components/conduit-mesh-settings-panel";
 import { RelaySettingsMetricsToolbar } from "@/app/features/settings/components/relay-settings-metrics-toolbar";
 import type { RelaySettingsCategory } from "@/app/features/relays/services/relay-settings-node-filter";
 import { CommunityMembershipSyncSettingsPanel } from "@/app/features/settings/components/community-membership-sync-settings-panel";
@@ -140,6 +141,7 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
         <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
           <div className="space-y-6">
             <RelayReadinessSettingsBanner />
+            <ConduitMeshSettingsPanel relays={relayList.state.relays} />
             {/* API Status Panel */}
             <div id="relay-api-status" className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">

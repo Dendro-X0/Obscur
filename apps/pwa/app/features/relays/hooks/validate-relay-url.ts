@@ -5,8 +5,19 @@ type RelayUrlValidationResult = Readonly<{
 }>;
 
 export type RelayUrlValidationOptions = Readonly<{
+  /**
+   * Allow clearnet private-mesh endpoints on loopback:
+   * - `ws://` localhost (workspace / local Nostr)
+   * - `http(s)://` localhost (team_relay mesh HTTP gateway, C8+)
+   */
   allowLocalhostWs?: boolean;
 }>;
+
+const isLoopbackHost = (hostname: string): boolean => (
+  hostname === "localhost"
+  || hostname === "127.0.0.1"
+  || hostname === "[::1]"
+);
 
 const validateRelayUrl = (
   rawUrl: string,
@@ -24,15 +35,14 @@ const validateRelayUrl = (
   }
   const protocol = url.protocol.toLowerCase();
   const hostname = url.hostname.toLowerCase();
-  const allowsLocalhostWs = options?.allowLocalhostWs === true;
+  const allowsLocalhost = options?.allowLocalhostWs === true;
   const isTrustedWss = protocol === "wss:";
-  const isAllowedLocalWs = allowsLocalhostWs && protocol === "ws:" && (
-    hostname === "localhost"
-    || hostname === "127.0.0.1"
-    || hostname === "[::1]"
-  );
+  const isAllowedLocalWs = allowsLocalhost && protocol === "ws:" && isLoopbackHost(hostname);
+  const isAllowedLocalHttp = allowsLocalhost
+    && (protocol === "http:" || protocol === "https:")
+    && isLoopbackHost(hostname);
 
-  if (!isTrustedWss && !isAllowedLocalWs) {
+  if (!isTrustedWss && !isAllowedLocalWs && !isAllowedLocalHttp) {
     return null;
   }
   if (!hostname) {
@@ -53,8 +63,22 @@ const validateRelayUrl = (
   )) {
     return null;
   }
+  if (isAllowedLocalHttp && !(
+    normalized.startsWith("http://localhost")
+    || normalized.startsWith("http://127.0.0.1")
+    || normalized.startsWith("http://[::1]")
+    || normalized.startsWith("https://localhost")
+    || normalized.startsWith("https://127.0.0.1")
+    || normalized.startsWith("https://[::1]")
+  )) {
+    return null;
+  }
 
-  const minimumLength = isAllowedLocalWs ? "ws://127.0.0.1".length : "wss://".length;
+  const minimumLength = isAllowedLocalHttp
+    ? "http://127.0.0.1".length
+    : isAllowedLocalWs
+      ? "ws://127.0.0.1".length
+      : "wss://".length;
   if (normalized.length <= minimumLength) {
     return null;
   }

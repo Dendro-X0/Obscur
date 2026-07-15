@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { cn } from "@/app/lib/utils";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 
 type TextToken = Readonly<
   | { kind: "text"; value: string }
@@ -109,66 +110,81 @@ type MessageContentProps = Readonly<{
 }>;
 
 const MessageContent = (props: MessageContentProps): React.JSX.Element | null => {
+  const {
+    pendingLinkUrl,
+    cancelPendingLink,
+    confirmPendingLink,
+    handleAnchorClick,
+  } = useGuardedExternalLinkOpen();
   const lines: ReadonlyArray<string> = useMemo((): ReadonlyArray<string> => {
     return props.content.split("\n");
   }, [props.content]);
+
   if (props.content.trim().length === 0) {
     return null;
   }
   return (
-    <p className="min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] text-sm leading-relaxed">
-      {lines.map((line: string, lineIndex: number): React.JSX.Element => {
-        const parsed: ParseResult = splitIntoSegments(line);
-        return (
-          <span key={`line-${lineIndex}`}>
-            {parsed.segments.map((segment: Segment, segmentIndex: number): React.ReactNode => {
-              if (segment.kind === "link") {
-                return (
-                  <a
-                    key={`seg-${lineIndex}-${segmentIndex}`}
-                    href={segment.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={cn(
-                      "underline underline-offset-2 break-words [overflow-wrap:anywhere] [word-break:break-word]",
-                      props.isOutgoing ? "text-white/90 dark:text-zinc-900" : "text-zinc-900 dark:text-zinc-100"
-                    )}
-                  >
-                    {segment.url}
-                  </a>
-                );
-              }
-              return segment.tokens.map((token: TextToken, tokenIndex: number): React.ReactNode => {
-                const key: string = `tok-${lineIndex}-${segmentIndex}-${tokenIndex}`;
-                if (token.kind === "bold") {
+    <>
+      <p className="min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word] text-sm leading-relaxed">
+        {lines.map((line: string, lineIndex: number): React.JSX.Element => {
+          const parsed: ParseResult = splitIntoSegments(line);
+          return (
+            <span key={`line-${lineIndex}`}>
+              {parsed.segments.map((segment: Segment, segmentIndex: number): React.ReactNode => {
+                if (segment.kind === "link") {
                   return (
-                    <strong key={key}>
-                      {token.value}
-                    </strong>
+                    <a
+                      key={`seg-${lineIndex}-${segmentIndex}`}
+                      href={segment.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => handleAnchorClick(event, segment.url)}
+                      className={cn(
+                        "underline underline-offset-2 break-words [overflow-wrap:anywhere] [word-break:break-word]",
+                        props.isOutgoing ? "text-white/90 dark:text-zinc-900" : "text-zinc-900 dark:text-zinc-100",
+                      )}
+                    >
+                      {segment.url}
+                    </a>
                   );
                 }
-                if (token.kind === "italic") {
-                  return (
-                    <em key={key}>
-                      {token.value}
-                    </em>
-                  );
-                }
-                if (token.kind === "code") {
-                  return (
-                    <code key={key} className={cn("rounded px-1 py-0.5 font-mono text-[0.9em]", props.isOutgoing ? "bg-white/15 dark:bg-black/10" : "bg-black/5 dark:bg-white/10")}>
-                      {token.value}
-                    </code>
-                  );
-                }
-                return <React.Fragment key={key}>{token.value}</React.Fragment>;
-              });
-            })}
-            {lineIndex < lines.length - 1 ? <br /> : null}
-          </span>
-        );
-      })}
-    </p>
+                return segment.tokens.map((token: TextToken, tokenIndex: number): React.ReactNode => {
+                  const key: string = `tok-${lineIndex}-${segmentIndex}-${tokenIndex}`;
+                  if (token.kind === "bold") {
+                    return (
+                      <strong key={key}>
+                        {token.value}
+                      </strong>
+                    );
+                  }
+                  if (token.kind === "italic") {
+                    return (
+                      <em key={key}>
+                        {token.value}
+                      </em>
+                    );
+                  }
+                  if (token.kind === "code") {
+                    return (
+                      <code key={key} className={cn("rounded px-1 py-0.5 font-mono text-[0.9em]", props.isOutgoing ? "bg-white/15 dark:bg-black/10" : "bg-black/5 dark:bg-white/10")}>
+                        {token.value}
+                      </code>
+                    );
+                  }
+                  return <React.Fragment key={key}>{token.value}</React.Fragment>;
+                });
+              })}
+              {lineIndex < lines.length - 1 ? <br /> : null}
+            </span>
+          );
+        })}
+      </p>
+      <LinkOpenConfirmDialog
+        url={pendingLinkUrl}
+        onClose={cancelPendingLink}
+        onConfirm={() => confirmPendingLink()}
+      />
+    </>
   );
 };
 

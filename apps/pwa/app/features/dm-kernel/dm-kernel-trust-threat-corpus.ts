@@ -13,6 +13,7 @@ import {
   type TrustWarningTier,
 } from "./dm-kernel-trust-assessment-port";
 import {
+  ACCEPTED_PEER_MSG_RATE_FLOOD_MULTIPLIER,
   INVITE_FANOUT_THRESHOLD,
   MSG_RATE_THRESHOLD,
 } from "./dm-kernel-trust-spam-signals";
@@ -224,6 +225,34 @@ export const buildTrustThreatFixtureDefinitions = (
 
   // —— Phishing-shaped (rule-pack v2.0a: structural URL class) ——
   {
+    id: "phishing_punycode_url_cold_elevated",
+    category: "phishing",
+    note: "TRUST-INT-1b — punycode IDN host",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Confirm login: https://xn--pple-43d.com/signin?id=1",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_PHISH_COLD,
+      mustIncludeSignals: ["link.suspicious_url"],
+    },
+  },
+  {
+    id: "phishing_mixed_script_hostname_cold_elevated",
+    category: "phishing",
+    note: "TRUST-INT-1b — Latin/Cyrillic homoglyph host",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Verify payment at https://p\u0430ypal.com/secure/login",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_PHISH_COLD,
+      mustIncludeSignals: ["link.suspicious_url"],
+    },
+  },
+  {
     id: "phishing_wallet_verify_url_cold_elevated",
     category: "phishing",
     note: "TRUST-4 cold DM + credential-path URL",
@@ -246,6 +275,73 @@ export const buildTrustThreatFixtureDefinitions = (
       "Support ticket — confirm identity: http://bit.ly/secure-account-reset",
     ),
     expect: { tier: "elevated", bundleId: BUNDLE_PHISH_COLD },
+  },
+  {
+    id: "se_otp_imperative_structural_cold",
+    category: "social_engineering",
+    note: "TRUST-INT-1b — OTP digit run without English phrase-pack keyword alone",
+    input: coldThreadInput(peerPublicKeyHex, "Reply with 847291 to continue"),
+    expect: {
+      tier: "critical",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.credential_harvest"],
+    },
+  },
+  {
+    id: "se_credential_harvest_es_cold",
+    category: "social_engineering",
+    note: "TRUST-INT-1c — Spanish seed phrase harvest",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Envíame tu frase semilla para verificar la cuenta",
+    ),
+    expect: {
+      tier: "critical",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.credential_harvest"],
+    },
+  },
+  {
+    id: "se_authority_impersonation_zh_cold",
+    category: "social_engineering",
+    note: "TRUST-INT-1c — Chinese support impersonation",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Obscur官方支持：您的账户已被冻结，请立即验证",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.authority_impersonation"],
+    },
+  },
+  {
+    id: "se_off_platform_redirect_es_cold",
+    category: "social_engineering",
+    note: "TRUST-INT-1c — Spanish Telegram redirect",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "Continuemos en Telegram — escríbeme allí",
+    ),
+    expect: {
+      tier: "elevated",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.off_platform_redirect"],
+    },
+  },
+  {
+    id: "se_remote_access_zh_cold",
+    category: "social_engineering",
+    note: "TRUST-INT-1c — Chinese remote access pressure",
+    input: coldThreadInput(
+      peerPublicKeyHex,
+      "请安装 AnyDesk 进行远程协助",
+    ),
+    expect: {
+      tier: "critical",
+      bundleId: BUNDLE_SE_COLD,
+      mustIncludeSignals: ["thread.remote_access_tool"],
+    },
   },
   {
     id: "phishing_impersonation_support_cold_se",
@@ -540,6 +636,26 @@ export const buildTrustThreatFixtureDefinitions = (
     expect: { tier: "elevated", bundleId: BUNDLE_SPAM_COLD, copyKey: "messaging.trust.spamCold" },
   },
   {
+    id: "spam_accepted_normal_burst_suppressed",
+    category: "spam",
+    note: "TRUST-INT-1a — everyday back-and-forth on accepted peer",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "quick reply in active chat",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 3,
+      nowUnixMs: THREAT_CORPUS_BASE_MS,
+    },
+    expect: {
+      tier: "none",
+      bundleId: null,
+      mustExcludeSignals: ["msg.rate"],
+    },
+  },
+  {
     id: "spam_accepted_burst_msg_rate_only",
     category: "spam",
     input: {
@@ -549,11 +665,12 @@ export const buildTrustThreatFixtureDefinitions = (
       messageTimestampUnixMs: THREAT_CORPUS_BASE_MS,
       threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
       dismissedUntilUnixMs: null,
-      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 5,
+      peerIncomingCountLastMinute:
+        Math.ceil(MSG_RATE_THRESHOLD * ACCEPTED_PEER_MSG_RATE_FLOOD_MULTIPLIER) + 1,
       nowUnixMs: THREAT_CORPUS_BASE_MS,
     },
     expect: {
-      tier: "elevated",
+      tier: "info",
       bundleId: null,
       mustIncludeSignals: ["msg.rate"],
       copyKey: "messaging.trust.msgRate",
@@ -608,6 +725,80 @@ export const buildTrustThreatFixtureDefinitions = (
   },
 
   // —— Edge / boundary ——
+  {
+    id: "metadata_young_key_cold_info",
+    category: "edge",
+    note: "TRUST-INT-1d — peer first seen within 24h",
+    input: coldThreadInput(peerPublicKeyHex, "Hey — just checking in", 5_000, {
+      peerFirstSeenAtUnixMs: THREAT_CORPUS_BASE_MS - 3 * 60 * 60 * 1000,
+    }),
+    expect: {
+      tier: "info",
+      mustIncludeSignals: ["key.age", "contact.cold"],
+    },
+  },
+  {
+    id: "metadata_wot_distance_outside_web",
+    category: "edge",
+    note: "TRUST-INT-1d — peer outside accepted WoT roots",
+    input: coldThreadInput(peerPublicKeyHex, "Hello from outside your network", 6_000, {
+      peerWotDistance: null,
+    }),
+    expect: {
+      tier: "info",
+      mustIncludeSignals: ["graph.wot_distance", "contact.cold"],
+    },
+  },
+  {
+    id: "metadata_wot_distance_accepted_inside_web",
+    category: "edge",
+    note: "TRUST-INT-1d — accepted peer stays inside WoT even when vigilant forces cold",
+    input: coldThreadInput(peerPublicKeyHex, "Trusted contact checking in", 7_000, {
+      isPeerAccepted: true,
+      peerWotDistance: 1,
+      contactTrustSensitivity: "vigilant",
+    }),
+    expect: {
+      mustIncludeSignals: ["contact.cold"],
+      mustExcludeSignals: ["graph.wot_distance"],
+    },
+  },
+  {
+    id: "metadata_attachment_repeat_hash_cold_elevated",
+    category: "coordination",
+    note: "TRUST-INT-1d — same attachment digest seen from multiple peers",
+    input: coldThreadInput(peerPublicKeyHex, "Open this file", 8_000, {
+      attachmentRepeatHashDistinctPeerCount: 3,
+    }),
+    expect: {
+      tier: "elevated",
+      mustIncludeSignals: ["attachment.repeat_hash", "contact.cold"],
+      copyKey: "messaging.trust.repeatHashCold",
+    },
+  },
+  {
+    id: "metadata_attachment_repeat_hash_below_threshold",
+    category: "edge",
+    note: "TRUST-INT-1d — repeat-hash fanout below peer threshold",
+    input: coldThreadInput(peerPublicKeyHex, "One-off attachment", 9_000, {
+      attachmentRepeatHashDistinctPeerCount: 2,
+    }),
+    expect: {
+      mustExcludeSignals: ["attachment.repeat_hash"],
+    },
+  },
+  {
+    id: "metadata_attachment_repeat_hash_phish_cold_bundle",
+    category: "phishing",
+    note: "TRUST-INT-1d — repeat-hash qualifies for cold phish bundle",
+    input: coldThreadInput(peerPublicKeyHex, "Please review the attached file", 10_000, {
+      attachmentRepeatHashDistinctPeerCount: 4,
+    }),
+    expect: {
+      bundleId: BUNDLE_PHISH_COLD,
+      copyKey: "messaging.trust.repeatHashCold",
+    },
+  },
   {
     id: "edge_financial_at_pivot_window_boundary_outside",
     category: "edge",

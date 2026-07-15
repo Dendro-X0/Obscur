@@ -49,13 +49,17 @@ export function SendCeremonyDialog({
               {t("security.sendCeremony.eyebrow")}
             </p>
             <h2 className="mt-1 text-lg font-black text-foreground">
-              {t("security.sendCeremony.title")}
+              {ceremony.reason === "trust_confirm"
+                ? t("security.sendCeremony.trustConfirmTitle")
+                : t("security.sendCeremony.title")}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t("security.sendCeremony.description", {
-                sender: ceremony.senderNpubFragment,
-                recipient: ceremony.recipientBinding.npubFragment,
-              })}
+              {ceremony.reason === "trust_confirm"
+                ? t("security.sendCeremony.trustConfirmDescription")
+                : t("security.sendCeremony.description", {
+                    sender: ceremony.senderNpubFragment,
+                    recipient: ceremony.recipientBinding.npubFragment,
+                  })}
             </p>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={onClose} disabled={isSubmitting}>

@@ -30,6 +30,7 @@ import { runMembershipJoinLeaveScenario } from "./lib/dev-lab-membership-join-le
 import { runMembershipLeaveRejoinLiveScenario } from "./lib/dev-lab-membership-leave-rejoin-live.mjs";
 import { runAuth4ScopeProbeLiveScenario } from "./lib/dev-lab-auth4-scope-probe-live.mjs";
 import { runTrustLiveScenario } from "./lib/dev-lab-trust-live.mjs";
+import { runTrustAcceptedBurstLiveScenario } from "./lib/dev-lab-trust-accepted-burst-live.mjs";
 import { runSecBotInboundLiveScenario } from "./lib/dev-lab-bot-inbound-live.mjs";
 import { runTwoActorDmScenario } from "./lib/dev-lab-two-actor.mjs";
 import {
@@ -464,6 +465,16 @@ async function main() {
       scenarioId: "trust-live",
       category: "security",
       runScenario: runTrustLiveScenario,
+    });
+    return;
+  }
+
+  if (scenario === "trust-accepted-burst-live") {
+    await runDualBrowserCliScenario({
+      chromium,
+      scenarioId: "trust-accepted-burst-live",
+      category: "security",
+      runScenario: runTrustAcceptedBurstLiveScenario,
     });
     return;
   }

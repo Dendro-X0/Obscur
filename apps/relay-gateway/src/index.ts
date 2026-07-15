@@ -9,8 +9,13 @@ import {
   loadHideRegistrySnapshot,
   saveHideRegistrySnapshot,
 } from "./community-relay-hide-registry-persist";
+import { startMeshHttpGatewayServer } from "./mesh-http-server";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7001;
+const MESH_HTTP_PORT = process.env.MESH_HTTP_PORT
+  ? parseInt(process.env.MESH_HTTP_PORT, 10)
+  : 8788;
+const MESH_HTTP_ENABLED = process.env.OBSCUR_MESH_HTTP_GATEWAY !== "0";
 const UPSTREAM_URL = process.env.UPSTREAM_URL || "ws://localhost:7000";
 const MIN_POW_DIFFICULTY = 12;
 const HIDE_SUPPRESS_ENABLED = process.env.OBSCUR_RELAY_HIDE_SUPPRESS !== "0";
@@ -23,6 +28,13 @@ console.log(`[Relay Gateway] Upstream: ${UPSTREAM_URL}`);
 console.log(`[Relay Gateway] Min PoW Difficulty for K0: ${MIN_POW_DIFFICULTY}`);
 console.log(`[Relay Gateway] Community hide suppress (D1): ${HIDE_SUPPRESS_ENABLED ? "on" : "off"}`);
 console.log(`[Relay Gateway] Hide registry persist (D2): ${PERSIST_HIDE_REGISTRY ? HIDE_REGISTRY_PATH : "off"}`);
+if (MESH_HTTP_ENABLED) {
+  console.log(`[Relay Gateway] Mesh HTTP gateway (C8): http://127.0.0.1:${MESH_HTTP_PORT}`);
+}
+
+if (MESH_HTTP_ENABLED) {
+  startMeshHttpGatewayServer({ port: MESH_HTTP_PORT });
+}
 
 const wss = new WebSocketServer({ port: PORT });
 

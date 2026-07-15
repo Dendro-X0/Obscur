@@ -10,11 +10,13 @@ const STORAGE_ROOT = "obscur.dm_kernel_trust_peer_state.v1";
 type PeerTrustState = Readonly<{
   connectionRequestTimestampsUnixMs: ReadonlyArray<number>;
   incomingMessageTimestampsUnixMs: ReadonlyArray<number>;
+  firstSeenAtUnixMs: number | null;
 }>;
 
 const DEFAULT_PEER_STATE: PeerTrustState = {
   connectionRequestTimestampsUnixMs: [],
   incomingMessageTimestampsUnixMs: [],
+  firstSeenAtUnixMs: null,
 };
 
 type StoredPeerStateByPubkey = Readonly<Record<string, PeerTrustState>>;
@@ -51,9 +53,16 @@ const normalizePeerKey = (peerPublicKeyHex: string): string => peerPublicKeyHex.
 const normalizePeerState = (state: Partial<PeerTrustState> | undefined): PeerTrustState => ({
   connectionRequestTimestampsUnixMs: state?.connectionRequestTimestampsUnixMs ?? [],
   incomingMessageTimestampsUnixMs: state?.incomingMessageTimestampsUnixMs ?? [],
+  firstSeenAtUnixMs: state?.firstSeenAtUnixMs ?? null,
+});
+
+const withFirstSeen = (state: PeerTrustState, timestampUnixMs: number): PeerTrustState => ({
+  ...state,
+  firstSeenAtUnixMs: state.firstSeenAtUnixMs ?? timestampUnixMs,
 });
 
 const prunePeerState = (state: PeerTrustState, nowUnixMs: number): PeerTrustState => ({
+  firstSeenAtUnixMs: state.firstSeenAtUnixMs,
   connectionRequestTimestampsUnixMs: state.connectionRequestTimestampsUnixMs.filter(
     (value) => nowUnixMs - value <= INVITE_FANOUT_WINDOW_MS,
   ),
@@ -83,10 +92,10 @@ export const recordPeerConnectionRequest = (
     normalizePeerState(store[peerKey]),
     timestampUnixMs,
   );
-  const next: PeerTrustState = {
+  const next: PeerTrustState = withFirstSeen({
     ...current,
     connectionRequestTimestampsUnixMs: [...current.connectionRequestTimestampsUnixMs, timestampUnixMs],
-  };
+  }, timestampUnixMs);
   store[peerKey] = next;
   writeStore(profileId, store);
   return next;
@@ -103,10 +112,10 @@ export const recordPeerIncomingMessageAtPeerLevel = (
     normalizePeerState(store[peerKey]),
     timestampUnixMs,
   );
-  const next: PeerTrustState = {
+  const next: PeerTrustState = withFirstSeen({
     ...current,
     incomingMessageTimestampsUnixMs: [...current.incomingMessageTimestampsUnixMs, timestampUnixMs],
-  };
+  }, timestampUnixMs);
   store[peerKey] = next;
   writeStore(profileId, store);
   return next;
@@ -137,3 +146,8 @@ export const getPeerConnectionRequestCountLastDay = (
     INVITE_FANOUT_WINDOW_MS,
   );
 };
+
+export const getPeerFirstSeenAtUnixMs = (
+  profileId: string,
+  peerPublicKeyHex: string,
+): number | null => getDmTrustPeerState(profileId, peerPublicKeyHex).firstSeenAtUnixMs;

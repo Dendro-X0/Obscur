@@ -14,12 +14,13 @@ describe("conduit-mesh-c5 — pool retirement wiring", () => {
     expect(hookPort).toMatch(/useConduitMeshRelayPool/);
   });
 
-  it("pool hook policy gates on CONDUIT_MESH_POOL env", () => {
+  it("pool hook policy supports opt-out via CONDUIT_MESH_POOL env", () => {
     const policy = readFileSync(
       join(REPO_ROOT, "apps/pwa/app/features/transport-kernel/conduit-mesh-pool-hook-port.ts"),
       "utf8",
     );
     expect(policy).toMatch(/NEXT_PUBLIC_OBSCUR_CONDUIT_MESH_POOL/);
+    expect(policy).toMatch(/isConduitMeshPoolExplicitlyDisabled/);
   });
 
   it("mesh pool hook does not import enhanced-relay-pool-legacy", () => {

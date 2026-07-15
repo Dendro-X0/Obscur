@@ -9,13 +9,16 @@ import {
 import {
   acknowledgeSendCeremony,
   buildSendCeremonyViewModel,
-  requiresFirstDmSendCeremony,
+  resolveSendCeremonyRequirement,
   type SendCeremonyViewModel,
 } from "@/app/features/security/services/send-ceremony-gate";
+import { getDmTrustThreadState } from "@/app/features/dm-kernel/dm-kernel-trust-thread-state";
+import { getPeerFirstSeenAtUnixMs } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
 import {
   assertSandboxOutboundAllowed,
   resolveContactRequestComposeMode,
 } from "@/app/features/messaging/services/contact-request-sandbox-policy";
+import { resolveDmPeerOutgoingResendEligibleForUi } from "@/app/features/messaging/services/dm-peer-established-ui";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -404,6 +407,11 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             });
 
             if (dmComposeMode === "blocked") {
+                const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex });
+                if (resolveDmPeerOutgoingResendEligibleForUi({ requestStatus })) {
+                    toast.error("This request was not accepted. Use Send new request in the thread banner or open their profile to try again.");
+                    return;
+                }
                 toast.error("Send a connection request before messaging this person.");
                 return;
             }
@@ -466,16 +474,24 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 .filter((message) => message.isOutgoing && message.kind === "user")
                 .length;
             const profileId = getResolvedProfileId();
-            if (requiresFirstDmSendCeremony({
-                profileId,
-                peerPublicKeyHex,
-                priorOutgoingUserMessageCount,
-            })) {
+            const isPeerAccepted = peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex });
+            const threadState = getDmTrustThreadState(profileId, selectedConversation.id);
+            const ceremonyRequirement = resolveSendCeremonyRequirement({
+              profileId,
+              peerPublicKeyHex,
+              priorOutgoingUserMessageCount,
+              isPeerAccepted,
+              messageContent: messageInput.trim(),
+              threadFirstPeerMessageAtUnixMs: threadState.firstPeerMessageAtUnixMs,
+              peerFirstSeenAtUnixMs: getPeerFirstSeenAtUnixMs(profileId, peerPublicKeyHex),
+            });
+            if (ceremonyRequirement.required) {
                 const ceremony = buildSendCeremonyViewModel({
                     senderPublicKeyHex: identity.state.publicKeyHex as PublicKeyHex,
                     recipientPublicKeyHex: peerPublicKeyHex,
                     recipientDisplayName: recipientMetadata.displayName,
                     plaintextPreview: messageInput.trim(),
+                    reason: ceremonyRequirement.reason ?? "first_dm",
                 });
                 if (!ceremony) {
                     toast.error("Could not verify recipient identity before sending.");
@@ -490,7 +506,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                 if (!approved) {
                     return;
                 }
-                acknowledgeSendCeremony(profileId, peerPublicKeyHex);
+                if (ceremonyRequirement.reason === "first_dm") {
+                  acknowledgeSendCeremony(profileId, peerPublicKeyHex);
+                }
             }
         }
 

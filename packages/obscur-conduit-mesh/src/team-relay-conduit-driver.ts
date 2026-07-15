@@ -1,4 +1,4 @@
-import type { ConduitDescriptor, ConduitDriverPort } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor, ConduitDriverPort, MeshEnvelope } from "@obscur/conduit-mesh-contracts";
 
 import { createCustomHttpConduitDriver } from "./custom-http-conduit-driver";
 import type { ConduitMeshFetch } from "./conduit-http-utils";
@@ -8,6 +8,9 @@ export type TeamRelayConduitDriverOptions = Readonly<{
   descriptor: ConduitDescriptor;
   fetch: ConduitMeshFetch;
   now?: () => number;
+  onInbound?: (envelope: MeshEnvelope) => void;
+  pullIntervalMs?: number;
+  streamTimeoutMs?: number;
 }>;
 
 /** Map team relay endpoint to HTTP mesh base (wss/ws → https/http) for C4 headless HTTP. */
@@ -40,5 +43,8 @@ export const createTeamRelayConduitDriver = (
     descriptor: httpDescriptor,
     fetch: options.fetch,
     now: options.now,
+    onInbound: options.onInbound,
+    pullIntervalMs: options.pullIntervalMs,
+    streamTimeoutMs: options.streamTimeoutMs,
   });
 };

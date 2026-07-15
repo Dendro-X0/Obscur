@@ -16,6 +16,7 @@ import { revokeVaultMediaBlobUrl } from "../services/vault-media-blob-lifecycle"
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { APP_OVERLAY_BACKDROP_CLASS, AppOverlayPortal } from "@/app/components/app-overlay-layer";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
     isLoading: boolean;
@@ -137,6 +138,12 @@ const resolveVaultSourceKind = (item: VaultMediaItem): VaultSourceKind => {
 };
 export function VaultMediaGrid(props: VaultMediaGridProps) {
     const { t } = useTranslation();
+    const {
+        pendingLinkUrl,
+        cancelPendingLink,
+        confirmPendingLink,
+        requestOpenExternalLink,
+    } = useGuardedExternalLinkOpen();
     const router = useRouter();
     const compact = useMobileCompactLayout();
     const vaultActionMenuItemClass = cn("w-full text-left rounded-xl px-3 text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2", compact ? "min-h-11 py-3" : "py-2");
@@ -426,7 +433,8 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                 </Button>
             </div>);
     }
-    return (<div className={cn("space-y-8", compact && "space-y-5")}>
+    return (<>
+        <div className={cn("space-y-8", compact && "space-y-5")}>
             <div className={cn("flex items-center justify-between gap-3", compact ? "flex-col items-stretch" : "flex-wrap")}>
                 <div data-testid={compact ? "vault-compact-filters" : undefined} className={cn("flex items-center gap-2", compact
             ? "mobile-scroll-region -mx-1 flex-nowrap overflow-x-auto overscroll-x-contain px-1 pb-1"
@@ -720,7 +728,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                 {selectedItem.isLocalCached ? (<Button title={t("vault.actions.openVaultFolder", "Open vault folder")} variant="ghost" onClick={async () => { await openLocalFileLocation(selectedItem); }} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
                                                         <FolderOpen className="h-4 w-4 shrink-0"/>
                                                     </Button>) : null}
-                                                <Button title="Source URL" variant="ghost" onClick={() => window.open(selectedItem.remoteUrl, "_blank")} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
+                                                <Button title="Source URL" variant="ghost" onClick={() => requestOpenExternalLink(selectedItem.remoteUrl)} className="h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10">
                                                     <ExternalLink className="h-4 w-4 shrink-0"/>
                                                 </Button>
                                                 <Button title={favorites.has(selectedItem.remoteUrl) ? "Favorited" : "Favorite"} variant="ghost" onClick={() => toggleFavorite(selectedItem.remoteUrl)} className={cn("h-10 w-10 justify-center rounded-xl p-0 text-white hover:bg-white/10", favorites.has(selectedItem.remoteUrl)
@@ -732,7 +740,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                                         <Trash2 className="h-4 w-4 shrink-0"/>
                                                     </Button>) : null}
                                             </div>
-                                            <MediaStage item={selectedItem} videoMobileLayoutEnabled={previewVideoMobileLayout} onVideoMobileLayoutToggle={setPreviewVideoMobileLayout}/>
+                                            <MediaStage item={selectedItem} videoMobileLayoutEnabled={previewVideoMobileLayout} onVideoMobileLayoutToggle={setPreviewVideoMobileLayout} onOpenExternalLink={requestOpenExternalLink}/>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -740,7 +748,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className={cn("group/stage relative mx-auto flex w-full max-w-7xl flex-1 items-center justify-center overflow-hidden rounded-[40px] border shadow-2xl", selectedItem.attachment.kind === "video"
                 ? "border-zinc-300/65 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.3),_rgba(255,255,255,0.82)_52%,_rgba(226,232,240,0.94)_100%)] p-2 shadow-[0_30px_100px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.2),_rgba(8,10,16,0.95)_52%,_rgba(0,0,0,0.98)_100%)] dark:shadow-[0_35px_110px_rgba(0,0,0,0.62)] sm:p-3 md:p-4"
                 : "border-zinc-300/55 bg-white/52 shadow-[0_30px_100px_rgba(15,23,42,0.2)] dark:border-white/5 dark:bg-white/[0.02] dark:shadow-[0_35px_110px_rgba(0,0,0,0.62)]")}>
-                                <MediaStage item={selectedItem} videoMobileLayoutEnabled={previewVideoMobileLayout} onVideoMobileLayoutToggle={setPreviewVideoMobileLayout}/>
+                                <MediaStage item={selectedItem} videoMobileLayoutEnabled={previewVideoMobileLayout} onVideoMobileLayoutToggle={setPreviewVideoMobileLayout} onOpenExternalLink={requestOpenExternalLink}/>
                             </motion.div>
 
                             <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex w-full flex-col items-center gap-3 pt-8 z-10">
@@ -765,7 +773,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                             </Button>
                                         </>) : null}
                                     <div className={previewToolbarDividerClass}/>
-                                    <Button variant="ghost" onClick={() => window.open(selectedItem.remoteUrl, "_blank")} className={previewToolbarButtonClass}>
+                                    <Button variant="ghost" onClick={() => requestOpenExternalLink(selectedItem.remoteUrl)} className={previewToolbarButtonClass}>
                                         <ExternalLink className="h-4 w-4 mr-3"/>
                                         Source URL
                                     </Button>
@@ -790,7 +798,13 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                     </motion.div>
                 </AppOverlayPortal>)}
             </AnimatePresence>
-        </div>);
+        </div>
+        <LinkOpenConfirmDialog
+            url={pendingLinkUrl}
+            onClose={cancelPendingLink}
+            onConfirm={() => confirmPendingLink()}
+        />
+    </>);
 }
 function VaultImageTile({ item }: {
     item: VaultMediaItem;
@@ -874,10 +888,11 @@ function MediaUnavailableStage(props: Readonly<{
             <div className="mt-2 text-xs text-zinc-600 dark:text-white/60">{props.note}</div>
         </div>);
 }
-function MediaStage({ item, videoMobileLayoutEnabled, onVideoMobileLayoutToggle }: {
+function MediaStage({ item, videoMobileLayoutEnabled, onVideoMobileLayoutToggle, onOpenExternalLink }: {
     item: VaultMediaItem;
     videoMobileLayoutEnabled: boolean;
     onVideoMobileLayoutToggle: React.Dispatch<React.SetStateAction<boolean>>;
+    onOpenExternalLink: (url: string) => void;
 }) {
     const { t } = useTranslation();
     if (item.attachment.kind === "image") {
@@ -900,7 +915,7 @@ function MediaStage({ item, videoMobileLayoutEnabled, onVideoMobileLayoutToggle 
                 <h4 className="text-2xl font-black text-zinc-900 dark:text-white">{item.attachment.fileName}</h4>
                 <p className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500 dark:text-white/30">{item.attachment.contentType || "Binary Asset"}</p>
             </div>
-            <Button onClick={() => window.open(item.attachment.url, "_blank")} className="w-full bg-amber-500 hover:bg-amber-600 text-black font-black rounded-3xl h-16 text-base tracking-tight shadow-[0_20px_40px_-10px_rgba(245,158,11,0.3)] transition-all hover:-translate-y-1">
+            <Button onClick={() => onOpenExternalLink(item.attachment.url)} className="w-full bg-amber-500 hover:bg-amber-600 text-black font-black rounded-3xl h-16 text-base tracking-tight shadow-[0_20px_40px_-10px_rgba(245,158,11,0.3)] transition-all hover:-translate-y-1">
                 <Download className="h-5 w-5 mr-3"/>
                 {t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}
             </Button>

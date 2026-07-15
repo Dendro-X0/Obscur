@@ -5,6 +5,9 @@ export type TrustWarningTier = "none" | "info" | "elevated" | "critical";
 
 export type TrustSignalId =
   | "contact.cold"
+  | "key.age"
+  | "graph.wot_distance"
+  | "attachment.repeat_hash"
   | "thread.pivot_financial"
   | "thread.financial_pressure"
   | "commerce.urgency_pressure"
@@ -33,10 +36,13 @@ export const BUNDLE_SPAM_COLD = "BUNDLE_SPAM_COLD";
 
 export const FINANCIAL_PIVOT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
+export const KEY_AGE_YOUNG_MS = 24 * 60 * 60 * 1000;
+
 export const TRUST_BANNER_DISMISS_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 import { detectConnectionRequestBurstSignal } from "./dm-kernel-trust-connection-signals";
 import type { IncomingRequestAntiAbusePeerSnapshot } from "@/app/features/messaging/services/incoming-request-anti-abuse";
+import { shouldTriggerMsgRateSignal } from "./dm-kernel-trust-spam-signals";
 import { detectSuspiciousLink, detectLookalikeBrandLink } from "./dm-kernel-trust-link-signals";
 import { detectRiskyAttachmentFilenames } from "./dm-kernel-trust-attachment-signals";
 import {
@@ -59,6 +65,11 @@ import {
   type ContactTrustSensitivity,
 } from "./contact-trust-sensitivity";
 import { resolveTrustCopyKey } from "./dm-kernel-trust-copy-keys";
+import {
+  resolvePeerWotDistanceV1,
+  shouldTriggerAttachmentRepeatHashSignal,
+  shouldTriggerGraphWotDistanceSignal,
+} from "./dm-kernel-trust-metadata-signals";
 
 export type AssessDmTrustInput = Readonly<{
   peerPublicKeyHex: PublicKeyHex | string;
@@ -69,6 +80,11 @@ export type AssessDmTrustInput = Readonly<{
   dismissedUntilUnixMs: number | null;
   /** Attachment filenames on the assessed inbound message (metadata only). */
   messageAttachmentFileNames?: ReadonlyArray<string>;
+  peerFirstSeenAtUnixMs?: number | null;
+  /** v1: 1 when peer is accepted; null when outside recipient WoT roots. */
+  peerWotDistance?: number | null;
+  /** Distinct peers that sent the same attachment digest within the fanout window. */
+  attachmentRepeatHashDistinctPeerCount?: number;
   peerIncomingCountLastMinute?: number;
   peerConnectionRequestCountLastDay?: number;
   connectionRequestBurstSnapshot?: IncomingRequestAntiAbusePeerSnapshot | null;
@@ -199,6 +215,24 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
   if (isContactCold) {
     signals.push("contact.cold");
   }
+  if (
+    input.peerFirstSeenAtUnixMs != null
+    && (nowUnixMs - input.peerFirstSeenAtUnixMs) < KEY_AGE_YOUNG_MS
+  ) {
+    signals.push("key.age");
+  }
+  const peerWotDistance = input.peerWotDistance ?? resolvePeerWotDistanceV1(
+    String(input.peerPublicKeyHex),
+    input.isPeerAccepted,
+  );
+  if (shouldTriggerGraphWotDistanceSignal(peerWotDistance)) {
+    signals.push("graph.wot_distance");
+  }
+  if (
+    shouldTriggerAttachmentRepeatHashSignal(input.attachmentRepeatHashDistinctPeerCount ?? 0)
+  ) {
+    signals.push("attachment.repeat_hash");
+  }
   for (const financialSignal of resolveFinancialSignals(
     input,
     nowUnixMs,
@@ -255,7 +289,14 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
   ) {
     signals.push("connection.request_burst");
   }
-  if ((input.peerIncomingCountLastMinute ?? 0) > sensitivityPolicy.msgRateThreshold) {
+  if (
+    shouldTriggerMsgRateSignal({
+      peerIncomingCountLastMinute: input.peerIncomingCountLastMinute ?? 0,
+      msgRateThreshold: sensitivityPolicy.msgRateThreshold,
+      isContactCold,
+      isPeerAccepted: input.isPeerAccepted,
+    })
+  ) {
     signals.push("msg.rate");
   }
   if ((input.peerConnectionRequestCountLastDay ?? 0) > sensitivityPolicy.inviteFanoutThreshold) {
@@ -284,6 +325,7 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
       signals.includes("link.suspicious_url")
       || signals.includes("link.lookalike_brand")
       || signals.includes("attachment.risky_filename")
+      || signals.includes("attachment.repeat_hash")
     );
 
   if (hasPhishColdBundle) {
@@ -325,6 +367,10 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
   }
 
   if (signals.includes("msg.rate") || signals.includes("invite.fanout")) {
+    const msgRateOnly = signals.length === 1 && signals[0] === "msg.rate";
+    if (msgRateOnly && input.isPeerAccepted && !isContactCold) {
+      return finalize(buildAssessment(signals, null, "info"));
+    }
     return finalize(buildAssessment(signals, null, "elevated"));
   }
 
@@ -337,6 +383,14 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
     || signals.includes("attachment.risky_filename")
   ) {
     return finalize(buildAssessment(signals, null, "elevated"));
+  }
+
+  if (signals.includes("attachment.repeat_hash") && signals.includes("contact.cold")) {
+    return finalize(buildAssessment(signals, null, "elevated"));
+  }
+
+  if (signals.includes("attachment.repeat_hash")) {
+    return finalize(buildAssessment(signals, null, "info"));
   }
 
   if (signals.includes("thread.pivot_financial")) {
@@ -356,8 +410,26 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
   }
 
   if (signals.includes("contact.cold")) {
-    return finalize(buildAssessment(["contact.cold"], null, "info"));
+    return finalize(buildAssessment(signals, null, "info"));
   }
 
   return finalize(buildAssessment([], null, "none"));
+};
+
+/** ASE friction ladder mapping — recipient-local tier → L0–L3 (L4 reserved for secret firewall). */
+export type TrustActionFrictionLevel = "none" | "inform" | "warn" | "confirm";
+
+export const resolveTrustActionFriction = (
+  assessment: DmTrustAssessment,
+): TrustActionFrictionLevel => {
+  switch (assessment.tier) {
+    case "critical":
+      return "confirm";
+    case "elevated":
+      return "warn";
+    case "info":
+      return "inform";
+    default:
+      return "none";
+  }
 };

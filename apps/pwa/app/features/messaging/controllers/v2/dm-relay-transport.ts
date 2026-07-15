@@ -14,6 +14,7 @@ import type {
   RelayPoolContract,
 } from "./dm-controller-types";
 import { nip65Service } from "@/app/features/relays/utils/nip65-service";
+import { isLocalMeshHttpGatewayUrl } from "@/app/features/relays/services/relay-transport-scope";
 import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
 import { resolveDmHybridRelayTargeting } from "../../lib/resolve-dm-hybrid-relay-targets";
 
@@ -238,6 +239,14 @@ const resolveConfiguredSenderRelayUrls = (pool: RelayPoolContract): ReadonlyArra
 // Relay URL resolution
 // ---------------------------------------------------------------------------
 
+/** Enabled pool is loopback mesh HTTP only (C10 HTTP-only soak / team gateway). */
+export const isHttpOnlyMeshTransportPool = (
+  configuredRelayUrls: ReadonlyArray<string>,
+): boolean => (
+  configuredRelayUrls.length > 0
+  && configuredRelayUrls.every((url) => isLocalMeshHttpGatewayUrl(url))
+);
+
 export const resolveTargetRelayUrls = (params: Readonly<{
   pool: RelayPoolContract;
   peerPublicKeyHex: string;
@@ -249,6 +258,13 @@ export const resolveTargetRelayUrls = (params: Readonly<{
   const recipientInboundRelayUrls = peerRelayEvidenceStore.getRelayUrls(peerPublicKeyHex, profileId);
   const recipientWriteRelayUrls = nip65Service.getWriteRelays(peerPublicKeyHex as never);
   const configuredSenderRelayUrls = resolveConfiguredSenderRelayUrls(pool);
+
+  // Hybrid targeting unions peer NIP-65 / inbound evidence (often public wss://).
+  // When the user pool is HTTP-only mesh, publish must stay on configured gateways.
+  if (isHttpOnlyMeshTransportPool(configuredSenderRelayUrls)) {
+    return dedupeRelayUrlList(configuredSenderRelayUrls);
+  }
+
   const senderWriteRelayUrls = dedupeRelayUrlList([
     ...nip65Service.getWriteRelays(senderPublicKeyHex as never),
     ...configuredSenderRelayUrls,

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
 import { collectVaultMediaCandidates } from "../services/vault-media-aggregator";
 import { useVaultMedia } from "./use-vault-media";
+import { downloadAttachmentToUserPath } from "../services/local-media-store";
 
 const vaultHookMocks = vi.hoisted(() => ({
   scanMessages: vi.fn(),
@@ -51,33 +52,62 @@ vi.mock("../../auth/hooks/use-identity", () => ({
   }),
 }));
 
+vi.mock("../../network/providers/network-provider", () => ({
+  useNetwork: () => ({
+    peerTrust: {
+      isAccepted: () => true,
+    },
+  }),
+}));
+
 vi.mock("../../profiles/services/profile-scope", () => ({
   readRegistryBackedActiveProfileId: () => profileScopeState.activeProfileId,
   getProfileScopeOverride: () => null,
 }));
 
-vi.mock("../services/local-media-store", () => ({
-  deleteLocalMediaCacheItem: vi.fn(async () => undefined),
-  downloadAttachmentToUserPath: vi.fn(async () => true),
-  revealLocalMediaItemPath: vi.fn(async () => true),
-  subscribeLocalMediaIndexChanged: vi.fn(() => () => undefined),
-  getLocalMediaIndexSnapshot: vi.fn(() => ({})),
-  getLocalMediaIndexEntryByRemoteUrl: vi.fn(() => null),
-  resolveLocalMediaUrl: vi.fn(async () => null),
-}));
+vi.mock("../services/local-media-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../services/local-media-store")>();
+  return {
+    ...actual,
+    deleteLocalMediaCacheItem: vi.fn(async () => undefined),
+    downloadAttachmentToUserPath: vi.fn(async () => true),
+    ensureVaultMediaIndexReadyForActiveProfile: vi.fn(async () => undefined),
+    revealLocalMediaItemPath: vi.fn(async () => true),
+    subscribeLocalMediaIndexChanged: vi.fn(() => () => undefined),
+    getLocalMediaIndexSnapshot: vi.fn(() => ({})),
+    getLocalMediaIndexEntryByRemoteUrl: vi.fn(() => null),
+    resolveLocalMediaUrl: vi.fn(async () => null),
+    revokeAllVaultMediaBlobUrls: vi.fn(),
+  };
+});
+
+const emitScanCandidates = async (
+  options: Readonly<{ onCandidatesBatch?: (batch: ReturnType<typeof collectVaultMediaCandidates>) => void }> | undefined,
+  messages: Parameters<typeof collectVaultMediaCandidates>[0],
+): Promise<ReturnType<typeof collectVaultMediaCandidates>> => {
+  const candidates = collectVaultMediaCandidates(messages);
+  if (candidates.length > 0) {
+    options?.onCandidatesBatch?.(candidates);
+  }
+  return candidates;
+};
 
 describe("useVaultMedia", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     identityState.publicKeyHex = "a".repeat(64);
     profileScopeState.activeProfileId = "default";
     vaultBusRuntime.sync("default");
+    vaultHookMocks.scanMessages.mockReset();
+    vaultHookMocks.scanMessages.mockImplementation(async () => []);
   });
 
   it("refreshes aggregated media when chat state is replaced", async () => {
-    vaultHookMocks.scanMessages
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(collectVaultMediaCandidates([{
+    let allowData = false;
+    vaultHookMocks.scanMessages.mockImplementation(async (options) => {
+      if (!allowData) {
+        return [];
+      }
+      return emitScanCandidates(options, [{
         id: "m-1",
         kind: "user",
         content: "",
@@ -91,7 +121,8 @@ describe("useVaultMedia", () => {
           contentType: "image/png",
           fileName: "restore-image.png",
         }],
-      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]));
+      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]);
+    });
 
     const { result } = renderHook(() => useVaultMedia());
 
@@ -100,6 +131,7 @@ describe("useVaultMedia", () => {
     });
     expect(result.current.mediaItems).toHaveLength(0);
 
+    allowData = true;
     await act(async () => {
       vaultBusRuntime.bus.publish({
         type: "chat-state-replaced",
@@ -121,9 +153,12 @@ describe("useVaultMedia", () => {
   });
 
   it("refreshes aggregated media when the derived message index is rebuilt for the active account", async () => {
-    vaultHookMocks.scanMessages
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(collectVaultMediaCandidates([{
+    let allowData = false;
+    vaultHookMocks.scanMessages.mockImplementation(async (options) => {
+      if (!allowData) {
+        return [];
+      }
+      return emitScanCandidates(options, [{
         id: "m-2",
         kind: "user",
         content: "",
@@ -137,7 +172,8 @@ describe("useVaultMedia", () => {
           contentType: "audio/wav",
           fileName: "voice.wav",
         }],
-      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]));
+      } as Parameters<typeof collectVaultMediaCandidates>[0][number]]);
+    });
 
     const { result } = renderHook(() => useVaultMedia());
 
@@ -146,6 +182,7 @@ describe("useVaultMedia", () => {
     });
     expect(result.current.mediaItems).toHaveLength(0);
 
+    allowData = true;
     await act(async () => {
       vaultBusRuntime.bus.publish({
         type: "messages-index-rebuilt",
@@ -186,7 +223,7 @@ describe("useVaultMedia", () => {
   });
 
   it("clears aggregated media when the active identity signs out", async () => {
-    vaultHookMocks.scanMessages.mockResolvedValue(collectVaultMediaCandidates([{
+    vaultHookMocks.scanMessages.mockImplementation(async (options) => emitScanCandidates(options, [{
       id: "m-3",
       kind: "user",
       content: "",
@@ -218,9 +255,9 @@ describe("useVaultMedia", () => {
   });
 
   it("reloads media for the next active account instead of retaining the previous account's set", async () => {
-    vaultHookMocks.scanMessages.mockImplementation(async () => {
+    vaultHookMocks.scanMessages.mockImplementation(async (options) => {
       if (identityState.publicKeyHex === "b".repeat(64)) {
-        return collectVaultMediaCandidates([{
+        return emitScanCandidates(options, [{
           id: "m-b-1",
           kind: "user",
           content: "",
@@ -236,7 +273,7 @@ describe("useVaultMedia", () => {
           }],
         } as Parameters<typeof collectVaultMediaCandidates>[0][number]]);
       }
-      return collectVaultMediaCandidates([{
+      return emitScanCandidates(options, [{
         id: "m-a-1",
         kind: "user",
         content: "",
@@ -265,7 +302,7 @@ describe("useVaultMedia", () => {
 
     await waitFor(() => {
       expect(result.current.mediaItems).toHaveLength(1);
+      expect(result.current.mediaItems[0]?.attachment.fileName).toBe("account-b.wav");
     });
-    expect(result.current.mediaItems[0]?.attachment.fileName).toBe("account-b.wav");
   });
 });

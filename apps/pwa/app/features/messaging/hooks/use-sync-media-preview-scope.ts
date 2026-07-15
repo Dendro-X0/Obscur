@@ -2,11 +2,13 @@
 
 import React from "react";
 import type { MediaItem } from "../types";
+import type { MediaPreviewTrustExportContext } from "../services/media-preview-scope";
 import { clearMediaPreviewScope, setMediaPreviewScope } from "../services/media-preview-scope";
 
 type SyncMediaPreviewScopeParams = Readonly<{
     conversationDisplayName: string;
     items: ReadonlyArray<MediaItem>;
+    trustExportContext?: MediaPreviewTrustExportContext | null;
 }>;
 
 /** Publishes the active chat's previewable media list to the app-layer preview host. */
@@ -24,9 +26,10 @@ export function useSyncMediaPreviewScope(params: SyncMediaPreviewScopeParams): v
         setMediaPreviewScope({
             conversationDisplayName: params.conversationDisplayName,
             items: params.items,
+            trustExportContext: params.trustExportContext ?? null,
         });
         return (): void => {
             clearMediaPreviewScope();
         };
-    }, [params.conversationDisplayName, itemsSignature, params.items]);
+    }, [params.conversationDisplayName, itemsSignature, params.items, params.trustExportContext]);
 }

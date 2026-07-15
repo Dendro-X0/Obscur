@@ -67,6 +67,7 @@ description = "Miscellaneous app commands"
 commands.allow = [
     "fetch_remote_text",
     "fetch_remote_bytes",
+    "mesh_http_fetch_via_socks",
     "check_for_updates",
     "install_update",
     "show_notification",
@@ -108,6 +109,7 @@ commands.allow = [
     "init_native_session",
     "clear_native_session",
     "desktop_storage_at_rest_unlock",
+    "desktop_storage_at_rest_restore_keychain",
     "desktop_storage_at_rest_lock",
     "encrypt_nip04",
     "decrypt_nip04",

@@ -112,6 +112,10 @@ export default function ConnectionProfileView() {
         }
     };
     const handleConnect = () => {
+        if (isBlocked) {
+            toast.warning("You blocked this contact. Unblock them before sending a new request.");
+            return;
+        }
         if (requestProjection.state === "accepted") {
             toast.warning(t("network.notifications.alreadyConnected"));
             return;
@@ -462,7 +466,7 @@ export default function ConnectionProfileView() {
                             </div>
 
                             <div className={cn("flex w-full items-center justify-center pt-2", compact ? "flex-col gap-2" : "flex-wrap gap-4 pt-4")}>
-                                <Button onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect} disabled={!isDeletedContact && !isTrusted && (requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")} className={cn("gap-2 rounded-xl bg-indigo-600 font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:bg-indigo-500 active:scale-95", compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base hover:scale-[1.02]")}>
+                                <Button onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect} disabled={!isDeletedContact && !isTrusted && (isBlocked || requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")} className={cn("gap-2 rounded-xl bg-indigo-600 font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:bg-indigo-500 active:scale-95", compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base hover:scale-[1.02]")}>
                                     {compact ? null : primaryActionIcon}
                                     {primaryActionLabel}
                                 </Button>

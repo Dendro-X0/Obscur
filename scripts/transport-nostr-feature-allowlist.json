@@ -53,6 +53,7 @@
     "relays/hooks/enhanced-relay-pool-legacy.ts",
     "relays/hooks/enhanced-relay-pool-types.ts",
     "relays/hooks/subscription-manager.ts",
+    "relays/hooks/use-conduit-mesh-relay-pool.ts",
     "relays/utils/nip65-service.ts",
     "search/services/profile-search-service.ts",
     "social-graph/services/social-graph-service.ts"

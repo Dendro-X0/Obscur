@@ -28,6 +28,7 @@ import { markExperimentShellBootFlag } from "@/app/features/runtime/experiment-s
 import { markDevLabBootFlag } from "@/app/features/dev-lab/dev-lab-policy";
 import { installDevLab } from "@/app/features/dev-lab/dev-lab-install";
 import { ExperimentShellIndicator } from "@/app/features/runtime/components/experiment-shell-indicator";
+import { DevShellStampMismatchBanner } from "@/app/features/runtime/components/dev-shell-stamp-mismatch-banner";
 import { ClientSurfaceRevisionBadge } from "@/app/components/client-surface-revision-badge";
 import { DataRootUnavailableGate } from "@/app/features/profiles/components/data-root-unavailable-recovery";
 
@@ -91,6 +92,7 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
             <ChatStateDurabilityOwner />
             <MessagePersistenceDurabilityOwner />
             <DevRuntimeIssueCapture />
+            <DevShellStampMismatchBanner />
             <ExperimentShellIndicator />
             <ClientSurfaceRevisionBadge />
             <StartupExperienceOverlay />

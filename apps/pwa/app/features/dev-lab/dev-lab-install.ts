@@ -33,6 +33,8 @@ import {
   probeDevLabDmTrustAssessmentForPeer,
   probeDevLabDmTrustBannerDom,
   clearDevLabDmTrustThreadForPeer,
+  seedDevLabAcceptedPeer,
+  seedDevLabEstablishedTrustThread,
   type DevLabTrustAssessmentProbe,
   type DevLabTrustBannerDomProbe,
 } from "./dev-lab-trust-probe";
@@ -140,6 +142,14 @@ export type DevLabApi = Readonly<{
   clearDmTrustThreadForPeer: (params: Readonly<{
     peerPublicKeyHex: string;
   }>) => Readonly<{ cleared: boolean; conversationId: string | null }>;
+  seedAcceptedPeer: (params: Readonly<{
+    ownerPublicKeyHex: string;
+    peerPublicKeyHex: string;
+  }>) => Readonly<{ seeded: boolean }>;
+  seedEstablishedTrustThread: (params: Readonly<{
+    peerPublicKeyHex: string;
+    firstPeerMessageAtUnixMs?: number;
+  }>) => Readonly<{ seeded: boolean; conversationId: string | null }>;
   probeDmTrustAssessmentForPeer: (params: Readonly<{
     peerPublicKeyHex: string;
     isPeerAccepted?: boolean;
@@ -330,6 +340,23 @@ export const installDevLab = (): void => {
       return clearDevLabDmTrustThreadForPeer({
         myPublicKeyHex,
         peerPublicKeyHex: params.peerPublicKeyHex,
+      });
+    },
+    seedAcceptedPeer: (params) => {
+      const ownerPublicKeyHex = params.ownerPublicKeyHex.trim()
+        || messagingHandlers?.getMyPublicKeyHex()
+        || "";
+      return seedDevLabAcceptedPeer({
+        ownerPublicKeyHex,
+        peerPublicKeyHex: params.peerPublicKeyHex,
+      });
+    },
+    seedEstablishedTrustThread: (params) => {
+      const myPublicKeyHex = messagingHandlers?.getMyPublicKeyHex() ?? "";
+      return seedDevLabEstablishedTrustThread({
+        myPublicKeyHex,
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        firstPeerMessageAtUnixMs: params.firstPeerMessageAtUnixMs,
       });
     },
     probeDmTrustAssessmentForPeer: (params) => {

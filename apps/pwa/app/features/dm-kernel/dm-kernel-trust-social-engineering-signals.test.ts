@@ -18,6 +18,9 @@ describe("dm-kernel-trust-social-engineering-signals", () => {
     expect(detectCredentialHarvestRequest("Share your private key so we can unlock the wallet")).toBe(true);
     expect(detectCredentialHarvestRequest("What is your 2FA code right now?")).toBe(true);
     expect(detectCredentialHarvestRequest("Please sign in here to verify your account")).toBe(true);
+    expect(detectCredentialHarvestRequest("Send me 847291 now")).toBe(true);
+    expect(detectCredentialHarvestRequest("Envíame tu frase semilla para verificar")).toBe(true);
+    expect(detectCredentialHarvestRequest("请发送您的私钥进行验证")).toBe(true);
     expect(detectCredentialHarvestRequest("Can we sync on the deployment tomorrow?")).toBe(false);
   });
 
@@ -25,6 +28,8 @@ describe("dm-kernel-trust-social-engineering-signals", () => {
     expect(detectAuthorityImpersonation("Obscur Support here — your account has been suspended")).toBe(true);
     expect(detectAuthorityImpersonation("This is Obscur Security — verify your account")).toBe(true);
     expect(detectAuthorityImpersonation("I'm the CEO — confidential wire request")).toBe(true);
+    expect(detectAuthorityImpersonation("Obscur官方支持：您的账户已被冻结")).toBe(true);
+    expect(detectAuthorityImpersonation("Soporte de Obscur — su cuenta ha sido suspendida")).toBe(true);
     expect(detectAuthorityImpersonation("Hey, thanks for the relay tips")).toBe(false);
   });
 
@@ -48,6 +53,8 @@ describe("dm-kernel-trust-social-engineering-signals", () => {
   it("detects remote access tool pressure", () => {
     expect(detectRemoteAccessTool("Install AnyDesk so we can review your screen")).toBe(true);
     expect(detectRemoteAccessTool("Open TeamViewer for the support session")).toBe(true);
+    expect(detectRemoteAccessTool("请安装 AnyDesk 进行远程协助")).toBe(true);
+    expect(detectRemoteAccessTool("Instala AnyDesk para revisar tu pantalla")).toBe(true);
     expect(detectRemoteAccessTool("Let's hop on a video call tomorrow")).toBe(false);
   });
 

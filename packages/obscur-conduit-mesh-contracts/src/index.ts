@@ -43,6 +43,8 @@ export type { ConduitDriverPort, MeshPort } from "./mesh-port";
 export {
   CUSTOM_CONDUIT_HTTP_V1,
   CUSTOM_CONDUIT_HTTP_PATHS,
+  CUSTOM_CONDUIT_STREAM_DEFAULT_TIMEOUT_MS,
+  CUSTOM_CONDUIT_STREAM_MAX_TIMEOUT_MS,
 } from "./custom-conduit-contract";
 export type {
   CustomConduitPublishBody,
@@ -50,6 +52,7 @@ export type {
   CustomConduitPullItem,
   CustomConduitPullResponse,
   CustomConduitHealthResponse,
+  CustomConduitHttpCapability,
 } from "./custom-conduit-contract";
 
 export {
@@ -84,3 +87,15 @@ export type {
   FilterConduitsByTorPolicyResult,
   MeshTorRuntimeState,
 } from "./tor-policy";
+
+export { isNostrEventWirePayload } from "./nostr-wire-payload";
+
+export {
+  OBSCUR_MESH_DM_WIRE_V1,
+  encodeMeshNativeDmWire,
+  decodeMeshNativeDmWire,
+  isMeshNativeDmWirePayload,
+  meshNativeDmWireToNostrEventWire,
+  nostrEventWireToMeshNativeDmWire,
+} from "./mesh-dm-wire";
+export type { MeshNativeDmWireBody, MeshNativeDmWireEvent } from "./mesh-dm-wire";

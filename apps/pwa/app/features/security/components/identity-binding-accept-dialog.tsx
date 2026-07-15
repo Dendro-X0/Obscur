@@ -6,12 +6,15 @@ import { Loader2, ShieldCheck, X } from "lucide-react";
 import { Button } from "@dweb/ui-kit";
 import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import type { IdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
+import type { DmTrustAssessment } from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";
+import { shouldJunkIncomingRequestAssessment } from "@/app/features/dm-kernel/dm-kernel-trust-action-gate";
 
 type IdentityBindingAcceptDialogProps = Readonly<{
   isOpen: boolean;
   binding: IdentityBindingViewModel | null;
   title?: string;
   confirmLabel?: string;
+  trustAssessment?: DmTrustAssessment | null;
   isSubmitting?: boolean;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
@@ -22,6 +25,7 @@ export function IdentityBindingAcceptDialog({
   binding,
   title,
   confirmLabel,
+  trustAssessment = null,
   isSubmitting = false,
   onClose,
   onConfirm,
@@ -63,6 +67,20 @@ export function IdentityBindingAcceptDialog({
           </Button>
         </div>
         <div className="space-y-4 px-5 py-4">
+          {trustAssessment && shouldJunkIncomingRequestAssessment(trustAssessment) ? (
+            <div
+              className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+              data-testid="identity-binding-trust-warning"
+              role="status"
+            >
+              <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                {t("messaging.trust.bannerTitle")}
+              </p>
+              <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80">
+                {t(trustAssessment.copyKey)}
+              </p>
+            </div>
+          ) : null}
           <IdentityBindingPanel binding={binding} compact showLiteracyNote />
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={onClose} disabled={isSubmitting}>

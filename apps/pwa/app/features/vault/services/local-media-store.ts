@@ -8,24 +8,26 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getObscurDataRootConfig } from "@/app/features/profiles/services/obscur-data-root-service";
 import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
-import { resolveVaultStorageLayout, vaultUsesAbsolutePaths, buildProfileVaultRelativeDir, isDataRootRelativeVaultPath, isLegacyVaultLayoutIndexEntry, buildProfileVaultRelativePath, extractVaultBlobFileName } from "./local-media-vault-path";
+import { resolveVaultStorageLayout, vaultUsesAbsolutePaths, buildProfileVaultRelativeDir, buildProfileVaultRelativePath, isDataRootRelativeVaultPath, isLegacyVaultLayoutIndexEntry, extractVaultBlobFileName, LEGACY_VAULT_MEDIA_DIR } from "./local-media-vault-path";
 import {
   buildOpaqueVaultFileName,
   decryptVaultFileBytesIfNeeded,
   encryptVaultBytesForWrite,
   isEncryptedVaultRelativePath,
   isVaultWriteEncryptionReady,
+  resolveVaultProfileId,
   VaultWriteEncryptionRequiredError,
 } from "@/app/features/storage/services/vault-at-rest";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { normalizeAttachmentUrl } from "@/app/shared/public-url";
+import { scanVaultDiskBlobInventory } from "./vault-disk-inventory";
 import type { LocalMediaIndex, LocalMediaIndexEntry } from "./vault-media-index-contract";
 import {
   deleteAllVaultMediaIndexEntriesFromSqlite,
   deleteVaultMediaIndexEntryFromSqlite,
   loadVaultMediaIndexMapFromSqlite,
   persistVaultMediaIndexSnapshotToSqlite,
+  upsertVaultMediaIndexEntryToSqlite,
   usesSqliteVaultMediaIndex,
 } from "./vault-media-index-sqlite-store";
 import {
@@ -89,6 +91,43 @@ let localCacheBlockedWarningEmitted = false;
 let vaultIndexCache: LocalMediaIndex = {};
 let vaultIndexCacheHydrated = false;
 let vaultIndexCacheProfileId: string | null = null;
+let vaultDiskInventoryCache: LocalMediaIndex = {};
+let vaultDiskInventoryProfileId: string | null = null;
+
+const normalizeVaultRelativePathKey = (relativePath: string): string =>
+  relativePath.replace(/\\/g, "/").trim().toLowerCase();
+
+const mergeDiskAndSqliteVaultIndex = (
+  diskIndex: LocalMediaIndex,
+  sqliteIndex: LocalMediaIndex,
+): LocalMediaIndex => {
+  const sqliteRelativePaths = new Set(
+    Object.values(sqliteIndex)
+      .map((entry) => entry?.relativePath?.trim())
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeVaultRelativePathKey),
+  );
+  const merged: LocalMediaIndex = { ...sqliteIndex };
+  Object.entries(diskIndex).forEach(([remoteUrl, entry]) => {
+    const relativePath = entry?.relativePath?.trim();
+    if (!relativePath) {
+      return;
+    }
+    if (sqliteRelativePaths.has(normalizeVaultRelativePathKey(relativePath))) {
+      return;
+    }
+    merged[remoteUrl] = entry;
+  });
+  return merged;
+};
+
+const readDiskInventoryForActiveProfile = (): LocalMediaIndex => {
+  const profileId = resolveVaultProfileId().trim();
+  if (!profileId || vaultDiskInventoryProfileId !== profileId) {
+    return {};
+  }
+  return vaultDiskInventoryCache;
+};
 
 const LOCAL_MEDIA_INDEX_CHANGED_EVENT = "obscur:local-media-index-changed";
 
@@ -133,7 +172,7 @@ type ResolvedVaultStorage = Readonly<{
 
 const resolveVaultStorage = async (): Promise<ResolvedVaultStorage> => {
     const cfg = getLocalMediaStorageConfig();
-    const profileId = getResolvedProfileId().trim() || "default";
+    const profileId = resolveVaultProfileId().trim() || "default";
     const effectivePath = isTauriRuntime()
         ? (await getObscurDataRootConfig()).effectivePath?.trim() || null
         : null;
@@ -208,21 +247,232 @@ export const resetVaultMediaIndexCache = (): void => {
   vaultIndexCache = {};
   vaultIndexCacheHydrated = false;
   vaultIndexCacheProfileId = null;
+  vaultDiskInventoryCache = {};
+  vaultDiskInventoryProfileId = null;
   revokeAllVaultMediaBlobUrls();
 };
 
-export const hydrateVaultMediaIndexCacheFromSqlite = async (profileId?: string): Promise<void> => {
+export const hydrateVaultMediaIndexCacheFromSqlite = async (profileId?: string): Promise<boolean> => {
   if (!usesSqliteVaultMediaIndex()) {
-    return;
+    return false;
   }
-  const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim();
+  const resolvedProfileId = resolveVaultProfileId(profileId).trim();
   if (!resolvedProfileId) {
+    return false;
+  }
+  try {
+    vaultIndexCache = await loadVaultMediaIndexMapFromSqlite(resolvedProfileId);
+    vaultIndexCacheHydrated = true;
+    vaultIndexCacheProfileId = resolvedProfileId;
+    emitLocalMediaIndexChanged();
+    return true;
+  } catch (error) {
+    console.warn("[VaultMediaIndex] SQLite hydrate failed (disk inventory still authoritative):", error);
+    return false;
+  }
+};
+
+export const hydrateVaultDiskInventoryForActiveProfile = async (profileId?: string): Promise<number> => {
+  const resolvedProfileId = resolveVaultProfileId(profileId).trim();
+  if (!resolvedProfileId || !isTauriRuntime()) {
+    vaultDiskInventoryCache = {};
+    vaultDiskInventoryProfileId = null;
+    return 0;
+  }
+  if (vaultDiskInventoryProfileId !== resolvedProfileId) {
+    vaultDiskInventoryCache = {};
+  }
+  vaultDiskInventoryCache = await scanVaultDiskBlobInventory(resolvedProfileId);
+  vaultDiskInventoryProfileId = resolvedProfileId;
+  emitLocalMediaIndexChanged();
+  return Object.keys(vaultDiskInventoryCache).length;
+};
+
+const inferContentTypeFromVaultFileName = (fileName: string): string => {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".obscurvault")) {
+    return "application/octet-stream";
+  }
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (lower.endsWith(".png")) {
+    return "image/png";
+  }
+  if (lower.endsWith(".webp")) {
+    return "image/webp";
+  }
+  if (lower.endsWith(".mp4")) {
+    return "video/mp4";
+  }
+  if (lower.endsWith(".webm")) {
+    return "video/webm";
+  }
+  if (lower.endsWith(".mp3")) {
+    return "audio/mpeg";
+  }
+  if (lower.endsWith(".wav")) {
+    return "audio/wav";
+  }
+  if (lower.endsWith(".pdf")) {
+    return "application/pdf";
+  }
+  return "application/octet-stream";
+};
+
+/** Re-index encrypted vault blobs on disk that belong to the active profile but lost SQLite rows. */
+export const reconcileUnindexedVaultBlobFilesForActiveProfile = async (
+  profileId?: string,
+): Promise<number> => {
+  if (!isTauriRuntime() || !isVaultWriteEncryptionReady(profileId)) {
+    return 0;
+  }
+  const resolvedProfileId = resolveVaultProfileId(profileId).trim();
+  if (!resolvedProfileId) {
+    return 0;
+  }
+
+  const index = getLocalMediaIndexSnapshot();
+  const indexedRelativePaths = new Set(
+    Object.values(index)
+      .map((entry) => entry?.relativePath?.trim())
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeVaultRelativePathKey),
+  );
+
+  const cfg = getLocalMediaStorageConfig(resolvedProfileId);
+  const scanTargets: Array<Readonly<{ relativeDir: string; appDataRelative: boolean }>> = [
+    { relativeDir: sanitizeSubdir(cfg.subdir || LEGACY_VAULT_MEDIA_DIR), appDataRelative: true },
+  ];
+  const storage = await resolveVaultStorage();
+  if (storage.profileVaultRelativeDir) {
+    scanTargets.push({ relativeDir: storage.profileVaultRelativeDir, appDataRelative: false });
+  }
+
+  let added = 0;
+  for (const target of scanTargets) {
+    const directoryRef = target.appDataRelative
+      ? { path: target.relativeDir, appDataRelative: true as const }
+      : await resolveEntryStorageRef(target.relativeDir);
+    const fileNames = await nativeLocalMediaAdapter.readDirectoryFileNames(
+      directoryRef.appDataRelative
+        ? { path: directoryRef.path, appDataRelative: true }
+        : { path: directoryRef.path },
+    );
+    for (const fileName of fileNames) {
+      if (!isEncryptedVaultStorageFileName(fileName)) {
+        continue;
+      }
+      const relativePath = target.appDataRelative
+        ? `${target.relativeDir}/${fileName}`
+        : buildProfileVaultRelativePath(resolvedProfileId, fileName);
+      if (indexedRelativePaths.has(normalizeVaultRelativePathKey(relativePath))) {
+        continue;
+      }
+      try {
+        const fileRef = await resolveEntryStorageRef(relativePath);
+        const fileBytes = await nativeLocalMediaAdapter.readBytes(
+          fileRef.appDataRelative
+            ? { path: fileRef.path, appDataRelative: true }
+            : { path: fileRef.path },
+        );
+        if (!fileBytes || fileBytes.byteLength === 0) {
+          continue;
+        }
+        const plaintext = await decryptVaultFileBytesIfNeeded({
+          fileBytes,
+          profileId: resolvedProfileId,
+        });
+        const contentHash = await sha256BytesHex(plaintext);
+        const vaultUrl = buildLocalVaultOnlyUrl(contentHash);
+        if (index[vaultUrl]?.relativePath?.trim()) {
+          indexedRelativePaths.add(normalizeVaultRelativePathKey(index[vaultUrl]!.relativePath));
+          continue;
+        }
+        const entry: LocalMediaIndexEntry = {
+          remoteUrl: vaultUrl,
+          relativePath,
+          savedAtUnixMs: Date.now(),
+          fileName,
+          contentType: inferContentTypeFromVaultFileName(fileName),
+          size: plaintext.byteLength,
+        };
+        await upsertVaultMediaIndexEntryToSqlite(vaultUrl, entry, resolvedProfileId);
+        index[vaultUrl] = entry;
+        indexedRelativePaths.add(normalizeVaultRelativePathKey(relativePath));
+        added += 1;
+      } catch {
+        // Blob is likely encrypted for another local profile/account — skip silently.
+      }
+    }
+  }
+
+  if (added > 0) {
+    vaultIndexCache = { ...index };
+    vaultIndexCacheHydrated = true;
+    vaultIndexCacheProfileId = resolvedProfileId;
+    emitLocalMediaIndexChanged();
+    logRuntimeEvent(
+      "vault_media_index.reconciled_disk_orphans",
+      "expected",
+      [`[VaultMediaIndex] Re-indexed ${added} on-disk vault blob(s) for profile ${resolvedProfileId}.`],
+    );
+  }
+  return added;
+};
+
+/**
+ * Hydrates vault indexes before UI reads.
+ * Disk inventory is authoritative and must complete promptly — SQLite / encryption restore
+ * run as follow-up so Vault never stays stuck on loading skeletons.
+ */
+export const ensureVaultMediaIndexReadyForActiveProfile = async (): Promise<void> => {
+  const profileId = resolveVaultProfileId().trim();
+  if (!profileId || !isTauriRuntime()) {
     return;
   }
-  vaultIndexCache = await loadVaultMediaIndexMapFromSqlite(resolvedProfileId);
-  vaultIndexCacheHydrated = true;
-  vaultIndexCacheProfileId = resolvedProfileId;
-  emitLocalMediaIndexChanged();
+
+  if (vaultDiskInventoryProfileId !== profileId) {
+    vaultDiskInventoryCache = {};
+    vaultDiskInventoryProfileId = null;
+  }
+
+  try {
+    await hydrateVaultDiskInventoryForActiveProfile(profileId);
+  } catch (error) {
+    console.warn("[VaultMediaIndex] Disk inventory hydrate failed:", error);
+  }
+
+  void (async (): Promise<void> => {
+    try {
+      const { restoreNativeVaultEncryptionSessionIfNeeded } = await import(
+        "@/app/features/storage/services/native-storage-at-rest-service"
+      );
+      await restoreNativeVaultEncryptionSessionIfNeeded({ profileId });
+
+      if (!usesSqliteVaultMediaIndex()) {
+        return;
+      }
+
+      if (vaultIndexCacheProfileId !== profileId) {
+        vaultIndexCache = {};
+        vaultIndexCacheHydrated = false;
+        vaultIndexCacheProfileId = null;
+      }
+
+      if (!vaultIndexCacheHydrated || vaultIndexCacheProfileId !== profileId) {
+        const { runVaultMediaIndexSqliteImportOnUnlock } = await import("./vault-media-index-sqlite-migration");
+        await runVaultMediaIndexSqliteImportOnUnlock();
+      }
+
+      if (isVaultWriteEncryptionReady(profileId)) {
+        await reconcileUnindexedVaultBlobFilesForActiveProfile(profileId);
+        await hydrateVaultDiskInventoryForActiveProfile(profileId);
+      }
+    } catch (error) {
+      console.warn("[VaultMediaIndex] Background index maintenance failed:", error);
+    }
+  })();
 };
 
 const sanitizeSubdir = (raw: string): string => {
@@ -309,7 +559,7 @@ const resolveUniqueLocalFileTarget = async (
     preferredFileName: string,
     remoteUrl?: string,
 ): Promise<Readonly<{ relativePath: string; fileName: string; encrypted: boolean }>> => {
-    const profileId = getResolvedProfileId();
+    const profileId = resolveVaultProfileId();
     if (!isVaultWriteEncryptionReady(profileId)) {
         throw new VaultWriteEncryptionRequiredError();
     }
@@ -329,12 +579,13 @@ const resolveUniqueLocalFileTarget = async (
 
 const loadIndex = (): LocalMediaIndex => {
     if (!isBrowser()) return {};
+    const diskIndex = readDiskInventoryForActiveProfile();
     if (usesSqliteVaultMediaIndex()) {
-        const profileId = getResolvedProfileId().trim();
+        const profileId = resolveVaultProfileId().trim();
         if (!vaultIndexCacheHydrated || vaultIndexCacheProfileId !== profileId) {
-            return {};
+            return { ...diskIndex };
         }
-        return vaultIndexCache;
+        return mergeDiskAndSqliteVaultIndex(diskIndex, vaultIndexCache);
     }
     try {
         const raw = localStorage.getItem(scopedIndexKey());
@@ -349,10 +600,35 @@ const loadIndex = (): LocalMediaIndex => {
 
 export const getLocalMediaIndexSnapshot = (): LocalMediaIndex => loadIndex();
 
+/** Poll until an index row with storage path exists (row-proof gate for chat→vault). */
+export const awaitVaultIndexRowForKey = async (params: Readonly<{
+    indexKey: string;
+    timeoutMs?: number;
+    pollIntervalMs?: number;
+}>): Promise<boolean> => {
+    const indexKey = params.indexKey.trim();
+    if (!indexKey) {
+        return false;
+    }
+    const timeoutMs = params.timeoutMs ?? 5_000;
+    const pollIntervalMs = params.pollIntervalMs ?? 50;
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const entry = getLocalMediaIndexSnapshot()[indexKey];
+        if (entry?.relativePath?.trim()) {
+            return true;
+        }
+        await new Promise<void>((resolve) => {
+            setTimeout(resolve, pollIntervalMs);
+        });
+    }
+    return false;
+};
+
 const saveIndex = (index: LocalMediaIndex): void => {
     if (!isBrowser()) return;
     if (usesSqliteVaultMediaIndex()) {
-        const profileId = getResolvedProfileId().trim();
+        const profileId = resolveVaultProfileId().trim();
         if (!profileId) {
             return;
         }
@@ -430,7 +706,7 @@ export const pruneLocalMediaIndexRetention = (
     if (!isBrowser()) {
         return { removedByAge: 0, removedByCap: 0, remaining: 0 };
     }
-    const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim();
+    const resolvedProfileId = resolveVaultProfileId(profileId).trim();
     let index: LocalMediaIndex = {};
     if (usesSqliteVaultMediaIndex()) {
         if (resolvedProfileId && vaultIndexCacheProfileId === resolvedProfileId) {
@@ -908,6 +1184,17 @@ const fetchBytes = async (url: string, fileType?: string, attempt = 1): Promise<
     }
 };
 
+export const fetchRemoteAttachmentBytesForVaultSave = async (
+    url: string,
+    contentType?: string,
+): Promise<Uint8Array | null> => {
+    try {
+        return await fetchBytes(url, contentType);
+    } catch {
+        return null;
+    }
+};
+
 export const cacheAttachmentLocally = async (
     attachment: Attachment,
     mode: "sent" | "received",
@@ -996,6 +1283,7 @@ export const cacheAttachmentLocally = async (
         };
         saveIndex(currentIndex);
         emitLocalMediaIndexChanged();
+        void hydrateVaultDiskInventoryForActiveProfile();
         return resolveLocalMediaUrl(attachment.url);
     } catch (error) {
         if (error instanceof VaultWriteEncryptionRequiredError) {
@@ -1050,6 +1338,12 @@ export const isVaultEncryptionSessionReady = (): boolean => isVaultWriteEncrypti
 export const saveFileToLocalVault = async (file: File): Promise<SaveFileToLocalVaultResult | null> => {
     if (!isTauriRuntime()) {
         return null;
+    }
+    if (!isVaultWriteEncryptionReady()) {
+        const { restoreNativeVaultEncryptionSessionIfNeeded } = await import(
+            "@/app/features/storage/services/native-storage-at-rest-service"
+        );
+        await restoreNativeVaultEncryptionSessionIfNeeded();
     }
     if (!isVaultWriteEncryptionReady()) {
         throw new VaultWriteEncryptionRequiredError();
@@ -1109,7 +1403,7 @@ export const purgeLocalMediaCache = async (): Promise<void> => {
     }
     if (isBrowser()) {
         if (usesSqliteVaultMediaIndex()) {
-            const profileId = getResolvedProfileId().trim();
+            const profileId = resolveVaultProfileId().trim();
             if (profileId) {
                 await deleteAllVaultMediaIndexEntriesFromSqlite(profileId);
             }
@@ -1315,7 +1609,7 @@ export const migrateLegacyVaultLayoutIndexEntry = async (remoteUrl: string): Pro
         return "already_migrated";
     }
 
-    const profileId = getResolvedProfileId().trim() || "default";
+    const profileId = resolveVaultProfileId().trim() || "default";
     const sourceRef = await resolveEntryStorageRef(entry.relativePath);
     const sourceExists = await nativeLocalMediaAdapter.fileExists(sourceRef);
     if (!sourceExists) {

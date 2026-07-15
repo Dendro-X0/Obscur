@@ -84,6 +84,10 @@ export {
 export { IdentityBindingPanel } from "./components/identity-binding-panel";
 export { IdentityBindingAcceptDialog } from "./components/identity-binding-accept-dialog";
 export { SendCeremonyDialog } from "./components/send-ceremony-dialog";
+export { LinkOpenConfirmDialog } from "./components/link-open-confirm-dialog";
+export { VaultWriteUnlockDialog } from "./components/vault-write-unlock-dialog";
+export { AttachmentExportConfirmDialog } from "./components/attachment-export-confirm-dialog";
+export { useGuardedExternalLinkOpen } from "./hooks/use-guarded-external-link-open";
 
 export {
   acknowledgeSendCeremony,

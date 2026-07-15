@@ -65,7 +65,7 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onSelec
                 <p className="mt-3 max-w-[240px] text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                     {isJunk
                         ? t("messaging.junkInboxEmptyDesc")
-                        : "Incoming invitations and outgoing requests waiting for a response appear here."}
+                        : "Incoming invitations and outgoing requests waiting for a response appear here. If someone declined, you can send a new request from their profile or the request thread."}
                 </p>
                 {onFindSomeone && (
                     <Button
@@ -298,7 +298,12 @@ function RequestItemRow({ request, quarantinePeerSignal, nowMs, onSelect }: Requ
                         </span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {preview || (isOutgoing ? "Waiting for their response." : "Open to review their note and decide.")}
+                        {preview
+                            || (isOutgoing && (request.status === "declined" || request.status === "canceled")
+                                ? "Open to send a new request."
+                                : isOutgoing
+                                    ? "Waiting for their response."
+                                    : "Open to review their note and decide.")}
                     </p>
                     {quarantinePeerSignal ? (
                         <p className="mt-1 text-[10px] font-medium text-amber-700 dark:text-amber-300">

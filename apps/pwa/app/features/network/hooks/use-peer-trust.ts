@@ -14,7 +14,6 @@ import { appendCanonicalContactEvent } from "@/app/features/account-sync/service
 import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionAcceptedPeers } from "@/app/features/account-sync/services/account-projection-selectors";
-import { shouldWriteLegacyContactsDm } from "@/app/features/account-sync/services/account-sync-migration-policy";
 import { resolvePeerTrustReadAuthority } from "@/app/features/network/services/peer-trust-read-authority";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
@@ -158,7 +157,6 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     [projectionSnapshot.projection]
   );
   const shouldUseProjectionReads = projectionReadAuthority.useProjectionReads;
-  const shouldWriteLegacyContacts = shouldWriteLegacyContactsDm(projectionReadAuthority.policy);
 
   const publicKeyHexRef = useRef<PublicKeyHex | null>(params.publicKeyHex);
   useEffect(() => {
@@ -194,15 +192,19 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       return;
     }
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      if (prev.acceptedPeers.length > 0) {
-        return prev;
-      }
-      const persisted = messagingChatStateReadPort.load(currentPublicKeyHex);
-      const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(persisted);
+      const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(
+        messagingChatStateReadPort.load(currentPublicKeyHex),
+      );
       if (acceptedFromChat.length === 0) {
         return prev;
       }
       const merged = Array.from(new Set([...prev.acceptedPeers, ...acceptedFromChat]));
+      if (
+        merged.length === prev.acceptedPeers.length
+        && merged.every((peer) => prev.acceptedPeers.includes(peer))
+      ) {
+        return prev;
+      }
       const next: StoredPeerTrust = removeSelfFromTrustState(
         currentPublicKeyHex,
         { acceptedPeers: merged, mutedPeers: prev.mutedPeers }
@@ -240,13 +242,10 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     if (!params.publicKeyHex) {
       return;
     }
-    if (stored.acceptedPeers.length > 0) {
-      return;
-    }
     queueMicrotask(() => {
       hydrateAcceptedPeersFromChatState();
     });
-  }, [hydrateAcceptedPeersFromChatState, params.publicKeyHex, stored.acceptedPeers.length]);
+  }, [hydrateAcceptedPeersFromChatState, params.publicKeyHex]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !params.publicKeyHex) {
@@ -373,23 +372,13 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       return;
     }
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      if (!shouldWriteLegacyContacts) {
-        const nextMuted = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
-        if (nextMuted.length === prev.mutedPeers.length) {
-          return prev;
-        }
-        const next: StoredPeerTrust = { ...prev, mutedPeers: nextMuted };
-        const pk = publicKeyHexRef.current;
-        if (pk) {
-          saveToStorage(pk, next);
-        }
-        return next;
-      }
-      if (prev.acceptedPeers.includes(normalized)) {
+      const nextMuted: ReadonlyArray<PublicKeyHex> = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
+      if (prev.acceptedPeers.includes(normalized) && nextMuted.length === prev.mutedPeers.length) {
         return prev;
       }
-      const nextAccepted: ReadonlyArray<PublicKeyHex> = [...prev.acceptedPeers, normalized];
-      const nextMuted: ReadonlyArray<PublicKeyHex> = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
+      const nextAccepted: ReadonlyArray<PublicKeyHex> = prev.acceptedPeers.includes(normalized)
+        ? prev.acceptedPeers
+        : [...prev.acceptedPeers, normalized];
       const next: StoredPeerTrust = { acceptedPeers: nextAccepted, mutedPeers: nextMuted };
       const pk = publicKeyHexRef.current;
       if (pk) {
@@ -411,14 +400,11 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
         source: "legacy_bridge",
       });
     }
-  }, [nextContactMutationSuffix, shouldWriteLegacyContacts]);
+  }, [nextContactMutationSuffix]);
   const unacceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
     const normalized = normalizePublicKeyHex(p.publicKeyHex);
     if (!normalized) return;
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      if (!shouldWriteLegacyContacts) {
-        return prev;
-      }
       if (!prev.acceptedPeers.includes(normalized)) {
         return prev;
       }
@@ -444,7 +430,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
         source: "legacy_bridge",
       });
     }
-  }, [nextContactMutationSuffix, shouldWriteLegacyContacts]);
+  }, [nextContactMutationSuffix]);
   const state: PeerTrustState = useMemo((): PeerTrustState => {
     return {
       acceptedPeers: acceptedPeersForRead,

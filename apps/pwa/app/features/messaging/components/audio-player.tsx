@@ -5,23 +5,29 @@ import { ExternalLink, Play, Pause, RefreshCw, Volume2 } from "lucide-react";
 import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
-import { openNativeExternal } from "@/app/features/runtime/native-host-adapter";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 import {
     formatVoiceNoteRecordedAtLabel,
     type VoiceNoteAttachmentMetadata,
 } from "@/app/features/messaging/services/voice-note-metadata";
+import {
+    createFallbackVoicePlaybackPeaks,
+    decodeVoicePlaybackPeaks,
+} from "@/app/features/messaging/services/voice-playback-peaks";
+import { VoicePlaybackWaveform } from "./voice-playback-waveform";
 
 interface AudioPlayerProps {
     src: string;
     isOutgoing: boolean;
     className?: string;
     voiceNoteMetadata?: VoiceNoteAttachmentMetadata | null;
+    onRequestOpenExternalLink?: (url: string) => void | Promise<void>;
 }
 
 /**
  * Minimalist inline audio player for voice notes
  */
-export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = null }: AudioPlayerProps) {
+export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = null, onRequestOpenExternalLink }: AudioPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -32,7 +38,15 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     const [reloadKey, setReloadKey] = useState(0);
     const [runtimeSrc, setRuntimeSrc] = useState(src);
     const [hasRetriedWithBypass, setHasRetriedWithBypass] = useState(false);
+    const [peaks, setPeaks] = useState<ReadonlyArray<number>>(() => createFallbackVoicePlaybackPeaks());
+    const [peaksReady, setPeaksReady] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const {
+        pendingLinkUrl,
+        cancelPendingLink,
+        confirmPendingLink,
+        requestOpenExternalLinkPreferNative,
+    } = useGuardedExternalLinkOpen();
 
     const resolveDuration = (audio: HTMLAudioElement | null): number => {
         if (!audio) return 0;
@@ -42,7 +56,23 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     useEffect(() => {
         setRuntimeSrc(src);
         setHasRetriedWithBypass(false);
+        setPeaksReady(false);
+        setPeaks(createFallbackVoicePlaybackPeaks());
     }, [src]);
+
+    useEffect(() => {
+        let cancelled = false;
+        setPeaksReady(false);
+        void decodeVoicePlaybackPeaks(runtimeSrc).then((nextPeaks) => {
+            if (!cancelled) {
+                setPeaks(nextPeaks);
+                setPeaksReady(true);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [runtimeSrc]);
 
     const togglePlay = () => {
         if (audioRef.current) {
@@ -77,17 +107,8 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     };
 
     const openExternally = async () => {
-        try {
-            const openedNatively = await openNativeExternal(src);
-            if (openedNatively) {
-                return;
-            }
-        } catch {
-            // ignore
-        }
-
-        if (typeof window === "undefined") return;
-        window.open(src, "_blank", "noopener,noreferrer");
+        const requestOpen = onRequestOpenExternalLink ?? requestOpenExternalLinkPreferNative;
+        await requestOpen(src);
     };
 
     const handleToggleMute = () => {
@@ -109,16 +130,20 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
         setIsMuted(nextMuted);
     };
 
-    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const seekToPercent = (nextProgressInput: number) => {
         const audio = audioRef.current;
         if (!audio) return;
         const nextDuration = resolveDuration(audio);
         if (nextDuration <= 0) return;
-        const nextProgress = Math.max(0, Math.min(100, Number(e.target.value)));
+        const nextProgress = Math.max(0, Math.min(100, nextProgressInput));
         const nextTime = (nextProgress / 100) * nextDuration;
         audio.currentTime = nextTime;
         setCurrentTime(nextTime);
         setProgress(nextProgress);
+    };
+
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+        seekToPercent(Number(e.target.value));
     };
 
     const formatTime = (time: number) => {
@@ -137,6 +162,7 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     );
 
     return (
+        <>
         <div className={cn(
             "relative group flex flex-col gap-3 p-4 rounded-[24px] w-full min-w-0 overflow-hidden",
             "bg-zinc-50 border border-zinc-200/80 text-zinc-900 shadow-[0_12px_36px_rgba(15,23,42,0.12)]",
@@ -230,23 +256,21 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
                 </button>
 
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1.5 px-0.5">
+                    <VoicePlaybackWaveform
+                        peaks={peaks}
+                        progressPercent={progressPercent}
+                        isOutgoing={false}
+                        onSeekPercent={seekToPercent}
+                        ariaLabel="Audio waveform"
+                        className={cn(
+                            "mb-1 h-9 w-full",
+                            peaksReady ? undefined : "opacity-60",
+                        )}
+                    />
+                    <div className="mb-1.5 flex items-center justify-between px-0.5">
                         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-900 dark:text-white/90">
                             {formatTime(currentTime)}
                         </span>
-                        <div className="flex items-center h-4 gap-0.5">
-                            {/* Decorative Waveform Bars */}
-                            {[0.4, 0.7, 0.5, 0.9, 0.6, 0.8, 0.4, 0.5].map((h, i) => (
-                                <div
-                                    key={i}
-                                    className={cn(
-                                        "w-0.5 rounded-full bg-zinc-400/45 dark:bg-white/20 transition-all duration-[800ms]",
-                                        isPlaying ? "animate-pulse" : ""
-                                    )}
-                                    style={{ height: `${h * 100}%`, animationDelay: `${i * 100}ms` }}
-                                />
-                            ))}
-                        </div>
                         <span className="text-[11px] font-bold text-zinc-600 dark:text-white/40">
                             {formatTime(duration)}
                         </span>
@@ -304,6 +328,14 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
                 </button>
             </div>
         </div>
+        {!onRequestOpenExternalLink ? (
+            <LinkOpenConfirmDialog
+                url={pendingLinkUrl}
+                onClose={cancelPendingLink}
+                onConfirm={() => confirmPendingLink()}
+            />
+        ) : null}
+        </>
     );
 
 }

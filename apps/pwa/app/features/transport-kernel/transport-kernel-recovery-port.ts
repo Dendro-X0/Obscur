@@ -41,7 +41,6 @@ export const executeTransportKernelPoolRecovery = async (
     case "no_writable_relays":
     case "startup_warmup":
     case "manual":
-    case "recovery_exhausted":
     default:
       params.pool.reconnectAll({ force: true });
   }

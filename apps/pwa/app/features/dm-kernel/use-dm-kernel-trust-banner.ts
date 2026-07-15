@@ -22,9 +22,12 @@ import {
 } from "./dm-kernel-trust-thread-state";
 import {
   getPeerConnectionRequestCountLastDay,
+  getPeerFirstSeenAtUnixMs,
   getPeerIncomingCountLastMinute,
   recordPeerIncomingMessageAtPeerLevel,
 } from "./dm-kernel-trust-peer-state";
+import { recordAttachmentContentDigestObservation } from "./dm-kernel-trust-attachment-fanout-state";
+import { resolvePeerWotDistanceV1 } from "./dm-kernel-trust-metadata-signals";
 import { getIncomingRequestAntiAbusePeerSnapshot } from "@/app/features/messaging/services/incoming-request-anti-abuse";
 import { MSG_RATE_WINDOW_MS } from "./dm-kernel-trust-spam-signals";
 import { isDmKernelAuthority } from "./dm-kernel-policy";
@@ -186,6 +189,20 @@ export const useDmKernelTrustBanner = (params: Readonly<{
     });
     const contactTrustSensitivity = params.contactTrustSensitivity
       ?? getResolvedContactTrustSensitivity(assessedSenderPublicKeyHex);
+    const attachmentContentDigests = latestIncomingSnapshot?.attachmentContentDigests ?? [];
+    let attachmentRepeatHashDistinctPeerCount = 0;
+    for (const digest of attachmentContentDigests) {
+      const distinctPeerCount = recordAttachmentContentDigestObservation(
+        profileId,
+        digest,
+        assessedSenderPublicKeyHex,
+        nowUnixMs,
+      );
+      attachmentRepeatHashDistinctPeerCount = Math.max(
+        attachmentRepeatHashDistinctPeerCount,
+        distinctPeerCount,
+      );
+    }
     return assessDmTrustWarning({
       peerPublicKeyHex: assessedSenderPublicKeyHex,
       isPeerAccepted: isSenderAccepted,
@@ -200,6 +217,9 @@ export const useDmKernelTrustBanner = (params: Readonly<{
         assessedSenderPublicKeyHex,
         nowUnixMs,
       ),
+      peerFirstSeenAtUnixMs: getPeerFirstSeenAtUnixMs(profileId, assessedSenderPublicKeyHex),
+      peerWotDistance: resolvePeerWotDistanceV1(assessedSenderPublicKeyHex, isSenderAccepted),
+      attachmentRepeatHashDistinctPeerCount,
       connectionRequestBurstSnapshot,
       contactTrustSensitivity,
       nowUnixMs,

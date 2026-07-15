@@ -73,6 +73,11 @@ export function GlobalDialogManager() {
         peerPublicKeyHex: PublicKeyHex;
         displayName?: string;
     }>) => {
+        requestsInbox.setStatus({
+            peerPublicKeyHex: params.peerPublicKeyHex,
+            status: "pending",
+            isOutgoing: true,
+        });
         setSidebarTab("requests");
         const cid = toDmConversationId({
             myPublicKeyHex: myPublicKeyHex || "",
@@ -90,7 +95,7 @@ export function GlobalDialogManager() {
             unreadCount: 0,
             lastMessageTime: new Date(),
         });
-    }, [myPublicKeyHex, setSelectedConversation, setSidebarTab]);
+    }, [myPublicKeyHex, requestsInbox, setSelectedConversation, setSidebarTab]);
     const handleCreateChat = useCallback((explicitPubkey?: string) => {
         const targetPubkey = explicitPubkey || newChatPubkey;
         if (!targetPubkey)

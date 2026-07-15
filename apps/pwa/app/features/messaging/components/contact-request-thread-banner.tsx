@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, Clock3, Loader2, ShieldAlert, X } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
@@ -12,25 +12,36 @@ import {
   IdentityBindingAcceptDialog,
   IdentityBindingPanel,
 } from "@/app/features/security";
+import { assessIncomingRequestPreview } from "@/app/features/dm-kernel/dm-kernel-trust-action-gate";
+import { getPeerFirstSeenAtUnixMs } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 type ContactRequestThreadBannerProps = Readonly<{
   displayName: string;
   peerPublicKeyHex: PublicKeyHex;
   isInitiator: boolean;
+  resendEligible?: boolean;
   requestEventId?: string;
+  requestPreviewContent?: string;
+  requestPreviewTimestampUnixMs?: number;
   onAcceptConfirm: () => void | Promise<void>;
   onDecline: () => void | Promise<void>;
   onCancelOutgoing?: () => void | Promise<void>;
+  onResendRequest?: () => void | Promise<void>;
 }>;
 
 export function ContactRequestThreadBanner({
   displayName,
   peerPublicKeyHex,
   isInitiator,
+  resendEligible = false,
   requestEventId: _requestEventId,
+  requestPreviewContent,
+  requestPreviewTimestampUnixMs,
   onAcceptConfirm,
   onDecline,
   onCancelOutgoing,
+  onResendRequest,
 }: ContactRequestThreadBannerProps): React.JSX.Element {
   const { t } = useTranslation();
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
@@ -42,6 +53,22 @@ export function ContactRequestThreadBanner({
     resolverSource: "connection_request",
   });
 
+  const requestTrustAssessment = useMemo(() => {
+    const preview = requestPreviewContent?.trim();
+    if (!preview) {
+      return null;
+    }
+    const messageTimestampUnixMs = requestPreviewTimestampUnixMs ?? Date.now();
+    return assessIncomingRequestPreview({
+      peerPublicKeyHex,
+      messageContent: preview,
+      messageTimestampUnixMs,
+      peerFirstSeenAtUnixMs: getPeerFirstSeenAtUnixMs(getResolvedProfileId(), peerPublicKeyHex),
+      profileId: getResolvedProfileId(),
+      nowUnixMs: messageTimestampUnixMs,
+    }).assessment;
+  }, [peerPublicKeyHex, requestPreviewContent, requestPreviewTimestampUnixMs]);
+
   const runAction = async (action: () => void | Promise<void>): Promise<void> => {
     setIsProcessing(true);
     try {
@@ -51,6 +78,43 @@ export function ContactRequestThreadBanner({
       setAcceptDialogOpen(false);
     }
   };
+
+  if (resendEligible) {
+    return (
+      <div
+        className="z-10 border-b border-rose-500/20 bg-rose-500/5 px-4 py-3 backdrop-blur-md"
+        data-testid="contact-request-thread-banner"
+      >
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300">
+              <ShieldAlert className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-rose-900 dark:text-rose-100">
+                Request not accepted
+              </p>
+              <p className="truncate text-xs text-rose-700/80 dark:text-rose-300/80">
+                {displayName} declined your invitation. You can send a new request if they have not blocked you.
+              </p>
+            </div>
+          </div>
+          {onResendRequest ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9 shrink-0 rounded-xl text-xs font-bold"
+              disabled={isProcessing}
+              onClick={() => void runAction(onResendRequest)}
+            >
+              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Send new request
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   if (isInitiator) {
     return (
@@ -155,6 +219,7 @@ export function ContactRequestThreadBanner({
       <IdentityBindingAcceptDialog
         isOpen={acceptDialogOpen}
         binding={binding}
+        trustAssessment={requestTrustAssessment}
         isSubmitting={isProcessing}
         onClose={() => {
           if (!isProcessing) {

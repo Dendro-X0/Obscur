@@ -12,6 +12,8 @@ import {
     getVoiceNoteRecordingCapability,
     type VoiceNoteRecordingCapability,
 } from "@/app/features/messaging/services/voice-note-recording-capability";
+import { useVoiceRecordingWaveform } from "@/app/features/messaging/hooks/use-voice-recording-waveform";
+import { VoiceRecordingWaveform } from "./voice-recording-waveform";
 
 interface VoiceRecorderProps {
     onRecordingComplete: (file: File) => void;
@@ -25,6 +27,7 @@ interface VoiceRecorderProps {
 export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: VoiceRecorderProps) {
     const { t } = useTranslation();
     const [isRecording, setIsRecording] = useState(false);
+    const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
     const [recordingTime, setRecordingTime] = useState(0);
     const [recordingCapability, setRecordingCapability] = useState<VoiceNoteRecordingCapability>(
         () => getVoiceNoteRecordingCapability()
@@ -34,13 +37,16 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
     const chunksRef = useRef<Blob[]>([]);
     const recordingDurationSecondsRef = useRef(0);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const waveformState = useVoiceRecordingWaveform(recordingStream, isRecording);
 
     const releaseStream = useCallback(() => {
         if (!streamRef.current) {
+            setRecordingStream(null);
             return;
         }
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
+        setRecordingStream(null);
     }, []);
 
     const clearTimer = useCallback(() => {
@@ -90,6 +96,7 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
             }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
+            setRecordingStream(stream);
             const recorder = capability.preferredMimeType
                 ? new MediaRecorder(stream, { mimeType: capability.preferredMimeType })
                 : new MediaRecorder(stream);
@@ -208,31 +215,44 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
     };
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
             {isRecording ? (
-                <div className="flex items-center gap-3 bg-white dark:bg-zinc-900 border border-purple-500/30 px-4 py-1.5 rounded-full shadow-lg animate-in slide-in-from-right-2 duration-300">
-                    <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-                        <span className="text-xs font-black font-mono tabular-nums">{formatTime(recordingTime)}</span>
+                <div className="flex items-center gap-2.5 min-w-0 bg-gradient-to-r from-purple-50/95 via-white to-white dark:from-purple-950/40 dark:via-zinc-900 dark:to-zinc-900 border border-purple-500/35 px-3 py-2 rounded-full shadow-[0_8px_24px_rgba(168,85,247,0.18)] animate-in slide-in-from-right-2 duration-300">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-70 animate-ping" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+                        </span>
+                        <span className="text-xs font-black font-mono tabular-nums text-zinc-900 dark:text-zinc-100 min-w-[2.25rem]">
+                            {formatTime(recordingTime)}
+                        </span>
                     </div>
 
-                    <div className="h-4 w-[1px] bg-zinc-200 dark:bg-zinc-800" />
+                    <VoiceRecordingWaveform waveform={waveformState} />
 
-                    <button
-                        onClick={cancelRecording}
-                        className="p-1 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded-full transition-colors"
-                        title={t("common.cancel")}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="h-5 w-px bg-purple-200/80 dark:bg-zinc-700 shrink-0" />
 
-                    <button
-                        onClick={stopRecording}
-                        className="p-1.5 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-transform active:scale-90"
-                        title={t("common.send")}
-                    >
-                        <Send className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button
+                            type="button"
+                            onClick={cancelRecording}
+                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded-full transition-colors"
+                            title={t("common.cancel")}
+                            aria-label={t("common.cancel")}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={stopRecording}
+                            className="p-2 bg-gradient-to-br from-purple-600 to-indigo-500 text-white rounded-full hover:from-purple-500 hover:to-indigo-400 transition-transform active:scale-90 shadow-[0_0_16px_rgba(168,85,247,0.35)]"
+                            title={t("common.send")}
+                            aria-label={t("common.send")}
+                        >
+                            <Send className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <Button

@@ -36,6 +36,7 @@ mod windows_junction;
 mod local_save_scan;
 mod warmup;
 mod services;
+pub mod dev_shell_freshness;
 
 use profiles::DesktopProfileState;
 use active_session_leases::ActiveSessionLeaseState;
@@ -193,15 +194,42 @@ pub fn run() {
 
             #[cfg(desktop)]
             let _window = {
+                let static_dev_stamp_script = if std::env::var("OBSCUR_DESKTOP_STATIC_DEV")
+                    .ok()
+                    .filter(|value| value == "1")
+                    .is_some()
+                {
+                    let out_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("../../pwa/out");
+                    match crate::dev_shell_freshness::read_shell_manifest_stamp(&out_dir) {
+                        Ok(stamp) => {
+                            eprintln!(
+                                "[obscur] static-dev expected shell stamp: {stamp}"
+                            );
+                            crate::dev_shell_freshness::expected_shell_stamp_init_script(
+                                &stamp,
+                            )
+                        }
+                        Err(error) => {
+                            eprintln!(
+                                "[obscur] static-dev shell stamp unavailable: {error}"
+                            );
+                            String::new()
+                        }
+                    }
+                } else {
+                    String::new()
+                };
                 let base_builder = tauri::WebviewWindowBuilder::new(
                     app,
                     "main",
                     profiles::resolve_profile_window_url(&app.handle()),
                 )
                 .initialization_script(&format!(
-                    "{}{}",
+                    "{}{}{}",
                     profiles::main_window_boot_init_script(&app.handle()),
                     crate::data_root::data_root_boot_hint_script(&health),
+                    static_dev_stamp_script,
                 ))
                 .data_directory(main_data_dir)
                 .title("Obscur")
@@ -397,6 +425,7 @@ pub fn run() {
                     commands::tray::desktop_incoming_call_action,
                     commands::system::fetch_remote_text,
                     commands::system::fetch_remote_bytes,
+                    commands::system::mesh_http_fetch_via_socks,
                     commands::system::check_for_updates,
                     commands::system::install_update,
                     commands::system::reset_app_storage,
@@ -450,6 +479,7 @@ pub fn run() {
                     commands::login_assist::auth_login_assist_write,
                     commands::login_assist::auth_login_assist_delete,
                     commands::storage_at_rest::desktop_storage_at_rest_unlock,
+                    commands::storage_at_rest::desktop_storage_at_rest_restore_keychain,
                     commands::storage_at_rest::desktop_storage_at_rest_lock,
                     upload::nip96_upload,
                     upload::nip96_upload_v2,
@@ -533,6 +563,7 @@ pub fn run() {
                     commands::tray::desktop_incoming_call_action,
                     commands::system::fetch_remote_text,
                     commands::system::fetch_remote_bytes,
+                    commands::system::mesh_http_fetch_via_socks,
                     commands::system::check_for_updates,
                     commands::system::install_update,
                     commands::system::reset_app_storage,
@@ -586,6 +617,7 @@ pub fn run() {
                     commands::login_assist::auth_login_assist_write,
                     commands::login_assist::auth_login_assist_delete,
                     commands::storage_at_rest::desktop_storage_at_rest_unlock,
+                    commands::storage_at_rest::desktop_storage_at_rest_restore_keychain,
                     commands::storage_at_rest::desktop_storage_at_rest_lock,
                     upload::nip96_upload,
                     upload::nip96_upload_v2,

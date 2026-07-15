@@ -22,6 +22,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
   useMobileCompactLayout: () => vaultPageMocks.compactLayout,
+  useTabletSecondaryLayout: () => false,
 }));
 
 vi.mock("@/app/components/app-chrome-registry", () => ({
@@ -51,6 +52,10 @@ vi.mock("@/app/features/vault/hooks/use-vault-media", () => ({
     refresh: vi.fn(),
     downloadToLocalPath: vi.fn(async () => true),
     deleteLocalCopy: vi.fn(async () => undefined),
+    openLocalFileLocation: vi.fn(async () => true),
+    pendingExportFileName: null,
+    cancelExportConfirm: vi.fn(),
+    confirmExport: vi.fn(async () => true),
   }),
 }));
 
@@ -80,7 +85,7 @@ describe("VaultPageClient compact layout", () => {
     render(<VaultPageClient />);
 
     expect(screen.getByTestId("vault-mobile-scroll-region")).toHaveClass("mobile-scroll-region");
-    expect(screen.getByRole("button", { name: /Secure Upload/i }).className).toContain("min-h-[44px]");
+    expect(screen.getByRole("button", { name: /vault\.upload/i }).className).toContain("min-h-[44px]");
     expect(screen.getByTestId("vault-media-grid")).toBeInTheDocument();
   });
 });

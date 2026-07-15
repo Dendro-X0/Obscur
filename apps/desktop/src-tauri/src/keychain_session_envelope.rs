@@ -135,6 +135,82 @@ pub fn unwrap_session_secret_from_keychain(
     Ok(Some(secret_hex))
 }
 
+pub const KEYCHAIN_PDK_ENVELOPE_PREFIX: &str = "OBSCUR_PDK1:";
+const KEYCHAIN_PDK_WRAP_CONTEXT: &[u8] = b"obscur.keychain-pdk-wrap.v1";
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+struct KeychainStorageKeyEnvelope {
+    v: u8,
+    alg: String,
+    iv_b64: String,
+    ciphertext_b64: String,
+}
+
+fn derive_pdk_wrap_key(profile_id: &str) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(KEYCHAIN_PDK_WRAP_CONTEXT);
+    hasher.update(profile_id.trim().as_bytes());
+    hasher.finalize().into()
+}
+
+pub fn wrap_storage_key_material_for_keychain(
+    profile_id: &str,
+    key_material: &[u8; 32],
+) -> Result<String, String> {
+    let key = derive_pdk_wrap_key(profile_id);
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| e.to_string())?;
+    let mut iv = [0u8; 12];
+    getrandom::getrandom(&mut iv).map_err(|e| e.to_string())?;
+    let ciphertext = cipher
+        .encrypt(Nonce::from_slice(&iv), key_material.as_ref())
+        .map_err(|e| e.to_string())?;
+
+    let envelope = KeychainStorageKeyEnvelope {
+        v: 1,
+        alg: KEYCHAIN_ENVELOPE_ALG.to_string(),
+        iv_b64: base64::engine::general_purpose::STANDARD.encode(iv),
+        ciphertext_b64: base64::engine::general_purpose::STANDARD.encode(ciphertext),
+    };
+    let json = serde_json::to_string(&envelope).map_err(|e| e.to_string())?;
+    Ok(format!("{KEYCHAIN_PDK_ENVELOPE_PREFIX}{json}"))
+}
+
+pub fn unwrap_storage_key_material_from_keychain(
+    profile_id: &str,
+    payload: &str,
+) -> Result<Option<[u8; 32]>, String> {
+    if !payload.starts_with(KEYCHAIN_PDK_ENVELOPE_PREFIX) {
+        return Ok(None);
+    }
+    let json = payload.trim_start_matches(KEYCHAIN_PDK_ENVELOPE_PREFIX);
+    let envelope: KeychainStorageKeyEnvelope =
+        serde_json::from_str(json).map_err(|e| format!("Invalid storage key envelope: {e}"))?;
+    if envelope.alg != KEYCHAIN_ENVELOPE_ALG || envelope.v != 1 {
+        return Err("Unsupported storage key envelope version".to_string());
+    }
+
+    let key = derive_pdk_wrap_key(profile_id);
+    let cipher = Aes256Gcm::new_from_slice(&key).map_err(|e| e.to_string())?;
+    let iv = base64::engine::general_purpose::STANDARD
+        .decode(envelope.iv_b64.trim())
+        .map_err(|e| e.to_string())?;
+    if iv.len() != 12 {
+        return Err("Invalid storage key envelope IV".to_string());
+    }
+    let ciphertext = base64::engine::general_purpose::STANDARD
+        .decode(envelope.ciphertext_b64.trim())
+        .map_err(|e| e.to_string())?;
+    let plaintext = cipher
+        .decrypt(Nonce::from_slice(&iv), ciphertext.as_ref())
+        .map_err(|_| "Storage key envelope decrypt failed".to_string())?;
+    if plaintext.len() != 32 {
+        return Err("Storage key envelope payload must be 32 bytes".to_string());
+    }
+    let mut key_material = [0u8; 32];
+    key_material.copy_from_slice(&plaintext);
+    Ok(Some(key_material))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

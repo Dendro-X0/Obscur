@@ -10,6 +10,7 @@ import {
   classifyRelayTransportScope,
   isCommunityRelayCandidateUrl,
   isDmTransportRelayUrl,
+  isLocalMeshHttpGatewayUrl,
   isPrivateOrIntranetRelayUrl,
   partitionRelayListByTransportScope,
   resolveDmTransportRelayUrls,
@@ -55,6 +56,34 @@ describe("relay-transport-scope", () => {
       "wss://relay.damus.io",
       "wss://nos.lol",
       "ws://localhost:7000",
+    ]);
+  });
+
+  it("recognizes loopback mesh HTTP gateways", () => {
+    expect(isLocalMeshHttpGatewayUrl("http://127.0.0.1:8788")).toBe(true);
+    expect(isLocalMeshHttpGatewayUrl("https://localhost:8788")).toBe(true);
+    expect(isLocalMeshHttpGatewayUrl("ws://127.0.0.1:8788")).toBe(false);
+    expect(isLocalMeshHttpGatewayUrl("http://192.168.1.10:8788")).toBe(false);
+  });
+
+  it("promotes enabled loopback mesh HTTP into DM pool when public DM list is empty", () => {
+    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(false);
+    const urls = resolveDmTransportRelayUrls([
+      { url: "http://127.0.0.1:8788", enabled: true },
+      { url: "wss://relay.damus.io", enabled: false },
+    ]);
+    expect(urls).toEqual(["http://127.0.0.1:8788"]);
+  });
+
+  it("appends enabled loopback mesh HTTP after public DM relays", () => {
+    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(false);
+    const urls = resolveDmTransportRelayUrls([
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "http://127.0.0.1:8788", enabled: true },
+    ]);
+    expect(urls).toEqual([
+      "wss://relay.damus.io",
+      "http://127.0.0.1:8788",
     ]);
   });
 

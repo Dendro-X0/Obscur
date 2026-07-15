@@ -547,14 +547,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       const myPublicKey = publicKeyHexRef.current;
       if (myPublicKey && isOutgoing) {
         const cooldownProfileId = getResolvedProfileId();
-        if (p.status === "declined") {
-          setRequestCooldown({
-            myPublicKeyHex: myPublicKey,
-            peerPublicKeyHex: normalizedPeer,
-            reason: "declined",
-            profileId: cooldownProfileId,
-          });
-        } else if (p.status === "canceled") {
+        if (p.status === "canceled") {
           setRequestCooldown({
             myPublicKeyHex: myPublicKey,
             peerPublicKeyHex: normalizedPeer,
@@ -650,6 +643,47 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         byPeer.set(item.peerPublicKeyHex, item);
       });
       legacyItems.forEach((item) => {
+        const projected = byPeer.get(item.peerPublicKeyHex);
+        if (!projected) {
+          byPeer.set(item.peerPublicKeyHex, item);
+          return;
+        }
+        const legacyIsOutgoingOpen = item.isOutgoing && (
+          !item.status
+          || item.status === "pending"
+          || item.status === "declined"
+          || item.status === "canceled"
+        );
+        if (legacyIsOutgoingOpen) {
+          byPeer.set(item.peerPublicKeyHex, {
+            ...projected,
+            ...item,
+            unreadCount: Math.max(projected.unreadCount, item.unreadCount),
+            lastReceivedAtUnixSeconds: Math.max(
+              projected.lastReceivedAtUnixSeconds,
+              item.lastReceivedAtUnixSeconds,
+            ),
+            eventId: item.eventId ?? projected.eventId,
+          });
+          return;
+        }
+        const legacyIsIncomingOpen = !item.isOutgoing && (
+          !item.status
+          || item.status === "pending"
+        );
+        if (legacyIsIncomingOpen) {
+          byPeer.set(item.peerPublicKeyHex, {
+            ...projected,
+            ...item,
+            unreadCount: Math.max(projected.unreadCount, item.unreadCount),
+            lastReceivedAtUnixSeconds: Math.max(
+              projected.lastReceivedAtUnixSeconds,
+              item.lastReceivedAtUnixSeconds,
+            ),
+            eventId: item.eventId ?? projected.eventId,
+          });
+          return;
+        }
         if (!byPeer.has(item.peerPublicKeyHex)) {
           byPeer.set(item.peerPublicKeyHex, item);
         }

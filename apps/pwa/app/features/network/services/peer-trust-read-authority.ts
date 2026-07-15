@@ -12,7 +12,8 @@ export type PeerTrustReadAuthorityDecision = Readonly<{
 
 /**
  * Avoid empty contact list flicker during projection read cutover:
- * keep legacy peerTrust until projection has at least one accepted peer.
+ * keep legacy peerTrust until projection has at least one accepted peer,
+ * then union stored + projection so partial projection rebuilds cannot drop peers.
  */
 export const resolvePeerTrustReadAuthority = (params: Readonly<{
   shouldUseProjectionReads: boolean;
@@ -41,9 +42,14 @@ export const resolvePeerTrustReadAuthority = (params: Readonly<{
     };
   }
 
+  const mergedAcceptedPeers = Array.from(new Set([
+    ...params.storedAcceptedPeers,
+    ...params.projectionAcceptedPeers,
+  ]));
+
   return {
-    acceptedPeers: params.projectionAcceptedPeers,
-    source: "projection",
+    acceptedPeers: mergedAcceptedPeers,
+    source: params.projectionAcceptedPeers.length > 0 ? "projection" : "legacy",
     holdReason: null,
     projectionReadAuthorityReason: params.projectionReadAuthorityReason,
   };

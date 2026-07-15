@@ -1,20 +1,180 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-10T05:40:09Z
+- Last Updated (UTC): 2026-07-15T14:45:00Z
 
 ## Next atomic step
 
-**VAULT-SANDBOX-1** — Phases 1–5 implemented · **evidence mode** (G8 maintainer L3/L4)
+**PROD — v1.9.12 demo-safe release (ACTIVE)** · 2026-07-15
 
 | Field | Value |
 |-------|--------|
-| Plan | [vault-encryption-sandbox-plan-2026-07.md](../../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
-| L3/L4 runbook | [vault-sandbox-l3-verification-2026-07.md](../../specs/backend/vault-sandbox-l3-verification-2026-07.md) |
-| Phase 6 | **DISABLED** — [investigation](../../specs/backend/vault-chat-save-re-enable-investigation-2026-07.md) complete; no flag flip until G8 |
-| Rollback ladder | `5c301ca6` → `2a6dabea` → `5483b9e4` → `6acd1086` → `d0533def` → `a04c747d` → `3e0d9387` → `7bbaa010` |
-| L1 | `pnpm verify:vault-sandbox-l1` · `pnpm verify:storage-encryption-v1.9.8` |
-| G8 gap | Maintainer signs runbook §5 after L3 §3 + L4 §4 (desktop, non-default data root) |
-| Demo path | Vault → **Secure Upload** only — not chat→vault |
+| Status | **In progress** — version bump · release pack · desktop package |
+| Scope | [v1.9.12-scope.md](../program/v1.9.12-scope.md) · [v1.9.12-release.md](../releases/v1.9.12-release.md) |
+| Includes | Mesh C0–C14 · trust/voice · shell freshness · vault chat-save **OFF** |
+| Deferred | Vault core → [v1.9.13-scope.md](../program/v1.9.13-scope.md) · community **PAUSED** · C13 L3 **BLOCKED** |
+| Proof | `pnpm version:bump patch` · `pnpm release:test-pack` · `pnpm desktop:package` |
+| PAUSED | vault chat-save flip · community · Phase 4 Vercel |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C7 L3 WS soak (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **PASS** — Row A (Settings Conduit Mesh / E2EE / NOSTR_WS) · Row B dual-window |
+| Runbook | [conduit-mesh-c7-l3-soak-runbook.md](../program/conduit-mesh-c7-l3-soak-runbook.md) |
+| Evidence | markers `C7-L3-ws-20260715D` / `…D-reply` · B1 **1243ms** · B2 **1463ms** · relays `wss://nos.lol` + `wss://relay.damus.io` · stamp `shell-2026-07-15T13:55:42Z` · Tor disabled for soak |
+| Note | Tor-on broke public WS earlier (`RELAY_CONNECT_FAILED`); Tor left off for C7 |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C14 L3 SSE soak (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **PASS** — S1+S2+B1+B2 |
+| Runbook | [conduit-mesh-c14-l3-sse-soak-runbook.md](../program/conduit-mesh-c14-l3-sse-soak-runbook.md) |
+| Evidence | health `sse` · CDP `Accept: text/event-stream` · markers `C14-L3-sse-20260715A` / reply · B1 **1876ms** · B2 **2470ms** · stamp `shell-2026-07-15T13:55:42Z` |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C13 L3 Tor SOCKS (archive · BLOCKED · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **BLOCKED** — env Tor circuits |
+| Runbook | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../program/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) |
+| Evidence | SOCKS `:9050` up · desktop `ready` via TCP probe · HS onion published · Tor stuck **10%** TLS handshake failures |
+| L1 | still green — `pnpm verify:conduit-mesh-c13` |
+| Retry | When host can bootstrap Tor to 100% |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C14 SSE stream (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **L1 landed** — SSE prefer-path; long-poll/C10 remain fallbacks |
+| Charter | [conduit-mesh-c14-sse-stream-charter.md](../program/conduit-mesh-c14-sse-stream-charter.md) |
+| Design | [conduit-mesh-c14-sse-stream-design.md](../../specs/backend/conduit-mesh-c14-sse-stream-design.md) |
+| L1 | `pnpm verify:conduit-mesh-c14` |
+| Scope | `Accept: text/event-stream` · fetch ReadableStream parse · health `sse` capability |
+| L3 | [conduit-mesh-c14-l3-sse-soak-runbook.md](../program/conduit-mesh-c14-l3-sse-soak-runbook.md) — **PASS** 2026-07-15 |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C13 Tor SOCKS (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **L1 landed** — routed `ConduitMeshFetch` + `mesh_http_fetch_via_socks` + onion→`tor_required` |
+| Charter | [conduit-mesh-c13-tor-socks-drivers-charter.md](../program/conduit-mesh-c13-tor-socks-drivers-charter.md) |
+| Design | [conduit-mesh-c13-tor-socks-drivers-design.md](../../specs/backend/conduit-mesh-c13-tor-socks-drivers-design.md) |
+| L1 | `pnpm verify:conduit-mesh-c13` |
+| Scope | Per-conduit SOCKS HTTP; PWA browser WS/SOCKS still limited; native WS uses existing Tor NetRuntime |
+| L3 | Tor-on desktop publish/receive via onion HTTP — **not claimed** |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C12 HTTP long-poll stream (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **L1 landed** — long-poll on `GET /mesh/v1/stream`; C10 poll fallback when health omits `long_poll` |
+| Charter | [conduit-mesh-c12-http-stream-charter.md](../program/conduit-mesh-c12-http-stream-charter.md) |
+| Design | [conduit-mesh-c12-http-stream-design.md](../../specs/backend/conduit-mesh-c12-http-stream-design.md) |
+| L1 | `pnpm verify:conduit-mesh-c12` |
+| Scope | Health `capabilities: ["pull","long_poll"]` · store `waitForList` · driver prefer stream · SSE deferred |
+| L3 | Latency soak vs 3s poll — **not claimed** |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C11 mesh-native DM wire codec (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **L1 landed** — charter + design + codec + HTTP publish/inbound bridge |
+| Charter | [conduit-mesh-c11-mesh-native-dm-codec-charter.md](../program/conduit-mesh-c11-mesh-native-dm-codec-charter.md) |
+| Design | [conduit-mesh-c11-mesh-native-dm-codec-design.md](../../specs/backend/conduit-mesh-c11-mesh-native-dm-codec-design.md) |
+| L1 | `pnpm verify:conduit-mesh-c11` |
+| Scope | HTTP `team_relay` stores `obscur_mesh_dm_wire_v1` in ciphertext; inbound accepts native **or** legacy Nostr wire; DM pipeline unchanged |
+| L3 | Re-run C10 runbook with native wire in gateway POST — **not claimed** |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C10 L3 HTTP-only DM soak (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **Landed** — Row A **PASS** · Row B **PASS** (B1+B2) · L1 **PASS** |
+| Charter | [conduit-mesh-c10-http-pull-subscribe-charter.md](../program/conduit-mesh-c10-http-pull-subscribe-charter.md) |
+| L3 runbook | [conduit-mesh-c10-l3-http-soak-runbook.md](../program/conduit-mesh-c10-l3-http-soak-runbook.md) |
+| Investigation | [conduit-mesh-c10-l3-dm-scope-cors-investigation.md](../../specs/backend/conduit-mesh-c10-l3-dm-scope-cors-investigation.md) |
+| L1 | `pnpm verify:conduit-mesh-c10` **PASS** (12 tests) · `dm-relay-transport.test.ts` **PASS** |
+| L3 blockers fixed (cumulative) | (1)–(8) prior · **(9)** HTTP-only caps hybrid targets · **(10)** pull `recipientPublicKeyHex` filter · **(11)** re-arm inbound interests after `configureConduits` + HTTP writable arm |
+| Row B evidence (PASS) | Markers `C10-L3-soak-20260715I` (T1→T2) + `…I-reply` (T2→T1) · both `delivered` · gateway filtered pull n=1 · shell `shell-2026-07-15T10:36:16Z` |
+| Ops notes | Restart mesh gateway between soaks (presence flood) · force HTTP-only enabled list (account sync re-enables `wss://`) |
+| Boot | Terminal A: `MESH_HTTP_PORT=8788 pnpm -C apps/relay-gateway dev` · Terminal B: `pnpm dev:desktop -- --online --skip-build` (after rebuild) |
+| **Next** | Pick next roadmap slice (C11 mesh-native codec / C12 long-poll / etc.) — C10 L3 closed |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C10 Row B target + receive (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **Superseded by sign-off above** |
+| Hypothesis | Hybrid peer WS targets escape HTTP-only pool — **confirmed**; later receive blocked by presence drown + inbound stop on remount |
+| Fixes | `resolveTargetRelayUrls` HTTP-only early return · gateway/pull audience filter · `configureConduits` re-arms interests · DM arm uses writable HTTP snapshot |
+
+---
+
+## Prior atomic step — DEV-SHELL-FRESHNESS-GUARD (archive · 2026-07-15)
+
+| Field | Value |
+|-------|--------|
+| Status | **Landed** — infrastructure; unblocks stale-desktop C10 loops |
+| Design | [dev-shell-freshness-guard-design-2026-07.md](../../specs/backend/dev-shell-freshness-guard-design-2026-07.md) |
+| Owners | `apps/desktop/src-tauri/src/dev_shell_freshness.rs` · `scripts/lib/static-shell-stale.mjs` · `scripts/run-obscur-dev-clean.mjs` |
+| L1 | Node `static-shell-stale.test.mjs` (6/6) · `cargo test -p obscur_desktop_lib dev_shell_freshness` (5/5) |
+| L3 | Cold rebuild stamp parity: `CLIENT_BUILD_STAMP` = manifest = DOM (`build-pwa-shell.mjs` single revision capture) |
+| Pipeline | Predev `obscur-dev-clean` (kill target PIDs + purge HTTP/Code caches only) → expanded `STATIC_SHELL_SOURCE_ROOTS` (`packages/obscur-*`) → static-dev stamp inject + PWA mismatch banner |
+| Out of scope | IndexedDB/session wipe · `dev:desktop:live` · C10 transport logic |
+
+---
+
+## Prior atomic step — CONDUIT-MESH-C9 Tor host integration (archive)
+
+| Field | Value |
+|-------|--------|
+| Status | L1 landed 2026-07-14 |
+| Charter | [conduit-mesh-c9-tor-host-integration-charter.md](../program/conduit-mesh-c9-tor-host-integration-charter.md) |
+| L1 | `pnpm verify:conduit-mesh-c9` |
+
+---
+
+## Queued — Conduit Mesh follow-ups (post-L1 close)
+
+| Slice | Doc | Type | Owner |
+|-------|-----|------|-------|
+| **L1 close** | [conduit-mesh-l1-band-close-2026-07.md](../program/conduit-mesh-l1-band-close-2026-07.md) | Band status | **Closed** |
+| **C10 L3** | [conduit-mesh-c10-l3-http-soak-runbook.md](../program/conduit-mesh-c10-l3-http-soak-runbook.md) | HTTP-only DM | **PASS** |
+| **C14 L3** | [conduit-mesh-c14-l3-sse-soak-runbook.md](../program/conduit-mesh-c14-l3-sse-soak-runbook.md) | SSE latency soak | Maintainer |
+| **C13 L3** | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../program/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) | Tor SOCKS HTTP | Maintainer |
+| **C7 L3** | [conduit-mesh-c7-l3-soak-runbook.md](../program/conduit-mesh-c7-l3-soak-runbook.md) | WS mesh default | Maintainer |
+| **C11–C14 L1** | charters in `docs/program/` | Code | **Landed** |
+
+---
+
+**Status:** **PAUSED** (maintainer stop · 2026-07-14)
+
+Do **not** push further Media→Vault save / Vault-page refresh patches for interactive client testing until a siloed investigation + non-dogfood proof plan exists.
+
+| Field | Value |
+|-------|--------|
+| Flag | Keep `VAULT_SAVE_FROM_CHAT_ENABLED = false` |
+| Un-pause requires | Feasibility / integration study + automated L3 without maintainer unlock loops |
+| Design / plan | [vault-chat-save-phase6-design-2026-07.md](../../specs/backend/vault-chat-save-phase6-design-2026-07.md) |
 
 ---
 
@@ -31,6 +191,21 @@
 | Proof (Obscur) | `pnpm docs:check` · `pnpm -C apps/website build` PASS · DOM hooks on `localhost:3000/download` |
 | External blocker | `client_web_surface_probe` `downloadShaPresent: false` until **CodaCtrl daemon** reads `[data-codactrl-sha256]` |
 | Release track | Phase 4 deploy **PAUSED** · Phase 5 GIF **maintainer-later** · `v2.0.0` tag **not yet** (separate from lane D) |
+
+---
+
+## Prior atomic step — VAULT-SANDBOX-1 Phase 6 (archive · pre-pause)
+
+| Field | Value |
+|-------|--------|
+| Release | [v1.9.12-scope.md](../program/v1.9.12-scope.md) |
+| Design | [vault-chat-save-phase6-design-2026-07.md](../../specs/backend/vault-chat-save-phase6-design-2026-07.md) |
+| Plan | [vault-encryption-sandbox-plan-2026-07.md](../../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
+| L3/L4 runbook | [vault-sandbox-l3-verification-2026-07.md](../../specs/backend/vault-sandbox-l3-verification-2026-07.md) |
+| Flag | `VAULT_SAVE_FROM_CHAT_ENABLED = false` until G8 + L3 chain |
+| L1 | `pnpm verify:vault-sandbox-l1` · `pnpm verify:storage-encryption-v1.9.8` |
+| Demo path | Secure Upload until Phase 6 flag flip |
+| Outcome | **Not verified** — client dogfood stopped by maintainer (2026-07-14) |
 
 ---
 
@@ -1172,6 +1347,11 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 ## Checkpoints
 
 <!-- CONTEXT_CHECKPOINTS_START -->
+### 2026-07-15T07:45:00Z checkpoint
+- Summary: Dev shell freshness guard landed (predev clean, stale roots, stamp gate); C10 L3 Row A PASS dual-window HTTP-only; Row B blocked on Nostr EVENT→WS-only publish — fix landed (HTTP mesh envelope + `#p` audience); shell rebuilt `shell-2026-07-15T07:31:49Z`; Row B re-soak not completed
+- Evidence: `pnpm verify:conduit-mesh-c10` PASS; `static-shell-stale` 6/6; `dev_shell_freshness` 5/5; C10 integration publish test; CDP sessions csess-61a6b99b9bde / csess-aed8d69e8d8d; investigation spec updated
+- Uncertainty: Row B end-to-end receive not re-proven post-fix; gateway may retain stale envelopes from failed soaks — consider fresh gateway or note count delta only
+- Next: CONDUIT-MESH-C10 L3 Row B re-soak — purge both → send `C10-L3-soak-20260715B` → Tester2 receive ≤45s → gateway envelopes → sign-off → C11
 ### 2026-07-10T05:40:09Z checkpoint
 - Summary: Vault sandbox Phases 1-5 in evidence mode (G8); CodaCtrl lane D marked Obscur-side EXIT; docs/CURRENT synced
 - Evidence: pnpm verify:vault-sandbox-l1 31/31; verify:storage-encryption-v1.9.8 PASS; commit 7bbaa010

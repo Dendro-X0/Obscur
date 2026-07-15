@@ -1,36 +1,21 @@
-import {
-  assessDmTrustWarning,
-  type DmTrustAssessment,
-  type TrustWarningTier,
-} from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";
 import { detectConnectionRequestBurstSignal } from "@/app/features/dm-kernel/dm-kernel-trust-connection-signals";
+import {
+  assessIncomingRequestPreview,
+  shouldJunkIncomingRequestAssessment,
+} from "@/app/features/dm-kernel/dm-kernel-trust-action-gate";
+import { getPeerFirstSeenAtUnixMs } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
 import {
   getIncomingRequestAntiAbusePeerSnapshot,
 } from "@/app/features/messaging/services/incoming-request-anti-abuse";
 import type { RequestsInboxItem } from "@/app/features/messaging/types";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
 export type IncomingRequestInboxLane = "inbox" | "junk";
-
-const isJunkTrustTier = (tier: TrustWarningTier): boolean => (
-  tier === "elevated" || tier === "critical"
-);
-
-const shouldRouteIncomingRequestToJunk = (assessment: DmTrustAssessment): boolean => {
-  if (isJunkTrustTier(assessment.tier)) {
-    return true;
-  }
-  if (assessment.bundleId) {
-    return true;
-  }
-  const riskySignals = assessment.activeSignals.filter((signal) => (
-    signal !== "contact.cold"
-  ));
-  return riskySignals.length > 0;
-};
 
 export const classifyIncomingRequestInboxLane = (params: Readonly<{
   item: RequestsInboxItem;
   nowUnixMs?: number;
+  profileId?: string;
 }>): IncomingRequestInboxLane => {
   if (params.item.isOutgoing || params.item.status !== "pending") {
     return "inbox";
@@ -46,19 +31,19 @@ export const classifyIncomingRequestInboxLane = (params: Readonly<{
     return "junk";
   }
 
+  const profileId = params.profileId ?? getResolvedProfileId();
   const messageTimestampUnixMs = params.item.lastReceivedAtUnixSeconds * 1000;
-  const assessment = assessDmTrustWarning({
+  const { assessment } = assessIncomingRequestPreview({
     peerPublicKeyHex: params.item.peerPublicKeyHex,
-    isPeerAccepted: false,
     messageContent: params.item.lastMessagePreview,
     messageTimestampUnixMs,
-    threadFirstPeerMessageAtUnixMs: messageTimestampUnixMs,
-    dismissedUntilUnixMs: null,
+    peerFirstSeenAtUnixMs: getPeerFirstSeenAtUnixMs(profileId, params.item.peerPublicKeyHex),
+    profileId,
     connectionRequestBurstSnapshot: snapshot,
     nowUnixMs,
   });
 
-  if (shouldRouteIncomingRequestToJunk(assessment)) {
+  if (shouldJunkIncomingRequestAssessment(assessment)) {
     return "junk";
   }
 

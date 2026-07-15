@@ -18,6 +18,7 @@ describe("ASE-1d-b contact-request receive → inbox", () => {
   it("feeds requestsInbox.upsertIncoming from dm-controller on sandbox receive", () => {
     const source = read("app/features/messaging/controllers/v2/dm-controller.ts");
     expect(source).toMatch(/case\s+"contact_sandbox"[\s\S]*upsertIncoming/);
+    expect(source).toMatch(/CONTACT_REQUEST_RECEIVED/);
     expect(source).toMatch(/applyIncomingContactLifecycle/);
   });
 

@@ -1,15 +1,15 @@
 {
   "name": "@dweb/desktop",
   "private": true,
-  "version": "1.9.11",
+  "version": "1.9.12",
   "type": "module",
   "scripts": {
     "tauri": "tauri",
-    "predev": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/repair-tauri-permission-cache.mjs && node ../../scripts/setup-tor.mjs",
+    "predev": "node ../../scripts/run-obscur-dev-clean.mjs && node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/repair-tauri-permission-cache.mjs && node ../../scripts/setup-tor.mjs",
     "repair": "node ../../scripts/repair-tauri-permission-cache.mjs --force",
     "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "dev:live": "tauri dev --config src-tauri/tauri.live.dev.conf.json",
-    "prebuild": "node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
+    "prebuild": "node ../../scripts/run-obscur-dev-clean.mjs && node ../../scripts/cleanup-tauri-sidecars.mjs && node ../../scripts/setup-tor.mjs",
     "build:pwa-shell": "node scripts/run-build-pwa-shell.mjs",
     "build": "tauri build",
     "build:android:debug": "node scripts/run-android-build.mjs --apk --debug",

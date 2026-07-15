@@ -11,6 +11,7 @@ use zeroize::Zeroizing;
 
 pub const APP_SERVICE: &str = "app.obscur.desktop";
 const KEY_NAME: &str = "nsec";
+const PDK_KEY_NAME: &str = "pdk";
 const LOGIN_ASSIST_KEY_NAME: &str = "login_assist";
 
 pub fn key_name_for_profile(profile_id: &str) -> String {
@@ -19,6 +20,10 @@ pub fn key_name_for_profile(profile_id: &str) -> String {
 
 pub fn login_assist_key_name_for_profile(profile_id: &str) -> String {
     format!("{LOGIN_ASSIST_KEY_NAME}_{}", profile_id.replace(':', "_"))
+}
+
+pub fn pdk_key_name_for_profile(profile_id: &str) -> String {
+    format!("{PDK_KEY_NAME}::{profile_id}")
 }
 
 #[cfg(not(target_os = "android"))]
@@ -32,6 +37,10 @@ static LOGIN_ASSIST_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
 
 #[cfg(not(target_os = "android"))]
 static SESSION_SECRET_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+#[cfg(not(target_os = "android"))]
+static PDK_SECRET_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[cfg(not(target_os = "android"))]
@@ -210,8 +219,81 @@ pub fn write_nsec_for_profile(_profile_id: &str, _nsec: &str) -> Result<(), Stri
 }
 
 #[cfg(not(target_os = "android"))]
+fn remember_pdk_payload(profile_id: &str, payload: &str) {
+    if let Ok(mut cache) = PDK_SECRET_CACHE.lock() {
+        cache.insert(profile_id.to_string(), payload.to_string());
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn cached_pdk_payload(profile_id: &str) -> Option<String> {
+    PDK_SECRET_CACHE
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(profile_id).cloned())
+}
+
+#[cfg(not(target_os = "android"))]
+fn forget_pdk_payload(profile_id: &str) {
+    if let Ok(mut cache) = PDK_SECRET_CACHE.lock() {
+        cache.remove(profile_id);
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn write_pdk_for_profile(profile_id: &str, key_material: &[u8; 32]) -> Result<(), String> {
+    let wrapped = keychain_session_envelope::wrap_storage_key_material_for_keychain(profile_id, key_material)?;
+    let entry = Entry::new(APP_SERVICE, &pdk_key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
+    write_password(&entry, &wrapped).map_err(|e| e.to_string())?;
+    remember_pdk_payload(profile_id, &wrapped);
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn read_pdk_for_profile(profile_id: &str) -> Result<Option<[u8; 32]>, String> {
+    if let Some(cached) = cached_pdk_payload(profile_id) {
+        return keychain_session_envelope::unwrap_storage_key_material_from_keychain(profile_id, &cached);
+    }
+    let entry = Entry::new(APP_SERVICE, &pdk_key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
+    match read_password(&entry) {
+        Ok(payload) => {
+            remember_pdk_payload(profile_id, &payload);
+            keychain_session_envelope::unwrap_storage_key_material_from_keychain(profile_id, &payload)
+        }
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn delete_pdk_for_profile(profile_id: &str) -> Result<(), String> {
+    forget_pdk_payload(profile_id);
+    let entry = Entry::new(APP_SERVICE, &pdk_key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
+    match delete_entry(&entry) {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(target_os = "android")]
+pub fn write_pdk_for_profile(_profile_id: &str, _key_material: &[u8; 32]) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
+pub fn read_pdk_for_profile(_profile_id: &str) -> Result<Option<[u8; 32]>, String> {
+    Ok(None)
+}
+
+#[cfg(target_os = "android")]
+pub fn delete_pdk_for_profile(_profile_id: &str) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(target_os = "android"))]
 pub fn delete_nsec_for_profile(profile_id: &str) -> Result<(), String> {
     forget_session_secret_payload(profile_id);
+    let _ = delete_pdk_for_profile(profile_id);
     for key_name in [
         key_name_for_profile(profile_id),
         legacy_key_name_for_profile(profile_id),

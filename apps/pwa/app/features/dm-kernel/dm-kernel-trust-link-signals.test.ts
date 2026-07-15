@@ -20,9 +20,10 @@ describe("dm-kernel-trust-link-signals", () => {
     expect(isSuspiciousUrlShape("https://cdn.example.com/blog/post")).toBe(false);
   });
 
-  it("flags IP-literal and punycode hosts", () => {
+  it("flags IP-literal, punycode, and mixed-script hosts", () => {
     expect(isSuspiciousUrlShape("http://192.168.0.1/reset")).toBe(true);
     expect(isSuspiciousUrlShape("https://xn--pple-43d.com/signin")).toBe(true);
+    expect(isSuspiciousUrlShape("https://p\u0430ypal.com/secure/login")).toBe(true);
   });
 
   it("flags known shortener domains", () => {

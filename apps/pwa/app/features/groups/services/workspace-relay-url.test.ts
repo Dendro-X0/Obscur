@@ -23,6 +23,12 @@ describe("workspace relay url", () => {
     expect(normalizeWorkspaceRelayUrl("wss://relay.team.example")).toBe("wss://relay.team.example");
   });
 
+  it("preserves localhost mesh HTTP gateway URLs", () => {
+    expect(normalizeWorkspaceRelayUrl("http://127.0.0.1:8788")).toBe("http://127.0.0.1:8788");
+    expect(normalizeWorkspaceRelayUrl("http://localhost:8788/")).toBe("http://localhost:8788");
+    expect(normalizeWorkspaceRelayUrl("http://relay.example.com")).toBe("");
+  });
+
   it("treats ws and wss localhost variants as equivalent", () => {
     expect(workspaceRelayUrlsMatch("wss://localhost:7000", "ws://localhost:7000")).toBe(true);
   });

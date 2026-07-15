@@ -51,6 +51,33 @@ export const establishProfileStorageKeySession = async (params: Readonly<{
   });
 };
 
+/** Hydrate in-memory vault encryption session from persisted key material (keychain restore). */
+export const establishProfileStorageKeySessionFromMaterial = (params: Readonly<{
+  profileId?: string;
+  writeKeyMaterial: Uint8Array;
+  readKeyMaterials?: ReadonlyArray<Uint8Array>;
+}>): void => {
+  if (!hasNativeRuntime()) {
+    return;
+  }
+  const profileId = (params.profileId ?? getResolvedProfileId()).trim();
+  if (!profileId || params.writeKeyMaterial.byteLength !== 32) {
+    return;
+  }
+  const existing = sessions.get(profileId);
+  if (existing) {
+    zeroizeSession(existing);
+  }
+  const writeCopy = new Uint8Array(params.writeKeyMaterial);
+  const readKeyMaterials = params.readKeyMaterials?.length
+    ? params.readKeyMaterials.map((keyMaterial) => new Uint8Array(keyMaterial))
+    : [writeCopy];
+  sessions.set(profileId, {
+    writeKeyMaterial: writeCopy,
+    readKeyMaterials,
+  });
+};
+
 export const getProfileStorageKeyMaterial = (profileId?: string): Uint8Array | null => {
   const resolved = (profileId ?? getResolvedProfileId()).trim();
   if (!resolved) {

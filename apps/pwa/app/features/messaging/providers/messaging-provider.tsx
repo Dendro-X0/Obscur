@@ -49,7 +49,11 @@ import {
     updateLastSeen,
 } from "../utils/persistence";
 import { replaceProjectionUnreadByConversationId, unreadByConversationIdEqual } from "./projection-unread";
-import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
+import { applySelectedConversationUnreadIsolation, resolveSelectedConversationUnreadKeys } from "./unread-isolation";
+import {
+    buildConversationHeadAtMsByIdFromPersisted,
+    suppressUnreadByLastSeen,
+} from "./unread-last-seen-suppression";
 import {
     buildDmConnectionsFromPersistedChatState,
     buildDmConnectionsFromPersistedCreatedConnections,
@@ -296,7 +300,6 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 );
                 setCreatedConnections(nextCreatedConnections);
             }
-            setUnreadByConversationId(persisted.unreadByConversationId);
             setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
 
             if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
@@ -307,6 +310,13 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex, params.profileId);
         setLastViewedByConversationId(loadedLastSeen);
+        if (persisted) {
+            setUnreadByConversationId(suppressUnreadByLastSeen({
+                unreadByConversationId: persisted.unreadByConversationId,
+                lastSeenByConversationId: loadedLastSeen,
+                conversationHeadAtMsById: buildConversationHeadAtMsByIdFromPersisted(persisted),
+            }));
+        }
         setHasHydrated(true);
     }, []);
 
@@ -323,7 +333,6 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 );
                 setCreatedConnections(nextCreatedConnections);
             }
-            setUnreadByConversationId(persisted.unreadByConversationId);
             setConnectionOverridesByConnectionId(fromPersistedOverridesByConnectionId(persisted.connectionOverridesByConnectionId));
 
             if (persisted.pinnedChatIds) setPinnedChatIds(persisted.pinnedChatIds);
@@ -340,6 +349,14 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
         const loadedLastSeen = loadLastSeen(params.publicKeyHex as PublicKeyHex, params.profileId);
         setLastViewedByConversationId(loadedLastSeen);
+        const hydratedPersisted = messagingChatStateUiMirror.load(params.publicKeyHex, { profileId: params.profileId });
+        if (hydratedPersisted) {
+            setUnreadByConversationId(suppressUnreadByLastSeen({
+                unreadByConversationId: hydratedPersisted.unreadByConversationId,
+                lastSeenByConversationId: loadedLastSeen,
+                conversationHeadAtMsById: buildConversationHeadAtMsByIdFromPersisted(hydratedPersisted),
+            }));
+        }
         setHasHydrated(true);
     }, []);
 
@@ -673,13 +690,23 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
         }
         setUnreadByConversationId((current) => {
-            const next = replaceProjectionUnreadByConversationId({
+            const projectionNext = replaceProjectionUnreadByConversationId({
                 currentUnreadByConversationId: current,
                 projectionConnections: mergedProjectionConnections,
                 selectedConversationId: selectedConversation?.id ?? null,
                 selectedConversationKind: selectedConversation?.kind ?? null,
                 lastSeenByConversationId: lastViewedByConversationId,
             });
+            const persistedState = publicKeyHex
+                ? messagingChatStateUiMirror.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId })
+                : null;
+            const next = persistedState
+                ? suppressUnreadByLastSeen({
+                    unreadByConversationId: projectionNext,
+                    lastSeenByConversationId: lastViewedByConversationId,
+                    conversationHeadAtMsById: buildConversationHeadAtMsByIdFromPersisted(persistedState),
+                })
+                : projectionNext;
             if (unreadByConversationIdEqual(current, next)) {
                 unreadByConversationIdRef.current = current;
                 return current;
@@ -700,10 +727,12 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 : next;
         });
     }, [
+        activeProfileId,
         conversationListAuthority.authority,
         lastViewedByConversationId,
         persistedDmConnections,
         projectionConnections,
+        publicKeyHex,
         selectedConversation,
     ]);
 
@@ -711,28 +740,60 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!selectedConversation || !hasHydrated || !publicKeyHex) {
             return;
         }
-        if (selectedConversation.kind !== "dm") {
+        const seenAtMs = Math.max(
+            Date.now(),
+            selectedConversation.lastMessageTime.getTime(),
+        );
+        const conversationKeys = selectedConversation.kind === "group"
+            ? resolveSelectedConversationUnreadKeys(selectedConversation)
+            : [selectedConversation.id];
+        setLastViewedByConversationId((previous) => {
+            let changed = false;
+            const nextSeenByConversationId = { ...previous };
+            conversationKeys.forEach((conversationId) => {
+                if ((nextSeenByConversationId[conversationId] ?? 0) >= seenAtMs) {
+                    return;
+                }
+                nextSeenByConversationId[conversationId] = seenAtMs;
+                changed = true;
+                updateLastSeen({
+                    publicKeyHex: publicKeyHex as PublicKeyHex,
+                    conversationId,
+                    seenAtMs,
+                    profileId: activeProfileId,
+                });
+            });
+            return changed ? nextSeenByConversationId : previous;
+        });
+    }, [
+        selectedConversation,
+        hasHydrated,
+        publicKeyHex,
+        activeProfileId,
+    ]);
+
+    useEffect(() => {
+        if (!publicKeyHex || !hasHydrated) {
             return;
         }
-        const seenAtMs = Date.now();
-        const conversationId = selectedConversation.id;
-        setLastViewedByConversationId((previous) => {
-            if ((previous[conversationId] ?? 0) >= seenAtMs) {
-                return previous;
-            }
-            const nextSeenByConversationId = {
-                ...previous,
-                [conversationId]: seenAtMs,
-            };
-            updateLastSeen({
-                publicKeyHex: publicKeyHex as PublicKeyHex,
-                conversationId,
-                seenAtMs,
-                profileId: activeProfileId,
+        const persistedState = messagingChatStateUiMirror.load(publicKeyHex as PublicKeyHex, { profileId: activeProfileId });
+        if (!persistedState) {
+            return;
+        }
+        setUnreadByConversationId((current) => {
+            const next = suppressUnreadByLastSeen({
+                unreadByConversationId: current,
+                lastSeenByConversationId: lastViewedByConversationId,
+                conversationHeadAtMsById: buildConversationHeadAtMsByIdFromPersisted(persistedState),
             });
-            return nextSeenByConversationId;
+            if (unreadByConversationIdEqual(current, next)) {
+                return current;
+            }
+            unreadByConversationIdRef.current = next;
+            messagingChatStateUiMirror.updateUnreadCounts(publicKeyHex as PublicKeyHex, next);
+            return next;
         });
-    }, [selectedConversation?.id, selectedConversation?.kind, hasHydrated, publicKeyHex, activeProfileId]);
+    }, [activeProfileId, hasHydrated, lastViewedByConversationId, publicKeyHex]);
 
     useEffect(() => {
         if (!selectedConversation || !hasHydrated) {

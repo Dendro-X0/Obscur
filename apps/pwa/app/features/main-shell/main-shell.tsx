@@ -25,6 +25,7 @@ import { createVoiceCallSignalPayload, parseVoiceCallInvitePayload, parseVoiceCa
 import { isRealtimeVoiceCallsEnabled } from "@/app/features/messaging/services/realtime-voice-feature-gate";
 import { subscribeNowMs, getNowMsSnapshot, getNowMsServerSnapshot } from "@/app/features/messaging/utils/time";
 import { Sidebar } from "@/app/features/messaging/components/sidebar";
+import { resolveConversationUnreadCount } from "@/app/features/messaging/providers/unread-last-seen-suppression";
 import { ChatView } from "@/app/features/messaging/components/chat-view";
 import { useAutoLock } from "@/app/features/settings/hooks/use-auto-lock";
 import type { GroupMessageEvent } from "@/app/features/groups/hooks/use-sealed-community-types";
@@ -62,14 +63,17 @@ import { useAttachmentHandler } from "./hooks/use-attachment-handler";
 import { useDmSync } from "./hooks/use-dm-sync";
 import { useChatViewProps } from "./hooks/use-chat-view-props";
 import { useSyncMediaPreviewScope } from "@/app/features/messaging/hooks/use-sync-media-preview-scope";
+import { getPeerFirstSeenAtUnixMs } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { installChatPerformanceDevTools } from "../messaging/dev/chat-performance-dev-tools";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { resolveConversationByToken } from "@/app/features/messaging/utils/conversation-target";
-import { getOpenPendingRequestCount, partitionOpenRequestsByLane } from "@/app/features/messaging/services/request-inbox-view";
+import { partitionOpenRequestsByLane } from "@/app/features/messaging/services/request-inbox-view";
+import { buildSidebarRequestsInboxItems } from "@/app/features/messaging/services/request-sidebar-items";
 import type { MessagingSidebarTab } from "@/app/features/messaging/services/messaging-sidebar-tab";
-import { resolveDmPeerEstablishedForUi, resolveDmPeerOutgoingWaitInitiatorForUi, isPendingContactHandshake, } from "@/app/features/messaging/services/dm-peer-established-ui";
+import { resolveDmPeerEstablishedForUi, resolveDmPeerOutgoingWaitInitiatorForUi, resolveDmPeerOutgoingResendEligibleForUi, isPendingContactHandshake, } from "@/app/features/messaging/services/dm-peer-established-ui";
 import {
     hasDmThreadRowForPeer,
     resolveEffectiveContactRequestStatus,
@@ -79,8 +83,9 @@ import {
     writeRequestsPendingBadgeDismissed,
 } from "@/app/features/messaging/services/request-inbox-badge-preference";
 import { resolveContactRequestComposeMode } from "@/app/features/messaging/services/contact-request-sandbox-policy";
+import { DEFAULT_INVITATION_INTRO } from "@/app/features/messaging/services/invitation-composer";
+import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/invitation-presentation";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
 import { configureInviteRequestStateBridge, configureInviteRequestTransportBridge } from "@/app/features/invites/utils/invite-manager";
@@ -3274,9 +3279,28 @@ function NostrMessengerContent() {
         selectedConversation: selectedConversationView,
         myPublicKeyHex
     });
+    const mediaPreviewTrustExportContext = useMemo(() => {
+        if (selectedConversationView?.kind !== "dm") {
+            return null;
+        }
+        const peerPublicKeyHex = selectedConversationView.pubkey;
+        const firstIncoming = visibleMessages.find((message) => !message.isOutgoing);
+        const messageContentByMessageId: Record<string, string> = {};
+        visibleMessages.forEach((message) => {
+            messageContentByMessageId[message.id] = message.content;
+        });
+        return {
+            peerPublicKeyHex,
+            isPeerAccepted: peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex }),
+            threadFirstPeerMessageAtUnixMs: firstIncoming?.timestamp.getTime() ?? null,
+            peerFirstSeenAtUnixMs: getPeerFirstSeenAtUnixMs(getResolvedProfileId(), peerPublicKeyHex),
+            messageContentByMessageId,
+        };
+    }, [peerTrust, selectedConversationView, visibleMessages]);
     useSyncMediaPreviewScope({
         conversationDisplayName: selectedConversationView?.displayName ?? "",
         items: selectedConversationMediaItems,
+        trustExportContext: mediaPreviewTrustExportContext,
     });
     const updateSidebarTab = useCallback((tab: MessagingSidebarTab) => {
         if (tab === "chats" && selectedConversation?.kind === "dm") {
@@ -3365,6 +3389,37 @@ function NostrMessengerContent() {
         toast.success("Request canceled.");
         setSelectedConversation(null);
     }, [requestTransport, requestsInbox.state.items, setSelectedConversation]);
+
+    const handleResendConnectionRequest = useCallback(async (pk: PublicKeyHex) => {
+        if (blocklist.isBlocked({ publicKeyHex: pk })) {
+            toast.error("You blocked this contact. Unblock them before sending a new request.");
+            return;
+        }
+        const outcome = await requestTransport.sendRequest({
+            peerPublicKeyHex: pk,
+            introMessage: DEFAULT_INVITATION_INTRO,
+        });
+        if (outcome.status === "ok") {
+            toast.success(getDirectInvitationToastCopy("ok").message);
+            return;
+        }
+        if (outcome.status === "partial") {
+            toast.warning(getDirectInvitationToastCopy("partial", {
+                relaySuccessCount: outcome.relaySuccessCount,
+                relayTotal: outcome.relayTotal,
+            }).message);
+            return;
+        }
+        if (outcome.status === "queued") {
+            toast.warning(getDirectInvitationToastCopy("queued", {
+                message: outcome.message,
+            }).message);
+            return;
+        }
+        toast.error(getDirectInvitationToastCopy("failed", {
+            message: outcome.message || "Could not send a new request.",
+        }).message);
+    }, [blocklist, requestTransport]);
     // Clear unread marks when switching to invitations tab
     useEffect(() => {
         if ((sidebarTab === "requests" || sidebarTab === "junk") && requestsInbox.state.items.some(i => i.unreadCount > 0)) {
@@ -3372,9 +3427,17 @@ function NostrMessengerContent() {
         }
     }, [sidebarTab, requestsInbox.markAllRead, requestsInbox.state.items]);
     const canonicalRequestsInboxItems = requestsInbox.state.items;
+    const sidebarRequestsInboxItems = useMemo(() => (
+        buildSidebarRequestsInboxItems({
+            inboxItems: canonicalRequestsInboxItems,
+            createdConnections,
+            isPeerAcceptedByTrust: (peerPublicKeyHex) => peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex }),
+            getRequestStatus: (peerPublicKeyHex) => requestsInbox.getRequestStatus({ peerPublicKeyHex }),
+        })
+    ), [canonicalRequestsInboxItems, createdConnections, peerTrust, requestsInbox]);
     const partitionedIncomingRequests = useMemo(() => (
-        partitionOpenRequestsByLane(canonicalRequestsInboxItems, { nowUnixMs: nowMs ?? Date.now() })
-    ), [canonicalRequestsInboxItems, nowMs]);
+        partitionOpenRequestsByLane(sidebarRequestsInboxItems, { nowUnixMs: nowMs ?? Date.now() })
+    ), [sidebarRequestsInboxItems, nowMs]);
     const handleDismissPendingRequestsBadge = useCallback(() => {
         writeRequestsPendingBadgeDismissed(true);
         setPendingRequestsBadgeDismissed(true);
@@ -3434,12 +3497,14 @@ function NostrMessengerContent() {
     ]);
     const hiddenChatIdSet = useMemo(() => new Set(hiddenChatIds), [hiddenChatIds]);
     const visibleChatsList = useMemo(() => (filteredConversations.filter((conversation) => (conversation.kind === "group" || !hiddenChatIdSet.has(conversation.id)))), [filteredConversations, hiddenChatIdSet]);
-    const accurateChatsUnreadCount = useMemo(() => (visibleChatsList.reduce((acc, c) => {
-        if (selectedConversation?.id === c.id) {
-            return acc;
-        }
-        return acc + (unreadByConversationId[c.id] ?? c.unreadCount);
-    }, 0)), [selectedConversation?.id, unreadByConversationId, visibleChatsList]);
+    const accurateChatsUnreadCount = useMemo(() => (visibleChatsList.reduce((acc, conversation) => (
+        acc + resolveConversationUnreadCount({
+            conversation,
+            unreadByConversationId,
+            lastSeenByConversationId: lastViewedByConversationId,
+            selectedConversationId: selectedConversation?.id ?? null,
+        })
+    ), 0)), [lastViewedByConversationId, selectedConversation?.id, unreadByConversationId, visibleChatsList]);
     const chatNavBadgeCounts = useMemo((): Readonly<Record<string, number>> => ({ "/": accurateChatsUnreadCount }), [accurateChatsUnreadCount]);
     useRegisterAppChrome(isMobileDmShell
         ? {
@@ -3622,9 +3687,9 @@ function NostrMessengerContent() {
           </button>
         </div>) : null}
     </>);
-    const sidebarNode = isIdentityUnlocked ? (<Sidebar isNewChatOpen={isNewChatOpen} setIsNewChatOpen={setIsNewChatOpen} isNewGroupOpen={isNewGroupOpen} setIsNewGroupOpen={setIsNewGroupOpen} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchInputRef={searchInputRef} hasHydrated={hasHydrated} filteredConversations={filteredConversations} selectedConversation={selectedConversation} unreadByConversationId={unreadByConversationId} nowMs={nowMs} activeTab={sidebarTab} setActiveTab={updateSidebarTab} selectConversation={handleSelectConversation} interactionByConversationId={interactionByConversationId} requests={partitionedIncomingRequests.inbox} junkRequests={partitionedIncomingRequests.junk} pinnedChatIds={pinnedChatIds} togglePin={togglePin} hiddenChatIds={hiddenChatIds} hideConversation={hideConversation} clearHistory={clearHistory} onClearHistory={requestsInbox.clearHistory} isPeerOnline={isPeerOnlineByEvidence} showHistorySyncNotice={showHistorySyncNotice} onAcceptRequest={(pk) => {
+    const sidebarNode = isIdentityUnlocked ? (<Sidebar isNewChatOpen={isNewChatOpen} setIsNewChatOpen={setIsNewChatOpen} isNewGroupOpen={isNewGroupOpen} setIsNewGroupOpen={setIsNewGroupOpen} searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchInputRef={searchInputRef} hasHydrated={hasHydrated} filteredConversations={filteredConversations} selectedConversation={selectedConversation} unreadByConversationId={unreadByConversationId} lastViewedByConversationId={lastViewedByConversationId} nowMs={nowMs} activeTab={sidebarTab} setActiveTab={updateSidebarTab} selectConversation={handleSelectConversation} interactionByConversationId={interactionByConversationId} requests={partitionedIncomingRequests.inbox} junkRequests={partitionedIncomingRequests.junk} pinnedChatIds={pinnedChatIds} togglePin={togglePin} hiddenChatIds={hiddenChatIds} hideConversation={hideConversation} clearHistory={clearHistory} onClearHistory={requestsInbox.clearHistory} isPeerOnline={isPeerOnlineByEvidence} showHistorySyncNotice={showHistorySyncNotice} onAcceptRequest={(pk) => {
             void handleAcceptContactRequest(pk as PublicKeyHex);
-        }} onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex })} onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })} pendingRequestsBadgeDismissed={pendingRequestsBadgeDismissed} onDismissPendingRequestsBadge={handleDismissPendingRequestsBadge} pendingRequestsCount={getOpenPendingRequestCount(canonicalRequestsInboxItems)} onSelectRequest={(pk) => {
+        }} onIgnoreRequest={(pk) => requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex })} onBlockRequest={(pk) => blocklist.addBlocked({ publicKeyInput: pk })} pendingRequestsBadgeDismissed={pendingRequestsBadgeDismissed} onDismissPendingRequestsBadge={handleDismissPendingRequestsBadge} pendingRequestsCount={sidebarRequestsInboxItems.length} onSelectRequest={(pk) => {
             requestsInbox.markRead({ peerPublicKeyHex: pk as PublicKeyHex });
             updateSidebarTab("requests");
             const cid = toDmConversationId({ myPublicKeyHex: myPublicKeyHex || "", peerPublicKeyHex: pk });
@@ -3712,6 +3777,15 @@ function NostrMessengerContent() {
             return resolveDmPeerOutgoingWaitInitiatorForUi({
                 requestStatus: resolveEffectiveRequestStatusForPeer(pk),
             });
+        })()} outgoingResendEligible={(() => {
+            if (selectedConversationView.kind !== "dm")
+                return false;
+            const pk = selectedConversationView.pubkey;
+            if (blocklist.isBlocked({ publicKeyHex: pk }))
+                return false;
+            return resolveDmPeerOutgoingResendEligibleForUi({
+                requestStatus: resolveEffectiveRequestStatusForPeer(pk),
+            });
         })()} requestEventId={selectedConversationView.kind === "dm"
             ? requestsInbox.state.items.find((item) => item.peerPublicKeyHex === selectedConversationView.pubkey)?.eventId
             : undefined} onAcceptPeer={selectedConversationView.kind === "dm"
@@ -3720,6 +3794,8 @@ function NostrMessengerContent() {
             ? () => handleDeclineContactRequest(selectedConversationView.pubkey)
             : undefined} onCancelOutgoingRequest={selectedConversationView.kind === "dm"
             ? () => handleCancelOutgoingRequest(selectedConversationView.pubkey)
+            : undefined} onResendConnectionRequest={selectedConversationView.kind === "dm"
+            ? () => handleResendConnectionRequest(selectedConversationView.pubkey)
             : undefined} onBlockPeer={() => selectedConversationView.kind === 'dm' && blocklist.addBlocked({ publicKeyInput: selectedConversationView.pubkey })} relayOverlap={selectedConversationView.kind === 'dm' ? contactRelayOverlap : undefined} deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null} onAddRelay={(url) => { relayList.addRelay({ url }); }} onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }} hideDesktopChatHeader={isMobileDmShell}/>) : null;
     const syncStatusBannerNode = isMobileDmShell ? (<MobileShellStatusStrip items={mobileShellStatusItems} onOpenProfiles={() => {
             void router.push("/profiles");

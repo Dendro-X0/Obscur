@@ -7,6 +7,7 @@ import { ExternalLink } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { extractFirstUrl } from "@/app/features/messaging/utils/extract-first-url";
 import { useLinkPreview } from "@/app/features/messaging/hooks/use-link-preview";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 
 type MessageLinkPreviewProps = Readonly<{
   content: string;
@@ -32,6 +33,12 @@ const isDirectMediaLikeUrl = (rawUrl: string): boolean => {
 };
 
 const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element | null => {
+  const {
+    pendingLinkUrl,
+    cancelPendingLink,
+    confirmPendingLink,
+    handleAnchorClick,
+  } = useGuardedExternalLinkOpen();
   const url: string | null = useMemo((): string | null => {
     return extractFirstUrl(props.content);
   }, [props.content]);
@@ -63,26 +70,34 @@ const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element |
   }
   if (previewState.status === "error") {
     return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className={cn(
-          "mt-2 block overflow-hidden rounded-lg border p-3",
-          props.isOutgoing
-            ? "border-white/20 bg-white/10 text-white/90 hover:bg-white/15 dark:border-black/10 dark:bg-black/5 dark:text-zinc-900"
-            : "border-black/10 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
-        )}
-        aria-label="Open link"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">Open link</div>
-            <div className={cn("mt-0.5 truncate text-xs", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-600 dark:text-zinc-400")}>{url}</div>
+      <>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(event) => handleAnchorClick(event, url)}
+          className={cn(
+            "mt-2 block overflow-hidden rounded-lg border p-3",
+            props.isOutgoing
+              ? "border-white/20 bg-white/10 text-white/90 hover:bg-white/15 dark:border-black/10 dark:bg-black/5 dark:text-zinc-900"
+              : "border-black/10 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
+          )}
+          aria-label="Open link"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">Open link</div>
+              <div className={cn("mt-0.5 truncate text-xs", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-600 dark:text-zinc-400")}>{url}</div>
+            </div>
+            <ExternalLink className={cn("mt-0.5 h-4 w-4 flex-none", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-500 dark:text-zinc-400")} />
           </div>
-          <ExternalLink className={cn("mt-0.5 h-4 w-4 flex-none", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-500 dark:text-zinc-400")} />
-        </div>
-      </a>
+        </a>
+        <LinkOpenConfirmDialog
+          url={pendingLinkUrl}
+          onClose={cancelPendingLink}
+          onConfirm={() => confirmPendingLink()}
+        />
+      </>
     );
   }
   if (previewState.status !== "ok") {
@@ -99,40 +114,48 @@ const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element |
   const title: string = preview.title ?? preview.siteName ?? host;
 
   return (
-    <a
-      href={preview.url}
-      target="_blank"
-      rel="noreferrer"
-      className={cn(
-        "mt-2 block overflow-hidden rounded-lg border",
-        props.isOutgoing
-          ? "border-white/20 bg-white/10 text-white/90 hover:bg-white/15 dark:border-black/10 dark:bg-black/5 dark:text-zinc-900"
-          : "border-black/10 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
-      )}
-      aria-label={`Open link preview for ${host}`}
-    >
-      <div className="flex">
-        {preview.imageUrl ? (
-          <div className="relative h-20 w-28 flex-none">
-            <Image src={preview.imageUrl} alt={title} fill unoptimized className="object-cover" />
-          </div>
-        ) : null}
-        <div className="min-w-0 flex-1 p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold">{title}</div>
-              <div className={cn("mt-0.5 truncate text-xs", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-600 dark:text-zinc-400")}> {host} </div>
-              {preview.description && (
-                <div className={cn("mt-1 line-clamp-2 text-xs", props.isOutgoing ? "text-white/60 dark:text-zinc-900/60" : "text-zinc-500 dark:text-zinc-400")}>
-                  {preview.description}
-                </div>
-              )}
+    <>
+      <a
+        href={preview.url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(event) => handleAnchorClick(event, preview.url)}
+        className={cn(
+          "mt-2 block overflow-hidden rounded-lg border",
+          props.isOutgoing
+            ? "border-white/20 bg-white/10 text-white/90 hover:bg-white/15 dark:border-black/10 dark:bg-black/5 dark:text-zinc-900"
+            : "border-black/10 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
+        )}
+        aria-label={`Open link preview for ${host}`}
+      >
+        <div className="flex">
+          {preview.imageUrl ? (
+            <div className="relative h-20 w-28 flex-none">
+              <Image src={preview.imageUrl} alt={title} fill unoptimized className="object-cover" />
             </div>
-            <ExternalLink className={cn("mt-0.5 h-4 w-4 flex-none", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-500 dark:text-zinc-400")} />
+          ) : null}
+          <div className="min-w-0 flex-1 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold">{title}</div>
+                <div className={cn("mt-0.5 truncate text-xs", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-600 dark:text-zinc-400")}> {host} </div>
+                {preview.description && (
+                  <div className={cn("mt-1 line-clamp-2 text-xs", props.isOutgoing ? "text-white/60 dark:text-zinc-900/60" : "text-zinc-500 dark:text-zinc-400")}>
+                    {preview.description}
+                  </div>
+                )}
+              </div>
+              <ExternalLink className={cn("mt-0.5 h-4 w-4 flex-none", props.isOutgoing ? "text-white/70 dark:text-zinc-900/70" : "text-zinc-500 dark:text-zinc-400")} />
+            </div>
           </div>
         </div>
-      </div>
-    </a>
+      </a>
+      <LinkOpenConfirmDialog
+        url={pendingLinkUrl}
+        onClose={cancelPendingLink}
+        onConfirm={() => confirmPendingLink()}
+      />
+    </>
   );
 };
 

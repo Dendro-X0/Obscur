@@ -3,6 +3,7 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   isPendingContactHandshake,
   resolveDmPeerEstablishedForUi,
+  resolveDmPeerOutgoingResendEligibleForUi,
   resolveDmPeerOutgoingWaitInitiatorForUi,
 } from "./dm-peer-established-ui";
 
@@ -59,6 +60,18 @@ describe("dm-peer-established-ui", () => {
     })).toBe(false);
     expect(resolveDmPeerOutgoingWaitInitiatorForUi({
       requestStatus: { isOutgoing: false, status: "pending" },
+    })).toBe(false);
+  });
+
+  it("marks outgoing declined requests as resend-eligible", () => {
+    expect(resolveDmPeerOutgoingResendEligibleForUi({
+      requestStatus: { isOutgoing: true, status: "declined" },
+    })).toBe(true);
+    expect(resolveDmPeerOutgoingResendEligibleForUi({
+      requestStatus: { isOutgoing: true, status: "canceled" },
+    })).toBe(true);
+    expect(resolveDmPeerOutgoingResendEligibleForUi({
+      requestStatus: { isOutgoing: true, status: "pending" },
     })).toBe(false);
   });
 });

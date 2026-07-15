@@ -45,8 +45,20 @@ export type CustomConduitPullResponse = Readonly<{
   cursor?: string;
 }>;
 
+/** Receive modes advertised by GET /mesh/v1/health (C12). */
+export type CustomConduitHttpCapability = "pull" | "long_poll" | "sse";
+
 export type CustomConduitHealthResponse = Readonly<{
   ok: boolean;
   contractVersion: typeof CUSTOM_CONDUIT_HTTP_V1;
   operatorLabel?: string;
+  /** When present, client may prefer stream over timer pull (C12). */
+  capabilities?: ReadonlyArray<CustomConduitHttpCapability>;
+  storedEnvelopeCount?: number;
 }>;
+
+/** Default long-poll wait when client omits timeoutMs. */
+export const CUSTOM_CONDUIT_STREAM_DEFAULT_TIMEOUT_MS = 25_000;
+
+/** Hard clamp for GET /mesh/v1/stream?timeoutMs= */
+export const CUSTOM_CONDUIT_STREAM_MAX_TIMEOUT_MS = 60_000;

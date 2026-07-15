@@ -2,9 +2,18 @@
 
 All notable changes to Obscur are documented here.
 
-**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md). **Current version:** **1.9.11** ([release notes](docs/releases/v1.9.11-release.md)).
+**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md). **Current version:** **1.9.12** ([release notes](docs/releases/v1.9.12-release.md)).
 
 ---
+
+## [1.9.12] — 2026-07-15 (Conduit Mesh + trust gates)
+
+**Release notes:** [v1.9.12-release.md](docs/releases/v1.9.12-release.md). **Scope:** [v1.9.12-scope.md](docs/program/v1.9.12-scope.md).
+
+- Conduit Mesh C0–C14 (HTTP pull, mesh wire, long-poll, SSE, Tor SOCKS L1)
+- Dual-window L3 soaks: C7 WS, C10 HTTP, C14 SSE **PASS**; C13 Tor **BLOCKED** (env)
+- Trust link/export confirmation gates; voice-note player/waveform
+- Vault chat→save remains **disabled** (deferred to 1.9.13)
 
 ## [1.9.11] — 2026-07-11 (Vault encryption sandbox Phases 1–5)
 

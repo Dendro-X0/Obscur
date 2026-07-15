@@ -6,6 +6,8 @@ import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile
 import {
   clearDevLabDmTrustThreadForPeer,
   probeDevLabDmTrustAssessmentForPeer,
+  seedDevLabAcceptedPeer,
+  seedDevLabEstablishedTrustThread,
 } from "./dev-lab-trust-probe";
 
 const MY_PK = "aa".repeat(32) as PublicKeyHex;
@@ -55,5 +57,29 @@ describe("dev-lab-trust-probe", () => {
     expect(cleared.cleared).toBe(true);
     expect(cleared.conversationId).toBe(conversationId);
     expect(localStorage.getItem(storageKey)).toBe("{}");
+  });
+
+  it("suppresses elevated banner for accepted peer burst when isPeerAccepted omitted", () => {
+    seedDevLabAcceptedPeer({
+      ownerPublicKeyHex: MY_PK,
+      peerPublicKeyHex: PEER_PK,
+    });
+    seedDevLabEstablishedTrustThread({
+      myPublicKeyHex: MY_PK,
+      peerPublicKeyHex: PEER_PK,
+      firstPeerMessageAtUnixMs: BASE_MS - 86_400_000,
+    });
+    const burstProbe = probeDevLabDmTrustAssessmentForPeer({
+      myPublicKeyHex: MY_PK,
+      peerPublicKeyHex: PEER_PK,
+      messages: Array.from({ length: 22 }, (_, messageIndex) => ({
+        content: `burst ${messageIndex}`,
+        isOutgoing: false,
+        timestampUnixMs: BASE_MS + messageIndex * 100,
+      })),
+    });
+    expect(burstProbe.showBanner).toBe(false);
+    expect(burstProbe.assessment?.tier).not.toBe("elevated");
+    expect(burstProbe.assessment?.tier).not.toBe("critical");
   });
 });

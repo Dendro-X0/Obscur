@@ -1,4 +1,4 @@
-import type { ConduitDescriptor, ConduitDriverPort } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor, ConduitDriverPort, MeshEnvelope } from "@obscur/conduit-mesh-contracts";
 
 import { createCoordinationHttpConduitDriver } from "./coordination-http-conduit-driver";
 import { createCustomHttpConduitDriver } from "./custom-http-conduit-driver";
@@ -13,6 +13,9 @@ export type CreateConduitDriverOptions = Readonly<{
   nostrWire?: NostrWsWirePort;
   nostrSignerPublicKeyHex?: string;
   now?: () => number;
+  onInbound?: (envelope: MeshEnvelope) => void;
+  pullIntervalMs?: number;
+  streamTimeoutMs?: number;
 }>;
 
 export const createConduitDriverFromDescriptor = (
@@ -27,7 +30,14 @@ export const createConduitDriverFromDescriptor = (
       if (!fetchImpl) {
         return createMockConduitDriver({ descriptor, now });
       }
-      return createTeamRelayConduitDriver({ descriptor, fetch: fetchImpl, now });
+      return createTeamRelayConduitDriver({
+        descriptor,
+        fetch: fetchImpl,
+        now,
+        onInbound: options.onInbound,
+        pullIntervalMs: options.pullIntervalMs,
+        streamTimeoutMs: options.streamTimeoutMs,
+      });
     }
     case "coordination_http": {
       if (!fetchImpl) {
@@ -39,7 +49,14 @@ export const createConduitDriverFromDescriptor = (
       if (!fetchImpl) {
         return createMockConduitDriver({ descriptor, now });
       }
-      return createCustomHttpConduitDriver({ descriptor, fetch: fetchImpl, now });
+      return createCustomHttpConduitDriver({
+        descriptor,
+        fetch: fetchImpl,
+        now,
+        onInbound: options.onInbound,
+        pullIntervalMs: options.pullIntervalMs,
+        streamTimeoutMs: options.streamTimeoutMs,
+      });
     }
     case "nostr_ws": {
       if (!options.nostrWire) {

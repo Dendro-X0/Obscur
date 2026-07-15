@@ -55,7 +55,7 @@ import {
   isDesktopOsSessionRestoreAvailable,
 } from "@/app/features/auth/services/session-credential-policy";
 import {
-  activateNativeStorageAtRestUnlock,
+  syncNativeVaultEncryptionSessionAfterIdentityUnlock,
   finalizeNativeStorageAtRestLock,
 } from "@/app/features/storage/services/native-storage-at-rest-service";
 import {
@@ -336,6 +336,17 @@ const clearNativeSecureSessionBestEffort = async (): Promise<void> => {
   await endNativeDeviceSignInBestEffort();
 };
 
+const syncVaultEncryptionSessionBestEffort = async (params?: Readonly<{
+  profileId?: string;
+  passphrase?: Passphrase;
+}>): Promise<void> => {
+  try {
+    await syncNativeVaultEncryptionSessionAfterIdentityUnlock(params);
+  } catch (error) {
+    console.warn("[Identity] Vault encryption session sync failed (session remains unlocked):", error);
+  }
+};
+
 const applyNativeSessionPersistence = async (params: Readonly<{
   staySignedIn: boolean;
   publicKeyHex: PublicKeyHex;
@@ -589,6 +600,7 @@ const tryNativeSessionUnlock = async (params: Readonly<{
       resetAutoLockOverlayState();
       clearAuthKernelManualLock(resolveIdentityScopeProfileId());
       reconcileWindowRuntimeBinding();
+      await syncVaultEncryptionSessionBestEffort({ profileId: resolveIdentityScopeProfileId() });
       return "unlocked";
     }
 
@@ -640,6 +652,7 @@ const tryNativeSessionUnlock = async (params: Readonly<{
     resetAutoLockOverlayState();
     clearAuthKernelManualLock(resolveIdentityScopeProfileId());
     reconcileWindowRuntimeBinding();
+    await syncVaultEncryptionSessionBestEffort({ profileId: resolveIdentityScopeProfileId() });
     return "unlocked";
   } catch (error) {
     if (error instanceof AccountActiveInOtherProfileWindowError) {
@@ -823,6 +836,10 @@ const createIdentityAction = async (params: Readonly<{ passphrase: Passphrase; u
       stored: record,
       context: "create",
     });
+    await syncVaultEncryptionSessionBestEffort({
+      profileId: resolveIdentityScopeProfileId(),
+      passphrase: params.passphrase,
+    });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
     setIdentityState(createErrorState(message, record));
@@ -877,6 +894,10 @@ const createPoWIdentityAction = async (params: Readonly<{
       privateKeyHex,
       stored: record,
       context: "create",
+    });
+    await syncVaultEncryptionSessionBestEffort({
+      profileId: resolveIdentityScopeProfileId(),
+      passphrase: params.passphrase,
     });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";
@@ -939,6 +960,14 @@ const importIdentityAction = async (params: Readonly<{ privateKeyHex: PrivateKey
       stored: record,
       context: "import",
     });
+    if (params.passphrase.trim().length > 0) {
+      await syncVaultEncryptionSessionBestEffort({
+        profileId: resolveIdentityScopeProfileId(),
+        passphrase: params.passphrase,
+      });
+    } else {
+      await syncVaultEncryptionSessionBestEffort({ profileId: resolveIdentityScopeProfileId() });
+    }
     void resolveAccountImportEvidence(publicKeyHex)
       .then((importEvidence) => {
         accountSyncStatusStore.updateSnapshot({
@@ -1023,14 +1052,10 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
       context: "unlock",
     });
     reconcileWindowRuntimeBinding();
-    try {
-      await activateNativeStorageAtRestUnlock({
-        profileId: resolveIdentityScopeProfileId(),
-        passphrase: params.passphrase,
-      });
-    } catch (error) {
-      console.warn("[Identity] Storage-at-rest unlock failed after auth unlock (session remains unlocked):", error);
-    }
+    await syncVaultEncryptionSessionBestEffort({
+      profileId: resolveIdentityScopeProfileId(),
+      passphrase: params.passphrase,
+    });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {
@@ -1076,6 +1101,7 @@ const unlockWithPrivateKeyHexAction = async (params: Readonly<{ privateKeyHex: P
       stored: storedIdentity,
       context: "raw_unlock",
     });
+    await syncVaultEncryptionSessionBestEffort({ profileId: resolveIdentityScopeProfileId() });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
     if (message.includes("does not match stored identity")) {

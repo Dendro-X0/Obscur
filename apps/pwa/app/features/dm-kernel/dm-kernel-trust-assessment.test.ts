@@ -7,10 +7,12 @@ import {
   BUNDLE_SPAM_COLD,
   detectFinancialMention,
   FINANCIAL_PIVOT_WINDOW_MS,
+  resolveTrustActionFriction,
 } from "./dm-kernel-trust-assessment-port";
 import {
   INVITE_FANOUT_THRESHOLD,
   MSG_RATE_THRESHOLD,
+  resolveMsgRateThreshold,
 } from "./dm-kernel-trust-spam-signals";
 
 const PEER = "b".repeat(64);
@@ -139,7 +141,28 @@ describe("dm-kernel-trust-assessment-port", () => {
     expect(result.activeSignals).toContain("contact.cold");
   });
 
-  it("elevates on msg.rate alone for accepted peer burst", () => {
+  it("does not warn on accepted peer normal conversation burst", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "quick back-and-forth",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 3,
+      nowUnixMs: baseMs,
+    });
+    expect(result.activeSignals).not.toContain("msg.rate");
+    expect(result.tier).toBe("none");
+  });
+
+  it("infos on msg.rate flood for accepted peer burst", () => {
+    const floodCount = resolveMsgRateThreshold({
+      peerIncomingCountLastMinute: 0,
+      msgRateThreshold: MSG_RATE_THRESHOLD,
+      isContactCold: false,
+      isPeerAccepted: true,
+    }) + 1;
     const result = assessDmTrustWarning({
       peerPublicKeyHex: PEER,
       isPeerAccepted: true,
@@ -147,10 +170,10 @@ describe("dm-kernel-trust-assessment-port", () => {
       messageTimestampUnixMs: baseMs,
       threadFirstPeerMessageAtUnixMs: baseMs,
       dismissedUntilUnixMs: null,
-      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 3,
+      peerIncomingCountLastMinute: floodCount,
       nowUnixMs: baseMs,
     });
-    expect(result.tier).toBe("elevated");
+    expect(result.tier).toBe("info");
     expect(result.activeSignals).toEqual(["msg.rate"]);
     expect(result.copyKey).toBe("messaging.trust.msgRate");
   });
@@ -321,5 +344,89 @@ describe("dm-kernel-trust-assessment-port", () => {
     });
     expect(result.bundleId).toBe(BUNDLE_PHISH_COLD);
     expect(result.copyKey).toBe("messaging.trust.phishLookalikeCold");
+  });
+
+  it("flags young key age on cold contact", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: false,
+      messageContent: "hey",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerFirstSeenAtUnixMs: baseMs - 3 * 60 * 60 * 1000,
+      nowUnixMs: baseMs,
+    });
+    expect(result.activeSignals).toContain("key.age");
+    expect(result.tier).toBe("info");
+  });
+
+  it("flags outside-web WoT distance separately from accepted-peer vigilant cold", () => {
+    const outsideWeb = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: false,
+      messageContent: "hello",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerWotDistance: null,
+      nowUnixMs: baseMs,
+    });
+    expect(outsideWeb.activeSignals).toContain("graph.wot_distance");
+
+    const acceptedVigilant = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "hello",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerWotDistance: 1,
+      contactTrustSensitivity: "vigilant",
+      nowUnixMs: baseMs,
+    });
+    expect(acceptedVigilant.activeSignals).toContain("contact.cold");
+    expect(acceptedVigilant.activeSignals).not.toContain("graph.wot_distance");
+  });
+
+  it("elevates cold contacts when attachment repeat-hash fanout threshold is met", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: false,
+      messageContent: "see attachment",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      attachmentRepeatHashDistinctPeerCount: 3,
+      nowUnixMs: baseMs,
+    });
+    expect(result.activeSignals).toContain("attachment.repeat_hash");
+    expect(result.tier).toBe("elevated");
+    expect(result.copyKey).toBe("messaging.trust.repeatHashCold");
+  });
+
+  it("maps trust tiers to ASE friction levels", () => {
+    const critical = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: false,
+      messageContent: "Pay $50 asap",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: baseMs,
+    });
+    expect(resolveTrustActionFriction(critical)).toBe("confirm");
+
+    const none = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "see you tomorrow",
+      messageTimestampUnixMs: baseMs,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      peerIncomingCountLastMinute: MSG_RATE_THRESHOLD + 3,
+      nowUnixMs: baseMs,
+    });
+    expect(resolveTrustActionFriction(none)).toBe("none");
   });
 });

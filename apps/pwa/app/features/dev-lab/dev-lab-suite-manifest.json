@@ -1,6 +1,6 @@
 {
   "schema": "obscur.dev-lab.suite-manifest.v1",
-  "cliOnly": ["two-actor-dm", "membership-join-leave", "membership-leave-rejoin-live", "auth4-scope-probe-live", "trust-live", "sec-bot-inbound-live", "dm-native-persist", "dm-native-relay-backfill"],
+  "cliOnly": ["two-actor-dm", "membership-join-leave", "membership-leave-rejoin-live", "auth4-scope-probe-live", "trust-live", "trust-accepted-burst-live", "sec-bot-inbound-live", "dm-native-persist", "dm-native-relay-backfill"],
   "terminal": ["cold-reload"],
   "suites": {
     "smoke": ["auth-unlock", "shell-health"],
@@ -41,6 +41,7 @@
       "trust-matrix",
       "trust-fixtures",
       "auth4-scope-probe",
+      "trust-accepted-burst-live",
       "trust-live",
       "sec-bot-inbound-live"
     ]

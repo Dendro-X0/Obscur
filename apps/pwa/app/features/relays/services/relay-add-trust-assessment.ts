@@ -54,8 +54,8 @@ export const assessRelayAddTrust = (params: Readonly<{
       capability: assessRelayCapability({ enabledRelayUrls: params.enabledRelayUrls ?? [] }),
       behavioralScore: null,
       behavioralTrustLevel: null,
-      userMessage: "Enter a valid relay URL (wss://… or ws://localhost for dev).",
-      settingsHint: "Relays must use wss:// in production, or ws://localhost / 127.0.0.1 in dev.",
+      userMessage: "Enter a valid relay URL (wss://…, or ws/http on localhost for private mesh).",
+      settingsHint: "Relays must use wss:// in production, or localhost ws/http for private mesh gateways.",
       showWorkspaceNotice: false,
     };
   }

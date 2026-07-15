@@ -12,6 +12,7 @@ import { toCommunityMembershipLedgerKey } from "@/app/features/groups/services/c
 import { pickPreferredCommunityDisplayName } from "@/app/features/groups/services/community-display-name";
 import { sanitizeRestoredChatStateLiveCommunitySignals } from "./restore-live-community-boundary";
 import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
+import { mergeUnreadByConversationIdForRestore } from "@/app/features/messaging/providers/unread-last-seen-suppression";
 
 export const uniqueStrings = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   Array.from(new Set(values.filter((value) => value.length > 0)));
@@ -877,10 +878,10 @@ export const mergeChatState = (
     ),
     pinnedChatIds: uniqueStrings([...(current.pinnedChatIds ?? []), ...(incoming.pinnedChatIds ?? [])]),
     hiddenChatIds: uniqueStrings([...(current.hiddenChatIds ?? []), ...(incoming.hiddenChatIds ?? [])]),
-    unreadByConversationId: {
-      ...current.unreadByConversationId,
-      ...incoming.unreadByConversationId,
-    },
+    unreadByConversationId: mergeUnreadByConversationIdForRestore(
+      current.unreadByConversationId,
+      incoming.unreadByConversationId,
+    ),
     connectionOverridesByConnectionId: {
       ...current.connectionOverridesByConnectionId,
       ...incoming.connectionOverridesByConnectionId,

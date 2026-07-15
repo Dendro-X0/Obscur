@@ -10,6 +10,93 @@ use crate::update_channel;
 
 const REMOTE_BYTES_TIMEOUT_SECS: u64 = 300;
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeshHttpFetchViaSocksResponse {
+    pub status: u16,
+    pub body_text: String,
+    pub content_type: Option<String>,
+}
+
+/// Mesh HTTP GET/POST through an explicit SOCKS5(h) proxy (C13).
+/// Used by conduit mesh drivers — does not depend on the webview CORS model.
+#[tauri::command]
+pub async fn mesh_http_fetch_via_socks(
+    url: String,
+    method: String,
+    proxy_url: String,
+    headers: Option<std::collections::HashMap<String, String>>,
+    body_text: Option<String>,
+) -> Result<MeshHttpFetchViaSocksResponse, String> {
+    let trimmed_url = url.trim();
+    if trimmed_url.is_empty() {
+        return Err("URL is empty".to_string());
+    }
+    if !(trimmed_url.starts_with("https://") || trimmed_url.starts_with("http://")) {
+        return Err("Only http:// and https:// URLs are allowed".to_string());
+    }
+
+    let trimmed_proxy = proxy_url.trim();
+    if trimmed_proxy.is_empty() {
+        return Err("proxy_url is empty".to_string());
+    }
+    if !(trimmed_proxy.starts_with("socks5://") || trimmed_proxy.starts_with("socks5h://")) {
+        return Err("proxy_url must be socks5:// or socks5h://".to_string());
+    }
+
+    let proxy = reqwest::Proxy::all(trimmed_proxy)
+        .map_err(|error| format!("Invalid SOCKS proxy URL: {error}"))?;
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(12))
+        .timeout(Duration::from_secs(45))
+        .proxy(proxy)
+        .build()
+        .map_err(|error| format!("Failed to create SOCKS HTTP client: {error}"))?;
+
+    let method_upper = method.trim().to_uppercase();
+    let http_method = match method_upper.as_str() {
+        "GET" => reqwest::Method::GET,
+        "POST" => reqwest::Method::POST,
+        "PUT" => reqwest::Method::PUT,
+        "DELETE" => reqwest::Method::DELETE,
+        "HEAD" => reqwest::Method::HEAD,
+        "OPTIONS" => reqwest::Method::OPTIONS,
+        _ => return Err(format!("Unsupported HTTP method: {method_upper}")),
+    };
+
+    let mut request = client.request(http_method, trimmed_url);
+    if let Some(header_map) = headers {
+        for (key, value) in header_map {
+            request = request.header(key, value);
+        }
+    }
+    if let Some(body) = body_text {
+        request = request.body(body);
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("SOCKS HTTP request failed: {error}"))?;
+    let status = response.status().as_u16();
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_string());
+    let body_text = response
+        .text()
+        .await
+        .map_err(|error| format!("Failed to read SOCKS HTTP response: {error}"))?;
+
+    Ok(MeshHttpFetchViaSocksResponse {
+        status,
+        body_text,
+        content_type,
+    })
+}
+
 /// Fetch remote text (manifests on raw.githubusercontent.com, etc.) without webview CORS limits.
 #[tauri::command]
 pub async fn fetch_remote_text(url: String) -> Result<String, String> {

@@ -6,6 +6,7 @@ import { cn } from "@dweb/ui-kit";
 import { ExternalLink, ImageOff, Loader2, RefreshCw } from "lucide-react";
 import { classifyMediaError } from "@/app/features/messaging/components/media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 
 interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'onLoad' | 'onError' | 'width' | 'height'> {
     src: string;
@@ -14,6 +15,7 @@ interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElem
     containerClassName?: string;
     priority?: boolean;
     unoptimized?: boolean;
+    onRequestOpenExternalLink?: (url: string) => void;
 }
 
 export function OptimizedImage({
@@ -24,18 +26,26 @@ export function OptimizedImage({
     priority,
     unoptimized = true,
     fill = true,
+    onRequestOpenExternalLink,
     ...props
 }: OptimizedImageProps & { fill?: boolean }) {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
+    const {
+        pendingLinkUrl,
+        cancelPendingLink,
+        confirmPendingLink,
+        requestOpenExternalLink,
+    } = useGuardedExternalLinkOpen();
 
     const openExternally = (): void => {
-        if (typeof window === "undefined") return;
-        window.open(src, "_blank", "noopener,noreferrer");
+        const requestOpen = onRequestOpenExternalLink ?? requestOpenExternalLink;
+        requestOpen(src);
     };
 
     return (
+        <>
         <div className={cn("relative overflow-hidden bg-zinc-100 dark:bg-zinc-800", containerClassName)}>
             {!isLoaded && !isError && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
@@ -97,5 +107,13 @@ export function OptimizedImage({
                 />
             )}
         </div>
+        {!onRequestOpenExternalLink ? (
+            <LinkOpenConfirmDialog
+                url={pendingLinkUrl}
+                onClose={cancelPendingLink}
+                onConfirm={() => confirmPendingLink()}
+            />
+        ) : null}
+        </>
     );
 }

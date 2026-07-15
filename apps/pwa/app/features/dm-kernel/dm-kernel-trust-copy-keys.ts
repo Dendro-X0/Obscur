@@ -16,6 +16,9 @@ const resolvePhishColdCopyKey = (activeSignals: ReadonlyArray<TrustSignalId>): s
   if (includesSignal(activeSignals, "attachment.risky_filename")) {
     return "messaging.trust.phishAttachmentCold";
   }
+  if (includesSignal(activeSignals, "attachment.repeat_hash")) {
+    return "messaging.trust.repeatHashCold";
+  }
   if (includesSignal(activeSignals, "link.lookalike_brand")) {
     return "messaging.trust.phishLookalikeCold";
   }
@@ -76,6 +79,9 @@ const resolveStandaloneSignalCopyKey = (
   }
   if (includesSignal(activeSignals, "attachment.risky_filename")) {
     return "messaging.trust.phishAttachmentCold";
+  }
+  if (includesSignal(activeSignals, "attachment.repeat_hash")) {
+    return "messaging.trust.repeatHashCold";
   }
   if (includesSignal(activeSignals, "thread.off_platform_redirect")) {
     return "messaging.trust.seOffPlatformCold";

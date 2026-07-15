@@ -7,6 +7,7 @@ import {
 import {
   clearDmTrustThreadState,
   getDmTrustThreadState,
+  recordPeerIncomingMessage,
 } from "@/app/features/dm-kernel/dm-kernel-trust-thread-state";
 import {
   getPeerConnectionRequestCountLastDay,
@@ -33,6 +34,79 @@ export type DevLabTrustAssessmentProbe = Readonly<{
 const tierShowsBanner = (tier: TrustWarningTier): boolean => (
   tier === "elevated" || tier === "critical"
 );
+
+const normalizePubkey = (pubkey: string): string => pubkey.trim().toLowerCase();
+
+const readLegacyPeerAccepted = (
+  ownerPublicKeyHex: string,
+  peerPublicKeyHex: string,
+): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    const raw = window.localStorage.getItem(`obscur.peer_trust.v1.${ownerPublicKeyHex}`);
+    if (!raw) {
+      return false;
+    }
+    const parsed = JSON.parse(raw) as { acceptedPeers?: ReadonlyArray<string> };
+    return (parsed.acceptedPeers ?? []).some(
+      (entry) => normalizePubkey(entry) === normalizePubkey(peerPublicKeyHex),
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const seedDevLabAcceptedPeer = (params: Readonly<{
+  ownerPublicKeyHex: PublicKeyHex | string;
+  peerPublicKeyHex: PublicKeyHex | string;
+}>): Readonly<{ seeded: boolean }> => {
+  if (typeof window === "undefined") {
+    return { seeded: false };
+  }
+  const owner = normalizePubkey(params.ownerPublicKeyHex);
+  const peer = normalizePubkey(params.peerPublicKeyHex);
+  const key = `obscur.peer_trust.v1.${owner}`;
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw
+      ? JSON.parse(raw) as { acceptedPeers?: ReadonlyArray<string>; mutedPeers?: ReadonlyArray<string> }
+      : { acceptedPeers: [], mutedPeers: [] };
+    const acceptedPeers = [...(parsed.acceptedPeers ?? [])];
+    if (!acceptedPeers.some((entry) => normalizePubkey(entry) === peer)) {
+      acceptedPeers.push(peer as PublicKeyHex);
+    }
+    window.localStorage.setItem(key, JSON.stringify({
+      acceptedPeers,
+      mutedPeers: parsed.mutedPeers ?? [],
+    }));
+    return { seeded: true };
+  } catch {
+    return { seeded: false };
+  }
+};
+
+export const seedDevLabEstablishedTrustThread = (params: Readonly<{
+  myPublicKeyHex: PublicKeyHex | string;
+  peerPublicKeyHex: PublicKeyHex | string;
+  firstPeerMessageAtUnixMs?: number;
+}>): Readonly<{ seeded: boolean; conversationId: string | null }> => {
+  const profileId = getResolvedProfileId();
+  const conversationId = toDmConversationId({
+    myPublicKeyHex: params.myPublicKeyHex,
+    peerPublicKeyHex: params.peerPublicKeyHex,
+  });
+  if (!profileId || !conversationId) {
+    return { seeded: false, conversationId: null };
+  }
+  recordPeerIncomingMessage(
+    profileId,
+    conversationId,
+    params.firstPeerMessageAtUnixMs ?? Date.now() - 86_400_000,
+  );
+  return { seeded: true, conversationId };
+};
 
 export const clearDevLabDmTrustThreadForPeer = (params: Readonly<{
   myPublicKeyHex: PublicKeyHex | string;
@@ -87,9 +161,11 @@ export const probeDevLabDmTrustAssessmentForPeer = (params: Readonly<{
   ).length;
   const threadState = getDmTrustThreadState(profileId, conversationId);
   const nowUnixMs = latestIncoming.timestampUnixMs;
+  const isPeerAccepted = params.isPeerAccepted
+    ?? readLegacyPeerAccepted(params.myPublicKeyHex, params.peerPublicKeyHex);
   const assessment = assessDmTrustWarning({
     peerPublicKeyHex: params.peerPublicKeyHex,
-    isPeerAccepted: params.isPeerAccepted ?? false,
+    isPeerAccepted,
     messageContent: latestIncoming.content,
     messageTimestampUnixMs: nowUnixMs,
     threadFirstPeerMessageAtUnixMs: threadState.firstPeerMessageAtUnixMs,

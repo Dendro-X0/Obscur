@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   getDmTrustPeerState,
   getPeerConnectionRequestCountLastDay,
+  getPeerFirstSeenAtUnixMs,
   getPeerIncomingCountLastMinute,
   recordPeerConnectionRequest,
   recordPeerIncomingMessageAtPeerLevel,
@@ -31,6 +32,14 @@ describe("dm-kernel-trust-peer-state", () => {
     recordPeerConnectionRequest(PROFILE, PEER, baseMs);
     const state = getDmTrustPeerState(PROFILE, PEER, baseMs);
     expect(state.connectionRequestTimestampsUnixMs).toHaveLength(1);
+  });
+
+  it("records first seen timestamp on first peer interaction", () => {
+    expect(getPeerFirstSeenAtUnixMs(PROFILE, PEER)).toBeNull();
+    recordPeerIncomingMessageAtPeerLevel(PROFILE, PEER, baseMs);
+    expect(getPeerFirstSeenAtUnixMs(PROFILE, PEER)).toBe(baseMs);
+    recordPeerIncomingMessageAtPeerLevel(PROFILE, PEER, baseMs + 1_000);
+    expect(getPeerFirstSeenAtUnixMs(PROFILE, PEER)).toBe(baseMs);
   });
 
   it("tracks cross-thread incoming messages for msg.rate", () => {

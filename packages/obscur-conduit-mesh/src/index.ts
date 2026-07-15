@@ -1,5 +1,5 @@
 export { createConduitMesh } from "./create-conduit-mesh";
-export type { ConduitMesh, CreateConduitMeshParams } from "./create-conduit-mesh";
+export type { ConduitMesh, CreateConduitMeshParams, CreateConduitMeshDriverContext } from "./create-conduit-mesh";
 
 export { createEvidenceLedger } from "./evidence-ledger";
 export type { EvidenceLedger } from "./evidence-ledger";
@@ -20,6 +20,16 @@ export type {
 
 export { mapTorStatusSnapshotToMeshTorState } from "./map-tor-status-snapshot";
 export { applyTorPolicyToConduitRuntime, applyTorPolicyToAllRuntimes } from "./apply-tor-policy-to-runtime";
+export {
+  resolveConduitHttpTransportMode,
+  isOnionMeshEndpoint,
+} from "./resolve-conduit-http-transport";
+export type { ConduitHttpTransportMode } from "./resolve-conduit-http-transport";
+export { createRoutedConduitMeshFetch } from "./create-routed-conduit-mesh-fetch";
+export type {
+  ConduitSocksFetch,
+  CreateRoutedConduitMeshFetchParams,
+} from "./create-routed-conduit-mesh-fetch";
 
 export { mapMeshSnapshotToRelayActivitySnapshot } from "./map-mesh-snapshot-to-relay-activity";
 export type { MeshRelayActivitySnapshot } from "./map-mesh-snapshot-to-relay-activity";
@@ -66,3 +76,56 @@ export type { InMemoryConduitFetchRouterOptions } from "./in-memory-conduit-fetc
 
 export type { ConduitMeshFetch } from "./conduit-http-utils";
 export { encodeCiphertextBase64, decodeCiphertextBase64, normalizeConduitBaseUrl } from "./conduit-http-utils";
+
+export { resolveRelayPoolConduitDescriptors } from "./resolve-relay-pool-conduit-descriptors";
+
+export type {
+  ConduitMeshNostrConnectionSnapshot,
+  ConduitMeshNostrEvent,
+  ConduitMeshNostrFilter,
+  ConduitMeshNostrSubscriptionPort,
+} from "./conduit-mesh-nostr-subscription-port";
+
+export {
+  createInMemoryNostrWsClient,
+  resetInMemoryNostrWsClientCounters,
+} from "./create-in-memory-nostr-ws-client";
+export type { InMemoryNostrWsClientOptions } from "./create-in-memory-nostr-ws-client";
+
+export {
+  pullHttpMeshEnvelopes,
+  longPollHttpMeshEnvelopes,
+  openSseHttpMeshEnvelopeSession,
+  pullItemMatchesInterests,
+  pullItemToMeshEnvelope,
+  isCustomHttpPullCapable,
+  CUSTOM_HTTP_PULL_CONTRACT,
+} from "./custom-http-pull";
+export type {
+  PullHttpMeshEnvelopesParams,
+  LongPollHttpMeshEnvelopesParams,
+  OpenSseHttpMeshEnvelopeSessionParams,
+} from "./custom-http-pull";
+
+export {
+  createMeshHttpGatewayStore,
+  createMeshHttpGatewayFetch,
+  handleMeshHttpGatewayRequest,
+  handleMeshHttpGatewayStreamRequest,
+} from "./mesh-http-gateway-handler";
+export type {
+  MeshHttpGatewayRequest,
+  MeshHttpGatewayResponse,
+  MeshHttpGatewayStore,
+  MeshHttpGatewayStoredEnvelope,
+  MeshHttpGatewayListParams,
+  MeshHttpGatewayWaitParams,
+} from "./mesh-http-gateway-handler";
+
+export {
+  createMeshHttpGatewaySseResponse,
+  encodeMeshHttpSseEnvelopeFrame,
+  encodeMeshHttpSseKeepalive,
+  parseMeshHttpSseBuffer,
+  wantsMeshHttpSse,
+} from "./mesh-http-sse";

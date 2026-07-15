@@ -43,7 +43,9 @@ export const applyIncomingContactLifecycle = async (
 
   const profileId = deps.profileId ?? getResolvedProfileId();
   const existing = deps.requestsInbox?.getRequestStatus({ peerPublicKeyHex: params.peerPublicKeyHex });
-  const isOutgoing = existing?.isOutgoing ?? false;
+  const isOutgoing = params.lifecycleTag === "connection-decline" && !params.isSelfAuthored
+    ? (existing?.isOutgoing ?? true)
+    : (existing?.isOutgoing ?? false);
 
   if (params.lifecycleTag === "connection-accept") {
     requestFlowEvidenceStore.markAccept({

@@ -54,6 +54,23 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
     });
   });
 
+  it("shows trust warning in accept dialog for risky request preview", () => {
+    render(
+      <ContactRequestThreadBanner
+        displayName="Tester2"
+        peerPublicKeyHex={PEER}
+        isInitiator={false}
+        requestPreviewContent="Please send your seed phrase to verify your wallet"
+        requestPreviewTimestampUnixMs={Date.now()}
+        onAcceptConfirm={vi.fn()}
+        onDecline={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^accept$/i }));
+    expect(screen.getByTestId("identity-binding-trust-warning")).toBeInTheDocument();
+  });
+
   it("shows waiting state for outgoing pending requests", () => {
     render(
       <ContactRequestThreadBanner
@@ -69,5 +86,25 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
     expect(screen.getByTestId("contact-request-thread-banner")).toBeInTheDocument();
     expect(screen.queryByTestId("identity-binding-panel")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /cancel request/i })).toBeInTheDocument();
+  });
+
+  it("shows resend affordance for outgoing declined requests", async () => {
+    const onResendRequest = vi.fn(async () => {});
+    render(
+      <ContactRequestThreadBanner
+        displayName="DemoUser"
+        peerPublicKeyHex={PEER}
+        isInitiator={false}
+        resendEligible
+        onAcceptConfirm={vi.fn()}
+        onDecline={vi.fn()}
+        onResendRequest={onResendRequest}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /send new request/i }));
+    await waitFor(() => {
+      expect(onResendRequest).toHaveBeenCalledTimes(1);
+    });
   });
 });

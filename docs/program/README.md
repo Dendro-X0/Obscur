@@ -39,6 +39,9 @@ Superseded program docs (~115 files) → [../archive/program/inactive-2026-06/](
 | [conduit-mesh-c4-adapter-wiring-charter.md](./conduit-mesh-c4-adapter-wiring-charter.md) | **Landed** — real adapter drivers · `verify:conduit-mesh-c4` |
 | [conduit-mesh-c5-pool-retirement-charter.md](./conduit-mesh-c5-pool-retirement-charter.md) | **Landed** — pool hook · `verify:conduit-mesh-c5` |
 | [conduit-mesh-c6-nostr-ws-charter.md](./conduit-mesh-c6-nostr-ws-charter.md) | **Landed** — optional `nostr_ws` driver · `verify:conduit-mesh-c6` |
+| [conduit-mesh-c9-tor-host-integration-charter.md](./conduit-mesh-c9-tor-host-integration-charter.md) | **L1 landed** — Tor host port · `verify:conduit-mesh-c9` |
+| [conduit-mesh-c8-mesh-http-gateway-charter.md](./conduit-mesh-c8-mesh-http-gateway-charter.md) | **L1 landed** — private mesh HTTP v1 gateway · `verify:conduit-mesh-c8` |
+| [conduit-mesh-c7-client-integration-charter.md](./conduit-mesh-c7-client-integration-charter.md) | **C7c L1 landed** — Settings Conduits · [L3 runbook](./conduit-mesh-c7-l3-soak-runbook.md) |
 | [../CURRENT.md](../CURRENT.md) | State snapshot |
 
 ## Execution (reference)
@@ -93,6 +96,7 @@ Superseded program docs (~115 files) → [../archive/program/inactive-2026-06/](
 | [obscur-data-root-bind-contract.md](./obscur-data-root-bind-contract.md) | Desktop data root |
 | [v1.9.8-portable-storage-and-encryption-charter.md](./v1.9.8-portable-storage-and-encryption-charter.md) | Portable export/import |
 | [antisocial-engineering-contract.md](./antisocial-engineering-contract.md) | Human-layer anti-phishing modules (ASE-1) |
+| [../../specs/backend/trust-non-ai-intelligence-design-2026-07.md](../../specs/backend/trust-non-ai-intelligence-design-2026-07.md) | Non-AI trust intelligence — composition, bundles (TRUST-INT-1) |
 | [../../specs/backend/private-key-technical-moat-2026-07.md](../../specs/backend/private-key-technical-moat-2026-07.md) | Wallet-grade KDF + secret firewall (KEY-MOAT-1) |
 | [obscur-product-shell-architecture-2026-05.md](./obscur-product-shell-architecture-2026-05.md) | App shell contract |
 | [ui-effect-stability-policy.md](./ui-effect-stability-policy.md) | Render-loop / effect rules |

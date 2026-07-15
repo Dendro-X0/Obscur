@@ -29,7 +29,7 @@ describe("resolvePeerTrustReadAuthority", () => {
     expect(decision.acceptedPeers).toEqual([PK_B]);
   });
 
-  it("uses projection when it has accepted peers", () => {
+  it("merges stored and projection accepted peers during read cutover", () => {
     const decision = resolvePeerTrustReadAuthority({
       shouldUseProjectionReads: true,
       projectionReadAuthorityReason: "read_cutover_enabled",
@@ -37,6 +37,6 @@ describe("resolvePeerTrustReadAuthority", () => {
       storedAcceptedPeers: [PK_B],
     });
     expect(decision.source).toBe("projection");
-    expect(decision.acceptedPeers).toEqual([PK_A]);
+    expect(decision.acceptedPeers).toEqual([PK_B, PK_A]);
   });
 });

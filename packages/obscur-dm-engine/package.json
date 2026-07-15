@@ -1,6 +1,6 @@
 {
   "name": "@obscur/dm-engine",
-  "version": "1.9.11",
+  "version": "1.9.12",
   "private": true,
   "type": "module",
   "description": "DM engine — thread and conversation reads via HostEnginePort only.",

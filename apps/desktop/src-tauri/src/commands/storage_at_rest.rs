@@ -1,6 +1,7 @@
 use base64::Engine;
 use tauri::{AppHandle, State, WebviewWindow};
 use crate::commands::db::DbState;
+use crate::native_keychain;
 use crate::profiles::{DesktopProfileState, resolve_profile_for_window};
 use crate::session::SessionState;
 use crate::storage_at_rest_state::StorageAtRestState;
@@ -34,7 +35,36 @@ pub async fn desktop_storage_at_rest_unlock(
     let key = decode_key_material(&key_material_b64)?;
     storage_keys.set_key(&resolved_profile_id, key);
     db_state.unlock_with_key(&app, &key)?;
+    if let Err(error) = native_keychain::write_pdk_for_profile(&resolved_profile_id, &key) {
+        eprintln!(
+            "[STORAGE] Failed to persist profile data key to keychain for profile {}: {}",
+            resolved_profile_id, error
+        );
+    }
     Ok(())
+}
+
+#[tauri::command]
+pub async fn desktop_storage_at_rest_restore_keychain(
+    app: AppHandle,
+    window: WebviewWindow,
+    profiles: State<'_, DesktopProfileState>,
+    storage_keys: State<'_, StorageAtRestState>,
+    db_state: State<'_, DbState>,
+    profile_id: Option<String>,
+) -> Result<Option<String>, String> {
+    let resolved_profile_id = match profile_id {
+        Some(value) if !value.trim().is_empty() => value.trim().to_string(),
+        _ => resolve_profile_for_window(&app, &profiles, &window).await?,
+    };
+    let Some(key) = native_keychain::read_pdk_for_profile(&resolved_profile_id)? else {
+        return Ok(None);
+    };
+    storage_keys.set_key(&resolved_profile_id, key);
+    db_state.unlock_with_key(&app, &key)?;
+    Ok(Some(
+        base64::engine::general_purpose::STANDARD.encode(key),
+    ))
 }
 
 #[tauri::command]

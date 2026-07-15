@@ -428,6 +428,46 @@ describe("account-event-reducer", () => {
     expect(projection?.contactsByPeer[PEER]?.lastEventId).toBe("accepted-1");
   });
 
+  it("allows pending request after an earlier decline", () => {
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_REQUEST_RECEIVED",
+        eventId: "request-1",
+        idempotencyKey: "request-1",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        direction: "incoming",
+        requestEventId: "req-1",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_DECLINED",
+        eventId: "declined-1",
+        idempotencyKey: "declined-1",
+        observedAtUnixMs: 2_000,
+        peerPublicKeyHex: PEER,
+        direction: "incoming",
+        requestEventId: "req-1",
+      }, 2),
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_REQUEST_RECEIVED",
+        eventId: "request-2",
+        idempotencyKey: "request-2",
+        observedAtUnixMs: 3_000,
+        peerPublicKeyHex: PEER,
+        direction: "incoming",
+        requestEventId: "req-2",
+      }, 3),
+    ]);
+
+    expect(projection).not.toBeNull();
+    expect(projection?.contactsByPeer[PEER]?.status).toBe("pending");
+    expect(projection?.contactsByPeer[PEER]?.lastEventId).toBe("request-2");
+    expect(projection?.contactsByPeer[PEER]?.lastRequestEventId).toBe("req-2");
+  });
+
   it("allows accepted contact to become pending again after explicit removal", () => {
     const projection = replayAccountEvents([
       createEvent({

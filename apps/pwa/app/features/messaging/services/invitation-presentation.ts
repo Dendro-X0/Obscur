@@ -228,7 +228,7 @@ export const getInvitationInboxStatusCopy = (
         return {
           badge: "Declined",
           title: "Your invitation was not accepted.",
-          detail: "You can try again later if it still makes sense.",
+          detail: "You can send a new request from this list or their profile.",
           tone: "danger",
         };
       case "canceled":

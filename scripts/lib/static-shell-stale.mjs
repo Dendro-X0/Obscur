@@ -6,11 +6,22 @@ import path from "node:path";
 
 export const STATIC_SHELL_MANIFEST_FILE = "obscur-shell-manifest.json";
 
-/** Roots scanned for staleness — entire app tree, not a hand-picked subset. */
+/**
+ * Roots scanned for staleness — PWA app tree plus workspace packages bundled into
+ * the static desktop shell (fixes miss when only packages/obscur-* change).
+ */
 export const STATIC_SHELL_SOURCE_ROOTS = [
   "apps/pwa/app",
   "apps/pwa/next.config.ts",
   "apps/pwa/package.json",
+  "packages/obscur-auth-engine",
+  "packages/obscur-conduit-mesh",
+  "packages/obscur-conduit-mesh-contracts",
+  "packages/obscur-dm-engine",
+  "packages/obscur-engine-contracts",
+  "packages/obscur-engine-host",
+  "packages/obscur-transport-engine",
+  "packages/obscur-workspace-engine",
 ];
 
 const SOURCE_FILE_PATTERN = /\.(ts|tsx|mjs|json|css)$/;

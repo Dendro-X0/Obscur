@@ -1,8 +1,8 @@
 # Obscur — current state
 
-**Read this first.** Snapshot for maintainers and agents (2026-07-09).
+**Read this first.** Snapshot for maintainers and agents (2026-07-15).
 
-_Last updated: 2026-07-11 · Version train: **1.9.11** · **Vault sandbox Phases 1–5** · **Runtime repair band EXIT**_
+_Last updated: 2026-07-15 · Version train: **1.9.12 (prep)** · **Conduit Mesh C0–C14 L1** · vault chat-save **OFF**_
 
 ---
 
@@ -17,12 +17,13 @@ _Last updated: 2026-07-11 · Version train: **1.9.11** · **Vault sandbox Phases
 | **Phase 5 demo kit** | **Local prep** — script draft · GIF capture **maintainer-later** |
 | **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** |
 | **Phase 6 precheck** | **Done** @ `ecbcf2eb` — gate draft · deps refreshed · engine lab PASS · tag **not yet** |
-| **Vault sandbox (VAULT-SANDBOX-1)** | **Phases 1–5 shipped** @ **1.9.11** · **G8 L3/L4** maintainer · [plan](../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
+| **Vault sandbox (VAULT-SANDBOX-1)** | **PAUSED** @ maintainer stop 2026-07-14 · `VAULT_SAVE_FROM_CHAT_ENABLED = false` |
 | **CodaCtrl lane D** | **Obscur-side EXIT** — WEB-R2 hooks · RIW-8 draft mappings · runbook · **daemon wiring external** |
-| **Engine lab (B0–B5, Conduit Mesh C0–C6)** | **Landed** — `pnpm verify:engine-lab` (parallel, does not unblock release alone) |
+| **Engine lab (B0–B5, Conduit Mesh C0–C14)** | **L1 landed** · C7 + C10 + **C14 L3 PASS** · C13 L3 **BLOCKED** (Tor TLS 10% this host) |
+| **Dev shell freshness guard** | **Landed** 2026-07-15 — [design](../specs/backend/dev-shell-freshness-guard-design-2026-07.md) |
 | **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **v1.9.11 release prep** (tag + installer) · **VAULT-SANDBOX-1 G8** (maintainer L3/L4 optional) · Phase 4–5 still gate `v2.0.0`
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **v1.9.12 demo-safe release** (mesh/trust; vault → 1.9.13)
 
 ---
 
@@ -66,6 +67,9 @@ Libraries: `packages/libobscur`, `packages/dweb-*`, `packages/obscur-*`. UI arch
 | Transport w68 | `pnpm verify:transport-engine-w68` |
 | DM / workspace kernels | `pnpm verify:dm-engine-b3` · `pnpm verify:workspace-kernel` |
 | Conduit Mesh C6 | `pnpm verify:conduit-mesh-c6` |
+| Conduit Mesh C14 (includes C0–C13) | `pnpm verify:conduit-mesh-c14` |
+
+**C10 L3 soak:** [conduit-mesh-c10-l3-http-soak-runbook.md](./program/conduit-mesh-c10-l3-http-soak-runbook.md) — HTTP-only DM **PASS** (2026-07-15).
 
 **Roadmap:** [program/obscur-backend-engine-roadmap.md](./program/obscur-backend-engine-roadmap.md)
 

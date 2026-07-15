@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MessageContent } from "./message-content";
 
 describe("MessageContent", () => {
@@ -21,5 +21,22 @@ describe("MessageContent", () => {
     expect(link.getAttribute("href")).toBe(longUrl);
     expect(link.className).toContain("break-words");
     expect(link.className).toContain("[overflow-wrap:anywhere]");
+  });
+
+  it("prompts before opening suspicious links", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(<MessageContent content="Verify at http://bit.ly/secure-account-reset" isOutgoing={false} />);
+
+    fireEvent.click(screen.getByRole("link"));
+    expect(screen.getByTestId("link-open-confirm-dialog")).toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "security.linkSafety.confirm" }));
+    expect(openSpy).toHaveBeenCalledWith(
+      "http://bit.ly/secure-account-reset",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
   });
 });

@@ -6,6 +6,7 @@ import {
   buildSendCeremonyViewModel,
   isSendCeremonyAcknowledged,
   requiresFirstDmSendCeremony,
+  resolveSendCeremonyRequirement,
 } from "./send-ceremony-gate";
 
 const PK_A = "87cb2c2063308d194111eaa99643697dfa526af07516f09d4722258a94830125" as PublicKeyHex;
@@ -52,5 +53,19 @@ describe("send-ceremony-gate (ASE-1c)", () => {
     expect(model?.senderNpub.startsWith("npub1")).toBe(true);
     expect(model?.recipientBinding.displayName).toBe("Alice");
     expect(model?.plaintextPreview).toBe("Hello there");
+    expect(model?.reason).toBe("first_dm");
+  });
+
+  it("requires trust confirm for risky outbound to unaccepted peer after first dm", () => {
+    acknowledgeSendCeremony("default", PK_B);
+    const requirement = resolveSendCeremonyRequirement({
+      profileId: "default",
+      peerPublicKeyHex: PK_B,
+      priorOutgoingUserMessageCount: 2,
+      isPeerAccepted: false,
+      messageContent: "Send your 12-word seed phrase to verify",
+      threadFirstPeerMessageAtUnixMs: Date.now() - 60_000,
+    });
+    expect(requirement).toEqual({ required: true, reason: "trust_confirm" });
   });
 });

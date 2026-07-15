@@ -1,6 +1,6 @@
 {
   "name": "@obscur/relay-gateway",
-  "version": "1.9.11",
+  "version": "1.9.12",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,8 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@obscur/conduit-mesh": "workspace:*",
+    "@obscur/conduit-mesh-contracts": "workspace:*",
     "dotenv": "^16.6.1",
     "ws": "^8.21.0"
   },

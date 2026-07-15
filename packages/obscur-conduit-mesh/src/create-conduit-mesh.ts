@@ -6,9 +6,11 @@ import type {
   MeshEnvelope,
   MeshEvidenceRecord,
   MeshInboundEnvelopeHandler,
+  MeshInterest,
   MeshPort,
   MeshPublishOutcome,
   MeshRecoveryReasonCode,
+  MeshUnsubscribe,
 } from "@obscur/conduit-mesh-contracts";
 import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
 import {
@@ -30,6 +32,11 @@ import { createMockConduitDriver } from "./mock-conduit-driver";
 export type ConduitMesh = MeshPort & Readonly<{
   /** Test and diagnostics — evidence ledger is in-memory for C2. */
   readonly evidenceLedger: EvidenceLedger;
+  registerInboundInterests: (interests: ReadonlyArray<MeshInterest>) => MeshUnsubscribe;
+}>;
+
+export type CreateConduitMeshDriverContext = Readonly<{
+  deliverInbound: (envelope: MeshEnvelope) => void;
 }>;
 
 export type CreateConduitMeshParams = Readonly<{
@@ -38,7 +45,10 @@ export type CreateConduitMeshParams = Readonly<{
   /** Host-supplied Tor readiness (desktop `get_tor_status` in C4+). */
   getTorState?: () => MeshTorRuntimeState | Promise<MeshTorRuntimeState>;
   /** When omitted, mock drivers are created per descriptor (always accept). */
-  createDriver?: (descriptor: ConduitDescriptor) => ConduitDriverPort;
+  createDriver?: (
+    descriptor: ConduitDescriptor,
+    ctx: CreateConduitMeshDriverContext,
+  ) => ConduitDriverPort;
 }>;
 
 type ConduitEntry = {
@@ -68,6 +78,41 @@ export const createConduitMesh = (params: CreateConduitMeshParams): ConduitMesh 
   let recoveryReasonCode: MeshRecoveryReasonCode | undefined;
   let lastFailureReason: string | undefined;
   let cachedTorState: MeshTorRuntimeState = DEFAULT_MESH_TOR_STATE;
+  let inboundInterestUnsubs: MeshUnsubscribe[] = [];
+
+  const deliverInbound = (envelope: MeshEnvelope, conduitId: string, dialect: string): void => {
+    const inboundEvidence: MeshEvidenceRecord = {
+      evidenceId: `mesh-inbound-${envelope.envelopeId}-${conduitId}`,
+      envelopeId: envelope.envelopeId,
+      kind: "inbound_at_recipient",
+      atUnixMs: now(),
+      conduitId,
+      dialect,
+    };
+    recordEvidence([inboundEvidence]);
+    const receivedAtUnixMs = now();
+    for (const handler of inboundHandlers) {
+      handler({ envelope, receivedAtUnixMs, conduitId, dialect });
+    }
+  };
+
+  const stopInboundInterests = (): void => {
+    for (const unsubscribe of inboundInterestUnsubs) {
+      unsubscribe();
+    }
+    inboundInterestUnsubs = [];
+  };
+
+  let lastInboundInterests: ReadonlyArray<MeshInterest> = [];
+
+  const applyInboundInterests = (interests: ReadonlyArray<MeshInterest>): void => {
+    stopInboundInterests();
+    lastInboundInterests = interests;
+    if (interests.length === 0 || entries.length === 0) {
+      return;
+    }
+    inboundInterestUnsubs = entries.map((entry) => entry.driver.subscribe(interests));
+  };
 
   const resolveTorState = async (): Promise<MeshTorRuntimeState> => {
     if (params.getTorState) {
@@ -110,8 +155,15 @@ export const createConduitMesh = (params: CreateConduitMeshParams): ConduitMesh 
   };
 
   const createDriverForDescriptor = (descriptor: ConduitDescriptor): ConduitDriverPort => {
+    const ctx: CreateConduitMeshDriverContext = {
+      deliverInbound: (envelope) => deliverInbound(
+        envelope,
+        descriptor.conduitId,
+        descriptor.dialect,
+      ),
+    };
     if (params.createDriver) {
-      return params.createDriver(descriptor);
+      return params.createDriver(descriptor, ctx);
     }
     return createMockConduitDriver({ descriptor, now });
   };
@@ -120,6 +172,7 @@ export const createConduitMesh = (params: CreateConduitMeshParams): ConduitMesh 
     evidenceLedger,
 
     configureConduits: async (conduits) => {
+      stopInboundInterests();
       const torState = await resolveTorState();
       entries = await Promise.all(conduits.map(async (descriptor) => {
         const driver = createDriverForDescriptor(descriptor);
@@ -132,6 +185,11 @@ export const createConduitMesh = (params: CreateConduitMeshParams): ConduitMesh 
         entry.runtime = applyTorPolicyToConduitRuntime(entry.runtime, torState);
         return entry;
       }));
+      // Re-arm pull/subscribe interests after conduit remount — otherwise HTTP-only
+      // pools lose inbound after the first configureUrls (C10 L3 presence drown path).
+      if (lastInboundInterests.length > 0) {
+        applyInboundInterests(lastInboundInterests);
+      }
       bumpRevision();
     },
 
@@ -259,6 +317,14 @@ export const createConduitMesh = (params: CreateConduitMeshParams): ConduitMesh 
       inboundHandlers.add(handler);
       return () => {
         inboundHandlers.delete(handler);
+      };
+    },
+
+    registerInboundInterests: (interests) => {
+      applyInboundInterests(interests);
+      return () => {
+        lastInboundInterests = [];
+        stopInboundInterests();
       };
     },
   };

@@ -6,6 +6,7 @@ import {
   getIncomingUnreadRequestTotal,
   getOpenPendingRequestCount,
   getOpenPendingRequests,
+  getRequestsTabItems,
   isIncomingPendingRequest,
   isOutgoingPendingRequest,
   partitionOpenRequestsByLane,
@@ -46,6 +47,15 @@ describe("request inbox view helpers", () => {
     ]);
   });
 
+  it("treats missing status as pending for outgoing request rows", () => {
+    const items: RequestsInboxItem[] = [
+      makeItem({ peerPublicKeyHex: "2".repeat(64) as any, isOutgoing: true, status: undefined }),
+    ];
+
+    expect(getRequestsTabItems(items)).toHaveLength(1);
+    expect(partitionOpenRequestsByLane(items).inbox).toHaveLength(1);
+  });
+
   it("routes outgoing pending rows to the main Requests lane", () => {
     const items: RequestsInboxItem[] = [
       makeItem({ peerPublicKeyHex: "2".repeat(64) as any, isOutgoing: true }),
@@ -53,6 +63,18 @@ describe("request inbox view helpers", () => {
     const partitioned = partitionOpenRequestsByLane(items);
     expect(partitioned.inbox).toHaveLength(1);
     expect(partitioned.inbox[0]?.isOutgoing).toBe(true);
+  });
+
+  it("keeps outgoing declined rows visible for resend", () => {
+    const items: RequestsInboxItem[] = [
+      makeItem({ peerPublicKeyHex: "2".repeat(64) as any, isOutgoing: true, status: "declined" }),
+      makeItem({ peerPublicKeyHex: "3".repeat(64) as any, isOutgoing: false, status: "accepted" }),
+    ];
+    const partitioned = partitionOpenRequestsByLane(items);
+    expect(partitioned.inbox).toHaveLength(1);
+    expect(partitioned.inbox[0]?.status).toBe("declined");
+    expect(getRequestsTabItems(items)).toHaveLength(1);
+    expect(getOpenPendingRequestCount(items)).toBe(0);
   });
 
   it("counts open pending requests for tab badges", () => {

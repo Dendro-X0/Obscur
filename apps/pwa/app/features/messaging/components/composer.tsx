@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle, Paperclip, Send, X, FileText, Loader2, Smile, Play } from "lucide-react";
 import EmojiPicker, { EmojiClickData, SuggestionMode, Theme } from "emoji-picker-react";
 import { VoiceRecorder } from "./voice-recorder";
+import { VoiceNoteComposerPreview } from "./voice-note-composer-preview";
 import type { ReplyTo, RelayStatusSummary } from "../types";
 import type { ContactRequestComposeMode } from "@/app/features/messaging/services/contact-request-sandbox-policy";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
@@ -257,31 +258,37 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
                                                 </div>
                                                 <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-90 shadow-sm">{t("common.video")}</span>
                                             </div>
-                                        </div>) : file.type.startsWith("audio/") ? (<div className="h-full w-full flex flex-col items-center justify-center bg-purple-600 text-white">
-                                            <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/20">
-                                                <div className="flex gap-0.5 items-end h-4">
-                                                    <div className="w-1 h-3 bg-white animate-pulse"/>
-                                                    <div className="w-1 h-4 bg-white animate-pulse" style={{ animationDelay: '0.1s' }}/>
-                                                    <div className="w-1 h-2 bg-white animate-pulse" style={{ animationDelay: '0.2s' }}/>
+                                        </div>) : file.type.startsWith("audio/") ? (() => {
+                                            const voiceMetadata = getVoiceNoteAttachmentMetadata({
+                                                kind: "audio",
+                                                fileName: file.name,
+                                                contentType: file.type,
+                                            });
+                                            if (voiceMetadata.isVoiceNote) {
+                                                return (
+                                                    <div className="h-full w-full bg-gradient-to-br from-purple-600 to-indigo-500">
+                                                        <VoiceNoteComposerPreview
+                                                            file={file}
+                                                            previewUrl={pendingAttachmentPreviewUrls[index]}
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+                                            return (
+                                                <div className="h-full w-full flex flex-col items-center justify-center bg-purple-600 text-white">
+                                                    <div className="relative h-10 w-10 flex items-center justify-center rounded-full bg-white/20">
+                                                        <div className="flex gap-0.5 items-end h-4">
+                                                            <div className="w-1 h-3 bg-white animate-pulse"/>
+                                                            <div className="w-1 h-4 bg-white animate-pulse" style={{ animationDelay: "0.1s" }}/>
+                                                            <div className="w-1 h-2 bg-white animate-pulse" style={{ animationDelay: "0.2s" }}/>
+                                                        </div>
+                                                    </div>
+                                                    <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">
+                                                        Audio
+                                                    </span>
                                                 </div>
-                                            </div>
-                                            <span className="mt-2 text-[8px] font-black uppercase tracking-widest opacity-80">
-                                                {(() => {
-                        const voiceMetadata = getVoiceNoteAttachmentMetadata({
-                            kind: "audio",
-                            fileName: file.name,
-                            contentType: file.type,
-                        });
-                        if (!voiceMetadata.isVoiceNote) {
-                            return "Audio";
-                        }
-                        if (voiceMetadata.durationLabel) {
-                            return `Voice ${voiceMetadata.durationLabel}`;
-                        }
-                        return "Voice";
-                    })()}
-                                            </span>
-                                        </div>) : (<div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
+                                            );
+                                        })() : (<div className="h-full w-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800">
                                             <FileText className="h-8 w-8 text-zinc-400"/>
                                         </div>)}
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

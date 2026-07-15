@@ -1,4 +1,6 @@
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { resolveIdentityScopeProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getProfileStorageKeyMaterial, getProfileStorageKeyReadCandidates } from "@/app/features/storage/services/profile-storage-key-session";
 import {
   decryptStorageEnvelopeV1WithKeyCandidates,
@@ -11,6 +13,14 @@ import {
 
 export const VAULT_ENCRYPTED_FILE_EXTENSION = ".obscurvault" as const;
 
+export const resolveVaultProfileId = (profileId?: string): string => {
+  const explicit = profileId?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  return hasNativeRuntime() ? resolveIdentityScopeProfileId() : getResolvedProfileId();
+};
+
 export class VaultWriteEncryptionRequiredError extends Error {
   readonly code = "VAULT_WRITE_ENCRYPTION_REQUIRED" as const;
 
@@ -21,12 +31,12 @@ export class VaultWriteEncryptionRequiredError extends Error {
 }
 
 export const isVaultWriteEncryptionReady = (profileId?: string): boolean => {
-  const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim() || "default";
+  const resolvedProfileId = resolveVaultProfileId(profileId) || "default";
   return Boolean(getProfileStorageKeyMaterial(resolvedProfileId));
 };
 
 export const buildOpaqueVaultFileName = async (remoteUrl: string, profileId?: string): Promise<string> => {
-  const resolvedProfileId = (profileId ?? getResolvedProfileId()).trim() || "default";
+  const resolvedProfileId = resolveVaultProfileId(profileId) || "default";
   const digest = await sha256Hex(`${resolvedProfileId}|${remoteUrl.trim()}`);
   return `${digest.slice(0, 24)}${VAULT_ENCRYPTED_FILE_EXTENSION}`;
 };
@@ -35,7 +45,7 @@ export const encryptVaultBytesForWrite = async (params: Readonly<{
   plaintext: Uint8Array;
   profileId?: string;
 }>): Promise<Readonly<{ bytes: Uint8Array; encrypted: true; fileNameSuffix: string }>> => {
-  const profileId = (params.profileId ?? getResolvedProfileId()).trim() || "default";
+  const profileId = resolveVaultProfileId(params.profileId) || "default";
   const keyMaterial = getProfileStorageKeyMaterial(profileId);
   if (!keyMaterial) {
     throw new VaultWriteEncryptionRequiredError();
@@ -68,7 +78,7 @@ export const decryptVaultFileBytesIfNeeded = async (params: Readonly<{
   if (!envelope) {
     return params.fileBytes;
   }
-  const profileId = (params.profileId ?? getResolvedProfileId()).trim();
+  const profileId = resolveVaultProfileId(params.profileId);
   const keyMaterials = getProfileStorageKeyReadCandidates(profileId);
   if (keyMaterials.length === 0) {
     throw new Error("Vault media is encrypted. Unlock this profile to view it.");

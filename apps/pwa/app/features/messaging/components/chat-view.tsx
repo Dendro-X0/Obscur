@@ -183,6 +183,8 @@ export interface ChatViewProps {
     onAcceptPeer?: () => void | Promise<void>;
     onDeclinePeer?: () => void | Promise<void>;
     onCancelOutgoingRequest?: () => void | Promise<void>;
+    onResendConnectionRequest?: () => void | Promise<void>;
+    outgoingResendEligible?: boolean;
     onBlockPeer?: () => void;
     groupAdmins?: ReadonlyArray<Readonly<{
         pubkey: string;
@@ -242,6 +244,21 @@ export function ChatView(props: ChatViewProps) {
     const resolvedName = metadata?.displayName || props.conversation.displayName;
     const dmPeerPublicKeyHex = props.conversation.kind === "dm" ? props.conversation.pubkey : null;
     const contactTrustSensitivity = useContactTrustSensitivity(dmPeerPublicKeyHex);
+    const connectionRequestPreview = React.useMemo(() => {
+        if (props.contactRequestComposeMode !== "sandbox_text" || props.isInitiator) {
+            return null;
+        }
+        const incoming = props.messages.find((message) => (
+            !message.isOutgoing && message.content.trim().length > 0
+        ));
+        if (!incoming) {
+            return null;
+        }
+        return {
+            content: incoming.content,
+            timestampUnixMs: incoming.timestamp.getTime(),
+        };
+    }, [props.contactRequestComposeMode, props.isInitiator, props.messages]);
     const dmKernelTrust = useDmKernelTrustBanner({
         conversation: props.conversation,
         peerPublicKeyHex: dmPeerPublicKeyHex ?? undefined,
@@ -661,13 +678,16 @@ export function ChatView(props: ChatViewProps) {
             {!hideDesktopChatHeader ? (<ChatHeader conversation={props.conversation} groupMemberCount={props.groupMemberCount} groupOnlineMemberCount={props.groupOnlineMemberCount} groupLastActivityAtMs={props.groupLastActivityAtMs} isOnline={props.isPeerOnline} interactionStatus={props.interactionStatus} nowMs={props.nowMs} onCopyPubkey={props.onCopyPubkey} onOpenMedia={props.onOpenMedia} onToggleConversationNotifications={props.onToggleConversationNotifications} onOpenInfo={props.onOpenInfo} onOpenProfile={props.onOpenProfile} onSendVoiceCallInvite={props.onSendVoiceCallInvite} canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite} isSendingVoiceCallInvite={props.isSendingVoiceCallInvite} activeVoiceCallState={props.activeVoiceCallState} voiceCallStatus={props.voiceCallStatus} onLeaveVoiceCall={props.onLeaveVoiceCall} onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall} onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall} contactTrustSensitivity={dmTrustSensitivityForHeader}/>) : null}
 
             {props.conversation.kind === "dm"
-            && props.contactRequestComposeMode === "sandbox_text"
-            && dmPeerPublicKeyHex ? (
+            && dmPeerPublicKeyHex
+            && (props.contactRequestComposeMode === "sandbox_text" || props.outgoingResendEligible) ? (
               <ContactRequestThreadBanner
                 displayName={resolvedName}
                 peerPublicKeyHex={dmPeerPublicKeyHex}
                 isInitiator={props.isInitiator === true}
+                resendEligible={props.outgoingResendEligible === true}
                 requestEventId={props.requestEventId}
+                requestPreviewContent={connectionRequestPreview?.content}
+                requestPreviewTimestampUnixMs={connectionRequestPreview?.timestampUnixMs}
                 onAcceptConfirm={async () => {
                   await props.onAcceptPeer?.();
                 }}
@@ -677,6 +697,9 @@ export function ChatView(props: ChatViewProps) {
                 onCancelOutgoing={props.isInitiator ? async () => {
                   await props.onCancelOutgoingRequest?.();
                 } : undefined}
+                onResendRequest={props.onResendConnectionRequest
+                  ? async () => { await props.onResendConnectionRequest?.(); }
+                  : undefined}
               />
             ) : shouldShowPathBThreadWarningBanner({
             conversationKind: props.conversation.kind,

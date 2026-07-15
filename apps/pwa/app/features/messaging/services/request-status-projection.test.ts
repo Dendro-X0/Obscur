@@ -65,4 +65,14 @@ describe("request-status-projection", () => {
     expect(projection.canSend).toBe(true);
     expect(projection.shouldDisablePrimaryAction).toBe(false);
   });
+
+  it("allows resend after outgoing decline or cancel", () => {
+    expect(deriveRequestProjection({
+      requestStatus: { status: "declined", isOutgoing: true },
+    })).toMatchObject({ state: "rejected", canSend: true });
+
+    expect(deriveRequestProjection({
+      requestStatus: { status: "canceled", isOutgoing: true },
+    })).toMatchObject({ state: "rejected", canSend: true });
+  });
 });

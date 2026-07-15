@@ -38,6 +38,21 @@ vi.mock("../../settings/services/privacy-settings-service", () => ({
   },
 }));
 
+vi.mock("@/app/features/vault/services/local-media-store", () => ({
+  downloadAttachmentToUserPath: vi.fn(async () => true),
+}));
+
+vi.mock("../hooks/use-attachment-export-gate", () => ({
+  useAttachmentExportGate: () => ({
+    pendingExportFileName: null,
+    cancelExportConfirm: vi.fn(),
+    confirmExport: vi.fn(),
+    runExportWithGate: vi.fn(async (_item: MediaItem, runExport: () => Promise<void>) => {
+      await runExport();
+    }),
+  }),
+}));
+
 const pdfItem: MediaItem = {
   messageId: "m-pdf",
   timestamp: new Date(1_000),

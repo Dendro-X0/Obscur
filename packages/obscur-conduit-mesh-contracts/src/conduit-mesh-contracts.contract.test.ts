@@ -119,6 +119,7 @@ describe("conduit-mesh-contracts — custom gateway HTTP v1", () => {
   it("pins contract version and paths", () => {
     expect(CUSTOM_CONDUIT_HTTP_V1).toBe("custom_conduit_http_v1");
     expect(CUSTOM_CONDUIT_HTTP_PATHS.publish).toBe("/mesh/v1/envelopes");
+    expect(CUSTOM_CONDUIT_HTTP_PATHS.stream).toBe("/mesh/v1/stream");
     expect(CUSTOM_CONDUIT_HTTP_PATHS.health).toBe("/mesh/v1/health");
   });
 });

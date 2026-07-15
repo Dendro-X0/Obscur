@@ -1,67 +1,100 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { NostrFilter, RelayPoolContract } from "./dm-controller-types";
-import { subscribeToIncomingDMs } from "./dm-relay-transport";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import {
+  isHttpOnlyMeshTransportPool,
+  resolveTargetRelayUrls,
+} from "./dm-relay-transport";
+import type { RelayPoolContract } from "./dm-controller-types";
 
-const createMinimalRelayPool = (overrides: Partial<RelayPoolContract>): RelayPoolContract => ({
+const nip65Mocks = vi.hoisted(() => ({
+  getWriteRelays: vi.fn(() => [] as string[]),
+}));
+
+const peerRelayEvidenceMocks = vi.hoisted(() => ({
+  getRelayUrls: vi.fn(() => [] as string[]),
+}));
+
+vi.mock("@/app/features/relays/utils/nip65-service", () => ({
+  nip65Service: {
+    getWriteRelays: nip65Mocks.getWriteRelays,
+  },
+}));
+
+vi.mock("../../services/peer-relay-evidence-store", () => ({
+  peerRelayEvidenceStore: {
+    getRelayUrls: peerRelayEvidenceMocks.getRelayUrls,
+  },
+}));
+
+const createPool = (
+  configuredRelayUrls: ReadonlyArray<string>,
+): RelayPoolContract => ({
   connections: [],
-  sendToOpen: vi.fn(),
-  subscribeToMessages: vi.fn(() => () => {}),
-  subscribe: vi.fn(() => "sub-1"),
-  unsubscribe: vi.fn(),
-  waitForConnection: vi.fn(async () => true),
-  ...overrides,
+  sendToOpen: () => undefined,
+  subscribeToMessages: () => () => undefined,
+  subscribe: () => "sub-test",
+  unsubscribe: () => undefined,
+  waitForConnection: async () => true,
+  getWritableRelaySnapshot: () => ({
+    atUnixMs: Date.now(),
+    configuredRelayUrls: [...configuredRelayUrls],
+    writableRelayUrls: [...configuredRelayUrls],
+    totalRelayCount: configuredRelayUrls.length,
+    connectedRelayCount: configuredRelayUrls.length,
+    writableRelayCount: configuredRelayUrls.length,
+  }),
 });
 
-describe("subscribeToIncomingDMs", () => {
-  const fixedNowMs = Date.UTC(2026, 0, 15, 12, 0, 0);
+describe("isHttpOnlyMeshTransportPool", () => {
+  it("is true when every configured relay is loopback mesh HTTP", () => {
+    expect(isHttpOnlyMeshTransportPool(["http://127.0.0.1:8788"])).toBe(true);
+    expect(isHttpOnlyMeshTransportPool(["https://localhost:8788"])).toBe(true);
+  });
 
+  it("is false when any relay is not loopback mesh HTTP", () => {
+    expect(isHttpOnlyMeshTransportPool([
+      "http://127.0.0.1:8788",
+      "wss://nos.lol",
+    ])).toBe(false);
+    expect(isHttpOnlyMeshTransportPool(["wss://nos.lol"])).toBe(false);
+    expect(isHttpOnlyMeshTransportPool([])).toBe(false);
+  });
+});
+
+describe("resolveTargetRelayUrls", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(fixedNowMs);
+    nip65Mocks.getWriteRelays.mockReset();
+    nip65Mocks.getWriteRelays.mockReturnValue([]);
+    peerRelayEvidenceMocks.getRelayUrls.mockReset();
+    peerRelayEvidenceMocks.getRelayUrls.mockReturnValue([]);
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  it("uses configured mesh HTTP only when pool is HTTP-only, ignoring peer evidence", () => {
+    peerRelayEvidenceMocks.getRelayUrls.mockReturnValue([
+      "wss://nos.lol",
+      "wss://relay.damus.io",
+    ]);
+    nip65Mocks.getWriteRelays.mockReturnValue(["wss://relay.primal.net"]);
 
-  it("adds delivery fallback relays as transient so REQ matches hybrid publish scope", () => {
-    const addTransientRelay = vi.fn();
-    const subscribe = vi.fn().mockReturnValue("sub-1");
-    const pool = createMinimalRelayPool({ subscribe, addTransientRelay });
-
-    subscribeToIncomingDMs({
-      pool,
-      myPublicKeyHex: "a".repeat(64),
-      onEvent: vi.fn(),
+    const urls = resolveTargetRelayUrls({
+      pool: createPool(["http://127.0.0.1:8788"]),
+      peerPublicKeyHex: "b".repeat(64),
+      senderPublicKeyHex: "a".repeat(64),
     });
 
-    expect(addTransientRelay).toHaveBeenCalledTimes(3);
-    expect(addTransientRelay).toHaveBeenCalledWith("wss://relay.damus.io");
-    expect(addTransientRelay).toHaveBeenCalledWith("wss://nos.lol");
-    expect(addTransientRelay).toHaveBeenCalledWith("wss://relay.primal.net");
+    expect(urls).toEqual(["http://127.0.0.1:8788"]);
   });
 
-  it("normalizes pubkey to lowercase and uses 7d since lookback with higher limit", () => {
-    const subscribe = vi.fn().mockReturnValue("sub-1");
-    const pool = createMinimalRelayPool({ subscribe });
+  it("keeps hybrid union when pool includes WebSocket relays", () => {
+    peerRelayEvidenceMocks.getRelayUrls.mockReturnValue(["wss://nos.lol"]);
+    nip65Mocks.getWriteRelays.mockReturnValue([]);
 
-    subscribeToIncomingDMs({
-      pool,
-      myPublicKeyHex: "  ABCDEF  ",
-      onEvent: vi.fn(),
+    const urls = resolveTargetRelayUrls({
+      pool: createPool(["wss://relay.damus.io", "wss://nos.lol"]),
+      peerPublicKeyHex: "b".repeat(64),
+      senderPublicKeyHex: "a".repeat(64),
     });
 
-    expect(subscribe).toHaveBeenCalledTimes(1);
-    const [filters] = subscribe.mock.calls[0] as [ReadonlyArray<NostrFilter>];
-    expect(filters[0].kinds).toEqual([4, 1059]);
-    expect(filters[0]["#p"]).toEqual(["abcdef"]);
-    expect(filters[0].limit).toBe(200);
-    expect(filters[1].kinds).toEqual([4]);
-    expect(filters[1].authors).toEqual(["abcdef"]);
-    expect(filters[1].limit).toBe(200);
-
-    const expectedSince = Math.max(0, Math.floor(fixedNowMs / 1000) - 86400 * 7);
-    expect(filters[0].since).toBe(expectedSince);
-    expect(filters[1].since).toBe(expectedSince);
+    expect(urls).toContain("wss://nos.lol");
+    expect(urls).toContain("wss://relay.damus.io");
   });
 });

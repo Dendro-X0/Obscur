@@ -1,7 +1,7 @@
 "use client";
 
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isVaultWriteEncryptionReady } from "@/app/features/storage/services/vault-at-rest";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
@@ -11,6 +11,7 @@ import {
   type LocalMediaIndexEntry,
 } from "./local-media-store";
 import {
+  loadVaultMediaIndexMapFromSqlite,
   persistVaultMediaIndexSnapshotToSqlite,
   usesSqliteVaultMediaIndex,
 } from "./vault-media-index-sqlite-store";
@@ -20,7 +21,7 @@ const SQLITE_IMPORT_DONE_KEY = "obscur.vault.media_index_sqlite_imported";
 const scopedImportDoneKey = (profileId: string): string =>
   getScopedStorageKey(SQLITE_IMPORT_DONE_KEY, profileId);
 
-const readLegacyLocalStorageIndex = (profileId: string): Record<string, LocalMediaIndexEntry> => {
+export const readLegacyLocalStorageVaultIndex = (profileId: string): Record<string, LocalMediaIndexEntry> => {
   if (typeof window === "undefined") {
     return {};
   }
@@ -43,18 +44,18 @@ export const runVaultMediaIndexSqliteImportOnUnlock = async (): Promise<Readonly
   imported: number;
   hydrated: boolean;
 }>> => {
-  if (!usesSqliteVaultMediaIndex() || !isVaultWriteEncryptionReady()) {
+  if (!usesSqliteVaultMediaIndex()) {
     return { imported: 0, hydrated: false };
   }
-  const profileId = getResolvedProfileId().trim();
+  const profileId = resolveVaultProfileId().trim();
   if (!profileId) {
     return { imported: 0, hydrated: false };
   }
 
   let imported = 0;
   const alreadyImported = localStorage.getItem(scopedImportDoneKey(profileId)) === "1";
-  if (!alreadyImported) {
-    const legacyIndex = readLegacyLocalStorageIndex(profileId);
+  if (!alreadyImported && isVaultWriteEncryptionReady(profileId)) {
+    const legacyIndex = readLegacyLocalStorageVaultIndex(profileId);
     const entries = Object.entries(legacyIndex);
     if (entries.length > 0) {
       const normalized: Record<string, LocalMediaIndexEntry> = {};
@@ -85,16 +86,58 @@ export const runVaultMediaIndexSqliteImportOnUnlock = async (): Promise<Readonly
     }
   }
 
-  await hydrateVaultMediaIndexCacheFromSqlite(profileId);
+  const hydrated = await hydrateVaultMediaIndexCacheFromSqlite(profileId);
+  if (!hydrated) {
+    return { imported, hydrated: false };
+  }
+
+  const sqliteIndex = await loadVaultMediaIndexMapFromSqlite(profileId);
+  if (Object.keys(sqliteIndex).length === 0 && isVaultWriteEncryptionReady(profileId)) {
+    const legacyRecoveryIndex = readLegacyLocalStorageVaultIndex(profileId);
+    const recoveryEntries = Object.entries(legacyRecoveryIndex);
+    if (recoveryEntries.length > 0) {
+      const normalized: Record<string, LocalMediaIndexEntry> = {};
+      recoveryEntries.forEach(([remoteUrl, entry]) => {
+        if (!entry || typeof entry.relativePath !== "string") {
+          return;
+        }
+        const normalizedRemoteUrl = entry.remoteUrl?.trim() || remoteUrl.trim();
+        if (!normalizedRemoteUrl) {
+          return;
+        }
+        normalized[normalizedRemoteUrl] = {
+          ...entry,
+          remoteUrl: normalizedRemoteUrl,
+        };
+      });
+      await persistVaultMediaIndexSnapshotToSqlite(normalized, profileId);
+      await hydrateVaultMediaIndexCacheFromSqlite(profileId);
+      logRuntimeEvent(
+        "vault_media_index_sqlite.recovered_legacy",
+        "expected",
+        [`[VaultMediaIndex] Recovered ${Object.keys(normalized).length} legacy localStorage row(s) into SQLite.`],
+      );
+    }
+  }
+
   return { imported, hydrated: true };
 };
 
 export const scheduleVaultUnlockMaintenance = (): void => {
-  if (!hasNativeRuntime() || !isVaultWriteEncryptionReady()) {
+  if (!hasNativeRuntime()) {
     return;
   }
   void (async () => {
+    const { restoreNativeVaultEncryptionSessionIfNeeded } = await import(
+      "@/app/features/storage/services/native-storage-at-rest-service"
+    );
+    await restoreNativeVaultEncryptionSessionIfNeeded();
     await runVaultMediaIndexSqliteImportOnUnlock();
+    const { reconcileUnindexedVaultBlobFilesForActiveProfile, hydrateVaultDiskInventoryForActiveProfile } = await import("./local-media-store");
+    if (isVaultWriteEncryptionReady()) {
+      await reconcileUnindexedVaultBlobFilesForActiveProfile();
+    }
+    await hydrateVaultDiskInventoryForActiveProfile();
     const { scheduleVaultLegacyPlaintextMigrationOnUnlock } = await import("./vault-legacy-migration");
     scheduleVaultLegacyPlaintextMigrationOnUnlock();
     const { scheduleVaultLayoutMigrationOnUnlock } = await import("./vault-layout-migration");

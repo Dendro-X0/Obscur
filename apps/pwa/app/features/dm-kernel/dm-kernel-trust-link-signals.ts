@@ -4,6 +4,7 @@
  */
 
 import { isLookalikeBrandHostname, normalizeHostname } from "./dm-kernel-trust-link-domain-signals";
+import { hasMixedScriptHostname } from "./dm-kernel-trust-structural-signals";
 
 const URL_EXTRACT_PATTERN = /https?:\/\/[^\s<>"')\]]+/gi;
 
@@ -61,6 +62,10 @@ export const isSuspiciousUrlShape = (rawUrl: string): boolean => {
   }
 
   const host = hostWithoutPort(parsed.hostname);
+
+  if (hasMixedScriptHostname(host)) {
+    return true;
+  }
 
   if (host.includes("xn--")) {
     return true;

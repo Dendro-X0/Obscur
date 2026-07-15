@@ -1,7 +1,13 @@
 /**
  * Recipient-local social-engineering phrase detectors (SEC-F refinement).
- * English-centric v1 — no server scoring; deterministic regex only.
+ * English base + es/zh locale packs — no server scoring; deterministic regex only.
  */
+
+import { detectOtpExfilStructuralShape } from "./dm-kernel-trust-structural-signals";
+import {
+  mergeSeLocalePatterns,
+  matchesSePatternGroup,
+} from "./dm-kernel-trust-social-engineering-locale-packs";
 
 const CREDENTIAL_HARVEST_PATTERNS: ReadonlyArray<RegExp> = [
   /\b(seed phrase|recovery phrase|secret recovery|backup phrase|12[- ]word|24[- ]word)\b/i,
@@ -77,27 +83,28 @@ const IRREVERSIBLE_PAYMENT_PATTERNS: ReadonlyArray<RegExp> = [
 ];
 
 export const detectCredentialHarvestRequest = (content: string): boolean => (
-  CREDENTIAL_HARVEST_PATTERNS.some((pattern) => pattern.test(content))
+  matchesSePatternGroup(mergeSeLocalePatterns(CREDENTIAL_HARVEST_PATTERNS, "credentialHarvest"), content)
+  || detectOtpExfilStructuralShape(content)
 );
 
 export const detectAuthorityImpersonation = (content: string): boolean => (
-  AUTHORITY_IMPERSONATION_PATTERNS.some((pattern) => pattern.test(content))
+  matchesSePatternGroup(mergeSeLocalePatterns(AUTHORITY_IMPERSONATION_PATTERNS, "authorityImpersonation"), content)
 );
 
 export const detectGiftCardScam = (content: string): boolean => (
-  GIFT_CARD_SCAM_PATTERNS.some((pattern) => pattern.test(content))
+  matchesSePatternGroup(mergeSeLocalePatterns(GIFT_CARD_SCAM_PATTERNS, "giftCardScam"), content)
 );
 
 export const detectOffPlatformRedirect = (content: string): boolean => (
-  OFF_PLATFORM_REDIRECT_PATTERNS.some((pattern) => pattern.test(content))
+  matchesSePatternGroup(mergeSeLocalePatterns(OFF_PLATFORM_REDIRECT_PATTERNS, "offPlatformRedirect"), content)
 );
 
 export const detectAdvanceFeeScam = (content: string): boolean => (
-  ADVANCE_FEE_SCAM_PATTERNS.some((pattern) => pattern.test(content))
+  matchesSePatternGroup(mergeSeLocalePatterns(ADVANCE_FEE_SCAM_PATTERNS, "advanceFeeScam"), content)
 );
 
 export const detectRemoteAccessTool = (content: string): boolean => (
-  REMOTE_ACCESS_TOOL_PATTERNS.some((pattern) => pattern.test(content))
+  matchesSePatternGroup(mergeSeLocalePatterns(REMOTE_ACCESS_TOOL_PATTERNS, "remoteAccessTool"), content)
 );
 
 export const detectOverpaymentScam = (content: string): boolean => (

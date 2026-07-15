@@ -21,12 +21,13 @@ type AttachmentContextMenuProps = Readonly<{
     state: AttachmentContextMenuState;
     onClose: () => void;
     onCopyUrl?: (url: string) => void;
+    onOpenInNewTab?: (url: string) => void;
 }>;
 
 const VIEWPORT_MARGIN_PX = 8;
 const MENU_WIDTH_PX = 240;
 
-export function AttachmentContextMenu({ state, onClose, onCopyUrl }: AttachmentContextMenuProps) {
+export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTab }: AttachmentContextMenuProps) {
     const { t } = useTranslation();
     const menuRef = React.useRef<HTMLDivElement | null>(null);
     const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null);
@@ -147,7 +148,11 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl }: AttachmentC
                 type="button"
                 className={itemClass}
                 onClick={() => {
-                    window.open(state.attachment.url, "_blank", "noopener,noreferrer");
+                    if (onOpenInNewTab) {
+                        onOpenInNewTab(state.attachment.url);
+                    } else {
+                        window.open(state.attachment.url, "_blank", "noopener,noreferrer");
+                    }
                     onClose();
                 }}
             >

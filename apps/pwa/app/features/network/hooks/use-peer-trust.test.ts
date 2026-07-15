@@ -240,4 +240,47 @@ describe("use-peer-trust internals", () => {
 
     await waitFor(() => expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]));
   });
+
+  it("accumulates multiple accepted peers in storage when legacy contact writes are disabled", async () => {
+    const migrationPolicy = await import("@/app/features/account-sync/services/account-sync-migration-policy");
+    vi.spyOn(migrationPolicy, "shouldWriteLegacyContactsDm").mockReturnValue(false);
+
+    const projectionAuthority = await import("@/app/features/account-sync/services/account-projection-read-authority");
+    vi.spyOn(projectionAuthority, "resolveProjectionReadAuthority").mockReturnValue({
+      useProjectionReads: true,
+      reason: "read_cutover_enabled",
+      policy: {
+        phase: "legacy_writes_disabled",
+        rollbackEnabled: false,
+        updatedAtUnixMs: 1,
+      },
+      criticalDriftCount: 0,
+    });
+
+    const projectionSelectors = await import("@/app/features/account-sync/services/account-projection-selectors");
+    const projectionAcceptedPeers: PublicKeyHex[] = [];
+    vi.spyOn(projectionSelectors, "selectProjectionAcceptedPeers").mockImplementation(() => projectionAcceptedPeers);
+
+    const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
+    const peerA = "a".repeat(64) as PublicKeyHex;
+    const peerB = "b".repeat(64) as PublicKeyHex;
+
+    const { result } = renderHook(() => usePeerTrust({ publicKeyHex: myPublicKeyHex }));
+    await waitFor(() => expect(result.current.hasHydrated).toBe(true));
+
+    act(() => {
+      result.current.acceptPeer({ publicKeyHex: peerA });
+    });
+    act(() => {
+      projectionAcceptedPeers.push(peerA);
+      result.current.acceptPeer({ publicKeyHex: peerB });
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.acceptedPeers).toEqual([peerA, peerB]);
+    });
+
+    const stored = peerTrustInternals.loadFromStorage(myPublicKeyHex);
+    expect(stored.acceptedPeers).toEqual([peerA, peerB]);
+  });
 });

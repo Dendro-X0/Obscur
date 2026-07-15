@@ -53,6 +53,8 @@
 | Sidebar preview “No messages yet” while thread shows full history | UI preview vs SQLite hydrate | **R3** — open |
 | Post cold-restart password unlock may require Import Key | Auth / keychain band | **R2** — next repair row |
 | ~~Sidebar “Room key missing” while send works~~ | Health hook vs send owner | **R1 VERIFIED t4** — do not demo as broken |
+| Tor HTTP mesh / onion DM on this host | Conduit Mesh C13 L3 | **BLOCKED** — Tor bootstrap TLS ~10% |
+| Chat → Save to Vault hidden | Vault Phase 6b | **OFF** until [v1.9.13](./v1.9.13-scope.md) |
 
 ---
 
@@ -63,6 +65,7 @@
 | COM-RUN-01 roster | **PAUSED** — integration study |
 | COM-RUN-02 room-key repair | **Cancelled** |
 | Community feature patches | **PAUSED** unless handoff charter |
+| Vault chat→save flag flip | **PAUSED** — [v1.9.13-scope](./v1.9.13-scope.md) |
 
 ---
 

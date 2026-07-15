@@ -3,15 +3,21 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { toast } from "@dweb/ui-kit";
 import { useTranslation } from "react-i18next";
+import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useOptionalProfileMessageBus } from "../../profiles/providers/profile-runtime-provider";
-import { getResolvedProfileId } from "../../profiles/services/profile-runtime-scope";
+import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
 import { subscribeChatStateReplacedDual } from "../../profiles/services/subscribe-chat-state-replaced-dual";
 import { subscribeMessagesIndexRebuiltDual } from "../../profiles/services/subscribe-messages-index-rebuilt-dual";
 import { useIdentity } from "../../auth/hooks/use-identity";
+import { useNetwork } from "../../network/providers/network-provider";
 import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";
+import { requiresAttachmentExportConfirm } from "@/app/features/dm-kernel/dm-kernel-trust-export-action-gate";
+import { getPeerFirstSeenAtUnixMs } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
+import { buildVaultAttachmentExportGateInput } from "../services/vault-attachment-export-gate";
 import {
     deleteLocalMediaCacheItem,
     downloadAttachmentToUserPath,
+    ensureVaultMediaIndexReadyForActiveProfile,
     revealLocalMediaItemPath,
     subscribeLocalMediaIndexChanged,
     revokeAllVaultMediaBlobUrls,
@@ -39,11 +45,15 @@ export type { VaultMediaItem } from "../types/vault-media-item";
 export function useVaultMedia() {
     const { t } = useTranslation();
     const identity = useIdentity();
+    const { peerTrust } = useNetwork();
     const optionalProfileBus = useOptionalProfileMessageBus();
     const publicKeyHex = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
+    const activeProfileId = resolveVaultProfileId();
     const [mediaItems, setMediaItems] = useState<ReadonlyArray<VaultMediaItem>>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
+    const [pendingExportFileName, setPendingExportFileName] = useState<string | null>(null);
+    const pendingExportRunnerRef = useRef<(() => Promise<boolean>) | null>(null);
     const refreshGenerationRef = useRef(0);
     const hasPaintedVaultRef = useRef(false);
     const deferredEnrichCancelRef = useRef<(() => void) | undefined>(undefined);
@@ -94,6 +104,10 @@ export function useVaultMedia() {
         };
 
         try {
+            await ensureVaultMediaIndexReadyForActiveProfile();
+            // Paint disk inventory immediately (before possibly-slow message scan).
+            paintCandidates([]);
+
             await scanMessagesForVaultMedia({
                 isCancelled: () => generation !== refreshGenerationRef.current,
                 onCandidatesBatch: (batch) => {
@@ -157,14 +171,14 @@ export function useVaultMedia() {
             deferredEnrichCancelRef.current = undefined;
             revokeAllVaultMediaBlobUrls();
         };
-    }, [publicKeyHex, refresh]);
+    }, [publicKeyHex, activeProfileId, refresh]);
 
     useEffect(() => {
         const unsubIndex = subscribeMessagesIndexRebuiltDual((detail) => {
             if (detail.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
                 return;
             }
-            if (detail.profileId && detail.profileId !== getResolvedProfileId()) {
+            if (detail.profileId && detail.profileId !== resolveVaultProfileId()) {
                 return;
             }
             void refresh();
@@ -173,7 +187,7 @@ export function useVaultMedia() {
             if (detail?.publicKeyHex && publicKeyHex && detail.publicKeyHex !== publicKeyHex) {
                 return;
             }
-            if (detail?.profileId && detail.profileId !== getResolvedProfileId()) {
+            if (detail?.profileId && detail.profileId !== resolveVaultProfileId()) {
                 return;
             }
             void refresh();
@@ -199,12 +213,23 @@ export function useVaultMedia() {
         return { imageCount, videoCount, audioCount, fileCount, total: mediaItems.length };
     }, [mediaItems]);
 
-    return {
-        mediaItems,
-        isLoading,
-        error,
-        refresh,
-        downloadToLocalPath: async (item: VaultMediaItem) => {
+    const cancelExportConfirm = useCallback((): void => {
+        pendingExportRunnerRef.current = null;
+        setPendingExportFileName(null);
+    }, []);
+
+    const confirmExport = useCallback(async (): Promise<boolean> => {
+        const runner = pendingExportRunnerRef.current;
+        pendingExportRunnerRef.current = null;
+        setPendingExportFileName(null);
+        if (!runner) {
+            return false;
+        }
+        return runner();
+    }, []);
+
+    const downloadToLocalPath = useCallback(async (item: VaultMediaItem): Promise<boolean> => {
+        const runExport = async (): Promise<boolean> => {
             const exported = await downloadAttachmentToUserPath({
                 attachment: item.attachment,
                 sourceUrl: item.remoteUrl,
@@ -213,7 +238,40 @@ export function useVaultMedia() {
                 toast.success(t("vault.exportDecryptedCopySuccess"));
             }
             return exported;
-        },
+        };
+
+        if (!publicKeyHex) {
+            return runExport();
+        }
+
+        const gateInput = buildVaultAttachmentExportGateInput(item, {
+            myPublicKeyHex: publicKeyHex,
+            isPeerAccepted: (peerPublicKeyHex) => (
+                peerTrust.isAccepted({ publicKeyHex: peerPublicKeyHex as PublicKeyHex })
+            ),
+            getPeerFirstSeenAtUnixMs: (peerPublicKeyHex) => (
+                getPeerFirstSeenAtUnixMs(resolveVaultProfileId(), peerPublicKeyHex)
+            ),
+        });
+
+        if (requiresAttachmentExportConfirm(gateInput)) {
+            pendingExportRunnerRef.current = runExport;
+            setPendingExportFileName(item.attachment.fileName ?? "attachment");
+            return false;
+        }
+
+        return runExport();
+    }, [peerTrust, publicKeyHex, t]);
+
+    return {
+        mediaItems,
+        isLoading,
+        error,
+        refresh,
+        downloadToLocalPath,
+        pendingExportFileName,
+        cancelExportConfirm,
+        confirmExport,
         deleteLocalCopy: async (remoteUrl: string) => {
             await deleteLocalMediaCacheItem(remoteUrl);
             await refresh();

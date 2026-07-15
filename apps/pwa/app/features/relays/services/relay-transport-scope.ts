@@ -14,6 +14,28 @@ export const isLocalDevWorkspaceRelayUrl = (relayUrl: string): boolean => (
   workspaceRelayUrlsMatch(relayUrl, LOCAL_DEV_WORKSPACE_RELAY_URL)
 );
 
+/**
+ * Loopback mesh HTTP gateway (C8+/C10) — `http(s)://127.0.0.1|localhost`.
+ * Classified as community_candidate for workspace UI, but must join the DM pool
+ * when enabled so HTTP-only Conduit Mesh soaks can publish/pull.
+ */
+export const isLocalMeshHttpGatewayUrl = (relayUrl: string): boolean => {
+  const trimmed = relayUrl.trim();
+  if (!trimmed) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false;
+    }
+    const host = parsed.hostname.trim().toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return false;
+  }
+};
+
 const PRIVATE_IPV4_RANGES: ReadonlyArray<Readonly<{ prefix: string; nextOctetRange?: Readonly<[number, number]> }>> = [
   { prefix: "10." },
   { prefix: "127." },
@@ -100,25 +122,38 @@ export const resolveDmTransportRelayUrls = (
     .filter((relay) => relay.enabled && isDmTransportRelayUrl(relay.url))
     .map((relay) => relay.url);
 
-  if (!isExperimentOnlineEnabled()) {
-    return dmUrls;
+  const meshHttpUrls = relays
+    .filter((relay) => relay.enabled && isLocalMeshHttpGatewayUrl(relay.url))
+    .map((relay) => relay.url);
+
+  let pool: ReadonlyArray<string> = dmUrls;
+
+  if (isExperimentOnlineEnabled()) {
+    const localDevRelay = relays.find(
+      (relay) => relay.enabled && isLocalDevWorkspaceRelayUrl(relay.url),
+    );
+    if (localDevRelay) {
+      const withoutLocalDup = pool.filter(
+        (url) => !workspaceRelayUrlsMatch(url, localDevRelay.url),
+      );
+      // Keep public DM relays primary when Docker relay is down; local dev stays in pool as fallback.
+      pool = withoutLocalDup.length === 0
+        ? [localDevRelay.url]
+        : [...withoutLocalDup, localDevRelay.url];
+    }
   }
 
-  const localDevRelay = relays.find(
-    (relay) => relay.enabled && isLocalDevWorkspaceRelayUrl(relay.url),
-  );
-  if (!localDevRelay) {
-    return dmUrls;
+  if (meshHttpUrls.length === 0) {
+    return pool;
   }
 
-  const withoutLocalDup = dmUrls.filter(
-    (url) => !workspaceRelayUrlsMatch(url, localDevRelay.url),
+  const withoutMeshDup = pool.filter(
+    (url) => !meshHttpUrls.some((meshUrl) => workspaceRelayUrlsMatch(url, meshUrl)),
   );
-  if (withoutLocalDup.length === 0) {
-    return [localDevRelay.url];
+  if (withoutMeshDup.length === 0) {
+    return meshHttpUrls;
   }
-  // Keep public DM relays primary when Docker relay is down; local dev stays in pool as fallback.
-  return [...withoutLocalDup, localDevRelay.url];
+  return [...withoutMeshDup, ...meshHttpUrls];
 };
 
 export const resolveCommunityCandidateRelayUrls = (

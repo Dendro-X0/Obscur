@@ -7,6 +7,7 @@ import {
   resolveLocalMediaUrl,
   resolveVaultDisplayFileName,
 } from "./local-media-store";
+import { isVaultStandaloneCatalogUrl } from "./vault-disk-inventory";
 import { getMediaKindForPolicy } from "@/app/features/messaging/lib/media-upload-policy";
 
 export type VaultMediaCandidate = Readonly<{
@@ -61,12 +62,12 @@ export const buildStandaloneLocalVaultMediaItems = (
   const index = getLocalMediaIndexSnapshot();
   const items: VaultMediaItem[] = [];
   Object.entries(index).forEach(([remoteUrl, entry]) => {
-    const isLocalVaultOnly = isLocalVaultOnlyUrl(remoteUrl);
+    const isStandaloneVaultItem = isVaultStandaloneCatalogUrl(remoteUrl);
     const isExplicitChatSave = (
       (typeof entry?.messageEventId === "string" && entry.messageEventId.trim().length > 0)
       || entry?.explicitChatSave === true
     );
-    if (!isLocalVaultOnly && !isExplicitChatSave) {
+    if (!isStandaloneVaultItem && !isExplicitChatSave) {
       return;
     }
     if (existingRemoteUrls.has(remoteUrl)) {

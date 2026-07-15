@@ -218,7 +218,7 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 
 **Investigation:** [vault-chat-save-re-enable-investigation-2026-07.md](./vault-chat-save-re-enable-investigation-2026-07.md)
 
-**Status:** **DISABLED** — do not schedule until maintainer unpause + G8 (L3/L4 sign-off).
+**Status:** **DISABLED** — Phase 6a row-proof implementation landed (flag false) · flip after G8 + L3 chain
 
 ---
 

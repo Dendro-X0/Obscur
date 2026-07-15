@@ -3,6 +3,10 @@ import type { DmConversation, GroupConversation } from "../types";
 import { resolveConversationByToken } from "../utils/conversation-target";
 import { applySelectedConversationUnreadIsolation } from "./unread-isolation";
 import { mergeProjectionUnreadByConversationId } from "./projection-unread";
+import {
+  resolveConversationUnreadCount,
+  suppressUnreadByLastSeen,
+} from "./unread-last-seen-suppression";
 
 const LOCAL_PUBKEY = "a".repeat(64);
 const PEER_ALPHA = "b".repeat(64);
@@ -151,5 +155,25 @@ describe("conversation-unread-convergence integration", () => {
       selectedConversation: resolved,
     });
     expect(isolated).toBeNull();
+  });
+
+  it("keeps group unread at zero after simulated chat-state rehydrate when lastSeen covers the head", () => {
+    const lastSeenByConversationId = {
+      [GROUP_ALPHA.id]: GROUP_ALPHA.lastMessageTime.getTime(),
+      "group:alpha:wss://relay.alpha": GROUP_ALPHA.lastMessageTime.getTime(),
+    };
+    const hydratedUnread = suppressUnreadByLastSeen({
+      unreadByConversationId: {
+        [GROUP_ALPHA.id]: 1,
+      },
+      lastSeenByConversationId,
+      conversations: [GROUP_ALPHA],
+    });
+    expect(hydratedUnread[GROUP_ALPHA.id]).toBe(0);
+    expect(resolveConversationUnreadCount({
+      conversation: GROUP_ALPHA,
+      unreadByConversationId: hydratedUnread,
+      lastSeenByConversationId,
+    })).toBe(0);
   });
 });

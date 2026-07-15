@@ -138,9 +138,12 @@ Each module is a **single owner** service consumed by feature UI — no duplicat
 
 | Field | Value |
 |-------|-------|
-| **Owner** | `conversation-risk-scorer.ts` (planned) |
+| **Owner** | `dm-kernel-trust-assessment-port.ts` · `dm-kernel-trust-social-engineering-signals.ts` (canonical); ASE gates consume same port (TRUST-INT-2) |
 | **Level** | L1–L3 |
-| **Behavior** | Score SE2–SE3 patterns; surface calm copy (“Obscur never asks for your passphrase”) |
+| **Behavior** | Compound `TrustSignalId` bundles; surface calm copy (“Obscur never asks for your passphrase”) |
+| **Design** | [trust-non-ai-intelligence-design-2026-07.md](../../specs/backend/trust-non-ai-intelligence-design-2026-07.md) |
+
+**Status (2026-07-11):** **Done** — DM banner (L1) + ASE action gates consume `dm-kernel-trust-assess-context.ts` / assessment port (TRUST-INT-2).
 
 ### 4.6 M6 — Out-of-band confirmation (OOB)
 
@@ -196,7 +199,7 @@ Neither band replaces the other. **Ship M1 with KEY-MOAT Phase 1**; remaining mo
 | **ASE-1c** | M3 send ceremony | **Done** — first DM to unknown requires L2 confirm |
 | **ASE-1d** | M8 contact-request sandbox | Requests-only until accept; Q&A sandbox; offline compose policy |
 | **ASE-2a** | M4 link safety | URLs in DMs flagged; no credential URL auto-open |
-| **ASE-2b** | M5 risk scorer | Urgency + impersonation heuristics in thread UI |
+| **ASE-2b** | M5 risk scorer | Urgency + impersonation heuristics in thread UI — **see TRUST-INT-1** |
 | **ASE-3** | M6 OOB | Export / high-trust flows support second-device confirm |
 
 **Forbidden:** UI-only patches that duplicate heuristics per screen — use shared owners.
@@ -231,6 +234,7 @@ Used for tuning friction — not for surveillance.
 | Band | Status | Next atomic step |
 |------|--------|------------------|
 | `ASE-1` | ACTIVE | ASE-1d — contact-request sandbox (Requests-only + Q&A until accept) |
+| `TRUST-INT-1` | ACTIVE | L3/L4 dogfood per [trust-int-l3-verification-2026-07.md](../../specs/backend/trust-int-l3-verification-2026-07.md) (code L1 done) |
 | `KEY-MOAT-1` | ACTIVE | Phase 5 — at-rest charter alignment (SQLCipher / vault) |
 
 Update [current-session.md](../handoffs/current-session.md) when either band becomes the primary execution thread.
@@ -242,6 +246,8 @@ Update [current-session.md](../handoffs/current-session.md) when either band bec
 | Document | Role |
 |----------|------|
 | [private-key-technical-moat-2026-07.md](../../specs/backend/private-key-technical-moat-2026-07.md) | Technical moat phases |
+| [trust-non-ai-intelligence-design-2026-07.md](../../specs/backend/trust-non-ai-intelligence-design-2026-07.md) | Non-AI trust composition (TRUST-INT-1) |
+| [trust-non-ai-intelligence-investigation-2026-07.md](../../specs/backend/trust-non-ai-intelligence-investigation-2026-07.md) | False-positive evidence + owners |
 | [discovery-friend-code-private-key-2026-07.md](../../specs/backend/discovery-friend-code-private-key-2026-07.md) | M1 Discovery slice |
 | [v1.9.8-portable-storage-and-encryption-charter.md](./v1.9.8-portable-storage-and-encryption-charter.md) | T8 honest limits |
 | [obscur-auth-kernel-charter-2026-06.md](./obscur-auth-kernel-charter-2026-06.md) | Unlock / signing planes |

@@ -4,17 +4,24 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import { toast } from "@dweb/ui-kit";
 import { AudioPlayer } from "./audio-player";
+import { VoiceNoteLightboxPlayer } from "./voice-note-lightbox-player";
 import { VideoPlayer } from "./video-player";
 import { inferAttachmentKind } from "../utils/logic";
 import type { MediaItem } from "../types";
 import { cn } from "@/app/lib/utils";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
-import { ChevronLeft, ChevronRight, Download, FileText, HardDrive, Minus, Plus, RotateCcw, X } from "lucide-react";
-import { canSaveChatAttachmentsToLocalVault, saveChatAttachmentToLocalVault } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { canSaveChatAttachmentsToLocalVault, saveChatAttachmentWithOutcome } from "@/app/features/vault/services/save-chat-attachment-to-vault";
 import { downloadAttachmentToUserPath } from "@/app/features/vault/services/local-media-store";
+import { AttachmentExportConfirmDialog } from "@/app/features/security/components/attachment-export-confirm-dialog";
+import { VaultWriteUnlockDialog } from "@/app/features/security/components/vault-write-unlock-dialog";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { useAttachmentExportGate, type UseAttachmentExportGateResult } from "../hooks/use-attachment-export-gate";
 import { MEDIA_VIEWER_MIN_ZOOM, MEDIA_VIEWER_MAX_ZOOM, buildMediaViewerState, clampZoom, computePinchZoom, getTouchDistance, } from "./media-viewer-interactions";
 import { MESSAGING_OVERLAY_BACKDROP_CLASS, MessagingOverlayPortal } from "./messaging-overlay-portal";
+import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
+import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
+import { ChevronLeft, ChevronRight, Download, FileText, HardDrive, Loader2, Minus, Plus, RotateCcw, X } from "lucide-react";
 interface LightboxProps {
     readonly item: MediaItem | undefined;
     readonly onClose: () => void;
@@ -24,6 +31,9 @@ interface LightboxProps {
     readonly hasNext?: boolean;
     readonly activeIndex?: number;
     readonly totalItems?: number;
+    readonly exportGate: UseAttachmentExportGateResult;
+    readonly onRequestOpenExternalLink?: (url: string) => void | Promise<void>;
+    readonly openAttachmentContextMenu: (params: NonNullable<AttachmentContextMenuState>) => void;
 }
 type TouchListLike = Readonly<{
     length: number;
@@ -83,8 +93,19 @@ const resolveImagePanConstraints = ({
     };
 };
 
-export function Lightbox(props: LightboxProps) {
+export function Lightbox(props: Omit<LightboxProps, "exportGate" | "onRequestOpenExternalLink" | "openAttachmentContextMenu">) {
     const [chatUxV083Enabled, setChatUxV083Enabled] = React.useState<boolean>(() => PrivacySettingsService.getSettings().chatUxV083);
+    const [attachmentContextMenu, setAttachmentContextMenu] = React.useState<AttachmentContextMenuState>(null);
+    const openAttachmentContextMenu = React.useCallback((params: NonNullable<AttachmentContextMenuState>): void => {
+        setAttachmentContextMenu(params);
+    }, []);
+    const exportGate = useAttachmentExportGate();
+    const {
+        pendingLinkUrl,
+        cancelPendingLink,
+        confirmPendingLink,
+        requestOpenExternalLinkPreferNative,
+    } = useGuardedExternalLinkOpen();
     React.useEffect(() => {
         if (!props.item) {
             return;
@@ -109,15 +130,34 @@ export function Lightbox(props: LightboxProps) {
         return null;
     }
     const content = !chatUxV083Enabled
-        ? <LegacyLightbox {...props}/>
-        : <V083Lightbox {...props}/>;
-    return <MessagingOverlayPortal>{content}</MessagingOverlayPortal>;
+        ? <LegacyLightbox {...props} exportGate={exportGate} onRequestOpenExternalLink={requestOpenExternalLinkPreferNative} openAttachmentContextMenu={openAttachmentContextMenu}/>
+        : <V083Lightbox {...props} exportGate={exportGate} onRequestOpenExternalLink={requestOpenExternalLinkPreferNative} openAttachmentContextMenu={openAttachmentContextMenu}/>;
+    return (
+      <MessagingOverlayPortal>
+        {content}
+        <AttachmentContextMenu
+            state={attachmentContextMenu}
+            onClose={() => setAttachmentContextMenu(null)}
+        />
+        <AttachmentExportConfirmDialog
+          fileName={exportGate.pendingExportFileName}
+          onClose={exportGate.cancelExportConfirm}
+          onConfirm={() => void exportGate.confirmExport()}
+        />
+        <LinkOpenConfirmDialog
+          url={pendingLinkUrl}
+          onClose={cancelPendingLink}
+          onConfirm={() => confirmPendingLink()}
+        />
+      </MessagingOverlayPortal>
+    );
 }
 
-function LegacyLightbox({ item, onClose }: LightboxProps) {
+function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, openAttachmentContextMenu }: LightboxProps) {
     const { t } = useTranslation();
     const [isSavingToVault, setIsSavingToVault] = React.useState(false);
     const [isSavedToVault, setIsSavedToVault] = React.useState(false);
+    const [showVaultUnlock, setShowVaultUnlock] = React.useState(false);
   const [zoom, setZoom] = React.useState(1);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -168,17 +208,19 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
   }, [item?.attachment.url]);
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
-        const downloaded = await downloadAttachmentToUserPath({
-            attachment: item.attachment,
-            sourceUrl: item.attachment.url,
+        await exportGate.runExportWithGate(item, async () => {
+            const downloaded = await downloadAttachmentToUserPath({
+                attachment: item.attachment,
+                sourceUrl: item.attachment.url,
+            });
+            if (!downloaded) {
+                toast.error(t("vault.saveFromChatFailed"));
+                return;
+            }
+            if (item.attachment.url?.startsWith("blob:")) {
+                toast.success(t("vault.exportDecryptedCopySuccess"));
+            }
         });
-        if (!downloaded) {
-            toast.error(t("vault.saveFromChatFailed"));
-            return;
-        }
-        if (item.attachment.url?.startsWith("blob:")) {
-            toast.success(t("vault.exportDecryptedCopySuccess"));
-        }
     };
     const onSaveToVault = async (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -187,8 +229,24 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
         }
         setIsSavingToVault(true);
         try {
-            const saved = await saveChatAttachmentToLocalVault(item.attachment, t);
-            if (saved) {
+            const outcome = await saveChatAttachmentWithOutcome(item.attachment, t, {
+                suppressUnlockToast: true,
+            });
+            if (outcome.status === "saved") {
+                setIsSavedToVault(true);
+            } else if (outcome.status === "unlock_required") {
+                setShowVaultUnlock(true);
+            }
+        } finally {
+            setIsSavingToVault(false);
+        }
+    };
+    const retrySaveAfterUnlock = async (): Promise<void> => {
+        setShowVaultUnlock(false);
+        setIsSavingToVault(true);
+        try {
+            const outcome = await saveChatAttachmentWithOutcome(item.attachment, t);
+            if (outcome.status === "saved") {
                 setIsSavedToVault(true);
             }
         } finally {
@@ -196,6 +254,11 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
         }
     };
     return (<div data-escape-layer="open" className={cn(MESSAGING_OVERLAY_BACKDROP_CLASS, "flex items-center justify-center p-4")} onPointerDown={onClose}>
+      <VaultWriteUnlockDialog
+        isOpen={showVaultUnlock}
+        onClose={() => setShowVaultUnlock(false)}
+        onUnlocked={() => { void retrySaveAfterUnlock(); }}
+      />
       <div className="relative w-full max-w-5xl" onPointerDown={(event) => event.stopPropagation()}>
         <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
           {canZoomImage ? (<>
@@ -209,8 +272,9 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
               <Plus className="h-4 w-4"/>
             </button>
           </>) : null}
-          {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault} aria-label={t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}>
-            <HardDrive className="h-4 w-4"/>
+          {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control media-viewer-control-labeled" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault || isSavedToVault} aria-busy={isSavingToVault} aria-label={isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}>
+            {isSavingToVault ? <Loader2 className="h-4 w-4 shrink-0 animate-spin"/> : <HardDrive className="h-4 w-4 shrink-0"/>}
+            <span className="hidden text-xs font-semibold sm:inline">{isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}</span>
           </button>) : null}
           <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}>
             <Download className="h-4 w-4"/>
@@ -219,7 +283,7 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
             <X className="h-4 w-4"/>
           </button>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-zinc-300/65 bg-white/90 shadow-[0_24px_80px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.6)]">
+        <div className="overflow-hidden rounded-2xl border border-zinc-300/65 bg-white/90 shadow-[0_24px_80px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.6)]" {...getAttachmentContextMenuTriggerProps(item.attachment, openAttachmentContextMenu)}>
           {kind === "image" ? (
             <div
               ref={imageStageRef}
@@ -254,22 +318,25 @@ function LegacyLightbox({ item, onClose }: LightboxProps) {
                 <Image src={item.attachment.url} alt={item.attachment.fileName} width={1280} height={720} unoptimized className="h-auto w-full max-h-[90vh] object-contain select-none" draggable={false}/>
               </motion.div>
             </div>
-          ) : (kind === "audio" || kind === "voice_note") ? (<div className="p-6">
-              <AudioPlayer src={item.attachment.url} isOutgoing={false} voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item.attachment)}/>
+          ) : kind === "voice_note" ? (<div className="p-6" onPointerDown={(event) => event.stopPropagation()}>
+              <VoiceNoteLightboxPlayer src={item.attachment.url} voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item.attachment)} onRequestOpenExternalLink={onRequestOpenExternalLink}/>
+            </div>) : kind === "audio" ? (<div className="p-6" onPointerDown={(event) => event.stopPropagation()}>
+              <AudioPlayer src={item.attachment.url} isOutgoing={false} voiceNoteMetadata={null} onRequestOpenExternalLink={onRequestOpenExternalLink}/>
             </div>) : (kind === "file" && isPdfAttachment(item.attachment)) ? (<div className="h-[90vh] w-full bg-white p-3 dark:bg-zinc-950">
               <iframe src={item.attachment.url} title={`PDF preview: ${item.attachment.fileName}`} className="h-full w-full rounded-xl border border-zinc-300/60 dark:border-white/10"/>
-            </div>) : (<VideoPlayer src={item.attachment.url} isOutgoing={false} className="max-h-[90vh]"/>)}
+            </div>) : (<VideoPlayer src={item.attachment.url} isOutgoing={false} className="max-h-[90vh]" onRequestOpenExternalLink={onRequestOpenExternalLink}/>)}
         </div>
       </div>
     </div>);
 }
-function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeIndex, totalItems }: LightboxProps) {
+function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeIndex, totalItems, exportGate, onRequestOpenExternalLink, openAttachmentContextMenu }: LightboxProps) {
     const { t } = useTranslation();
     const kind = inferAttachmentKind(item!.attachment);
     const [zoom, setZoom] = React.useState(1);
     const [isPinching, setIsPinching] = React.useState(false);
     const [isSavingToVault, setIsSavingToVault] = React.useState(false);
     const [isSavedToVault, setIsSavedToVault] = React.useState(false);
+    const [showVaultUnlock, setShowVaultUnlock] = React.useState(false);
     const pinchStartDistanceRef = React.useRef<number | null>(null);
     const pinchStartZoomRef = React.useRef(1);
     const imageStageRef = React.useRef<HTMLDivElement | null>(null);
@@ -350,17 +417,19 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
     }, [hasNext, hasPrev, onClose, onNext, onPrev, zoomBy]);
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
-        const downloaded = await downloadAttachmentToUserPath({
-            attachment: item!.attachment,
-            sourceUrl: item!.attachment.url,
+        await exportGate.runExportWithGate(item!, async () => {
+            const downloaded = await downloadAttachmentToUserPath({
+                attachment: item!.attachment,
+                sourceUrl: item!.attachment.url,
+            });
+            if (!downloaded) {
+                toast.error(t("vault.saveFromChatFailed"));
+                return;
+            }
+            if (item!.attachment.url?.startsWith("blob:")) {
+                toast.success(t("vault.exportDecryptedCopySuccess"));
+            }
         });
-        if (!downloaded) {
-            toast.error(t("vault.saveFromChatFailed"));
-            return;
-        }
-        if (item!.attachment.url?.startsWith("blob:")) {
-            toast.success(t("vault.exportDecryptedCopySuccess"));
-        }
     };
     const onSaveToVault = async (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -369,9 +438,13 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
         }
         setIsSavingToVault(true);
         try {
-            const saved = await saveChatAttachmentToLocalVault(item!.attachment, t);
-            if (saved) {
+            const outcome = await saveChatAttachmentWithOutcome(item!.attachment, t, {
+                suppressUnlockToast: true,
+            });
+            if (outcome.status === "saved") {
                 setIsSavedToVault(true);
+            } else if (outcome.status === "unlock_required") {
+                setShowVaultUnlock(true);
             }
         } catch (error) {
             console.error("[Lightbox] Save to vault failed:", error);
@@ -379,7 +452,24 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
             setIsSavingToVault(false);
         }
     };
+    const retrySaveAfterUnlock = async (): Promise<void> => {
+        setShowVaultUnlock(false);
+        setIsSavingToVault(true);
+        try {
+            const outcome = await saveChatAttachmentWithOutcome(item!.attachment, t);
+            if (outcome.status === "saved") {
+                setIsSavedToVault(true);
+            }
+        } finally {
+            setIsSavingToVault(false);
+        }
+    };
     return (<AnimatePresence>
+      <VaultWriteUnlockDialog
+        isOpen={showVaultUnlock}
+        onClose={() => setShowVaultUnlock(false)}
+        onUnlocked={() => { void retrySaveAfterUnlock(); }}
+      />
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-escape-layer="open" className={cn(MESSAGING_OVERLAY_BACKDROP_CLASS, "flex items-center justify-center p-4 md:p-8")} onPointerDown={onClose}>
         <div className="absolute left-5 top-5 z-[120] max-w-[min(70vw,24rem)] rounded-[28px] border border-zinc-300/70 bg-white/95 px-4 py-3 shadow-xl dark:border-white/15 dark:bg-black/70" onPointerDown={(event) => event.stopPropagation()}>
           <div className="flex items-center gap-2">
@@ -406,8 +496,9 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
                 <Plus className="h-4 w-4"/>
               </button>
             </>) : null}
-          {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault} aria-label={t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}>
-            <HardDrive className="h-4 w-4"/>
+          {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control media-viewer-control-labeled" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault || isSavedToVault} aria-busy={isSavingToVault} aria-label={isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}>
+            {isSavingToVault ? <Loader2 className="h-4 w-4 shrink-0 animate-spin"/> : <HardDrive className="h-4 w-4 shrink-0"/>}
+            <span className="hidden text-xs font-semibold sm:inline">{isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}</span>
           </button>) : null}
           <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}>
             <Download className="h-4 w-4"/>
@@ -417,6 +508,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
           </button>
         </div>
 
+        <div {...getAttachmentContextMenuTriggerProps(item!.attachment, openAttachmentContextMenu)}>
         {kind === "image" ? (<div ref={imageStageRef} tabIndex={0} className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/55 shadow-[0_30px_100px_rgba(15,23,42,0.2)] outline-none dark:border-white/10 dark:bg-black/60 dark:shadow-[0_36px_110px_rgba(0,0,0,0.62)]" onPointerDown={(event) => {
                 event.stopPropagation();
                 imageStageRef.current?.focus({ preventScroll: true });
@@ -450,8 +542,10 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
             <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-zinc-300/65 bg-white/85 px-2 py-1 text-[10px] font-bold tracking-wider text-zinc-800 dark:border-white/15 dark:bg-black/60 dark:text-white">
               {Math.round(viewerState.zoom * 100)}%
             </div>
-          </div>) : (kind === "audio" || kind === "voice_note") ? (<div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/90 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
-            <AudioPlayer src={item!.attachment.url} isOutgoing={false} voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item!.attachment)}/>
+          </div>) : kind === "voice_note" ? (<div onPointerDown={(event) => event.stopPropagation()}>
+            <VoiceNoteLightboxPlayer src={item!.attachment.url} voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item!.attachment)} onRequestOpenExternalLink={onRequestOpenExternalLink}/>
+          </div>) : kind === "audio" ? (<div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/90 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
+            <AudioPlayer src={item!.attachment.url} isOutgoing={false} voiceNoteMetadata={null} onRequestOpenExternalLink={onRequestOpenExternalLink}/>
           </div>) : (kind === "file" && isPdfAttachment(item!.attachment)) ? (<div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/90 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
               <FileText className="h-4 w-4"/>
@@ -459,8 +553,9 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
             </div>
             <iframe src={item!.attachment.url} title={`PDF preview: ${item!.attachment.fileName}`} className="h-[78vh] w-full rounded-2xl border border-zinc-300/60 bg-white dark:border-white/10 dark:bg-zinc-950"/>
           </div>) : (<div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/90 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
-            <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh]"/>
+            <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh]" onRequestOpenExternalLink={onRequestOpenExternalLink}/>
           </div>)}
+        </div>
 
         {hasPrev && onPrev ? (<button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={onPrev} className="media-viewer-nav media-viewer-nav-left hidden md:inline-flex" aria-label={t("messaging.preview.previousItem")}>
             <ChevronLeft className="h-5 w-5"/>

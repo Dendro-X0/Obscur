@@ -21,6 +21,35 @@ describe("static-shell-stale", () => {
     assert.ok(STATIC_SHELL_SOURCE_ROOTS.some((root) => root === "apps/pwa/app"));
   });
 
+  it("includes workspace conduit-mesh packages in source roots", () => {
+    assert.ok(STATIC_SHELL_SOURCE_ROOTS.includes("packages/obscur-conduit-mesh"));
+    assert.ok(STATIC_SHELL_SOURCE_ROOTS.includes("packages/obscur-conduit-mesh-contracts"));
+    assert.ok(STATIC_SHELL_SOURCE_ROOTS.includes("packages/obscur-transport-engine"));
+  });
+
+  it("detects staleness when packages/obscur-conduit-mesh changes after out/index.html", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "obscur-shell-stale-pkg-"));
+    try {
+      const outIndex = join(repoRoot, "apps", "pwa", "out", "index.html");
+      const packageSource = join(
+        repoRoot,
+        "packages",
+        "obscur-conduit-mesh",
+        "src",
+        "index.ts",
+      );
+
+      touch(outIndex, Date.UTC(2026, 6, 1, 12, 0, 0));
+      touch(packageSource, Date.UTC(2026, 6, 10, 12, 0, 0));
+
+      const stale = isStaticShellStale(repoRoot);
+      assert.equal(stale.stale, true);
+      assert.match(stale.reason, /obscur-conduit-mesh/);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("detects staleness when app/components changes after out/index.html", () => {
     const repoRoot = mkdtempSync(join(tmpdir(), "obscur-shell-stale-"));
     try {

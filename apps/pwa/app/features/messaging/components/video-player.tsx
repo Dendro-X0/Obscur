@@ -6,20 +6,21 @@ import { cn } from "@dweb/ui-kit";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { motion, AnimatePresence } from "framer-motion";
-import { openNativeExternal } from "@/app/features/runtime/native-host-adapter";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 
 interface VideoPlayerProps {
     src: string;
     isOutgoing: boolean;
     autoPlay?: boolean;
     className?: string;
+    onRequestOpenExternalLink?: (url: string) => void | Promise<void>;
 }
 
 /**
  * Custom styled Video Player for the Obscur chat app.
  * Matches the aesthetic of the AudioPlayer with smooth transitions and premium feel.
  */
-export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerProps) {
+export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExternalLink }: VideoPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(autoPlay);
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -35,6 +36,12 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
     const [isCoarsePointer, setIsCoarsePointer] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const {
+        pendingLinkUrl,
+        cancelPendingLink,
+        confirmPendingLink,
+        requestOpenExternalLinkPreferNative,
+    } = useGuardedExternalLinkOpen();
 
     const resolveDuration = (video: HTMLVideoElement | null): number => {
         if (!video) return 0;
@@ -66,20 +73,8 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
     const openExternally = async (e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
 
-        try {
-            const openedNatively = await openNativeExternal(src);
-            if (openedNatively) {
-                return;
-            } 
-        } catch {
-            // ignore
-        }
-
-        try {
-            window.open(src, "_blank", "noopener,noreferrer");
-        } catch {
-            // ignore
-        }
+        const requestOpen = onRequestOpenExternalLink ?? requestOpenExternalLinkPreferNative;
+        await requestOpen(src);
     };
 
     const togglePlay = (e?: React.MouseEvent) => {
@@ -215,6 +210,7 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
     const showControlDock = !useNativeMobileControls && !isError && (isHovering || !isPlaying);
 
     return (
+        <>
         <motion.div
             ref={containerRef}
             initial={false}
@@ -426,5 +422,13 @@ export function VideoPlayer({ src, autoPlay = false, className }: VideoPlayerPro
                 )}
             </AnimatePresence>
         </motion.div>
+        {!onRequestOpenExternalLink ? (
+            <LinkOpenConfirmDialog
+                url={pendingLinkUrl}
+                onClose={cancelPendingLink}
+                onConfirm={() => confirmPendingLink()}
+            />
+        ) : null}
+        </>
     );
 }

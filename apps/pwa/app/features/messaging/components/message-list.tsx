@@ -9,7 +9,7 @@ import { MessageContent } from "../../../components/message-content";
 import { MessageLinkPreview } from "../../../components/message-link-preview";
 import { AudioPlayer } from "./audio-player";
 import { VideoPlayer } from "./video-player";
-import { VoiceNoteCard } from "./voice-note-card";
+import { VoiceNotePlayer } from "./voice-note-player";
 import { cn } from "../../../lib/cn";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { formatTime } from "../utils/formatting";
@@ -35,6 +35,7 @@ import { MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS, MESSAGE_BUBBLE_SUSTAIN_HOVER_
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
 import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
 import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
+import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { messageMatchesSearchJumpTarget, resolveSearchJumpDomResolution, resolveSearchJumpStep, } from "./message-search-jump";
 import { VoiceCallInviteCard } from "./voice-call-invite-card";
@@ -1600,6 +1601,14 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
     readonly chatUxV083Enabled: boolean;
 }): React.JSX.Element {
     const { t } = useTranslation();
+    const {
+        pendingLinkUrl,
+        cancelPendingLink,
+        confirmPendingLink,
+        handleAnchorClick,
+        requestOpenExternalLink,
+        requestOpenExternalLinkPreferNative,
+    } = useGuardedExternalLinkOpen();
     const fileLabel = t("common.file");
     const { visualMedia, imageMedia, videoMedia, audios, others, } = React.useMemo(() => buildAttachmentBuckets(attachments), [attachments]);
     const { displayNameByUrl, hostByUrl, voiceNoteMetadataByUrl, } = React.useMemo(() => buildAttachmentPresentation({
@@ -1689,7 +1698,7 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                     {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={savingAttachmentUrl === attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
                                             <HardDrive className="h-3.5 w-3.5"/>
                                         </button>) : null}
-                                    <OptimizedImage src={attachment.url} alt={attachment.fileName} containerClassName="h-full w-full" className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500" onClick={() => onImageClick?.(attachment.url)}/>
+                                    <OptimizedImage src={attachment.url} alt={attachment.fileName} containerClassName="h-full w-full" className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500" onClick={() => onImageClick?.(attachment.url)} onRequestOpenExternalLink={requestOpenExternalLink}/>
                                 </div>))}
                         </div>) : null}
                     {videoMedia.length > 0 ? (<div className="space-y-2 sm:space-y-3">
@@ -1700,7 +1709,7 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                     {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={savingAttachmentUrl === attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
                                             <HardDrive className="h-3.5 w-3.5"/>
                                         </button>) : null}
-                                    <VideoPlayer src={attachment.url} isOutgoing={isOutgoing} className="w-full rounded-xl aspect-[16/10] sm:aspect-video"/>
+                                    <VideoPlayer src={attachment.url} isOutgoing={isOutgoing} className="w-full rounded-xl aspect-[16/10] sm:aspect-video" onRequestOpenExternalLink={requestOpenExternalLinkPreferNative}/>
                                 </div>))}
                         </div>) : null}
                 </>)}
@@ -1732,8 +1741,8 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                     <AnimatePresence mode="wait">
                         <motion.div key={activeVisual.attachment.url} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: "easeInOut" }} className="w-full">
                             {activeVisual.kind === "image" ? (<div className="relative flex items-center justify-center bg-zinc-950 w-full" style={{ maxHeight: '480px' }}>
-                                    <OptimizedImage src={activeVisual.attachment.url} alt={activeVisual.attachment.fileName} fill={false} containerClassName="overflow-hidden w-auto max-w-full flex items-center justify-center" className="w-auto h-auto max-w-full object-contain cursor-zoom-in group-hover:scale-[1.03] transition-transform duration-[1.5s]" style={{ maxHeight: '480px', maxWidth: '100%' }} onClick={() => onImageClick?.(activeVisual.attachment.url)}/>
-                                </div>) : (<VideoPlayer src={activeVisual.attachment.url} isOutgoing={isOutgoing} className="w-full rounded-2xl aspect-[16/10] sm:aspect-video max-h-[62vh] sm:max-h-none"/>)}
+                                    <OptimizedImage src={activeVisual.attachment.url} alt={activeVisual.attachment.fileName} fill={false} containerClassName="overflow-hidden w-auto max-w-full flex items-center justify-center" className="w-auto h-auto max-w-full object-contain cursor-zoom-in group-hover:scale-[1.03] transition-transform duration-[1.5s]" style={{ maxHeight: '480px', maxWidth: '100%' }} onClick={() => onImageClick?.(activeVisual.attachment.url)} onRequestOpenExternalLink={requestOpenExternalLink}/>
+                                </div>) : (<VideoPlayer src={activeVisual.attachment.url} isOutgoing={isOutgoing} className="w-full rounded-2xl aspect-[16/10] sm:aspect-video max-h-[62vh] sm:max-h-none" onRequestOpenExternalLink={requestOpenExternalLinkPreferNative}/>)}
                         </motion.div>
                     </AnimatePresence>
 
@@ -1774,7 +1783,7 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                 const isVoiceNoteAttachment = voiceMetadata?.isVoiceNote || attachment.kind === "voice_note";
                 if (isVoiceNoteAttachment) {
                     return (<div key={`voice-note-${attachment.url}-${index}`} {...attachmentMenuProps(attachment)}>
-                            <VoiceNoteCard src={attachment.url} isOutgoing={isOutgoing} voiceNoteMetadata={voiceMetadata}/>
+                            <VoiceNotePlayer src={attachment.url} isOutgoing={isOutgoing} voiceNoteMetadata={voiceMetadata} onRequestOpenExternalLink={requestOpenExternalLinkPreferNative}/>
                         </div>);
                 }
                 return (<div key={`aud-${attachment.url}-${index}`} className={cn("rounded-xl border p-3 space-y-2", isOutgoing
@@ -1798,19 +1807,19 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                                 {hostByUrl[attachment.url] ?? attachment.url}
                                             </div>
                                         </div>
-                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer" className={cn("h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center transition-colors", isOutgoing
+                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer" onClick={(event) => handleAnchorClick(event, attachment.url)} className={cn("h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center transition-colors", isOutgoing
                         ? "border-white/20 hover:bg-white/10"
                         : "border-black/10 hover:bg-zinc-100 dark:border-white/10 dark:hover:bg-zinc-700/80")} aria-label={t("common.openInNewTab")}>
                                             <ExternalLink className="h-4 w-4"/>
                                         </a>
                                     </div>
-                                    <AudioPlayer src={attachment.url} isOutgoing={isOutgoing} className="max-w-none min-w-0" voiceNoteMetadata={null}/>
+                                    <AudioPlayer src={attachment.url} isOutgoing={isOutgoing} className="max-w-none min-w-0" voiceNoteMetadata={null} onRequestOpenExternalLink={requestOpenExternalLinkPreferNative}/>
                                 </div>);
             })()))}
                 </div>)}
 
             {others.length > 0 && (<div className="space-y-2">
-                    {others.map((attachment, index) => (<a key={`file-${attachment.url}-${index}`} href={attachment.url} target="_blank" rel="noopener noreferrer" {...attachmentMenuProps(attachment)} className={cn("flex items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-full group/file", isOutgoing
+                    {others.map((attachment, index) => (<a key={`file-${attachment.url}-${index}`} href={attachment.url} target="_blank" rel="noopener noreferrer" onClick={(event) => handleAnchorClick(event, attachment.url)} {...attachmentMenuProps(attachment)} className={cn("flex items-center gap-3 p-4 rounded-2xl transition-all duration-200 w-full group/file", isOutgoing
                     ? "bg-white/10 hover:bg-white/20 text-white"
                     : "bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100")}>
                             <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", isOutgoing ? "bg-white/20" : "bg-purple-500 text-white")}>
@@ -1825,6 +1834,12 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
             <AttachmentContextMenu
                 state={attachmentContextMenu}
                 onClose={() => setAttachmentContextMenu(null)}
+                onOpenInNewTab={requestOpenExternalLink}
+            />
+            <LinkOpenConfirmDialog
+                url={pendingLinkUrl}
+                onClose={cancelPendingLink}
+                onConfirm={() => confirmPendingLink()}
             />
         </div>);
 }

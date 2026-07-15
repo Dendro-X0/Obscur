@@ -1,16 +1,29 @@
 import type { RequestsInboxItem } from "../types";
 import { classifyIncomingRequestInboxLane } from "./classify-incoming-request-inbox-lane";
 
+const isPendingRequestStatus = (status: RequestsInboxItem["status"]): boolean => (
+  !status || status === "pending"
+);
+
 export const isIncomingPendingRequest = (item: RequestsInboxItem): boolean => {
-  return !item.isOutgoing && item.status === "pending";
+  return !item.isOutgoing && isPendingRequestStatus(item.status);
 };
 
 export const isOutgoingPendingRequest = (item: RequestsInboxItem): boolean => {
-  return !!item.isOutgoing && item.status === "pending";
+  return !!item.isOutgoing && isPendingRequestStatus(item.status);
 };
+
+export const isOutgoingResendableRequest = (item: RequestsInboxItem): boolean => (
+  !!item.isOutgoing && (item.status === "declined" || item.status === "canceled")
+);
 
 export const isOpenPendingRequest = (item: RequestsInboxItem): boolean => (
   isIncomingPendingRequest(item) || isOutgoingPendingRequest(item)
+);
+
+/** Pending plus outgoing terminal rows that can be retried from the Requests tab. */
+export const isRequestsTabItem = (item: RequestsInboxItem): boolean => (
+  isOpenPendingRequest(item) || isOutgoingResendableRequest(item)
 );
 
 export const getIncomingInboxRequests = (
@@ -23,6 +36,10 @@ export const getIncomingInboxRequests = (
 export const getOpenPendingRequests = (
   items: ReadonlyArray<RequestsInboxItem>,
 ): ReadonlyArray<RequestsInboxItem> => items.filter(isOpenPendingRequest);
+
+export const getRequestsTabItems = (
+  items: ReadonlyArray<RequestsInboxItem>,
+): ReadonlyArray<RequestsInboxItem> => items.filter(isRequestsTabItem);
 
 export const getIncomingPendingRequestCount = (
   items: ReadonlyArray<RequestsInboxItem>
@@ -50,7 +67,7 @@ export const partitionOpenRequestsByLane = (
   const inbox: RequestsInboxItem[] = [];
   const junk: RequestsInboxItem[] = [];
   for (const item of items) {
-    if (isOutgoingPendingRequest(item)) {
+    if (isOutgoingPendingRequest(item) || isOutgoingResendableRequest(item)) {
       inbox.push(item);
       continue;
     }

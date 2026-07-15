@@ -7,11 +7,11 @@ const hostFromRelayInput = (raw: string): string => {
   if (!trimmed) {
     return "";
   }
-  if (/^wss?:\/\//i.test(trimmed)) {
+  if (/^(wss?|https?):\/\//i.test(trimmed)) {
     try {
       return new URL(trimmed).host.toLowerCase();
     } catch {
-      return trimmed.replace(/^wss?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+      return trimmed.replace(/^(wss?|https?):\/\//i, "").replace(/\/.*$/, "").toLowerCase();
     }
   }
   return trimmed.replace(/\/.*$/, "").toLowerCase();
@@ -24,8 +24,9 @@ export const isLocalWorkspaceRelayHost = (hostOrUrl: string): boolean => {
 };
 
 /**
- * Canonical workspace relay URL.
- * - localhost / 127.0.0.1 → ws:// (Docker dev relay)
+ * Canonical workspace / relay URL for list storage.
+ * - localhost / 127.0.0.1 → ws:// (Docker dev Nostr relay)
+ * - localhost http(s) → preserved (team_relay mesh HTTP gateway, C8+)
  * - public hosts → wss://
  * - fixes mistaken wss://localhost to ws://localhost
  */
@@ -33,6 +34,20 @@ export const normalizeWorkspaceRelayUrl = (raw: string): string => {
   const trimmed = raw.trim();
   if (!trimmed) {
     return "";
+  }
+
+  // Mesh HTTP gateways — never coerce http(s) loopback into WebSocket schemes.
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (!isLocalWorkspaceRelayHost(parsed.host)) {
+        return "";
+      }
+      const path = parsed.pathname === "/" ? "" : parsed.pathname;
+      return `${parsed.protocol}//${parsed.host.toLowerCase()}${path}`;
+    } catch {
+      return "";
+    }
   }
 
   let withScheme = trimmed;

@@ -123,6 +123,28 @@ const parentPath = async (absolutePath: string): Promise<string | null> => {
   }
 };
 
+const readDirectoryFileNames = async (params: NativeMediaPathRef): Promise<ReadonlyArray<string>> => {
+  if (!isSupported()) return [];
+  try {
+    const { readDir } = await import("@tauri-apps/plugin-fs");
+    if (params.appDataRelative) {
+      const { BaseDirectory } = await import("@tauri-apps/api/path");
+      const entries = await readDir(params.path, { baseDir: BaseDirectory.AppData });
+      return entries
+        .filter((entry) => entry.isFile === true)
+        .map((entry) => entry.name?.trim() ?? "")
+        .filter((name) => name.length > 0);
+    }
+    const entries = await readDir(params.path);
+    return entries
+      .filter((entry) => entry.isFile === true)
+      .map((entry) => entry.name?.trim() ?? "")
+      .filter((name) => name.length > 0);
+  } catch {
+    return [];
+  }
+};
+
 const movePath = async (params: Readonly<{ from: string; to: string }>): Promise<boolean> => {
   if (!isSupported()) return false;
   try {
@@ -149,4 +171,5 @@ export const nativeLocalMediaAdapter = {
   pickSavePath,
   parentPath,
   movePath,
+  readDirectoryFileNames,
 };

@@ -22,6 +22,7 @@ describe("resolveLatestIncomingForTrust", () => {
     );
     expect(result?.content).toBe("thread body");
     expect(result?.attachmentFileNames).toEqual([]);
+    expect(result?.attachmentContentDigests).toEqual([]);
     expect(result?.senderPublicKeyHex).toBeNull();
   });
 
@@ -63,7 +64,24 @@ describe("resolveLatestIncomingForTrust", () => {
       },
     ]);
     expect(result?.attachmentFileNames).toEqual(["brief.pdf.exe"]);
+    expect(result?.attachmentContentDigests).toEqual([]);
     expect(result?.senderPublicKeyHex).toBeNull();
+  });
+
+  it("extracts CAS digests from inbound attachment URLs", () => {
+    const hash = "a".repeat(64);
+    const result = resolveLatestIncomingForTrust([
+      {
+        ...incoming("see attachment", 3000),
+        attachments: [{
+          kind: "file",
+          url: `https://cas.obscur.app/blob/${hash}`,
+          contentType: "application/octet-stream",
+          fileName: "brief.pdf",
+        }],
+      },
+    ]);
+    expect(result?.attachmentContentDigests).toEqual([hash]);
   });
 
   it("includes sender pubkey for group inbound messages", () => {

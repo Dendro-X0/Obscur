@@ -15,6 +15,12 @@ vi.mock("react-i18next", () => ({
     }),
 }));
 
+vi.mock("@/app/features/vault/services/save-chat-attachment-to-vault", () => ({
+    canSaveChatAttachmentsToLocalVault: vi.fn(() => false),
+    isChatAttachmentSavedToLocalVault: vi.fn(async () => false),
+    saveChatAttachmentToLocalVault: vi.fn(async () => true),
+}));
+
 vi.mock("next/image", () => ({
     default: ({ unoptimized: _unused, ...props }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean }) => (
         <img {...props} alt={props.alt ?? ""} />
@@ -119,5 +125,39 @@ describe("MediaGallery", () => {
         fireEvent.click(screen.getByRole("button", { name: /Voice Notes/i }));
         expect(screen.queryByAltText("image-1.png")).not.toBeInTheDocument();
         expect(screen.getByText("Voice Note")).toBeInTheDocument();
+    });
+
+    it("opens attachment context menu on tile right-click when vault save is enabled", async () => {
+        const { canSaveChatAttachmentsToLocalVault } = await import("@/app/features/vault/services/save-chat-attachment-to-vault");
+        vi.mocked(canSaveChatAttachmentsToLocalVault).mockReturnValue(true);
+
+        const imageItem = createMediaItem({
+            messageId: "m-image",
+            attachment: {
+                kind: "image",
+                url: "https://cdn.example.com/image-1.png",
+                contentType: "image/png",
+                fileName: "image-1.png",
+            },
+        });
+
+        render(
+            <>
+                <AppOverlayRoot />
+                <MediaGallery
+                    isOpen
+                    onClose={vi.fn()}
+                    conversationDisplayName="Test Chat"
+                    mediaItems={[imageItem]}
+                    onSelect={vi.fn()}
+                />
+            </>,
+        );
+
+        const tile = screen.getByAltText("image-1.png").closest("button");
+        expect(tile).not.toBeNull();
+        fireEvent.contextMenu(tile!);
+        expect(await screen.findByTestId("attachment-context-menu")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Save to Vault" })).toBeInTheDocument();
     });
 });

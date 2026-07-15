@@ -23,4 +23,13 @@ describe("validateRelayUrl", () => {
     const allowed = validateRelayUrl("ws://127.0.0.1:7001", { allowLocalhostWs: true });
     expect(allowed?.normalizedUrl).toBe("ws://127.0.0.1:7001");
   });
+
+  it("accepts localhost mesh HTTP gateway when explicitly enabled", () => {
+    const allowed = validateRelayUrl("http://127.0.0.1:8788", { allowLocalhostWs: true });
+    expect(allowed?.normalizedUrl).toBe("http://127.0.0.1:8788");
+
+    expect(validateRelayUrl("http://127.0.0.1:8788")).toBeNull();
+    expect(validateRelayUrl("http://evil.example", { allowLocalhostWs: true })).toBeNull();
+  });
 });
+

@@ -14,6 +14,7 @@ import { VaultMediaGrid } from "../features/vault/components/vault-media-grid";
 import { VaultLegacyMigrationBanner } from "../features/vault/components/vault-legacy-migration-banner";
 import { VaultUploadModal } from "../features/vault/components/vault-upload-modal";
 import { useVaultMedia } from "../features/vault/hooks/use-vault-media";
+import { AttachmentExportConfirmDialog } from "@/app/features/security/components/attachment-export-confirm-dialog";
 import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 export default function VaultPageClient(): React.JSX.Element {
     const { t } = useTranslation();
@@ -21,7 +22,18 @@ export default function VaultPageClient(): React.JSX.Element {
     const compact = useMobileCompactLayout();
     const tablet = useTabletSecondaryLayout();
     const identity = useIdentity();
-    const { mediaItems, isLoading, stats, refresh, downloadToLocalPath, deleteLocalCopy, openLocalFileLocation } = useVaultMedia();
+    const {
+        mediaItems,
+        isLoading,
+        stats,
+        refresh,
+        downloadToLocalPath,
+        deleteLocalCopy,
+        openLocalFileLocation,
+        pendingExportFileName,
+        cancelExportConfirm,
+        confirmExport,
+    } = useVaultMedia();
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const publicKeyHex: string | null = identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null;
     const navBadges = useNavBadges({ publicKeyHex: (publicKeyHex as PublicKeyHex | null) ?? null });
@@ -58,10 +70,10 @@ export default function VaultPageClient(): React.JSX.Element {
                             <Upload className="mr-2 h-4 w-4"/>
                             {t("vault.upload")}
                         </Button>
-                        <Button variant="secondary" size="icon" onClick={refresh} className={cn("rounded-2xl border border-border bg-muted", compact ? "h-11 w-11 shrink-0" : "h-12 w-12")}>
+                        <Button variant="secondary" size="icon" onClick={refresh} className={cn("rounded-2xl border border-zinc-300/90 bg-zinc-100 text-zinc-700 shadow-sm hover:bg-zinc-200 dark:border-border dark:bg-muted dark:text-foreground dark:hover:bg-muted/80", compact ? "h-11 w-11 shrink-0" : "h-12 w-12")}>
                             <RefreshCw className="h-4 w-4"/>
                         </Button>
-                        <Button variant="secondary" size="icon" onClick={() => router.push("/settings?tab=storage")} className={cn("rounded-2xl border border-border bg-muted", compact ? "h-11 w-11 shrink-0" : "h-12 w-12")} aria-label={t("settings.tabs.storage")} title={t("settings.tabs.storage")}>
+                        <Button variant="secondary" size="icon" onClick={() => router.push("/settings?tab=storage")} className={cn("rounded-2xl border border-zinc-300/90 bg-zinc-100 text-zinc-700 shadow-sm hover:bg-zinc-200 dark:border-border dark:bg-muted dark:text-foreground dark:hover:bg-muted/80", compact ? "h-11 w-11 shrink-0" : "h-12 w-12")} aria-label={t("settings.tabs.storage")} title={t("settings.tabs.storage")}>
                             <Settings2 className="h-4 w-4"/>
                         </Button>
                     </div>
@@ -82,5 +94,10 @@ export default function VaultPageClient(): React.JSX.Element {
             <VaultUploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploadComplete={() => {
             setTimeout(refresh, 500);
         }}/>
+            <AttachmentExportConfirmDialog
+                fileName={pendingExportFileName}
+                onClose={cancelExportConfirm}
+                onConfirm={() => { void confirmExport(); }}
+            />
         </PageShell>);
 }

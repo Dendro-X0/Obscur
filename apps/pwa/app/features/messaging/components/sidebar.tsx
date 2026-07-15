@@ -15,6 +15,7 @@ import type { MessagingSidebarTab } from "../services/messaging-sidebar-tab";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { SidebarListChrome } from "./sidebar-list-chrome";
+import { resolveConversationUnreadCount } from "../providers/unread-last-seen-suppression";
 const INITIAL_SIDEBAR_PAGE_SIZE = 25;
 const SIDEBAR_PAGE_STEP = 25;
 const SIDEBAR_MAX_ITEMS = 50;
@@ -31,6 +32,7 @@ export interface SidebarProps {
     selectConversation: (conversation: Conversation) => void;
     selectedConversation: Conversation | null;
     unreadByConversationId: Record<string, number>;
+    lastViewedByConversationId?: Readonly<Record<string, number>>;
     interactionByConversationId?: Readonly<Record<string, Readonly<{
         lastActiveAtMs?: number;
         lastViewedAtMs?: number;
@@ -58,7 +60,7 @@ export interface SidebarProps {
     pendingRequestsBadgeDismissed?: boolean;
     onDismissPendingRequestsBadge?: () => void;
 }
-export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setSearchQuery, searchInputRef, hasHydrated, filteredConversations, selectConversation, selectedConversation, unreadByConversationId, interactionByConversationId, nowMs, activeTab, setActiveTab, requests, junkRequests, onAcceptRequest, onIgnoreRequest, onBlockRequest, onSelectRequest, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, onClearHistory, isPeerOnline, showHistorySyncNotice = false, pendingRequestsBadgeDismissed = false, onDismissPendingRequestsBadge, pendingRequestsCount: pendingRequestsCountProp, }: SidebarProps) {
+export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setSearchQuery, searchInputRef, hasHydrated, filteredConversations, selectConversation, selectedConversation, unreadByConversationId, lastViewedByConversationId, interactionByConversationId, nowMs, activeTab, setActiveTab, requests, junkRequests, onAcceptRequest, onIgnoreRequest, onBlockRequest, onSelectRequest, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, onClearHistory, isPeerOnline, showHistorySyncNotice = false, pendingRequestsBadgeDismissed = false, onDismissPendingRequestsBadge, pendingRequestsCount: pendingRequestsCountProp, }: SidebarProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const resolvedNowMs = nowMs;
@@ -76,9 +78,12 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
             if (conversation.kind === "dm" && hiddenChatIdSet.has(conversation.id)) {
                 continue;
             }
-            const unread = selectedConversation?.id === conversation.id
-                ? 0
-                : (unreadByConversationId[conversation.id] ?? conversation.unreadCount);
+            const unread = resolveConversationUnreadCount({
+                conversation,
+                unreadByConversationId,
+                lastSeenByConversationId: lastViewedByConversationId,
+                selectedConversationId: selectedConversation?.id ?? null,
+            });
             unreadByConversationIdResolved[conversation.id] = unread;
             chatsUnreadTotalResult += unread;
             if (conversation.kind === "dm") {
@@ -107,7 +112,7 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
             cappedDms: directConversationsResult.slice(0, SIDEBAR_MAX_ITEMS),
             cappedCommunities: communityConversationsResult.slice(0, SIDEBAR_MAX_ITEMS),
         };
-    }, [filteredConversations, hiddenChatIdSet, pinnedChatIdSet, selectedConversation?.id, unreadByConversationId]);
+    }, [filteredConversations, hiddenChatIdSet, lastViewedByConversationId, pinnedChatIdSet, selectedConversation?.id, unreadByConversationId]);
     const resolveConversationUnread = React.useCallback((conversation: Conversation): number => {
         return conversationBuckets.unreadByConversationIdResolved[conversation.id] ?? 0;
     }, [conversationBuckets.unreadByConversationIdResolved]);

@@ -13,9 +13,9 @@
 | Track | On disk | Status |
 |-------|---------|--------|
 | **Legacy six-pack** (Apr 2026) | 0 | **Removed** — refs updated to v1.9.10 filenames |
-| **July captures** | 18 | Renamed `*.gif.gif` → `*.gif` |
+| **July captures** | 19 | Renamed `*.gif.gif` → `*.gif` |
 | **Group suite G2–G5** | 4 | Captured |
-| **Settings panel refresh** | 0 | **Pending** → `settings_panel_1.gif` |
+| **Settings panel refresh** | 1 | **Captured** → `settings_panel_1.gif` |
 | **Contacts / media / voice** | 0 | **Pending** — see gap table below |
 
 **Raw path:** `docs/assets/gifs/<filename>`
@@ -41,6 +41,7 @@
 | `group_invite_member_1.gif` | §6 Group | — | G3 |
 | `community_group_send_receive_1.gif` | §6 Group | Communities | G4 P0 proof |
 | `group_participants_settings_1.gif` | §6 Group | — | G5 |
+| `settings_panel_1.gif` | §4 Settings | Relays And Settings | Profile, privacy/trust, security prefs |
 
 ---
 
@@ -48,7 +49,6 @@
 
 | Priority | Topic | Target filename | Script beat | Capture notes |
 |----------|-------|-----------------|-------------|---------------|
-| **P1** | Settings panel | `settings_panel_1.gif` | §4 | Settings nav, security, profile prefs — **not** relay-only |
 | **P1** | Add contact | `add_contact_1.gif` | §3 / Network | Network → add by pubkey or QR · open DM |
 | **P1** | Media upload | `multimedia_files_upload_and_transfer_1.gif` | §7 | Attach image/file in DM · progress · render |
 | **P1** | Voice notes | `voice_notes_1.gif` | §7 | Hold-to-record · send · playback bubble |

@@ -43,3 +43,13 @@ export const resolveDmPeerOutgoingWaitInitiatorForUi = (
   params.requestStatus?.isOutgoing === true
   && isPendingContactHandshake(params.requestStatus)
 );
+
+export const resolveDmPeerOutgoingResendEligibleForUi = (
+  params: ResolveDmPeerOutgoingWaitInitiatorForUiParams,
+): boolean => {
+  if (params.requestStatus?.isOutgoing !== true) {
+    return false;
+  }
+  const status = params.requestStatus.status;
+  return status === "declined" || status === "canceled";
+};

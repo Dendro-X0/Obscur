@@ -8,6 +8,18 @@ vi.mock("@/app/groups/[...id]/group-home-page-client", () => ({
   },
 }));
 
+vi.mock("@/app/network/network-page-client", () => ({
+  default: function MockNetworkPageClient() {
+    return null;
+  },
+}));
+
+vi.mock("@/app/vault/vault-page-client", () => ({
+  default: function MockVaultPageClient() {
+    return null;
+  },
+}));
+
 describe("warmRouteNavigationTargets", () => {
   it("prefetches the route and loads the client chunk for known hrefs", async () => {
     const prefetch = vi.fn();

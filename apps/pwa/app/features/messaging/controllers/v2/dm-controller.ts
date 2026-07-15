@@ -46,7 +46,7 @@ import {
 import { logAppEvent } from "@/app/shared/log-app-event";
 // DM Ledger shadow mode - divergence detection only, no behavior change
 import { checkDmDivergence, recordDmMessage, recordDmDelete } from "../../dm-ledger";
-import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import { appendCanonicalContactEvent, appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { isDevLabSyntheticDmPlaintext } from "@/app/features/dm-kernel/dm-kernel-dev-lab-sidebar-policy";
 import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
 import { collectMessageIdentityAliases } from "../../services/message-identity-alias-contract";
@@ -181,10 +181,13 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   const publishFeedbackShownRef = useRef<Set<string>>(new Set());
   messagesRef.current = messages;
   const poolRef = useRelayPoolRef(pool);
-  const relayOpenSignature = useMemo(
-    () => pool.connections.map((connection) => `${connection.url}:${connection.status}`).join("|"),
-    [pool.connections],
-  );
+  const relayOpenSignature = useMemo(() => {
+    const writable = typeof pool.getWritableRelaySnapshot === "function"
+      ? pool.getWritableRelaySnapshot().writableRelayUrls.join("|")
+      : "";
+    const open = pool.connections.map((connection) => `${connection.url}:${connection.status}`).join("|");
+    return `${writable}::${open}`;
+  }, [pool]);
   const controllerInstanceIdRef = useRef(`v2_dm_${crypto.randomUUID().slice(0, 8)}`);
   const handleIncomingEventRef = useRef<(event: NostrEvent, relayUrl: string) => Promise<void>>(
     async () => {},
@@ -469,6 +472,22 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             eventId: msg.eventId,
             ingestSource: "relay_live",
           });
+          if (
+            result.lifecycleTag === "connection-request"
+            && myPublicKeyHexRef.current
+          ) {
+            void appendCanonicalContactEvent({
+              accountPublicKeyHex: myPublicKeyHexRef.current as PublicKeyHex,
+              peerPublicKeyHex,
+              type: "CONTACT_REQUEST_RECEIVED",
+              direction: "incoming",
+              requestEventId: msg.eventId || msg.id,
+              idempotencySuffix: msg.eventId || msg.id || peerPublicKeyHex,
+              source: "relay_live",
+            }).catch((err) => {
+              console.error("[dm-controller:v2] appendCanonicalContactEvent CONTACT_REQUEST_RECEIVED failed", err);
+            });
+          }
           peerRelayEvidenceStore.recordInboundRelay({
             peerPublicKeyHex,
             relayUrl,
@@ -1314,12 +1333,17 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
   ]);
 
   // Arm DM subscription and relay catch-up once writable relays exist (pool may connect after unlock).
+  // HTTP team_relay never opens a WebSocket — treat writable snapshot as readiness too (C10).
   useEffect(() => {
     if (!enableIncomingTransport || !myPublicKeyHex) {
       return;
     }
-    const hasOpenRelay = poolRef.current.connections.some((connection) => connection.status === "open");
-    if (!hasOpenRelay) {
+    const writableSnapshot = typeof poolRef.current.getWritableRelaySnapshot === "function"
+      ? poolRef.current.getWritableRelaySnapshot()
+      : null;
+    const hasWritableRelay = (writableSnapshot?.writableRelayUrls.length ?? 0) > 0
+      || poolRef.current.connections.some((connection) => connection.status === "open");
+    if (!hasWritableRelay) {
       return;
     }
     if (!subscribedRef.current) {
