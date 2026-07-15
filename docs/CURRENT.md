@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents (2026-07-15).
 
-_Last updated: 2026-07-15 · Version train: **1.9.12 (prep)** · **Conduit Mesh C0–C14 L1** · vault chat-save **OFF**_
+_Last updated: 2026-07-15 · Version train: **1.9.12** · installer `Obscur_1.9.12_x64-setup.exe` · vault chat-save **OFF**_
 
 ---
 

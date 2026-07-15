@@ -1,19 +1,21 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-15T14:45:00Z
+- Last Updated (UTC): 2026-07-15T15:35:00Z
 
 ## Next atomic step
 
-**PROD — v1.9.12 demo-safe release (ACTIVE)** · 2026-07-15
+**PROD — v1.9.12 demo-safe release (COMPLETE local)** · 2026-07-15
 
 | Field | Value |
 |-------|--------|
-| Status | **In progress** — version bump · release pack · desktop package |
-| Scope | [v1.9.12-scope.md](../program/v1.9.12-scope.md) · [v1.9.12-release.md](../releases/v1.9.12-release.md) |
-| Includes | Mesh C0–C14 · trust/voice · shell freshness · vault chat-save **OFF** |
-| Deferred | Vault core → [v1.9.13-scope.md](../program/v1.9.13-scope.md) · community **PAUSED** · C13 L3 **BLOCKED** |
-| Proof | `pnpm version:bump patch` · `pnpm release:test-pack` · `pnpm desktop:package` |
-| PAUSED | vault chat-save flip · community · Phase 4 Vercel |
+| Status | **Local release ready** |
+| Commit | `6fc1d465` — ahead of origin |
+| Gates | mesh C14 PASS · release pack tests **557** PASS · preflight PASS · `desktop:package` installer copied |
+| Installer | `release-assets/windows/Obscur_1.9.12_x64-setup.exe` · sha256 `96fa632546d64935afe7936de49368ae6ff35373561d56aaf377c00d52111e1f` |
+| Manifest | [release-assets/manifest.json](../../release-assets/manifest.json) updated to **1.9.12** |
+| Tag | Create local `v1.9.12` when packaging follow-up committed; **push** on maintainer request |
+| Deferred | Vault → [v1.9.13](../program/v1.9.13-scope.md) · community PAUSED · C13 L3 BLOCKED · Android APK not rebuilt |
+| Demo | Dual-window DM WS/HTTP/SSE · vault Secure Upload only · Tor HTTP mesh not claimed |
 
 ---
 

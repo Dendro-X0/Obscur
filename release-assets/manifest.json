@@ -1,9 +1,8 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-07-04T12:27:35Z",
-  "gitCommit": "4d000257",
-  "gitCommitNote": "Android build includes uncommitted compile fixes in data_root.rs and profiles.rs",
-  "version": "1.9.10",
+  "generatedAt": "2026-07-15T15:33:54Z",
+  "gitCommit": "6fc1d465",
+  "version": "1.9.12",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
@@ -12,11 +11,11 @@
       "platform": "windows",
       "kind": "nsis-installer",
       "buildCommand": "pnpm desktop:package",
-      "path": "release-assets/windows/Obscur_1.9.10_x64-setup.exe",
-      "fileName": "Obscur_1.9.10_x64-setup.exe",
-      "sizeBytes": 9065402,
-      "sha256": "d814ab21c9b927644ec567c9e305bde482a53c1b1b9069b357aa10bdc990813f",
-      "builtAt": "2026-07-04T10:05:00Z"
+      "path": "release-assets/windows/Obscur_1.9.12_x64-setup.exe",
+      "fileName": "Obscur_1.9.12_x64-setup.exe",
+      "sizeBytes": 9258472,
+      "sha256": "96fa632546d64935afe7936de49368ae6ff35373561d56aaf377c00d52111e1f",
+      "builtAt": "2026-07-15T15:33:41Z"
     },
     {
       "platform": "android",
@@ -28,13 +27,14 @@
       "sha256": "04afc48f28d22f38e8be840bb60974b3644c0bdd4eff35883a1e07904ab7d29c",
       "builtAt": "2026-07-04T12:27:35Z",
       "abiFilter": "x86_64 (emulator build; universal debug output)",
-      "installHint": "adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk"
+      "installHint": "adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk",
+      "note": "Stale vs 1.9.12 desktop — regenerate before claiming Android parity"
     }
   ],
   "notes": [
-    "Phase 3 EXIT 2026-07-04 — P3-1 desktop + P3-2 signing + P3-3 Android debug",
-    "Windows SmartScreen / unknown publisher expected for unsigned NSIS",
-    "Android debug APK is local build output (~279 MiB); not copied into release-assets/ (regenerate via build command)",
-    "Supersedes Obscur_1.9.3_x64-setup.exe in release-assets/windows/"
+    "v1.9.12 demo-safe — Conduit Mesh C0–C14 + trust/voice; vault chat-save OFF",
+    "Windows NSIS unsigned — SmartScreen / unknown publisher expected",
+    "Updater .sig skipped locally (TAURI_SIGNING_PRIVATE_KEY password / comment)",
+    "Supersedes Obscur_1.9.10_x64-setup.exe for desktop demos"
   ]
 }
