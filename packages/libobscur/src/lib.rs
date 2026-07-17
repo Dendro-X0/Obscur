@@ -12,6 +12,7 @@ pub mod keystore;
 pub mod ffi;
 pub mod protocol;
 pub mod storage_at_rest;
+pub mod les;
 
 uniffi::setup_scaffolding!("libobscur");
 

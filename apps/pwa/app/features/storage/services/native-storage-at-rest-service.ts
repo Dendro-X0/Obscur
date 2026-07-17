@@ -21,11 +21,9 @@ const resolveStorageProfileId = (profileId?: string): string => {
   return hasNativeRuntime() ? resolveIdentityScopeProfileId() : getResolvedProfileId();
 };
 
+/** R5: vault catalog SQLite / layout migrations retired — LES owns catalog. */
 const scheduleVaultUnlockMaintenance = async (): Promise<void> => {
-  const { scheduleVaultUnlockMaintenance: schedule } = await import(
-    "@/app/features/vault/services/vault-media-index-sqlite-migration"
-  );
-  schedule();
+  // Intentionally no-op. Message-local cache may still hydrate separately.
 };
 
 export const activateNativeStorageAtRestUnlock = async (params: Readonly<{

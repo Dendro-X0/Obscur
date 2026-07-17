@@ -1,7 +1,7 @@
 # Design goals and constraints
 
 **Status:** **Canonical** — stable product and architecture intent; read before implementation  
-**Last updated:** 2026-06-01  
+**Last updated:** 2026-07-16  
 **Owner:** Maintainer  
 **Process (how to work):** [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
 
@@ -11,11 +11,15 @@ This document answers **what Obscur is**, **what we are restoring in v1.9.x**, *
 
 ## 1. Product identity
 
-**One sentence:** Obscur is a transport-agnostic, E2E-first communication platform for teams that deploy on **infrastructure they trust** (private relays, coordination service, optional homeserver). **Nostr is an optional adapter**, not membership authority for workspace communities.
+**One sentence:** Obscur is a **protocol- and specification-level** product for encrypted, censorship-resistant communication — modular client/backend, pluggable transports, engineered for **stress and hostile environments**. It is an underground / avant-garde artifact for a select audience, not a mass-market messenger.
+
+**Track charter (value, personas, success bar):** [obscur-ecosystem-charter.md](./obscur-ecosystem-charter.md)
+
+**Deployment model:** Transport-agnostic, E2E-first; teams and cells deploy on **infrastructure they trust** (private relays, coordination, optional mesh/Tor). **Nostr is an optional adapter**, not membership authority for workspace communities.
 
 **Expanded:** [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md) · [product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md) · [future/00-charter-vision.md](../future/00-charter-vision.md)
 
-**Not the product story:** “Universal public-relay Nostr client with guaranteed global delete and roster truth.” That model is **explicitly abandoned** for workspace features ([community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)).
+**Not the product story:** “Universal public-relay Nostr client with guaranteed global delete and roster truth.” That model is **explicitly abandoned** for workspace features ([community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)). Also not: startup growth, monetized OSS funnel, or popularity contests.
 
 ---
 
@@ -52,6 +56,24 @@ Policy bands P3a–P3d are **implemented in code paths** but **verification and 
 | Cross-client roster on public relay | MEM-001 limitation | **Accepted** until coordination path — ACC-02 |
 
 Do not claim SQLite convergence complete until grep audit + Phase B rows pass ([obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) § enforcement).
+
+---
+
+## 3.5 Language boundary (canonical standard)
+
+**Standard (going forward):** **Rust** owns backend / kernel / persistence / crypto / native IPC authority. **TypeScript** owns UI, thin SDKs, and adapter glue that calls native commands — not a second source of truth for durable or security-critical state.
+
+| Layer | Language | Examples |
+|-------|----------|----------|
+| **Backend / kernel** | Rust (`packages/libobscur`, `apps/desktop/src-tauri`) | SQLite, LES vault, crypto, mesh/Tor native fetch, `db_*` / LES commands |
+| **Frontend** | TypeScript / React (`apps/pwa`) | Shell, messaging UI, Vault grid, Settings |
+| **SDK / glue** | TypeScript | Thin `invoke` wrappers, DTO mapping — no re-implementation of Rust owners |
+
+**Historical honesty:** Early Obscur was **TypeScript-first** for speed. That produced a GitHub language bar dominated by TS (~90%) with a small Rust share. Many rewrite cycles and the lack of a QA team made interactive debugging costly — **CodaCtrl** was built to supply capture/evidence for this project. Languages are tools; the **target split** is Rust authority + TS presentation, not “rewrite everything overnight.”
+
+**Migration rule:** New durable or security-sensitive behavior lands in Rust first (or moves there by subtraction). Do not add parallel TS owners for the same lifecycle. LES Vault is the reference pattern (Rust catalog + TS UI/SDK only).
+
+**Engine lab:** [obscur-backend-engine-roadmap.md](./obscur-backend-engine-roadmap.md)
 
 ---
 
@@ -159,4 +181,5 @@ Before setting handoff to **Active**:
 
 | Date | Change |
 |------|--------|
+| 2026-07-17 | Product identity → protocol / underground charter; link [obscur-ecosystem-charter.md](./obscur-ecosystem-charter.md) |
 | 2026-06-01 | Initial canonical design goals — product, phases, invariants, limitations, doc authority |

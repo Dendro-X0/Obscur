@@ -8,10 +8,17 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyWindowsBuildTempEnv } from "./lib/windows-build-temp.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const srcTauri = path.join(repoRoot, "apps", "desktop", "src-tauri");
+
+const env = applyWindowsBuildTempEnv({
+  ...process.env,
+  OBSCUR_DEV_CLEAN_TARGET_ROOT: path.join(srcTauri, "target"),
+  OBSCUR_DEV_CLEAN_OUT_DIR: path.join(repoRoot, "apps", "pwa", "out"),
+}, { repoRoot });
 
 const result = spawnSync(
   "cargo",
@@ -19,11 +26,7 @@ const result = spawnSync(
   {
     cwd: srcTauri,
     stdio: "inherit",
-    env: {
-      ...process.env,
-      OBSCUR_DEV_CLEAN_TARGET_ROOT: path.join(srcTauri, "target"),
-      OBSCUR_DEV_CLEAN_OUT_DIR: path.join(repoRoot, "apps", "pwa", "out"),
-    },
+    env,
     shell: process.platform === "win32",
   },
 );

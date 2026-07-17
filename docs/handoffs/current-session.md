@@ -1,21 +1,135 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-15T15:35:00Z
+- Last Updated (UTC): 2026-07-17T15:20:00Z
 
 ## Next atomic step
 
-**PROD — v1.9.12 demo-safe release (COMPLETE local)** · 2026-07-15
+**v2.0.0 fast-track — distribution + gate** · 2026-07-17
 
 | Field | Value |
 |-------|--------|
-| Status | **Local release ready** |
-| Commit | `6fc1d465` — ahead of origin |
-| Gates | mesh C14 PASS · release pack tests **557** PASS · preflight PASS · `desktop:package` installer copied |
+| Done | Maintainer override: skip P14 manual L3 (GIF evidence DM+group) · CI triage · domain probe |
+| Next | Accept D3 = `release-assets` (+ publish GitHub Release) · commit train · bump **2.0.0** · `release:test-pack` · package NSIS · sign gate · tag |
+| Plan | [v2.0.0-fast-track-2026-07.md](../../specs/backend/v2.0.0-fast-track-2026-07.md) |
+| CI | [2026-07-17-full-release-investigation.md](../../specs/ci/2026-07-17-full-release-investigation.md) — Full Release native-build red; reliability-gates green |
+| Proof | Gate D3 unblocked via release-assets · GitHub Release assets for tag · `pnpm release:test-pack` |
+
+**Blocked without maintainer:** Vercel login (optional B) · `gh` auth or paste Full Release build logs (CI fix band, not tag-blocker if D3=A).
+
+---
+
+## Prior atomic step — P14 L3 soak (superseded)
+
+| Field | Value |
+|-------|--------|
+| Outcome | **Accepted without Row B** — maintainer GIF recording (DM + group) · 2026-07-17 |
+| Note | Runbook remains for optional future soak |
+
+---
+
+## Prior atomic step — product track charter (archive)
+
+| Field | Value |
+|-------|--------|
+| Done | [obscur-ecosystem-charter.md](../program/obscur-ecosystem-charter.md) — protocol identity · stress posture · personas · auth constraints · operator-sovereign scale |
+| Next | (superseded by v2.0.0 fast-track) |
+
+---
+
+## Prior atomic step — P14-S slice B (archive)
+
+| Field | Value |
+|-------|--------|
+| Done | Apply-pack confirm when list non-empty · template pre-fill + scroll/focus · Tor ready badge · Tor apply gate |
+| Next | L3 soak · Relays → Transport rename (optional) |
+| Proof | `transport-preset-apply-policy.test.ts` · `transport-preset-catalog-panel.test.tsx` · `transport-preset-match.test.ts` |
+
+---
+
+## Prior atomic step — P14-S slice A (archive)
+
+| Field | Value |
+|-------|--------|
+| Done | Active/partial/available pack badges · active mix summary · adapter chips on endpoints · collapsed API/community/metrics |
+| Next | Slice B — apply confirm · template pre-fill · Tor inline gate |
+| Proof | `transport-preset-match.test.ts` · `relay-endpoint-adapter.test.ts` · `transport-preset-catalog-panel.test.tsx` |
+
+---
+
+## Train (public path)
+
+```text
+1.9.12 MESH-TRUST → 1.9.13 VAULT-LES (verified) → 1.9.14 POOL+PRESETS → v2.0.0 gate
+```
+
+---
+
+## Prior atomic step — LES R6b / V13-5 (archive · verified)
+
+| Field | Value |
+|-------|--------|
+| Outcome | Preview stable · Remove from Vault · Secure Upload / chat Save / grid |
+| Evidence | Maintainer desktop soak 2026-07-17 |
+
+---
+
+## Prior atomic step — LES V13-5 catalog delete (archive)
+
+| Field | Value |
+|-------|--------|
+| Outcome | Rust `delete_object` + `desktop_les_delete` + TS SDK; UI Remove from Vault |
+
+---
+
+## Prior atomic step — LES R6a grid reuse (archive)
+
+| Field | Value |
+|-------|--------|
+| Outcome | Adapter `les-vault-media-adapter` + `useLesVaultMedia` → `VaultMediaGrid` |
+
+---
+
+## Prior atomic step — LES R5 cutover (archive)
+
+| Field | Value |
+|-------|--------|
+| Outcome | Legacy vault write APIs tombstoned; LES-only data plane |
+
+---
+
+## Prior atomic step — LES R4 chat Save (archive)
+
+| Field | Value |
+|-------|--------|
+| Outcome | Messaging Save → LES; no `saveFileToLocalVault` |
+
+---
+
+## Prior atomic step — LES R3 cold-hydrate L3 (archive · PASS)
+
+| Field | Value |
+|-------|--------|
+| Gate | `pnpm verify:les-l3` PASS |
+| Tests | `l3_cold_hydrate_after_commit_…` · `l3_cold_hydrate_multiple_objects_…` |
+
+---
+
+## Prior atomic step — LES R2 Secure Upload UI (archive)
+
+| Field | Value |
+|-------|--------|
+| Outcome | Native `/vault` → LES Secure Upload + catalog grid |
+
+---
+
+## Prior atomic step — PROD v1.9.12 demo-safe (archive · COMPLETE)
+
+| Field | Value |
+|-------|--------|
+| Status | **Shipped** — tag `v1.9.12` · installer + manifest |
+| Commit | packaging follow-up on `main` |
 | Installer | `release-assets/windows/Obscur_1.9.12_x64-setup.exe` · sha256 `96fa632546d64935afe7936de49368ae6ff35373561d56aaf377c00d52111e1f` |
-| Manifest | [release-assets/manifest.json](../../release-assets/manifest.json) updated to **1.9.12** |
-| Tag | Create local `v1.9.12` when packaging follow-up committed; **push** on maintainer request |
-| Deferred | Vault → [v1.9.13](../program/v1.9.13-scope.md) · community PAUSED · C13 L3 BLOCKED · Android APK not rebuilt |
-| Demo | Dual-window DM WS/HTTP/SSE · vault Secure Upload only · Tor HTTP mesh not claimed |
+| Deferred | Vault → 1.9.13 · community PAUSED · C13 L3 BLOCKED |
 
 ---
 
@@ -168,15 +282,13 @@
 
 ---
 
-**Status:** **PAUSED** (maintainer stop · 2026-07-14)
-
-Do **not** push further Media→Vault save / Vault-page refresh patches for interactive client testing until a siloed investigation + non-dogfood proof plan exists.
+**Status:** **LES radical redesign** — dismantle Vault implementation · reconstruct · goal preserved
 
 | Field | Value |
 |-------|--------|
-| Flag | Keep `VAULT_SAVE_FROM_CHAT_ENABLED = false` |
-| Un-pause requires | Feasibility / integration study + automated L3 without maintainer unlock loops |
-| Design / plan | [vault-chat-save-phase6-design-2026-07.md](../../specs/backend/vault-chat-save-phase6-design-2026-07.md) |
+| Design | [vault-les-radical-redesign-2026-07.md](../../specs/backend/vault-les-radical-redesign-2026-07.md) |
+| Old path | Frozen — do not patch |
+| Flag | Old chat-save stays false until LES R4+L3 |
 
 ---
 

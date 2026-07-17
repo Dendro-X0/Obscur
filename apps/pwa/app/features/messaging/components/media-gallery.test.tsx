@@ -88,6 +88,74 @@ describe("MediaGallery", () => {
         expect(screen.getByText("1:04")).toBeInTheDocument();
     });
 
+    it("uses distinct icons for voice notes and audio files", () => {
+        const voiceItem = createMediaItem({
+            messageId: "m-voice",
+            attachment: {
+                kind: "voice_note",
+                url: "https://cdn.example.com/voice-note-1774249000000-d12.webm",
+                contentType: "audio/webm",
+                fileName: "voice-note-1774249000000-d12.webm",
+            },
+        });
+        const audioItem = createMediaItem({
+            messageId: "m-audio",
+            attachment: {
+                kind: "audio",
+                url: "https://cdn.example.com/track.mp3",
+                contentType: "audio/mpeg",
+                fileName: "track.mp3",
+            },
+        });
+
+        const { container } = render(
+            <>
+                <AppOverlayRoot />
+                <MediaGallery
+                    isOpen
+                    onClose={vi.fn()}
+                    conversationDisplayName="Test Chat"
+                    mediaItems={[voiceItem, audioItem]}
+                    onSelect={vi.fn()}
+                />
+            </>,
+        );
+
+        expect(screen.getByText("Voice Note")).toBeInTheDocument();
+        expect(screen.getByText("Audio")).toBeInTheDocument();
+        expect(container.querySelector(".lucide-mic")).not.toBeNull();
+        expect(container.querySelector(".lucide-music-2")).not.toBeNull();
+    });
+
+    it("renders a video poster tile seeking the first frame", () => {
+        const videoItem = createMediaItem({
+            messageId: "m-video",
+            attachment: {
+                kind: "video",
+                url: "https://cdn.example.com/clip.mp4",
+                contentType: "video/mp4",
+                fileName: "clip.mp4",
+            },
+        });
+
+        render(
+            <>
+                <AppOverlayRoot />
+                <MediaGallery
+                    isOpen
+                    onClose={vi.fn()}
+                    conversationDisplayName="Test Chat"
+                    mediaItems={[videoItem]}
+                    onSelect={vi.fn()}
+                />
+            </>,
+        );
+
+        const video = screen.getByLabelText("Video preview: clip.mp4");
+        expect(video.tagName).toBe("VIDEO");
+        expect(video.getAttribute("src")).toContain("#t=0.1");
+    });
+
     it("filters gallery items to voice notes only", () => {
         const imageItem = createMediaItem({
             messageId: "m-image",

@@ -3,7 +3,7 @@ import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button, toast } from "@dweb/ui-kit";
-import { LoaderIcon, ImageIcon, VideoIcon, Music2, ExternalLink, RefreshCw, Trash2, HardDrive, X, MoreVertical, Star, CheckSquare, Square, FileIcon, FileText, Download, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Search, ZoomIn, ZoomOut, RotateCcw, Maximize2, Smartphone, FolderOpen } from "lucide-react";
+import { LoaderIcon, ImageIcon, VideoIcon, Music2, Mic, ExternalLink, RefreshCw, Trash2, HardDrive, X, MoreVertical, Star, CheckSquare, Square, FileIcon, FileText, Download, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Search, ZoomIn, ZoomOut, RotateCcw, Maximize2, Smartphone, FolderOpen } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, } from "@/app/components/ui/dropdown-menu";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -12,11 +12,12 @@ import type { VaultMediaItem } from "../hooks/use-vault-media";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
-import { revokeVaultMediaBlobUrl } from "../services/vault-media-blob-lifecycle";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { APP_OVERLAY_BACKDROP_CLASS, AppOverlayPortal } from "@/app/components/app-overlay-layer";
 import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { VideoPosterTile } from "@/app/features/messaging/components/video-poster-tile";
+import { isLesPreviewPendingUrl, isVaultMediaPlaybackUrl } from "@/app/features/les/sdk/les-vault-media-adapter";
 type VaultMediaGridProps = Readonly<{
     mediaItems: ReadonlyArray<VaultMediaItem>;
     isLoading: boolean;
@@ -112,11 +113,32 @@ const persistFavorites = (favorites: ReadonlySet<string>): void => {
     localStorage.setItem(scopedFavoritesStorageKey(), JSON.stringify(Array.from(favorites)));
 };
 const sameMediaUrl = (a: string, b: string): boolean => a.trim() === b.trim();
+/** LES identity keys (`les://…`) are not browser-loadable; do not use as <img>/<video> fallback. */
+const isBrowserRenderableMediaUrl = (url: string): boolean => {
+    const trimmed = url.trim().toLowerCase();
+    return (
+        trimmed.startsWith("blob:")
+        || trimmed.startsWith("data:")
+        || trimmed.startsWith("http://")
+        || trimmed.startsWith("https://")
+        || trimmed.startsWith("asset:")
+        || trimmed.startsWith("tauri://")
+        || trimmed.startsWith("https://asset.localhost")
+    );
+};
 const buildVideoPreviewUrl = (sourceUrl: string): string => {
-    if (!sourceUrl || sourceUrl.includes("#")) {
-        return sourceUrl;
+    const trimmed = sourceUrl.trim();
+    if (!trimmed || trimmed.includes("#") || isLesPreviewPendingUrl(trimmed)) {
+        return trimmed;
     }
-    return `${sourceUrl}#t=0.1`;
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith("blob:") || lower.startsWith("data:")) {
+        return trimmed;
+    }
+    if (lower.startsWith("http://") || lower.startsWith("https://")) {
+        return `${trimmed}#t=0.1`;
+    }
+    return trimmed;
 };
 const IMAGE_PAN_BOUNDARY_SLACK_PX = 48;
 const isPdfAttachment = (attachment: VaultMediaItem["attachment"]): boolean => {
@@ -150,7 +172,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     const vaultDangerMenuItemClass = cn("w-full text-left rounded-xl px-3 text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-30 transition-colors flex items-center gap-2", compact ? "min-h-11 py-3" : "py-2");
     const previewToolbarButtonClass = cn("rounded-2xl px-6 text-[11px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-100 transition-all hover:bg-zinc-200/80 dark:hover:bg-white/10 hover:text-zinc-900 dark:hover:text-white", compact ? "min-h-11 w-full sm:w-auto" : "h-12");
     const previewToolbarDividerClass = cn("mx-1 h-6 w-px bg-zinc-300 dark:bg-white/20", compact && "hidden sm:block");
-    const [selectedItem, setSelectedItem] = React.useState<VaultMediaItem | null>(null);
+    const [selectedItemId, setSelectedItemId] = React.useState<string | null>(null);
     const [previewVideoMobileLayout, setPreviewVideoMobileLayout] = React.useState(false);
     const [visibilityFilter, setVisibilityFilter] = React.useState<VisibilityFilter>(() => readFilterPreference());
     const [typeFilter, setTypeFilter] = React.useState<"all" | "image" | "video" | "audio" | "file">("all");
@@ -188,7 +210,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
     }, []);
     React.useEffect(() => {
         setPreviewVideoMobileLayout(false);
-    }, [selectedItem?.id]);
+    }, [selectedItemId]);
     const localCount = props.mediaItems.filter((item) => item.isLocalCached).length;
     const remoteCount = props.mediaItems.length - localCount;
     const favoritesCount = props.mediaItems.filter((item) => favorites.has(item.remoteUrl)).length;
@@ -206,8 +228,15 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
             return false;
         if (visibilityFilter === "favorites" && !favorites.has(item.remoteUrl))
             return false;
-        if (typeFilter !== "all" && item.attachment.kind !== typeFilter)
-            return false;
+        if (typeFilter !== "all") {
+            if (typeFilter === "audio") {
+                if (item.attachment.kind !== "audio" && item.attachment.kind !== "voice_note")
+                    return false;
+            }
+            else if (item.attachment.kind !== typeFilter) {
+                return false;
+            }
+        }
         if (normalizedSearchQuery.length > 0) {
             const contentType = (item.attachment.contentType ?? "").toLowerCase();
             const fileName = (item.attachment.fileName ?? "").toLowerCase();
@@ -234,6 +263,11 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         }
         return b.timestamp.getTime() - a.timestamp.getTime();
     });
+    const selectedItem = selectedItemId
+        ? (props.mediaItems.find((item) => item.id === selectedItemId)
+            ?? visibleItems.find((item) => item.id === selectedItemId)
+            ?? null)
+        : null;
     const selectedItemIndex = selectedItem
         ? visibleItems.findIndex((item) => item.id === selectedItem.id)
         : -1;
@@ -310,19 +344,10 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         toast.success(t("vault.openVaultFolderSuccess", "Opened the folder containing encrypted vault files."));
     }, [props.openLocalFileLocation, t]);
     const closePreview = React.useCallback(() => {
-        if (selectedItem?.remoteUrl) {
-            revokeVaultMediaBlobUrl(selectedItem.remoteUrl);
-        }
-        setSelectedItem(null);
-    }, [selectedItem]);
-    React.useEffect(() => {
-        const remoteUrl = selectedItem?.remoteUrl;
-        return () => {
-            if (remoteUrl) {
-                revokeVaultMediaBlobUrl(remoteUrl);
-            }
-        };
-    }, [selectedItem?.remoteUrl]);
+        // Do not revoke blob URLs here — the catalog grid still uses the same
+        // object URL for thumbnails. Lifecycle belongs to the media data hook.
+        setSelectedItemId(null);
+    }, []);
     const getSourceLabel = React.useCallback((item: VaultMediaItem): string => {
         const sourceKind = resolveVaultSourceKind(item);
         if (sourceKind === "community") {
@@ -393,13 +418,13 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
             if (event.key === "ArrowLeft" && hasPreviewPrevious) {
                 event.preventDefault();
                 event.stopPropagation();
-                setSelectedItem(visibleItems[selectedItemIndex - 1] ?? selectedItem);
+                setSelectedItemId(visibleItems[selectedItemIndex - 1]?.id ?? selectedItemId);
                 return;
             }
             if (event.key === "ArrowRight" && hasPreviewNext) {
                 event.preventDefault();
                 event.stopPropagation();
-                setSelectedItem(visibleItems[selectedItemIndex + 1] ?? selectedItem);
+                setSelectedItemId(visibleItems[selectedItemIndex + 1]?.id ?? selectedItemId);
             }
         };
         window.addEventListener("keydown", handleKeyboardControls);
@@ -568,19 +593,26 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             toggleSelect(item.id);
                             return;
                         }
-                        setSelectedItem(item);
+                        setSelectedItemId(item.id);
                     }} onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             if (selectionMode)
                                 toggleSelect(item.id);
                             else
-                                setSelectedItem(item);
+                                setSelectedItemId(item.id);
                         }
                     }} className={cn("group relative aspect-square rounded-[24px] bg-muted border border-border/50 hover:shadow-2xl hover:shadow-primary/5 transition-all text-left outline-none focus-visible:ring-2 focus-visible:ring-primary overflow-visible", isSelected && "ring-2 ring-primary border-primary/50")}>
                                 <div className="absolute inset-0 overflow-hidden rounded-[24px]">
                                     <div className="absolute inset-0 z-0">
-                                        {item.attachment.kind === "image" ? (<VaultImageTile item={item}/>) : item.attachment.kind === "video" ? (<VaultVideoTile item={item}/>) : item.attachment.kind === "audio" ? (<div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/5 transition-colors group-hover:bg-emerald-500/10">
+                                        {item.attachment.kind === "image" ? (<VaultImageTile item={item}/>) : item.attachment.kind === "video" ? (
+                                          <div className="h-full w-full">
+                                            <VideoPosterTile src={item.attachment.url} fileName={item.attachment.fileName} />
+                                          </div>
+                                        ) : item.attachment.kind === "voice_note" ? (<div className="w-full h-full flex flex-col items-center justify-center bg-violet-500/10 transition-colors group-hover:bg-violet-500/15">
+                                                <Mic className="h-8 w-8 text-violet-500/70"/>
+                                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-violet-500/70 mt-2">VOICE NOTE</span>
+                                            </div>) : item.attachment.kind === "audio" ? (<div className="w-full h-full flex flex-col items-center justify-center bg-emerald-500/5 transition-colors group-hover:bg-emerald-500/10">
                                                 <Music2 className="h-8 w-8 text-emerald-500/50"/>
                                                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-emerald-500/50 mt-2">AUDIO</span>
                                             </div>) : (<div className="w-full h-full flex flex-col items-center justify-center bg-amber-500/5 transition-colors group-hover:bg-amber-500/10 text-center p-4">
@@ -736,7 +768,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                 : undefined)}>
                                                     <Star className={cn("h-4 w-4 shrink-0", favorites.has(selectedItem.remoteUrl) && "fill-current")}/>
                                                 </Button>
-                                                {selectedItem.isLocalCached ? (<Button title="Flush Cache" variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); closePreview(); }} className="h-10 w-10 justify-center rounded-xl p-0 text-rose-400 hover:bg-rose-500/15">
+                                                {selectedItem.isLocalCached ? (<Button title={t("vault.actions.removeFromVault", "Remove from Vault")} variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); closePreview(); }} className="h-10 w-10 justify-center rounded-xl p-0 text-rose-400 hover:bg-rose-500/15">
                                                         <Trash2 className="h-4 w-4 shrink-0"/>
                                                     </Button>) : null}
                                             </div>
@@ -788,7 +820,7 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                                             <div className={previewToolbarDividerClass}/>
                                             <Button variant="ghost" onClick={async () => { await props.deleteLocalCopy(selectedItem.remoteUrl); closePreview(); }} className={cn(previewToolbarButtonClass, "text-rose-600 dark:text-rose-500 hover:bg-rose-500/10")}>
                                                 <Trash2 className="h-4 w-4 mr-3"/>
-                                                Flush Cache
+                                                {t("vault.actions.removeFromVault", "Remove from Vault")}
                                             </Button>
                                         </>)}
                                 </div>
@@ -816,14 +848,17 @@ function VaultImageTile({ item }: {
         setFailed(false);
     }, [item.attachment.url, item.remoteUrl]);
     const handleError = (): void => {
-        if (!sameMediaUrl(currentUrl, item.remoteUrl)) {
+        if (
+            !sameMediaUrl(currentUrl, item.remoteUrl)
+            && isBrowserRenderableMediaUrl(item.remoteUrl)
+        ) {
             logRuntimeEvent("vault.media.image_preview_fallback_to_remote", "degraded", ["[Vault] Image preview failed for local URL; retrying with remote URL.", { currentUrl, remoteUrl: item.remoteUrl }]);
             setCurrentUrl(item.remoteUrl);
             return;
         }
         setFailed(true);
     };
-    if (failed) {
+    if (failed || !isBrowserRenderableMediaUrl(currentUrl)) {
         return (<div className="w-full h-full flex flex-col items-center justify-center bg-rose-500/5 text-center p-4">
                 <ImageIcon className="h-7 w-7 text-rose-300/70"/>
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-200/70 mt-2">No Preview</span>
@@ -853,14 +888,23 @@ function VaultVideoTile({ item }: {
         setFailed(false);
     }, [item.attachment.url, item.remoteUrl]);
     const handleError = (): void => {
-        if (!sameMediaUrl(currentUrl, item.remoteUrl)) {
+        if (
+            !sameMediaUrl(currentUrl, item.remoteUrl)
+            && isBrowserRenderableMediaUrl(item.remoteUrl)
+        ) {
             logRuntimeEvent("vault.media.video_preview_fallback_to_remote", "degraded", ["[Vault] Video preview failed for local URL; retrying with remote URL.", { currentUrl, remoteUrl: item.remoteUrl }]);
             setCurrentUrl(item.remoteUrl);
             return;
         }
         setFailed(true);
     };
-    if (failed) {
+    if (isLesPreviewPendingUrl(currentUrl)) {
+        return (<div className="w-full h-full flex flex-col items-center justify-center bg-indigo-500/5 text-center p-4 animate-pulse">
+                <VideoIcon className="h-7 w-7 text-indigo-200/70"/>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-100/70 mt-2">Loading</span>
+            </div>);
+    }
+    if (failed || !isBrowserRenderableMediaUrl(currentUrl)) {
         return (<div className="w-full h-full flex flex-col items-center justify-center bg-indigo-500/5 text-center p-4">
                 <VideoIcon className="h-7 w-7 text-indigo-200/70"/>
                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-100/70 mt-2">No Preview</span>
@@ -882,6 +926,19 @@ function MediaUnavailableStage(props: Readonly<{
 }>) {
     return (<div className="flex w-full max-w-xl flex-col items-center rounded-[40px] border border-zinc-300/55 bg-white/72 p-10 text-center shadow-2xl backdrop-blur-3xl dark:border-white/10 dark:bg-white/5">
             <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] border border-zinc-300/60 bg-white/70 dark:border-white/10 dark:bg-white/5">
+                {props.icon}
+            </div>
+            <div className="text-lg font-black text-zinc-900 dark:text-white">{props.title}</div>
+            <div className="mt-2 text-xs text-zinc-600 dark:text-white/60">{props.note}</div>
+        </div>);
+}
+function MediaLoadingStage(props: Readonly<{
+    icon: React.ReactNode;
+    title: string;
+    note: string;
+}>) {
+    return (<div className="flex w-full max-w-xl flex-col items-center rounded-[40px] border border-zinc-300/55 bg-white/72 p-10 text-center shadow-2xl backdrop-blur-3xl dark:border-white/10 dark:bg-white/5">
+            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] border border-zinc-300/60 bg-white/70 dark:border-white/10 dark:bg-white/5 animate-pulse">
                 {props.icon}
             </div>
             <div className="text-lg font-black text-zinc-900 dark:text-white">{props.title}</div>
@@ -1020,14 +1077,17 @@ function ImageStage({ primaryUrl, fallbackUrl, name }: {
         }
     };
     const handleImageError = (): void => {
-        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+        if (
+            !sameMediaUrl(currentUrl, fallbackUrl)
+            && isBrowserRenderableMediaUrl(fallbackUrl)
+        ) {
             logRuntimeEvent("vault.media.image_stage_fallback_to_remote", "degraded", ["[Vault] Image viewer failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]);
             setCurrentUrl(fallbackUrl);
             return;
         }
         setFailed(true);
     };
-    if (failed) {
+    if (failed || !isBrowserRenderableMediaUrl(currentUrl)) {
         return (<MediaUnavailableStage icon={<ImageIcon className="h-10 w-10 text-rose-300/70"/>} title="Image preview unavailable" note="This media could not be rendered from either local or remote source."/>);
     }
     return (<div
@@ -1102,22 +1162,31 @@ function VideoStage({ primaryUrl, fallbackUrl, fileName, mobileLayoutEnabled, on
         setRotationDeg(0);
     }, [primaryUrl, fallbackUrl]);
     const handleVideoError = (): void => {
-        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+        if (isLesPreviewPendingUrl(currentUrl)) {
+            return;
+        }
+        if (
+            !sameMediaUrl(currentUrl, fallbackUrl)
+            && isBrowserRenderableMediaUrl(fallbackUrl)
+        ) {
             logRuntimeEvent("vault.media.video_stage_fallback_to_remote", "degraded", ["[Vault] Video playback failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]);
             setCurrentUrl(fallbackUrl);
             return;
         }
         setFailed(true);
     };
-    if (failed) {
+    if (isLesPreviewPendingUrl(primaryUrl)) {
+        return (<MediaLoadingStage icon={<VideoIcon className="h-10 w-10 text-indigo-200/70"/>} title="Loading video…" note="Decrypting from your local vault."/>);
+    }
+    if (failed || !isVaultMediaPlaybackUrl(currentUrl)) {
         return (<MediaUnavailableStage icon={<VideoIcon className="h-10 w-10 text-indigo-200/70"/>} title="Video playback unavailable" note={`Unable to render "${fileName}" from local or remote source.`}/>);
     }
     const isDeviceLandscape = rotationDeg === 90 || rotationDeg === 270;
     const videoElement = (
         <video
+            key={currentUrl}
             src={currentUrl}
             controls
-            autoPlay
             playsInline
             preload="metadata"
             onError={handleVideoError}
@@ -1204,7 +1273,10 @@ function AudioStage({ primaryUrl, fallbackUrl, fileName }: {
         setFailed(false);
     }, [primaryUrl, fallbackUrl]);
     const handleAudioError = (): void => {
-        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+        if (
+            !sameMediaUrl(currentUrl, fallbackUrl)
+            && isBrowserRenderableMediaUrl(fallbackUrl)
+        ) {
             logRuntimeEvent("vault.media.audio_stage_fallback_to_remote", "degraded", ["[Vault] Audio playback failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]);
             setCurrentUrl(fallbackUrl);
             return;
@@ -1237,7 +1309,10 @@ function PdfStage({ primaryUrl, fallbackUrl, fileName }: {
         setFailed(false);
     }, [primaryUrl, fallbackUrl]);
     const handlePdfError = (): void => {
-        if (!sameMediaUrl(currentUrl, fallbackUrl)) {
+        if (
+            !sameMediaUrl(currentUrl, fallbackUrl)
+            && isBrowserRenderableMediaUrl(fallbackUrl)
+        ) {
             logRuntimeEvent("vault.media.pdf_stage_fallback_to_remote", "degraded", ["[Vault] PDF preview failed for local URL; retrying with remote URL.", { currentUrl, fallbackUrl }]);
             setCurrentUrl(fallbackUrl);
             return;

@@ -21,7 +21,8 @@ import { MEDIA_VIEWER_MIN_ZOOM, MEDIA_VIEWER_MAX_ZOOM, buildMediaViewerState, cl
 import { MESSAGING_OVERLAY_BACKDROP_CLASS, MessagingOverlayPortal } from "./messaging-overlay-portal";
 import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
 import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
-import { ChevronLeft, ChevronRight, Download, FileText, HardDrive, Loader2, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { SaveToVaultControl } from "./save-to-vault-control";
 interface LightboxProps {
     readonly item: MediaItem | undefined;
     readonly onClose: () => void;
@@ -272,10 +273,13 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
               <Plus className="h-4 w-4"/>
             </button>
           </>) : null}
-          {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control media-viewer-control-labeled" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault || isSavedToVault} aria-busy={isSavingToVault} aria-label={isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}>
-            {isSavingToVault ? <Loader2 className="h-4 w-4 shrink-0 animate-spin"/> : <HardDrive className="h-4 w-4 shrink-0"/>}
-            <span className="hidden text-xs font-semibold sm:inline">{isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}</span>
-          </button>) : null}
+          {canSaveChatAttachmentsToLocalVault() ? (
+            <SaveToVaultControl
+              isSaving={isSavingToVault}
+              isSaved={isSavedToVault}
+              onSave={(event) => { void onSaveToVault(event); }}
+            />
+          ) : null}
           <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}>
             <Download className="h-4 w-4"/>
           </button>
@@ -496,10 +500,13 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
                 <Plus className="h-4 w-4"/>
               </button>
             </>) : null}
-          {canSaveChatAttachmentsToLocalVault() ? (<button type="button" className="media-viewer-control media-viewer-control-labeled" onClick={(event) => void onSaveToVault(event)} disabled={isSavingToVault || isSavedToVault} aria-busy={isSavingToVault} aria-label={isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")} title={isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}>
-            {isSavingToVault ? <Loader2 className="h-4 w-4 shrink-0 animate-spin"/> : <HardDrive className="h-4 w-4 shrink-0"/>}
-            <span className="hidden text-xs font-semibold sm:inline">{isSavedToVault ? t("vault.alreadyInVault") : isSavingToVault ? t("vault.saveFromChatSaving") : t("vault.saveFromChat")}</span>
-          </button>) : null}
+          {canSaveChatAttachmentsToLocalVault() ? (
+            <SaveToVaultControl
+              isSaving={isSavingToVault}
+              isSaved={isSavedToVault}
+              onSave={(event) => { void onSaveToVault(event); }}
+            />
+          ) : null}
           <button type="button" className="media-viewer-control" onClick={(event) => { void onDownload(event); }} aria-label={t("vault.actions.exportDecryptedCopy", "Export decrypted copy…")}>
             <Download className="h-4 w-4"/>
           </button>

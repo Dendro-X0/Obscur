@@ -1,8 +1,8 @@
 # Obscur — current state
 
-**Read this first.** Snapshot for maintainers and agents (2026-07-15).
+**Read this first.** Snapshot for maintainers and agents (2026-07-16).
 
-_Last updated: 2026-07-15 · Version train: **1.9.12** · installer `Obscur_1.9.12_x64-setup.exe` · vault chat-save **OFF**_
+_Last updated: 2026-07-17 · Version train: **v2.0.0 fast-track** (collapse 1.9.13/1.9.14 into 2.0.0 notes)_
 
 ---
 
@@ -10,20 +10,14 @@ _Last updated: 2026-07-15 · Version train: **1.9.12** · installer `Obscur_1.9.
 
 | Track | Status |
 |-------|--------|
-| **v2 product verification (Phase 1)** | **EXIT** 2026-07-04 — [version-roadmap-scope.md](./program/version-roadmap-scope.md) |
-| **v2 documentation (Phase 2)** | **EXIT** 2026-07-04 |
-| **v2 installers (Phase 3)** | **EXIT** 2026-07-04 — [release-assets/manifest.json](../release-assets/manifest.json) |
-| **Phase 4 website** | **Code done** · Vercel deploy **PAUSED** · [charter](./program/obscur-v2-phase4-website-charter.md) |
-| **Phase 5 demo kit** | **Local prep** — script draft · GIF capture **maintainer-later** |
-| **Runtime repair band** | **EXIT** — R1–R3 + R5 **VERIFIED t4** · R4 **A** |
-| **Phase 6 precheck** | **Done** @ `ecbcf2eb` — gate draft · deps refreshed · engine lab PASS · tag **not yet** |
-| **Vault sandbox (VAULT-SANDBOX-1)** | **PAUSED** @ maintainer stop 2026-07-14 · `VAULT_SAVE_FROM_CHAT_ENABLED = false` |
-| **CodaCtrl lane D** | **Obscur-side EXIT** — WEB-R2 hooks · RIW-8 draft mappings · runbook · **daemon wiring external** |
-| **Engine lab (B0–B5, Conduit Mesh C0–C14)** | **L1 landed** · C7 + C10 + **C14 L3 PASS** · C13 L3 **BLOCKED** (Tor TLS 10% this host) |
-| **Dev shell freshness guard** | **Landed** 2026-07-15 — [design](../specs/backend/dev-shell-freshness-guard-design-2026-07.md) |
-| **Community feature patches** | **PAUSED** — COM-RUN-01 accepted @ ACC-02 |
+| **v1.9.12 MESH-TRUST** | **Shipped** (tag) · GitHub Release assets still stale @ 1.8.11 |
+| **v1.9.13–1.9.14** | Landed in tree · L3 soak **accepted via GIF** · no separate tag required for v2 |
+| **v2.0.0 gate** | **Fast-track** — [v2.0.0-gate.md](./releases/v2.0.0-gate.md) · [fast-track plan](../specs/backend/v2.0.0-fast-track-2026-07.md) |
+| **Download surface** | Canonical = `release-assets/` · **`obscur.app` is not the messenger site** |
+| **CI** | `reliability-gates` green · Full Release native-build red — [investigation](../specs/ci/2026-07-17-full-release-investigation.md) |
+| **Community feature patches** | **PAUSED** — ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **v1.9.12 demo-safe release** (mesh/trust; vault → 1.9.13)
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → commit train · bump 2.0.0 · package + GitHub Release · sign gate · tag
 
 ---
 
@@ -70,6 +64,8 @@ Libraries: `packages/libobscur`, `packages/dweb-*`, `packages/obscur-*`. UI arch
 | Conduit Mesh C14 (includes C0–C13) | `pnpm verify:conduit-mesh-c14` |
 
 **C10 L3 soak:** [conduit-mesh-c10-l3-http-soak-runbook.md](./program/conduit-mesh-c10-l3-http-soak-runbook.md) — HTTP-only DM **PASS** (2026-07-15).
+
+**P14 L3 soak (active):** [v1.9.14-p14-l3-soak-runbook.md](./program/v1.9.14-p14-l3-soak-runbook.md) — pool + presets closeout for 1.9.14.
 
 **Roadmap:** [program/obscur-backend-engine-roadmap.md](./program/obscur-backend-engine-roadmap.md)
 

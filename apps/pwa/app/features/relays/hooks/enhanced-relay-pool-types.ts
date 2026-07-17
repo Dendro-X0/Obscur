@@ -83,6 +83,11 @@ export type RelayTransportActivitySnapshot = Readonly<{
   coolingDownRelayCount: number;
   fallbackRelayUrls: ReadonlyArray<string>;
   fallbackWritableRelayCount: number;
+  /** Conduit Mesh aggregate readiness when pool hook is mesh-backed. */
+  meshReadiness?: "healthy" | "degraded" | "recovering" | "offline";
+  configuredConduitCount?: number;
+  /** Probe-backed endpoints that can publish in the active mesh snapshot. */
+  publishReadyRelayUrls?: ReadonlyArray<string>;
 }>;
 
 export type RelaySelectionDecision = Readonly<{

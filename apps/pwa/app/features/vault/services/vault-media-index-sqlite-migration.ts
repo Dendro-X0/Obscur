@@ -2,7 +2,6 @@
 
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
-import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isVaultWriteEncryptionReady } from "@/app/features/storage/services/vault-at-rest";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import {
@@ -123,30 +122,11 @@ export const runVaultMediaIndexSqliteImportOnUnlock = async (): Promise<Readonly
   return { imported, hydrated: true };
 };
 
+/**
+ * R5: retired vault-catalog unlock maintenance (SQLite index import, layout /
+ * plaintext migrations, disk inventory reconcile as Vault catalog owners).
+ * LES owns encrypted catalog after unlock; PDK restore stays in storage-at-rest.
+ */
 export const scheduleVaultUnlockMaintenance = (): void => {
-  if (!hasNativeRuntime()) {
-    return;
-  }
-  void (async () => {
-    const { restoreNativeVaultEncryptionSessionIfNeeded } = await import(
-      "@/app/features/storage/services/native-storage-at-rest-service"
-    );
-    await restoreNativeVaultEncryptionSessionIfNeeded();
-    await runVaultMediaIndexSqliteImportOnUnlock();
-    const { reconcileUnindexedVaultBlobFilesForActiveProfile, hydrateVaultDiskInventoryForActiveProfile } = await import("./local-media-store");
-    if (isVaultWriteEncryptionReady()) {
-      await reconcileUnindexedVaultBlobFilesForActiveProfile();
-    }
-    await hydrateVaultDiskInventoryForActiveProfile();
-    const { scheduleVaultLegacyPlaintextMigrationOnUnlock } = await import("./vault-legacy-migration");
-    scheduleVaultLegacyPlaintextMigrationOnUnlock();
-    const { scheduleVaultLayoutMigrationOnUnlock } = await import("./vault-layout-migration");
-    scheduleVaultLayoutMigrationOnUnlock();
-  })().catch((error) => {
-    logRuntimeEvent(
-      "vault_unlock_maintenance.failed",
-      "degraded",
-      ["[VaultUnlockMaintenance] Failed after unlock:", error],
-    );
-  });
+  // no-op
 };

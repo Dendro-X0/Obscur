@@ -46,15 +46,19 @@ const getConfidenceLabel = (metrics?: RelayHealthMetrics): string => {
 const isEventFlowStale = (params: Readonly<{
   phase?: RelayRuntimePhase;
   lastInboundEventAtUnixMs?: number;
+  lastSuccessfulPublishAtUnixMs?: number;
   nowUnixMs?: number;
 }>): boolean => {
   if (params.phase === "recovering" || params.phase === "connecting" || params.phase === "offline") {
     return false;
   }
-  if (typeof params.lastInboundEventAtUnixMs !== "number") {
+  const freshnessReferenceUnixMs = typeof params.lastInboundEventAtUnixMs === "number"
+    ? params.lastInboundEventAtUnixMs
+    : params.lastSuccessfulPublishAtUnixMs;
+  if (typeof freshnessReferenceUnixMs !== "number") {
     return true;
   }
-  return (params.nowUnixMs ?? Date.now()) - params.lastInboundEventAtUnixMs > STALE_EVENT_WINDOW_MS;
+  return (params.nowUnixMs ?? Date.now()) - freshnessReferenceUnixMs > STALE_EVENT_WINDOW_MS;
 };
 
 export const deriveRelayRuntimeStatus = (params: Readonly<{
@@ -65,18 +69,22 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
   phase?: RelayRuntimePhase;
   recoveryStage?: RelayRuntimeSnapshot["recoveryStage"];
   lastInboundEventAtUnixMs?: number;
+  lastSuccessfulPublishAtUnixMs?: number;
   fallbackRelayCount?: number;
+  meshReadiness?: "healthy" | "degraded" | "recovering" | "offline";
   nowUnixMs?: number;
 }>): RelayRuntimeStatus => {
   const totalCount = Math.max(0, params.totalCount);
   const openCount = Math.max(0, params.openCount);
   const writableCount = Math.max(0, params.writableCount ?? openCount);
   const subscribableCount = Math.max(0, params.subscribableCount ?? openCount);
+  const effectiveConnectedCount = Math.max(openCount, writableCount);
   const phase = params.phase;
   const fallbackRelayCount = Math.max(0, params.fallbackRelayCount ?? 0);
   const staleEvents = isEventFlowStale({
     phase,
     lastInboundEventAtUnixMs: params.lastInboundEventAtUnixMs,
+    lastSuccessfulPublishAtUnixMs: params.lastSuccessfulPublishAtUnixMs,
     nowUnixMs: params.nowUnixMs,
   });
 
@@ -112,7 +120,11 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
     };
   }
 
-  const configuredRelaysHealthy = openCount >= totalCount && totalCount > 0 && subscribableCount >= totalCount && !staleEvents;
+  const configuredRelaysHealthy = effectiveConnectedCount >= totalCount
+    && totalCount > 0
+    && subscribableCount >= totalCount
+    && !staleEvents
+    && params.meshReadiness !== "degraded";
 
   if (configuredRelaysHealthy && phase === "healthy") {
     return {
@@ -126,16 +138,24 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
     };
   }
 
-  if (fallbackRelayCount > 0 || staleEvents || openCount < totalCount || subscribableCount < totalCount) {
+  if (
+    fallbackRelayCount > 0
+    || staleEvents
+    || effectiveConnectedCount < totalCount
+    || subscribableCount < totalCount
+    || params.meshReadiness === "degraded"
+  ) {
     return {
       status: "degraded",
       label: staleEvents ? "Relay event flow degraded" : "Relay connectivity degraded",
       actionText: staleEvents
         ? "Sockets are open, but this window has not seen recent relay events."
-        : fallbackRelayCount > 0
-          ? "Fallback relays are active; connectivity is working with reduced trust and redundancy."
-          : "Some configured relays are unavailable or partially useful. Review individual relay status below.",
-      openCount,
+        : effectiveConnectedCount > 0 && effectiveConnectedCount < totalCount
+          ? `Redundancy reduced — ${effectiveConnectedCount} of ${totalCount} transport endpoints are publish-ready.`
+          : fallbackRelayCount > 0
+            ? "Fallback relays are active; connectivity is working with reduced trust and redundancy."
+            : "Some configured relays are unavailable or partially useful. Review individual relay status below.",
+      openCount: effectiveConnectedCount,
       totalCount,
     };
   }
@@ -144,7 +164,7 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
     status: "healthy",
     label: "Relay communication healthy",
     actionText: "Configured relays are writable and this window is seeing recent relay events.",
-    openCount,
+    openCount: effectiveConnectedCount,
     totalCount,
   };
 };

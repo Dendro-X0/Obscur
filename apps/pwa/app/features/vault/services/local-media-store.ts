@@ -8,7 +8,22 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getObscurDataRootConfig } from "@/app/features/profiles/services/obscur-data-root-service";
 import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
-import { resolveVaultStorageLayout, vaultUsesAbsolutePaths, buildProfileVaultRelativeDir, buildProfileVaultRelativePath, isDataRootRelativeVaultPath, isLegacyVaultLayoutIndexEntry, extractVaultBlobFileName, LEGACY_VAULT_MEDIA_DIR } from "./local-media-vault-path";
+import {
+  resolveVaultStorageLayout,
+  vaultUsesAbsolutePaths,
+  buildProfileVaultRelativeDir,
+  buildProfileVaultCategoryRelativePath,
+  isDataRootRelativeVaultPath,
+  isLegacyVaultLayoutIndexEntry,
+  isFlatProfileVaultBlobRelativePath,
+  isProfileScopedVaultRelativePath,
+  extractVaultBlobFileName,
+  extractVaultCategoryFromRelativePath,
+  mapAttachmentKindToVaultCategory,
+  listProfileVaultCategoryRelativeDirs,
+  relativePathBelongsToProfileVault,
+  LEGACY_VAULT_MEDIA_DIR,
+} from "./local-media-vault-path";
 import {
   buildOpaqueVaultFileName,
   decryptVaultFileBytesIfNeeded,
@@ -224,6 +239,15 @@ const resolveEntryStorageRef = async (entryPath: string): Promise<Readonly<{ pat
 };
 
 const writeVaultBytesToEntryPath = async (entryPath: string, bytes: Uint8Array): Promise<void> => {
+    const profileId = resolveVaultProfileId().trim() || "default";
+    if (
+        isDataRootRelativeVaultPath(entryPath)
+        && isProfileScopedVaultRelativePath(entryPath)
+        && !relativePathBelongsToProfileVault(entryPath, profileId)
+    ) {
+        throw new Error("Vault write refused: path belongs to another profile");
+    }
+    await ensureVaultEntryParentDir(entryPath);
     const target = await resolveEntryStorageRef(entryPath);
     if (target.appDataRelative) {
         await nativeLocalMediaAdapter.writeBytes({ path: target.path, appDataRelative: true, bytes });
@@ -347,6 +371,9 @@ export const reconcileUnindexedVaultBlobFilesForActiveProfile = async (
   const storage = await resolveVaultStorage();
   if (storage.profileVaultRelativeDir) {
     scanTargets.push({ relativeDir: storage.profileVaultRelativeDir, appDataRelative: false });
+    for (const categoryDir of listProfileVaultCategoryRelativeDirs(resolvedProfileId)) {
+      scanTargets.push({ relativeDir: categoryDir, appDataRelative: false });
+    }
   }
 
   let added = 0;
@@ -363,9 +390,13 @@ export const reconcileUnindexedVaultBlobFilesForActiveProfile = async (
       if (!isEncryptedVaultStorageFileName(fileName)) {
         continue;
       }
-      const relativePath = target.appDataRelative
-        ? `${target.relativeDir}/${fileName}`
-        : buildProfileVaultRelativePath(resolvedProfileId, fileName);
+      const relativePath = `${target.relativeDir}/${fileName}`;
+      if (
+        !target.appDataRelative
+        && !relativePathBelongsToProfileVault(relativePath, resolvedProfileId)
+      ) {
+        continue;
+      }
       if (indexedRelativePaths.has(normalizeVaultRelativePathKey(relativePath))) {
         continue;
       }
@@ -430,6 +461,17 @@ export const ensureVaultMediaIndexReadyForActiveProfile = async (): Promise<void
   const profileId = resolveVaultProfileId().trim();
   if (!profileId || !isTauriRuntime()) {
     return;
+  }
+
+  // P1: never carry blob URLs or SQLite cache across profile switches.
+  if (
+    (vaultDiskInventoryProfileId && vaultDiskInventoryProfileId !== profileId)
+    || (vaultIndexCacheProfileId && vaultIndexCacheProfileId !== profileId)
+  ) {
+    revokeAllVaultMediaBlobUrls();
+    vaultIndexCache = {};
+    vaultIndexCacheHydrated = false;
+    vaultIndexCacheProfileId = null;
   }
 
   if (vaultDiskInventoryProfileId !== profileId) {
@@ -558,6 +600,7 @@ const resolveUniqueLocalFileTarget = async (
     cfg: LocalMediaStorageConfig,
     preferredFileName: string,
     remoteUrl?: string,
+    attachmentKind?: string,
 ): Promise<Readonly<{ relativePath: string; fileName: string; encrypted: boolean }>> => {
     const profileId = resolveVaultProfileId();
     if (!isVaultWriteEncryptionReady(profileId)) {
@@ -568,12 +611,16 @@ const resolveUniqueLocalFileTarget = async (
         throw new Error("Vault write requires a stable media URL for encrypted storage.");
     }
     const opaqueFileName = await buildOpaqueVaultFileName(normalizedRemoteUrl, profileId);
+    const category = mapAttachmentKindToVaultCategory(attachmentKind);
     const storage = await resolveVaultStorage();
     const relativePath = storage.profileVaultRelativeDir
-        ? buildProfileVaultRelativePath(profileId, opaqueFileName)
+        ? buildProfileVaultCategoryRelativePath(profileId, category, opaqueFileName)
         : storage.absoluteStorageDir
-            ? await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, opaqueFileName)
-            : `${cfg.subdir}/${opaqueFileName}`;
+            ? await nativeLocalMediaAdapter.joinPaths(
+                await nativeLocalMediaAdapter.joinPaths(storage.absoluteStorageDir, category),
+                opaqueFileName,
+            )
+            : `${cfg.subdir}/${category}/${opaqueFileName}`;
     return { relativePath, fileName: opaqueFileName, encrypted: true };
 };
 
@@ -869,10 +916,35 @@ const ensureStorageAbsoluteDir = async (): Promise<void> => {
     const storage = await resolveVaultStorage();
     if (storage.absoluteStorageDir) {
         await nativeLocalMediaAdapter.ensureDirectory({ path: storage.absoluteStorageDir });
+        if (storage.profileVaultRelativeDir && storage.unifiedDataRootPath) {
+            const profileId = resolveVaultProfileId().trim() || "default";
+            for (const categoryDir of listProfileVaultCategoryRelativeDirs(profileId)) {
+                const absoluteCategoryDir = await nativeLocalMediaAdapter.joinPaths(
+                    storage.unifiedDataRootPath,
+                    categoryDir,
+                );
+                await nativeLocalMediaAdapter.ensureDirectory({ path: absoluteCategoryDir });
+            }
+        }
         return;
     }
     const cfg = getLocalMediaStorageConfig();
     await ensureStorageDir(cfg.subdir);
+};
+
+const ensureVaultEntryParentDir = async (entryPath: string): Promise<void> => {
+    if (isAbsoluteStoragePath(entryPath)) {
+        const parent = await nativeLocalMediaAdapter.parentPath(entryPath);
+        if (parent) {
+            await nativeLocalMediaAdapter.ensureDirectory({ path: parent });
+        }
+        return;
+    }
+    const absolutePath = await resolveEntryAbsolutePath(entryPath);
+    const parent = await nativeLocalMediaAdapter.parentPath(absolutePath);
+    if (parent) {
+        await nativeLocalMediaAdapter.ensureDirectory({ path: parent });
+    }
 };
 
 export const ensureLocalMediaStoragePathReady = async (): Promise<boolean> => {
@@ -954,8 +1026,14 @@ export const resolveLocalMediaUrl = async (remoteUrl: string): Promise<string | 
     const index = loadIndex();
     const entry = index[remoteUrl];
     if (!entry) return null;
+    const activeProfileId = resolveVaultProfileId().trim() || "default";
+    if (
+        isProfileScopedVaultRelativePath(entry.relativePath)
+        && !relativePathBelongsToProfileVault(entry.relativePath, activeProfileId)
+    ) {
+        return null;
+    }
     try {
-        const cfg = getLocalMediaStorageConfig();
         const entryRef = await resolveEntryStorageRef(entry.relativePath);
         const hasFile = await nativeLocalMediaAdapter.fileExists(entryRef);
         if (!hasFile) {
@@ -1129,6 +1207,13 @@ const readLocalAttachmentBytesForDownload = async (remoteUrl: string): Promise<U
     if (!entry?.relativePath) {
         return null;
     }
+    const activeProfileId = resolveVaultProfileId().trim() || "default";
+    if (
+        isProfileScopedVaultRelativePath(entry.relativePath)
+        && !relativePathBelongsToProfileVault(entry.relativePath, activeProfileId)
+    ) {
+        return null;
+    }
     const fileBytes = await nativeLocalMediaAdapter.readBytes(await resolveEntryStorageRef(entry.relativePath));
     if (!fileBytes || fileBytes.byteLength === 0) {
         return null;
@@ -1201,6 +1286,11 @@ export const cacheAttachmentLocally = async (
     localBytes?: Uint8Array,
     options?: Readonly<{ force?: boolean; messageEventId?: string; explicitChatSave?: boolean }>,
 ): Promise<string | null> => {
+    if (options?.explicitChatSave) {
+        throw new Error(
+            "Legacy explicitChatSave vault write retired (LES R5). Use saveChatAttachmentToLes.",
+        );
+    }
     if (!isTauriRuntime()) return null;
     const cfg = getLocalMediaStorageConfig();
     if (!shouldAllowLocalMediaCacheWrite(cfg, options)) return null;
@@ -1258,7 +1348,12 @@ export const cacheAttachmentLocally = async (
         }
 
         const preferredFileName = buildPreferredLocalFileName(attachment);
-        const target = await resolveUniqueLocalFileTarget(cfg, preferredFileName, attachment.url);
+        const target = await resolveUniqueLocalFileTarget(
+            cfg,
+            preferredFileName,
+            attachment.url,
+            attachment.kind,
+        );
         const relativePath = target.relativePath;
         const displayFileName = resolveVaultDisplayFileName({
             attachmentFileName: attachment.fileName,
@@ -1318,59 +1413,20 @@ export const cacheAttachmentLocally = async (
 
 /** Explicit user action — bypasses sent/received auto-cache settings. */
 export const persistAttachmentToLocalVault = async (
-    attachment: Attachment,
-    localBytes?: Uint8Array,
+    _attachment: Attachment,
+    _localBytes?: Uint8Array,
 ): Promise<string | null> => {
-    const normalizedUrl = normalizeAttachmentUrl(attachment.url);
-    if (!normalizedUrl) {
-        return null;
-    }
-    return cacheAttachmentLocally(
-        normalizedUrl === attachment.url ? attachment : { ...attachment, url: normalizedUrl },
-        "received",
-        localBytes,
-        { force: true, explicitChatSave: true },
+    throw new Error(
+      "Legacy vault persist retired (LES R5). Use saveChatAttachmentToLes / commitLesObjectWithProof.",
     );
 };
 
 export const isVaultEncryptionSessionReady = (): boolean => isVaultWriteEncryptionReady();
 
-export const saveFileToLocalVault = async (file: File): Promise<SaveFileToLocalVaultResult | null> => {
-    if (!isTauriRuntime()) {
-        return null;
-    }
-    if (!isVaultWriteEncryptionReady()) {
-        const { restoreNativeVaultEncryptionSessionIfNeeded } = await import(
-            "@/app/features/storage/services/native-storage-at-rest-service"
-        );
-        await restoreNativeVaultEncryptionSessionIfNeeded();
-    }
-    if (!isVaultWriteEncryptionReady()) {
-        throw new VaultWriteEncryptionRequiredError();
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    if (bytes.byteLength === 0) {
-        throw new Error("Cannot save empty file (0 bytes)");
-    }
-    const contentType = file.type?.trim() || "application/octet-stream";
-    const fileName = file.name?.trim() || "file";
-    const contentHash = await sha256BytesHex(bytes);
-    const vaultUrl = buildLocalVaultOnlyUrl(contentHash);
-    const attachment: Attachment = {
-        kind: inferAttachmentKindFromMeta(fileName, contentType),
-        url: vaultUrl,
-        contentType,
-        fileName,
-    };
-    const existing = await resolveLocalMediaUrl(vaultUrl);
-    if (existing) {
-        return { vaultUrl, localUrl: existing, attachment };
-    }
-    const localUrl = await cacheAttachmentLocally(attachment, "sent", bytes, { force: true });
-    if (!localUrl) {
-        return null;
-    }
-    return { vaultUrl, localUrl, attachment };
+export const saveFileToLocalVault = async (_file: File): Promise<SaveFileToLocalVaultResult | null> => {
+    throw new Error(
+      "Legacy saveFileToLocalVault retired (LES R5). Use uploadFilesToLes / commitLesObjectWithProof.",
+    );
 };
 
 export const purgeLocalMediaCache = async (): Promise<void> => {
@@ -1549,7 +1605,12 @@ export const migrateLegacyPlaintextVaultIndexEntry = async (remoteUrl: string): 
         const plaintext = await decryptVaultFileBytesIfNeeded({ fileBytes });
         const encryptedPayload = await encryptVaultBytesForWrite({ plaintext });
         const cfg = getLocalMediaStorageConfig();
-        const target = await resolveUniqueLocalFileTarget(cfg, entry.fileName, normalizedRemoteUrl);
+        const target = await resolveUniqueLocalFileTarget(
+            cfg,
+            entry.fileName,
+            normalizedRemoteUrl,
+            inferAttachmentKindFromMeta(entry.fileName, entry.contentType),
+        );
         const targetRef = await resolveEntryStorageRef(target.relativePath);
         const targetExists = await nativeLocalMediaAdapter.fileExists(targetRef);
         if (!targetExists) {
@@ -1605,7 +1666,13 @@ export const migrateLegacyVaultLayoutIndexEntry = async (remoteUrl: string): Pro
     if (!entry) {
         return "missing_file";
     }
-    if (!isLegacyVaultLayoutIndexEntry(entry)) {
+    if (extractVaultCategoryFromRelativePath(entry.relativePath)) {
+        return "already_migrated";
+    }
+    const needsLayoutMove =
+        isLegacyVaultLayoutIndexEntry(entry)
+        || isFlatProfileVaultBlobRelativePath(entry.relativePath);
+    if (!needsLayoutMove) {
         return "already_migrated";
     }
 
@@ -1623,7 +1690,14 @@ export const migrateLegacyVaultLayoutIndexEntry = async (remoteUrl: string): Pro
     if (!blobFileName) {
         return "failed";
     }
-    const targetRelativePath = buildProfileVaultRelativePath(profileId, blobFileName);
+    const category = mapAttachmentKindToVaultCategory(
+        inferAttachmentKindFromMeta(entry.fileName, entry.contentType),
+    );
+    const targetRelativePath = buildProfileVaultCategoryRelativePath(
+        profileId,
+        category,
+        blobFileName,
+    );
 
     try {
         const sourceAbsolutePath = await resolveEntryAbsolutePath(entry.relativePath);

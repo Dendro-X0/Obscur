@@ -19,11 +19,13 @@ pnpm -C apps/website start
 
 ## Deploy (maintainer)
 
-**Unpaused (2026-07-04):** Runtime repair band exited (R1–R5 VERIFIED t4). Deploy **preview smoke** first; production only after maintainer sign-off.
+**Domain honesty (2026-07-17):** `https://obscur.app` currently serves a **different product** (face-blur Quasar SPA on Cloudflare Pages). It is **not** this `apps/website` app. Do not claim Phase 4 EXIT via that domain until DNS/hosting is cut over.
+
+**Canonical download until site deploy:** `release-assets/manifest.json` on `main` (raw GitHub + GitHub Release assets). See [v2.0.0-fast-track-2026-07.md](../../specs/backend/v2.0.0-fast-track-2026-07.md).
 
 Typical paths:
 
-1. **Vercel** — import monorepo, set root directory to `apps/website`, build command `pnpm build`, output default.
+1. **Vercel** — import monorepo, set root directory to `apps/website`, build command `pnpm build`, output default. Use a **new** project name (do not assume `obscur.app` or `obscur-website.vercel.app` are this app).
    - Monorepo skip: if the latest push does not touch `apps/website/**` (or shared deps like `release-assets/manifest.json`), Vercel marks the project **Skipped — Not affected**. Push a website change or use **Redeploy** on the last successful/affected commit.
 2. **Static export** — not configured today; app uses server components + `headers()` on `/download` for platform hint only.
 

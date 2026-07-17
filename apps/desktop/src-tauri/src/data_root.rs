@@ -13,6 +13,7 @@ const CUSTOM_ROOT_POINTER_FILE: &str = "obscur_data_root.pointer.json";
 const DATA_ROOT_SUPERSEDED_MARKER: &str = ".obscur-data-root-superseded.json";
 const DATA_ROOT_ENV_VAR: &str = "OBSCUR_DATA_ROOT";
 const PORTABLE_SIDECAR_FILE: &str = "obscur-data-root.path";
+#[cfg(not(windows))]
 const XDG_POINTER_RELATIVE: &str = ".config/obscur/desktop/custom-data-root.json";
 pub const DATA_ROOT_MANIFEST_FILE: &str = "obscur.json";
 pub const WORKSPACE_EXPORTS_DIR: &str = "workspace-exports";
@@ -224,7 +225,6 @@ enum DataRootAuthority {
     Registry,
     XdgConfig,
     SupersededMarker,
-    Default,
 }
 
 impl DataRootAuthority {
@@ -236,7 +236,6 @@ impl DataRootAuthority {
             Self::Registry => "registry",
             Self::XdgConfig => "xdg_config",
             Self::SupersededMarker => "superseded_marker",
-            Self::Default => "default_appdata",
         }
     }
 }
@@ -419,6 +418,7 @@ fn read_portable_sidecar(_app: &AppHandle) -> Option<String> {
     None
 }
 
+#[cfg(not(windows))]
 fn xdg_pointer_path() -> Option<PathBuf> {
     std::env::var("HOME")
         .ok()
@@ -887,13 +887,26 @@ pub fn resolve_webview_profile_workspace(
             .join(profile_id);
         fs::create_dir_all(&emergency).map_err(map_data_root_io_error)?;
         let _ = fs::create_dir_all(emergency.join(PROFILE_VAULT_SUBDIR));
+        for category in ["images", "videos", "audio", "files"] {
+            let _ = fs::create_dir_all(emergency.join(PROFILE_VAULT_SUBDIR).join(category));
+        }
         eprintln!(
             "[obscur] offline webview workspace fell back to {}",
             emergency.display()
         );
         return Ok(emergency);
     }
-    let _ = fs::create_dir_all(profile_dir.join(PROFILE_VAULT_SUBDIR));
+    let vault_dir = profile_dir.join(PROFILE_VAULT_SUBDIR);
+    let _ = fs::create_dir_all(&vault_dir);
+    for category in ["images", "videos", "audio", "files"] {
+        let _ = fs::create_dir_all(vault_dir.join(category));
+    }
+    // LES greenfield tree (authoritative replacement for vault runtime).
+    let les_dir = profile_dir.join("les");
+    let _ = fs::create_dir_all(&les_dir);
+    for category in ["images", "videos", "audio", "files"] {
+        let _ = fs::create_dir_all(les_dir.join(category));
+    }
     Ok(profile_dir)
 }
 
@@ -1022,33 +1035,6 @@ pub fn profile_archives_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = resolve_effective_data_root(app)?.join(PROFILE_ARCHIVES_DIR);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
-}
-
-pub fn vault_media_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = resolve_effective_data_root(app)?.join(VAULT_MEDIA_DIR);
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir)
-}
-
-fn write_data_root_manifest(app: &AppHandle) -> Result<(), String> {
-    let data_root = resolve_effective_data_root(app)?;
-    let exports = workspace_exports_dir(app)?;
-    let archives = profile_archives_dir(app)?;
-    let vault = vault_media_dir(app)?;
-    let manifest = ObscurDataRootManifest {
-        version: 1,
-        updated_at_unix_ms: now_unix_ms(),
-        user_data_path: data_root.to_string_lossy().to_string(),
-        exports_path: exports.to_string_lossy().to_string(),
-        profile_archives_path: archives.to_string_lossy().to_string(),
-        vault_media_path: vault.to_string_lossy().to_string(),
-    };
-    fs::write(
-        data_root.join(DATA_ROOT_MANIFEST_FILE),
-        serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 fn build_data_root_config(

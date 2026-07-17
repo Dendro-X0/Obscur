@@ -35,13 +35,14 @@ describe("vault-layout-migration", () => {
     localMediaStoreMocks.migrateLegacyVaultLayoutIndexEntry.mockResolvedValue("migrated");
   });
 
-  it("lists only legacy flat vault index rows", () => {
+  it("lists legacy flat vault-media and Phase-5 flat profile vault rows", () => {
     localMediaStoreMocks.getLocalMediaIndexSnapshot.mockReturnValue({
       "vault://a": { relativePath: "vault-media/a.obscurvault" },
       "vault://b": { relativePath: "profiles/default/vault/b.obscurvault" },
+      "vault://c": { relativePath: "profiles/default/vault/images/c.obscurvault" },
     });
 
-    expect(listLegacyVaultLayoutIndexRemoteUrls()).toEqual(["vault://a"]);
+    expect(listLegacyVaultLayoutIndexRemoteUrls()).toEqual(["vault://a", "vault://b"]);
   });
 
   it("migrates pending legacy layout rows on unlock", async () => {

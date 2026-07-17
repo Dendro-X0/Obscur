@@ -20,7 +20,7 @@ Obscur’s auth problem is different:
 | Identity root | Server-issued user id + password hash | **Locally generated Nostr keypair** (self-custody) |
 | Session proof | HTTP cookie / JWT from server | **In-memory signing keys** + optional **OS secure storage** per `profileId` |
 | Registration | Server validates email, CAPTCHA, billing | **Local create/import** + **optional sybil friction** (PoW, invites, rates) |
-| “Remember me” | Server session TTL | **Device unlock tier** — passphrase/biometric/assistant tap; **not** a browser token |
+| “Remember me” | Server session TTL | **Device unlock** — passphrase primary; **not** a browser token; **no biometric MFA** |
 | Multi-tenant | One app, many users on server | **Many profile windows**, each with explicit scope |
 | Trust model | Operator can revoke accounts | **User revokes device material**; no vendor ban hammer |
 
@@ -70,9 +70,9 @@ flowchart TB
   end
 
   subgraph unlock [Plane C — Device Unlock]
-    C1[Passphrase decrypt OR key import]
+    C1[Passphrase decrypt OR optional key import]
     C2[OS vault write on explicit consent]
-    C3[Biometric / assistant gesture gate]
+    C3[No biometric MFA]
   end
 
   subgraph session [Plane D — Runtime Session]
@@ -128,7 +128,7 @@ flowchart TB
 - **v1.9.6 silent restore:** cancelled — boot race ([feasibility gate](../archive/program/inactive-2026-06/v1.9.6-session-persistence-redesign.md)).
 - **Auth Assistant:** deferred — same unlock must go through **one IPC path after shell ready** ([AA charter](../archive/program/inactive-2026-06/obscur-auth-assistant-charter.md)).
 
-**v1 product stance:** *Assisted unlock* (tap + biometric), not *silent remember-me*.
+**v1 product stance:** *Passphrase unlock* is the primary daily path. **No biometric MFA.** OS biometric (if present in code) is **not** a second factor and must not become a required gate. Wallet-style key / recovery-phrase surfaces stay **optional** (advanced import/export) — never mandatory onboarding.
 
 ### Plane D — Runtime Session (`RuntimeSessionPort`)
 
@@ -221,7 +221,7 @@ Do **not** run parallel with community UI subtraction unless handoff explicitly 
 | **AUTH-K1** | Extract Plane A + C pure TS to `packages/dweb-auth`; app adapters call ports; no behavior change | `pnpm verify:auth-kernel-contracts` (new) green; existing auth tests green |
 | **AUTH-K2** | Rust `auth_boot` owner; JS consumes `AuthBootSnapshot` only; delete F5 restore loops from `use-identity` / `auth-gateway` | **AUTH-KERN-1:** headless/desktop test — unlock → F5 → chat without Welcome Back |
 | **AUTH-K3** | Plane B registration policy port; wire PoW create + invite-required modes; steward-configurable sybil profile | Contract tests + dev-lab registration abuse scenario |
-| **AUTH-K4** | Auth Assistant (Plane C UI) on top of `DeviceUnlockPort`; biometric gate | Manual mobile + desktop tap-unlock without clipboard |
+| **AUTH-K4** | Auth Assistant (Plane C UI) on top of `DeviceUnlockPort`; passphrase-first; **no biometric MFA** | Manual mobile + desktop unlock without clipboard |
 | **AUTH-K5 (optional)** | Enterprise OAuth **bridge** — maps external IdP to local profile binding, not replacement root | Separate charter; B2Pro only |
 
 **Flip `DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY`** only when AUTH-KERN-1 passes — not before.

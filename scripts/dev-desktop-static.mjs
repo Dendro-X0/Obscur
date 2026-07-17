@@ -17,6 +17,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import { applyWindowsBuildTempEnv } from "./lib/windows-build-temp.mjs";
 import {
   formatStaticShellStaleHelp,
   isStaticShellDevLabMismatch,
@@ -32,7 +33,9 @@ const buildOnly = flags.has("--build-only");
 const skipBuild = flags.has("--skip-build");
 const outIndex = path.join(repoRoot, "apps", "pwa", "out", "index.html");
 
-const env = mergePwaEnvLocal({
+const log = (message) => console.log(`[desktop-static] ${message}`);
+
+const env = applyWindowsBuildTempEnv(mergePwaEnvLocal({
   ...process.env,
   NEXT_PUBLIC_DESKTOP_SHELL: "1",
   NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH: "0",
@@ -40,14 +43,12 @@ const env = mergePwaEnvLocal({
   OBSCUR_DESKTOP_STATIC_DEV: "1",
   NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE: online ? "1" : (process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE ?? "0"),
   NEXT_PUBLIC_OBSCUR_DEV_LAB: "1",
-});
+}), { repoRoot, log });
 // Per-window CDP is configured in Tauri WebviewWindowBuilder (OBSCUR_CDP_MAIN / OBSCUR_CDP_PROFILE).
 // Process-wide WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS prevents profile windows from binding :9231.
 delete env.WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS;
 env.OBSCUR_CDP_MAIN ??= "9230";
 env.OBSCUR_CDP_PROFILE ??= "9231";
-
-const log = (message) => console.log(`[desktop-static] ${message}`);
 
 const runBuild = () => new Promise((resolve, reject) => {
   log("building static desktop shell → apps/pwa/out …");

@@ -2349,16 +2349,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`\n- `allow-db-commands`\n- `allow-protocol-commands`",
+          "description": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`\n- `allow-les-commands`\n- `allow-db-commands`\n- `allow-protocol-commands`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`\n- `allow-db-commands`\n- `allow-protocol-commands`"
+          "markdownDescription": "Default application permissions\n#### This permission set includes:\n\n- `allow-window-commands`\n- `allow-tor-commands`\n- `allow-misc-commands`\n- `allow-relay-commands`\n- `allow-wallet-commands`\n- `allow-les-commands`\n- `allow-db-commands`\n- `allow-protocol-commands`"
         },
         {
           "description": "Native SQLite persistence commands",
           "type": "string",
           "const": "allow-db-commands",
           "markdownDescription": "Native SQLite persistence commands"
+        },
+        {
+          "description": "Local Encrypted Store (LES) commands — Rust vault replacement",
+          "type": "string",
+          "const": "allow-les-commands",
+          "markdownDescription": "Local Encrypted Store (LES) commands — Rust vault replacement"
         },
         {
           "description": "Miscellaneous app commands",

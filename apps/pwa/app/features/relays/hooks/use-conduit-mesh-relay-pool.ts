@@ -28,12 +28,28 @@ const EMPTY_ACTIVITY: RelayTransportActivitySnapshot = {
   coolingDownRelayCount: 0,
   fallbackRelayUrls: [],
   fallbackWritableRelayCount: 0,
+  publishReadyRelayUrls: [],
 };
 
-/** Mesh HTTP / custom team gateways have no WebSocket — treat as always-connected for send gates. */
+/** HTTP mesh dialect — used for URL classification only; readiness comes from mesh probe. */
 export const isHttpMeshPoolUrl = (url: string): boolean => {
   const trimmed = url.trim().toLowerCase();
   return trimmed.startsWith("http://") || trimmed.startsWith("https://");
+};
+
+const resolveWritableRelayUrls = (
+  poolUrls: ReadonlyArray<string>,
+  wsConnections: ReadonlyArray<RelayConnection>,
+  activitySnapshot: RelayTransportActivitySnapshot,
+): ReadonlyArray<string> => {
+  const probed = activitySnapshot.publishReadyRelayUrls ?? [];
+  if (probed.length > 0) {
+    const poolSet = new Set(poolUrls);
+    return probed.filter((url) => poolSet.has(url));
+  }
+  return wsConnections
+    .filter((connection) => connection.status === "open")
+    .map((connection) => connection.url);
 };
 
 const mapConnectionSnapshots = (
@@ -52,17 +68,6 @@ const mapConnectionSnapshots = (
     errorMessage: snapshot.errorMessage,
   }))
 );
-
-const resolveWritableRelayUrls = (
-  poolUrls: ReadonlyArray<string>,
-  wsConnections: ReadonlyArray<RelayConnection>,
-): ReadonlyArray<string> => {
-  const openWs = wsConnections
-    .filter((connection) => connection.status === "open")
-    .map((connection) => connection.url);
-  const httpUrls = poolUrls.filter(isHttpMeshPoolUrl);
-  return Array.from(new Set([...openWs, ...httpUrls]));
-};
 
 const filtersToMeshInterests = (
   filters: ReadonlyArray<NostrFilter>,
@@ -146,12 +151,17 @@ export const useConduitMeshRelayPool = (
     [connectionSnapshots],
   );
 
-  const writableRelayUrls = useMemo(
-    () => resolveWritableRelayUrls(urlsKey ? urlsKey.split("|") : [], connections),
-    [urlsKey, connections],
+  const poolUrls = useMemo(
+    () => (urlsKey ? urlsKey.split("|") : []),
+    [urlsKey],
   );
 
-  const hasWritableRelay = writableRelayUrls.length > 0;
+  const writableRelayUrls = useMemo(
+    () => resolveWritableRelayUrls(poolUrls, connections, activitySnapshot),
+    [poolUrls, connections, activitySnapshot],
+  );
+
+  const hasWritableRelay = activitySnapshot.writableRelayCount > 0 || writableRelayUrls.length > 0;
 
   return useMemo((): EnhancedRelayPoolResult => ({
     connections,
@@ -248,7 +258,11 @@ export const useConduitMeshRelayPool = (
     addTransientRelay: () => {},
     removeTransientRelay: () => {},
     reconnectRelay: () => {},
-    reconnectAll: () => {},
+    reconnectAll: () => {
+      void runtime.configureUrls(poolUrls).then(async () => {
+        setActivitySnapshot(await runtime.getTransportActivitySnapshot());
+      });
+    },
     resubscribeAll: () => {},
     recycle: async () => {},
     isConnected: () => hasWritableRelay,
@@ -273,8 +287,8 @@ export const useConduitMeshRelayPool = (
     waitForScopedConnection: async (relayUrls, timeoutMs) => {
       const normalized = relayUrls.map((url) => url.trim()).filter(Boolean);
       const hasScoped = (): boolean => {
-        const openUrls = new Set(writableRelayUrls);
-        return normalized.some((url) => openUrls.has(url) || isHttpMeshPoolUrl(url));
+        const readyUrls = new Set(writableRelayUrls);
+        return normalized.some((url) => readyUrls.has(url));
       };
       if (hasScoped()) {
         return true;
@@ -295,21 +309,16 @@ export const useConduitMeshRelayPool = (
     },
     getWritableRelaySnapshot: () => ({
       atUnixMs: Date.now(),
-      configuredRelayUrls: urls,
+      configuredRelayUrls: poolUrls,
       writableRelayUrls,
-      totalRelayCount: urls.length,
+      totalRelayCount: poolUrls.length,
       openRelayCount: writableRelayUrls.length,
     }),
-    getTransportActivitySnapshot: () => ({
-      ...activitySnapshot,
-      // Prefer mesh readiness; never drop HTTP team_relay readiness just because there is no WS.
-      writableRelayCount: Math.max(activitySnapshot.writableRelayCount, writableRelayUrls.length),
-      subscribableRelayCount: Math.max(activitySnapshot.subscribableRelayCount, writableRelayUrls.length),
-    }),
+    getTransportActivitySnapshot: () => activitySnapshot,
     getActiveSubscriptionCount: () => 0,
     dispose: () => {
       runtime.dispose();
       nostrClient.dispose();
     },
-  }), [runtime, nostrClient, activitySnapshot, connections, urls, writableRelayUrls, hasWritableRelay]);
+  }), [runtime, nostrClient, activitySnapshot, connections, poolUrls, writableRelayUrls, hasWritableRelay]);
 };

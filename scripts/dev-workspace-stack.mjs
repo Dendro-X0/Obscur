@@ -29,6 +29,7 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import { applyWindowsBuildTempEnv } from "./lib/windows-build-temp.mjs";
 import {
   DEFAULT_COORDINATION_READY_TIMEOUT_MS,
   DEFAULT_RELAY_READY_TIMEOUT_MS,
@@ -44,7 +45,11 @@ const useLiveWebpack = flags.has("--live");
 const skipCoordination = flags.has("--skip-coordination")
   || process.env.OBSCUR_SKIP_COORDINATION === "1";
 
-const env = mergePwaEnvLocal({ ...process.env });
+const log = (message) => {
+  console.log(`[workspace-stack] ${message}`);
+};
+
+const env = applyWindowsBuildTempEnv(mergePwaEnvLocal({ ...process.env }), { repoRoot, log });
 if (flags.has("--online")) {
   env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE = "1";
   env.NEXT_PUBLIC_OBSCUR_RADICAL_TRUTH = "0";
@@ -70,10 +75,6 @@ const coordinationGraceMs = resolveReadyTimeoutMs(
   env.OBSCUR_COORDINATION_GRACE_MS,
   process.platform === "win32" ? 90_000 : 30_000,
 );
-
-const log = (message) => {
-  console.log(`[workspace-stack] ${message}`);
-};
 
 const COORDINATION_HEALTH_URL = "http://127.0.0.1:8787/health";
 const COORDINATION_PORT = 8787;

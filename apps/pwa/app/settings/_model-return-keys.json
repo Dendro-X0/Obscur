@@ -8,6 +8,7 @@
   "INVITE_CODE_PREFIX",
   "INVITE_CODE_SUFFIX_LENGTH",
   "RELAY_PRESETS",
+  "TRANSPORT_PRESET_GROUPS",
   "TEXT_SCALE_OPTIONS",
   "accessibility",
   "accountSyncSnapshot",

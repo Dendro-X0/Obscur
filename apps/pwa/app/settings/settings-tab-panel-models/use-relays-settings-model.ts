@@ -10,7 +10,15 @@ import { assessRelayCapability, getCommunityModeDefinition } from "@/app/feature
 import { relayResilienceObservability } from "@/app/features/relays/services/relay-resilience-observability";
 import type { SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";
 import type { SettingsTabPanelModel } from "../settings-tab-panel-model-context";
-import { DEFAULT_STABLE_PRESET, ENABLE_API_HEALTH_PROBE, RELAY_PRESETS, type ApiHealthState, type RelayPresetId, } from "../settings-tab-panel-shared";
+import {
+  buildRelayRowsFromPreset,
+  getTransportPreset,
+} from "@/app/features/transport-kernel/transport-preset-catalog";
+import {
+  resolveTemplatePrefillUrl,
+  shouldConfirmPresetReplace,
+} from "@/app/features/transport-kernel/transport-preset-apply-policy";
+import { DEFAULT_STABLE_PRESET, ENABLE_API_HEALTH_PROBE, RELAY_PRESETS, TRANSPORT_PRESET_GROUPS, type ApiHealthState, type RelayPresetId, } from "../settings-tab-panel-shared";
 import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
 import { useSettingsRelayRuntimeStatus } from "./use-settings-relay-runtime-status";
 export function useRelaysSettingsModel(): SettingsTabPanelModel {
@@ -23,14 +31,11 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     const [showAdvancedRelays, setShowAdvancedRelays] = useState<boolean>(false);
     const [relayActionPhase, setRelayActionPhase] = useState<SettingsActionPhase>("idle");
     const [relayActionMessage, setRelayActionMessage] = useState<string>("");
+    const [pendingPresetApplyId, setPendingPresetApplyId] = useState<RelayPresetId | null>(null);
+    const [isPresetApplyConfirmOpen, setIsPresetApplyConfirmOpen] = useState(false);
     const translateRelayPresetLabel = useCallback((presetId: RelayPresetId): string => {
-        if (presetId === "default_stable") {
-            return t("settings.relays.preset.defaultStable");
-        }
-        if (presetId === "high_redundancy") {
-            return t("settings.relays.preset.highRedundancy");
-        }
-        return t("settings.relays.preset.lowLatency");
+        const preset = getTransportPreset(presetId);
+        return preset ? t(preset.labelKey) : presetId;
     }, [t]);
     const translateRelayRuntimeText = useCallback((value: string): string => {
         switch (value) {
@@ -143,7 +148,10 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     const relayQuickHealth = useMemo(() => {
         const enabledRelays = relayList.state.relays.filter((relay) => relay.enabled);
         const enabledSet = new Set(enabledRelays.map((relay) => relay.url));
-        const openCount = pool.connections.filter((connection) => connection.status === "open" && enabledSet.has(connection.url)).length;
+        const openCount = Math.max(
+            pool.connections.filter((connection) => connection.status === "open" && enabledSet.has(connection.url)).length,
+            relayRuntime.writableRelayCount,
+        );
         const latencyValues = enabledRelays
             .map((relay) => relayHealthMetricsMap.get(relay.url)?.latency ?? 0)
             .filter((value) => Number.isFinite(value) && value > 0);
@@ -156,7 +164,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
             averageLatencyMs,
             recommendation: relayRuntimeStatus.actionText,
         };
-    }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntimeStatus]);
+    }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntime.writableRelayCount, relayRuntimeStatus]);
     const relayCapabilityAssessment = useMemo(() => assessRelayCapability({
         enabledRelayUrls: relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url),
     }), [relayList.state.relays]);
@@ -253,23 +261,52 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
             toast.error(t("settings.relays.bulkCopyFailed"));
         }
     };
-    const applyRelayPreset = (presetId: RelayPresetId): void => {
-        const preset = RELAY_PRESETS.find((candidate) => candidate.id === presetId);
+    const applyRelayPreset = useCallback((presetId: RelayPresetId): string | undefined => {
+        const preset = getTransportPreset(presetId);
         if (!preset) {
             setRelayActionPhase("error");
             setRelayActionMessage("Unknown preset.");
-            return;
+            return undefined;
         }
         relayList.replaceRelays({
-            relays: preset.relays.map((url) => ({ url, enabled: true })),
+            relays: [...buildRelayRowsFromPreset(preset)],
         });
-        if (presetId === "high_redundancy") {
-            setRelayTransportMode("redundancy");
-        }
+        setRelayTransportMode(preset.transportMode);
+        const label = t(preset.labelKey);
+        const description = t(preset.descriptionKey);
+        const followUps = [
+            preset.requiresTor ? t("settings.relays.presetTorFollowUp") : "",
+            preset.isUrlTemplate ? t("settings.relays.presetTemplateFollowUp") : "",
+        ].filter(Boolean).join(" ");
         setRelayActionPhase("success");
-        setRelayActionMessage(`Applied preset: ${preset.label}.`);
-        toast.success(`Relay preset applied: ${preset.label}`);
-    };
+        setRelayActionMessage(followUps ? `${label}: ${description} ${followUps}` : `${label}: ${description}`);
+        toast.success(t("settings.relays.presetApplied", { defaultValue: "Transport preset applied: {{label}}", label }));
+        if (followUps) {
+            toast.info(followUps);
+        }
+        return resolveTemplatePrefillUrl(preset);
+    }, [relayList, setRelayTransportMode, t]);
+    const requestApplyRelayPreset = useCallback((presetId: RelayPresetId): string | undefined => {
+        if (shouldConfirmPresetReplace(relayList.state.relays)) {
+            setPendingPresetApplyId(presetId);
+            setIsPresetApplyConfirmOpen(true);
+            return undefined;
+        }
+        return applyRelayPreset(presetId);
+    }, [applyRelayPreset, relayList.state.relays]);
+    const confirmApplyRelayPreset = useCallback((): string | undefined => {
+        if (!pendingPresetApplyId) {
+            return undefined;
+        }
+        const prefillUrl = applyRelayPreset(pendingPresetApplyId);
+        setPendingPresetApplyId(null);
+        setIsPresetApplyConfirmOpen(false);
+        return prefillUrl;
+    }, [applyRelayPreset, pendingPresetApplyId]);
+    const cancelApplyRelayPreset = useCallback((): void => {
+        setPendingPresetApplyId(null);
+        setIsPresetApplyConfirmOpen(false);
+    }, []);
     const handleResetRelaySection = (): void => {
         relayList.resetRelays();
         setRelayActionPhase("success");
@@ -315,8 +352,11 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
         DEFAULT_STABLE_PRESET,
         ENABLE_API_HEALTH_PROBE,
         RELAY_PRESETS,
+        TRANSPORT_PRESET_GROUPS,
         apiHealth,
         applyRelayPreset,
+        cancelApplyRelayPreset,
+        confirmApplyRelayPreset,
         handleAddRelay,
         handleCheckApi,
         handleRefreshRelayStatus,
@@ -324,7 +364,9 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
         handleRelayBulkEnableAll,
         handleRelayBulkRemoveDisabled,
         handleResetRelaySection,
+        isPresetApplyConfirmOpen,
         managedWorkspaceDefinition,
+        pendingPresetApplyId,
         newRelayUrl,
         pool,
         relayActionMessage,
@@ -336,6 +378,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
         relayQuickHealth,
         relayRuntime,
         relaySelection,
+        requestApplyRelayPreset,
         setApiHealth,
         setNewRelayUrl,
         setRelayActionMessage,

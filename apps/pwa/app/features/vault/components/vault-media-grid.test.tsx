@@ -16,6 +16,7 @@ const vaultGridTranslations: Record<string, string> = {
   "vault.actions.openSourceChat": "Open Source Chat",
   "vault.actions.exportDecryptedCopy": "Export decrypted copy…",
   "vault.actions.openVaultFolder": "Open vault folder",
+  "vault.actions.removeFromVault": "Remove from Vault",
 };
 
 vi.mock("react-i18next", () => ({

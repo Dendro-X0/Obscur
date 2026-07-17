@@ -48,6 +48,34 @@ describe("deriveRelayRuntimeStatus", () => {
     expect(status.status).toBe("healthy");
   });
 
+  it("returns degraded when only part of the configured pool is publish-ready", () => {
+    const status = deriveRelayRuntimeStatus({
+      openCount: 0,
+      totalCount: 3,
+      writableCount: 1,
+      subscribableCount: 1,
+      phase: "healthy",
+      lastSuccessfulPublishAtUnixMs: 59_000,
+      nowUnixMs: 60_000,
+      meshReadiness: "degraded",
+    });
+    expect(status.status).toBe("degraded");
+    expect(status.actionText).toContain("Redundancy reduced");
+  });
+
+  it("treats recent publish evidence as fresh when inbound WS events are absent", () => {
+    const status = deriveRelayRuntimeStatus({
+      openCount: 0,
+      totalCount: 1,
+      writableCount: 1,
+      subscribableCount: 1,
+      phase: "healthy",
+      lastSuccessfulPublishAtUnixMs: 59_000,
+      nowUnixMs: 60_000,
+    });
+    expect(status.status).toBe("healthy");
+  });
+
   it("clears the overall fallback warning once configured relays are healthy again", () => {
     const status = deriveRelayRuntimeStatus({
       openCount: 2,

@@ -6,6 +6,7 @@ import VaultPageClient from "./vault-page-client";
 const vaultPageMocks = vi.hoisted(() => ({
   compactLayout: true,
   publicKeyHex: "a".repeat(64),
+  lesNative: true,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -44,18 +45,21 @@ vi.mock("@/app/features/main-shell/hooks/use-nav-badges", () => ({
   }),
 }));
 
-vi.mock("@/app/features/vault/hooks/use-vault-media", () => ({
-  useVaultMedia: () => ({
+vi.mock("@/app/features/les/sdk/les-native-sdk", () => ({
+  isLesNativeAvailable: () => vaultPageMocks.lesNative,
+}));
+
+vi.mock("@/app/features/les/ui/use-les-vault-media", () => ({
+  useLesVaultMedia: () => ({
     mediaItems: [],
     isLoading: false,
-    stats: { imageCount: 0, videoCount: 0, audioCount: 0, fileCount: 0, total: 0 },
+    error: null,
     refresh: vi.fn(),
     downloadToLocalPath: vi.fn(async () => true),
     deleteLocalCopy: vi.fn(async () => undefined),
     openLocalFileLocation: vi.fn(async () => true),
-    pendingExportFileName: null,
-    cancelExportConfirm: vi.fn(),
-    confirmExport: vi.fn(async () => true),
+    stats: { imageCount: 0, videoCount: 0, audioCount: 0, fileCount: 0, total: 0 },
+    available: true,
   }),
 }));
 
@@ -63,29 +67,47 @@ vi.mock("@/app/features/vault/components/vault-media-grid", () => ({
   VaultMediaGrid: () => <div data-testid="vault-media-grid" />,
 }));
 
-vi.mock("@/app/features/vault/components/vault-upload-modal", () => ({
-  VaultUploadModal: () => null,
+vi.mock("@/app/features/les/ui/les-upload-modal", () => ({
+  LesUploadModal: () => null,
 }));
 
 vi.mock("@dweb/ui-kit", () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>{children}</button>
   ),
-  Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+  Card: ({
+    children,
+    title,
+    description,
+    ...props
+  }: React.HTMLAttributes<HTMLDivElement> & { title?: string; description?: string }) => (
+    <div {...props}>
+      {title ? <h2>{title}</h2> : null}
+      {description ? <p>{description}</p> : null}
+      {children}
+    </div>
+  ),
   cn: (...classes: Array<string | false | null | undefined>) => classes.filter(Boolean).join(" "),
 }));
 
-describe("VaultPageClient compact layout", () => {
+describe("VaultPageClient LES + VaultMediaGrid (R6)", () => {
   beforeEach(() => {
     vaultPageMocks.compactLayout = true;
     vaultPageMocks.publicKeyHex = "a".repeat(64);
+    vaultPageMocks.lesNative = true;
   });
 
-  it("uses contained scroll and a mobile scroll region for the grid", () => {
+  it("uses VaultMediaGrid inside LES scroll region on native", () => {
     render(<VaultPageClient />);
 
-    expect(screen.getByTestId("vault-mobile-scroll-region")).toHaveClass("mobile-scroll-region");
+    expect(screen.getByTestId("vault-les-scroll-region")).toHaveClass("mobile-scroll-region");
     expect(screen.getByRole("button", { name: /vault\.upload/i }).className).toContain("min-h-[44px]");
     expect(screen.getByTestId("vault-media-grid")).toBeInTheDocument();
+  });
+
+  it("shows desktop-required copy when LES is unavailable", () => {
+    vaultPageMocks.lesNative = false;
+    render(<VaultPageClient />);
+    expect(screen.getByText(/requires the Obscur desktop app/i)).toBeInTheDocument();
   });
 });

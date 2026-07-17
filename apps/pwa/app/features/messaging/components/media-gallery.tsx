@@ -2,7 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
-import { Play, Headphones, FileText } from "lucide-react";
+import { Music2, Mic, FileText } from "lucide-react";
 import type { MediaItem } from "../types";
 import { inferAttachmentKind } from "../utils/logic";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
@@ -10,6 +10,7 @@ import { cn } from "@/app/lib/utils";
 import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
 import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
 import { MESSAGING_OVERLAY_BACKDROP_CLASS, MessagingOverlayPortal } from "./messaging-overlay-portal";
+import { VideoPosterTile } from "./video-poster-tile";
 interface MediaGalleryProps {
     isOpen: boolean;
     onClose: () => void;
@@ -104,25 +105,27 @@ export function MediaGallery({ isOpen, onClose, conversationDisplayName, mediaIt
                             {filteredMediaItems.map(({ item, index, kind, voiceNoteMetadata }) => ((() => {
                     return (<button key={item.messageId} type="button" className="group relative overflow-hidden rounded-xl border border-black/10 bg-zinc-50 dark:border-white/10 dark:bg-zinc-950/60" onClick={() => onSelect(index)} {...getAttachmentContextMenuTriggerProps(item.attachment, openAttachmentContextMenu)}>
                                     <div className="aspect-square">
-                                        {kind === "image" ? (<Image src={item.attachment.url} alt={item.attachment.fileName} width={480} height={480} unoptimized className="h-full w-full object-cover transition-transform group-hover:scale-105"/>) : (kind === "audio" || kind === "voice_note") ? (<div className="flex h-full w-full flex-col items-center justify-center bg-purple-600/90 text-white">
-                                                <Headphones className="h-8 w-8 mb-2"/>
+                                        {kind === "image" ? (<Image src={item.attachment.url} alt={item.attachment.fileName} width={480} height={480} unoptimized className="h-full w-full object-cover transition-transform group-hover:scale-105"/>) : voiceNoteMetadata.isVoiceNote || kind === "voice_note" ? (<div className="flex h-full w-full flex-col items-center justify-center bg-violet-600/90 text-white">
+                                                <Mic className="mb-2 h-8 w-8" aria-hidden/>
                                                 <div className="text-[10px] font-black uppercase tracking-widest opacity-70">
-                                                    {voiceNoteMetadata.isVoiceNote ? "Voice Note" : "Audio"}
+                                                    Voice Note
                                                 </div>
                                                 {voiceNoteMetadata.durationLabel ? (<div className="mt-1 text-[10px] font-black tracking-widest opacity-90">
                                                         {voiceNoteMetadata.durationLabel}
                                                     </div>) : null}
+                                            </div>) : kind === "audio" ? (<div className="flex h-full w-full flex-col items-center justify-center bg-emerald-700/90 text-white">
+                                                <Music2 className="mb-2 h-8 w-8" aria-hidden/>
+                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-70">
+                                                    Audio
+                                                </div>
                                             </div>) : kind === "file" ? (<div className="flex h-full w-full flex-col items-center justify-center bg-amber-500/15 text-amber-900 dark:text-amber-100">
                                                 <FileText className="h-8 w-8 mb-2"/>
                                                 <div className="text-[10px] font-black uppercase tracking-widest opacity-70">
                                                     PDF
                                                 </div>
-                                            </div>) : (<div className="relative flex h-full w-full flex-col items-center justify-center bg-zinc-900 text-white">
-                                                <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md mb-2">
-                                                    <Play className="h-5 w-5 fill-current ml-0.5"/>
-                                                </div>
-                                                <div className="text-[10px] font-black uppercase tracking-widest opacity-40">Video</div>
-                                            </div>)}
+                                            </div>) : (
+                                              <VideoPosterTile src={item.attachment.url} fileName={item.attachment.fileName} />
+                                            )}
                                     </div>
                                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-2 text-left text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
                                         <div className="truncate">{item.attachment.fileName}</div>

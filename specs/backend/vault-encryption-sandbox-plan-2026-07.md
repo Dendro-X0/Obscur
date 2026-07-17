@@ -48,8 +48,8 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | G4 | **Decrypt in main WebView** — blob URLs in renderer | T8 / script context — acceptable v1 limit, not true isolation |
 | G5 | **Reveal in Explorer** can open ciphertext path | User confusion; not execution risk for `.obscurvault` |
 | G6 | **Chat→vault save disabled** (`VAULT_SAVE_FROM_CHAT_ENABLED = false`) | Intake path is Upload + Download only until pipeline proven |
-| G7 | **Shared `vault-media/` folder** across profiles | Isolation by hash + index only — charter target is `profiles/{id}/vault/` |
-| G8 | **Phase 4 evidence incomplete** — no portable soak sign-off | Marketing “encryption guarantee” still blocked |
+| G7 | **Shared `vault-media/` folder** across profiles | **Mitigated (Phase 5+5b)** — `profiles/{id}/vault/{category}/`; residual risk = wrong-profile cache (covered by L3-MP) |
+| G8 | **Phase 4 / taxonomy evidence incomplete** — no maintainer soak sign-off | Marketing “encryption guarantee” still blocked — runbook [vault-sandbox-l3-verification-2026-07.md](./vault-sandbox-l3-verification-2026-07.md) |
 
 ### Threat model extension (script injection)
 
@@ -203,6 +203,22 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 **Proof:** L3 portable USB soak (charter Phase 4 checklist). Runbook: [vault-sandbox-l3-verification-2026-07.md](./vault-sandbox-l3-verification-2026-07.md) §4.
 
 **Status (2026-07-09):** **Implemented** — `profiles/{profileId}/vault/` writes, layout migration on unlock, data-root profile vault dir
+
+---
+
+### Phase 5b — Category taxonomy + multi-profile object isolation (1.9.13)
+
+**Goal:** Under each profile vault root, categorize ciphertext into stable subdirs; close cache/path/URL cross-profile hazards.
+
+| Task | Detail |
+|------|--------|
+| 5b.1 | Path API: `images` / `videos` / `audio` / `files` |
+| 5b.2 | Write + disk inventory + migrate flat Phase-5 blobs |
+| 5b.3 | Isolation P1–P7 (caches, path gate, dual-profile L1) |
+
+**Design:** [vault-profile-directory-taxonomy-design-2026-07.md](./vault-profile-directory-taxonomy-design-2026-07.md)
+
+**Status (2026-07-15):** **T1–T2 implemented** (L1) — category writes/scan/migrate; profile path gate; **G8 runbook updated** for category dirs + L3-MP — maintainer soak pending
 
 ---
 

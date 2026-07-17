@@ -5,8 +5,9 @@ import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import {
   buildProfileVaultRelativeDir,
-  buildProfileVaultRelativePath,
+  listProfileVaultCategoryRelativeDirs,
   LEGACY_VAULT_MEDIA_DIR,
+  relativePathBelongsToProfileVault,
   resolveVaultStorageLayout,
 } from "./local-media-vault-path";
 import { nativeLocalMediaAdapter } from "./native-local-media-adapter";
@@ -85,10 +86,17 @@ const resolveVaultDiskScanTargets = async (
     config: { ...cfg, enabled: true, customRootPath: "", downloadRootPath: "", cacheSentFiles: true, cacheReceivedFiles: true },
   });
   if (layout.mode === "unified_data_root" && effectivePath) {
+    // Flat Phase-5 leftovers + Phase-5b category dirs.
     targets.push({
       relativeDir: buildProfileVaultRelativeDir(profileId),
       appDataRelative: false,
     });
+    for (const categoryDir of listProfileVaultCategoryRelativeDirs(profileId)) {
+      targets.push({
+        relativeDir: categoryDir,
+        appDataRelative: false,
+      });
+    }
   }
 
   return targets;
@@ -109,8 +117,7 @@ const resolveDiskScanDirectoryRef = async (
     config: { subdir, enabled: true, customRootPath: "", downloadRootPath: "", cacheSentFiles: true, cacheReceivedFiles: true },
   });
   if (layout.mode === "unified_data_root" && effectivePath) {
-    const profileDir = buildProfileVaultRelativeDir(profileId);
-    const absolutePath = await nativeLocalMediaAdapter.joinPaths(effectivePath, profileDir);
+    const absolutePath = await nativeLocalMediaAdapter.joinPaths(effectivePath, target.relativeDir);
     return { path: absolutePath };
   }
   const root = await nativeLocalMediaAdapter.getAppDataDirPath();
@@ -146,9 +153,13 @@ export const scanVaultDiskBlobInventory = async (
       if (!isEncryptedVaultStorageFileName(fileName)) {
         continue;
       }
-      const relativePath = target.appDataRelative
-        ? `${target.relativeDir}/${fileName}`
-        : buildProfileVaultRelativePath(resolvedProfileId, fileName);
+      const relativePath = `${target.relativeDir}/${fileName}`;
+      if (
+        !target.appDataRelative
+        && !relativePathBelongsToProfileVault(relativePath, resolvedProfileId)
+      ) {
+        continue;
+      }
       const pathKey = normalizeVaultRelativePathKey(relativePath);
       if (seenRelativePaths.has(pathKey)) {
         continue;

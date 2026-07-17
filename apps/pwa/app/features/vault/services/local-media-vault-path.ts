@@ -4,6 +4,10 @@ export const PROFILE_VAULT_PARENT_DIR = "profiles";
 export const PROFILE_VAULT_SUBDIR = "vault";
 export const LEGACY_VAULT_MEDIA_DIR = "vault-media";
 
+/** Stable on-disk category slugs under `profiles/{id}/vault/` (Phase 5b). */
+export const VAULT_CATEGORY_SLUGS = ["images", "videos", "audio", "files"] as const;
+export type VaultCategorySlug = (typeof VAULT_CATEGORY_SLUGS)[number];
+
 export type VaultStorageLayoutMode =
   | "unified_data_root"
   | "legacy_custom_root"
@@ -17,6 +21,9 @@ export type VaultStorageLayout = Readonly<{
 const isAbsoluteStoragePath = (path: string): boolean =>
   /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("/") || path.startsWith("\\\\");
 
+const normalizeRelativePath = (relativePath: string): string =>
+  relativePath.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").trim();
+
 export const sanitizeProfileVaultId = (profileId: string): string => {
   const trimmed = profileId.trim();
   if (!trimmed) {
@@ -26,19 +33,98 @@ export const sanitizeProfileVaultId = (profileId: string): string => {
   return cleaned.length > 0 ? cleaned : "default";
 };
 
+export const isVaultCategorySlug = (value: string): value is VaultCategorySlug =>
+  (VAULT_CATEGORY_SLUGS as ReadonlyArray<string>).includes(value.trim().toLowerCase());
+
+/**
+ * Maps attachment / UI kinds onto on-disk category folders.
+ * Unknown kinds land in `files/` (recoverable default).
+ */
+export const mapAttachmentKindToVaultCategory = (kind: string | undefined | null): VaultCategorySlug => {
+  const normalized = (kind ?? "").trim().toLowerCase();
+  if (normalized === "image") {
+    return "images";
+  }
+  if (normalized === "video") {
+    return "videos";
+  }
+  if (normalized === "audio" || normalized === "voice_note") {
+    return "audio";
+  }
+  return "files";
+};
+
 export const buildProfileVaultRelativeDir = (profileId: string): string =>
   `${PROFILE_VAULT_PARENT_DIR}/${sanitizeProfileVaultId(profileId)}/${PROFILE_VAULT_SUBDIR}`;
 
+export const buildProfileVaultCategoryRelativeDir = (
+  profileId: string,
+  category: VaultCategorySlug,
+): string => `${buildProfileVaultRelativeDir(profileId)}/${category}`;
+
+/** Flat Phase-5 path (no category). Prefer {@link buildProfileVaultCategoryRelativePath} for new writes. */
 export const buildProfileVaultRelativePath = (
   profileId: string,
   fileName: string,
 ): string => `${buildProfileVaultRelativeDir(profileId)}/${fileName.trim()}`;
 
+export const buildProfileVaultCategoryRelativePath = (
+  profileId: string,
+  category: VaultCategorySlug,
+  fileName: string,
+): string => `${buildProfileVaultCategoryRelativeDir(profileId, category)}/${fileName.trim()}`;
+
 export const isProfileScopedVaultRelativePath = (relativePath: string): boolean => {
-  const normalized = relativePath.replace(/\\/g, "/").toLowerCase();
+  const normalized = normalizeRelativePath(relativePath).toLowerCase();
   return normalized.startsWith(`${PROFILE_VAULT_PARENT_DIR}/`)
     && normalized.includes(`/${PROFILE_VAULT_SUBDIR}/`);
 };
+
+/** Phase-5 flat blob: `profiles/{id}/vault/{file}` with no category segment. */
+export const isFlatProfileVaultBlobRelativePath = (relativePath: string): boolean => {
+  const normalized = normalizeRelativePath(relativePath);
+  const match = normalized.match(
+    new RegExp(`^${PROFILE_VAULT_PARENT_DIR}/([^/]+)/${PROFILE_VAULT_SUBDIR}/([^/]+)$`, "i"),
+  );
+  if (!match?.[2]) {
+    return false;
+  }
+  return !isVaultCategorySlug(match[2]);
+};
+
+export const extractVaultCategoryFromRelativePath = (
+  relativePath: string,
+): VaultCategorySlug | null => {
+  const normalized = normalizeRelativePath(relativePath);
+  const match = normalized.match(
+    new RegExp(
+      `^${PROFILE_VAULT_PARENT_DIR}/[^/]+/${PROFILE_VAULT_SUBDIR}/([^/]+)/[^/]+$`,
+      "i",
+    ),
+  );
+  const slug = match?.[1]?.toLowerCase() ?? "";
+  return isVaultCategorySlug(slug) ? slug : null;
+};
+
+/**
+ * Fail-closed: relative path must belong to the active profile's vault tree.
+ * Accepts both flat Phase-5 and categorized Phase-5b paths.
+ */
+export const relativePathBelongsToProfileVault = (
+  relativePath: string,
+  profileId: string,
+): boolean => {
+  if (!isProfileScopedVaultRelativePath(relativePath)) {
+    return false;
+  }
+  const expectedPrefix = `${buildProfileVaultRelativeDir(profileId)}/`.toLowerCase();
+  const normalized = `${normalizeRelativePath(relativePath).toLowerCase()}/`;
+  return normalized.startsWith(expectedPrefix)
+    || normalizeRelativePath(relativePath).toLowerCase() === buildProfileVaultRelativeDir(profileId).toLowerCase();
+};
+
+export const listProfileVaultCategoryRelativeDirs = (profileId: string): ReadonlyArray<string> =>
+  VAULT_CATEGORY_SLUGS.map((category) => buildProfileVaultCategoryRelativeDir(profileId, category));
 
 export const isLegacyFlatVaultRelativePath = (relativePath: string): boolean => {
   const normalized = relativePath.replace(/\\/g, "/");

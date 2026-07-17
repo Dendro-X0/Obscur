@@ -4,7 +4,7 @@ import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isVaultWriteEncryptionReady } from "@/app/features/storage/services/vault-at-rest";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
-import { isLegacyVaultLayoutIndexEntry } from "./local-media-vault-path";
+import { isFlatProfileVaultBlobRelativePath, isLegacyVaultLayoutIndexEntry } from "./local-media-vault-path";
 import {
   getLocalMediaIndexSnapshot,
   migrateLegacyVaultLayoutIndexEntry,
@@ -75,7 +75,13 @@ export const subscribeVaultLayoutMigrationProgress = (
 export const listLegacyVaultLayoutIndexRemoteUrls = (): ReadonlyArray<string> => {
   const index = getLocalMediaIndexSnapshot();
   return Object.entries(index)
-    .filter(([, entry]) => entry && isLegacyVaultLayoutIndexEntry(entry))
+    .filter(([, entry]) => {
+      if (!entry?.relativePath) {
+        return false;
+      }
+      return isLegacyVaultLayoutIndexEntry(entry)
+        || isFlatProfileVaultBlobRelativePath(entry.relativePath);
+    })
     .map(([remoteUrl]) => remoteUrl);
 };
 
@@ -177,7 +183,7 @@ export const runVaultLayoutMigration = async (): Promise<VaultLayoutMigrationSum
       logRuntimeEvent(
         "vault_layout_migration.completed",
         "expected",
-        [`[VaultLayoutMigration] Moved ${summary.migrated} vault blob(s) into profiles/{id}/vault.`],
+        [`[VaultLayoutMigration] Moved ${summary.migrated} vault blob(s) into profiles/{id}/vault/{category}/.`],
       );
     }
     if (summary.failed > 0) {

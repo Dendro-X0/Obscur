@@ -1,6 +1,7 @@
 "use client";
 import type React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import { Card, Button, ConfirmDialog, Input, Label, Textarea, toast } from "@dweb/ui-kit";
@@ -28,6 +29,20 @@ import { SettingsToggle, SettingsToggleCard, toSettingsActionPhase, validateProf
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { getActiveTransportScopeCopy } from "@/app/features/relays/services/relay-transport-scope-copy";
+import { TransportPresetCatalogPanel } from "@/app/features/transport-kernel/transport-preset-catalog-panel";
+import {
+  classifyRelayEndpointAdapter,
+  relayEndpointAdapterI18nKey,
+} from "@/app/features/transport-kernel/relay-endpoint-adapter";
+import {
+  resolveActiveTransportMix,
+  resolveActiveTransportPresetId,
+  resolveTransportPresetMatches,
+} from "@/app/features/transport-kernel/transport-preset-match";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/app/components/ui/collapsible";
+import { useConduitMeshTorSettingsState } from "@/app/features/transport-kernel/use-conduit-mesh-tor-settings-state";
+import type { TransportPresetId } from "@/app/features/transport-kernel/transport-preset-catalog";
+import { dispatchSettingsSearchPrepare } from "@/app/features/settings/services/settings-search-navigate";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { partitionRelayListByTransportScope } from "@/app/features/relays/services/relay-transport-scope";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
@@ -35,10 +50,17 @@ import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDo
 import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
 import { SETTINGS_SEARCH_PREPARE_EVENT, type SettingsSearchPrepareDetail } from "@/app/features/settings/services/settings-search-navigate";
 export default function RelaysSettingsTabPanel(): React.JSX.Element {
+    const router = useRouter();
+    const pathname = usePathname();
+    const customEndpointInputRef = useRef<HTMLInputElement>(null);
+    const torState = useConduitMeshTorSettingsState();
     const [relayMetricsCategory, setRelayMetricsCategory] = useState<RelaySettingsCategory>("all");
     const [relayMetricsAvailableOnly, setRelayMetricsAvailableOnly] = useState(false);
+    const [showApiHealthSection, setShowApiHealthSection] = useState(false);
+    const [showCommunitySection, setShowCommunitySection] = useState(false);
+    const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
     const { activePoolRelayUrls, communityCandidateRelayUrls, relayTransportMode, setRelayTransportMode, } = useRelay();
-    const { APP_VERSION, DEFAULT_APP_LANGUAGE, DEFAULT_STABLE_PRESET, DEFAULT_THEME_PREFERENCE, DELETE_ACCOUNT_CONFIRM_TEXT, ENABLE_API_HEALTH_PROBE, INVITE_CODE_PREFIX, INVITE_CODE_SUFFIX_LENGTH, RELAY_PRESETS, TEXT_SCALE_OPTIONS, accessibility, accountSyncSnapshot, activeTab, apiHealth, appearanceActionMessage, appearanceActionPhase, applyRelayPreset, blocklist, blocklistInput, blocklistQuery, challangePassword, checkStorageHealth, clearIndexedDbDatabases, clearRuntimeCaches, copyPrivateKey, deleteAccountConfirmInput, deleteAccountCountdown, deriveRelayNodeStatus, deriveRelayRuntimeStatus, derivedPublicKeyHex, displayPublicKeyHex, exportPrivateKey, filteredBlockedKeys, getProfilePublishReportSnapshot, handleAddBlockedKey, handleAddRelay, handleArmDeleteAccount, handleCheckApi, handleCheckProviderReachability, handleClearData, handleDeleteAccount, handleDisableNotifications, handleEnableNotifications, handleExportPortableBundle, handleLockNow, handlePortableBundleFileSelected, handleProfileSwitchLock, handleRandomInviteCode, handleRefreshRelayStatus, handleRelayBulkCopyList, handleRelayBulkDisableAllConfirm, handleRelayBulkDisableAllRequest, handleRelayBulkEnableAll, handleRelayBulkRemoveDisabled, handleResetAccessibility, handleResetLanguage, handleResetLocalHistory, handleResetRelaySection, handleResetStorageSection, handleResetTheme, handleRevealToggle, handleSavePrivacy, handleSaveProfile, handleSendTestNotification, handleToggleNotificationChannel, handleUnblockAll, handleVerifyChallenge, handleVerifyNip05, i18n, identity, identityDiagnostics, identityIntegrityState, identityStorageMode, inviteCodeAvailabilityMessage, inviteCodeAvailabilityStatus, inviteCodeDraft, inviteCodeDraftSuffix, isChallenging, isCheckingProviderReachability, isCheckingStorageHealth, isClearDataDialogOpen, isDeleteAccountDialogOpen, isDisableAllRelaysDialogOpen, isInviteCodeDraftDirty, isPortableBundleExporting, isPortableBundleImporting, isPrivateKeyVisible, isPublishing, isResetLocalHistoryDialogOpen, isResolvingLocalPath, isVerifyingNip05, lastSyncLabel, leaveJoinedCommunitiesBeforeAccountDeletion, localMediaAbsolutePath, localMediaConfig, managedWorkspaceDefinition, moderationActionMessage, moderationActionPhase, newRelayUrl, nip96Config, notificationActionMessage, notificationActionPhase, notificationPreference, npubValue, nsecKey, persistedInviteCodeSuffix, pool, portableBundleFileInputRef, privacySettings, profile, profilePreflightError, profilePublishError, profilePublishPhase, profilePublishReport, profileSaveActionMessage, profileSaveActionPhase, profileValidation, providerReachabilityNote, providerValidation, publicKeyHex, publishProfile, publishScopedGroupEvent, refreshLocalMediaAbsolutePath, relayActionMessage, relayActionPhase, relayCapabilityAssessment, relayConnectionMap, relayHealthMetricsMap, relayList, relayQuickHealth, relayResilienceBetaGate, relayResiliencePerformanceGate, relayResilienceSnapshot, relayRuntime, relayRuntimeStatus, relaySelection, reliabilityMetrics, reliabilityRuntime, reliabilityTick, resolveActivePrivateKeyHex, revealExpiresAtMs, revealSecondsLeft, rolloutPolicy, runStorageRecovery, saveLocalMediaConfig, saveNip96Config, securityActionMessage, securityActionPhase, securityCapabilityStates, securityPosture, setApiHealth, setAppearanceActionMessage, setAppearanceActionPhase, setBlocklistInput, setBlocklistQuery, setChallengePassword, setDeleteAccountConfirmInput, setDeleteAccountCountdown, setInviteCodeAvailabilityMessage, setInviteCodeAvailabilityStatus, setInviteCodeDraftSuffix, setInviteCodeFromSuffix, setIsChallenging, setIsCheckingProviderReachability, setIsCheckingStorageHealth, setIsClearDataDialogOpen, setIsDeleteAccountDialogOpen, setIsDisableAllRelaysDialogOpen, setIsInviteCodeDraftDirty, setIsPortableBundleExporting, setIsPortableBundleImporting, setIsPrivateKeyVisible, setIsResetLocalHistoryDialogOpen, setIsResolvingLocalPath, setIsVerifyingNip05, setLocalMediaAbsolutePath, setLocalMediaConfig, setModerationActionMessage, setModerationActionPhase, setNewRelayUrl, setNip96Config, setNotificationActionMessage, setNotificationActionPhase, setNsecKey, setPrivacySettings, setProfilePreflightError, setProfileSaveActionMessage, setProfileSaveActionPhase, setProviderReachabilityNote, setRelayActionMessage, setRelayActionPhase, setReliabilityTick, setRevealExpiresAtMs, setRevealSecondsLeft, setSecurityActionMessage, setSecurityActionPhase, setShowAdvancedRelays, setStorageActionMessage, setStorageActionPhase, setStorageHealthState, setStorageStatsTick, showAdvancedRelays, sovereignRoomDefinition, startupState, storageActionMessage, storageActionPhase, storageHealthState, storageMode, storageStats, storageStatsTick, t, theme, translatePermissionState, translateRelayConfidenceLabel, translateRelayNodeBadge, translateRelayNodeDetail, translateRelayNodeRole, translateRelayPresetLabel, translateRelayRuntimeText, translateStorageMode, triggerRelayRecovery, userInviteCode, verifyInviteCodeAvailability, wipeLocalRuntimeData } = useSettingsTabPanelModel() as Record<string, any>;
+    const { APP_VERSION, DEFAULT_APP_LANGUAGE, DEFAULT_STABLE_PRESET, DEFAULT_THEME_PREFERENCE, DELETE_ACCOUNT_CONFIRM_TEXT, ENABLE_API_HEALTH_PROBE, INVITE_CODE_PREFIX, INVITE_CODE_SUFFIX_LENGTH, TEXT_SCALE_OPTIONS, accessibility, accountSyncSnapshot, activeTab, apiHealth, appearanceActionMessage, appearanceActionPhase, applyRelayPreset, blocklist, blocklistInput, blocklistQuery, cancelApplyRelayPreset, challangePassword, checkStorageHealth, clearIndexedDbDatabases, clearRuntimeCaches, confirmApplyRelayPreset, copyPrivateKey, deleteAccountConfirmInput, deleteAccountCountdown, deriveRelayNodeStatus, deriveRelayRuntimeStatus, derivedPublicKeyHex, displayPublicKeyHex, exportPrivateKey, filteredBlockedKeys, getProfilePublishReportSnapshot, handleAddBlockedKey, handleAddRelay, handleArmDeleteAccount, handleCheckApi, handleCheckProviderReachability, handleClearData, handleDeleteAccount, handleDisableNotifications, handleEnableNotifications, handleExportPortableBundle, handleLockNow, handlePortableBundleFileSelected, handleProfileSwitchLock, handleRandomInviteCode, handleRefreshRelayStatus, handleRelayBulkCopyList, handleRelayBulkDisableAllConfirm, handleRelayBulkDisableAllRequest, handleRelayBulkEnableAll, handleRelayBulkRemoveDisabled, handleResetAccessibility, handleResetLanguage, handleResetLocalHistory, handleResetRelaySection, handleResetStorageSection, handleResetTheme, handleRevealToggle, handleSavePrivacy, handleSaveProfile, handleSendTestNotification, handleToggleNotificationChannel, handleUnblockAll, handleVerifyChallenge, handleVerifyNip05, i18n, identity, identityDiagnostics, identityIntegrityState, identityStorageMode, inviteCodeAvailabilityMessage, inviteCodeAvailabilityStatus, inviteCodeDraft, inviteCodeDraftSuffix, isChallenging, isCheckingProviderReachability, isCheckingStorageHealth, isClearDataDialogOpen, isDeleteAccountDialogOpen, isDisableAllRelaysDialogOpen, isInviteCodeDraftDirty, isPortableBundleExporting, isPortableBundleImporting, isPresetApplyConfirmOpen, isPrivateKeyVisible, isPublishing, isResetLocalHistoryDialogOpen, isResolvingLocalPath, isVerifyingNip05, lastSyncLabel, leaveJoinedCommunitiesBeforeAccountDeletion, localMediaAbsolutePath, localMediaConfig, managedWorkspaceDefinition, moderationActionMessage, moderationActionPhase, newRelayUrl, nip96Config, notificationActionMessage, notificationActionPhase, notificationPreference, npubValue, nsecKey, pendingPresetApplyId, persistedInviteCodeSuffix, pool, portableBundleFileInputRef, privacySettings, profile, profilePreflightError, profilePublishError, profilePublishPhase, profilePublishReport, profileSaveActionMessage, profileSaveActionPhase, profileValidation, providerReachabilityNote, providerValidation, publicKeyHex, publishProfile, publishScopedGroupEvent, refreshLocalMediaAbsolutePath, relayActionMessage, relayActionPhase, relayCapabilityAssessment, relayConnectionMap, relayHealthMetricsMap, relayList, relayQuickHealth, relayResilienceBetaGate, relayResiliencePerformanceGate, relayResilienceSnapshot, relayRuntime, relayRuntimeStatus, relaySelection, reliabilityMetrics, reliabilityRuntime, reliabilityTick, requestApplyRelayPreset, resolveActivePrivateKeyHex, revealExpiresAtMs, revealSecondsLeft, rolloutPolicy, runStorageRecovery, saveLocalMediaConfig, saveNip96Config, securityActionMessage, securityActionPhase, securityCapabilityStates, securityPosture, setApiHealth, setAppearanceActionMessage, setAppearanceActionPhase, setBlocklistInput, setBlocklistQuery, setChallengePassword, setDeleteAccountConfirmInput, setDeleteAccountCountdown, setInviteCodeAvailabilityMessage, setInviteCodeAvailabilityStatus, setInviteCodeDraftSuffix, setInviteCodeFromSuffix, setIsChallenging, setIsCheckingProviderReachability, setIsCheckingStorageHealth, setIsClearDataDialogOpen, setIsDeleteAccountDialogOpen, setIsDisableAllRelaysDialogOpen, setIsInviteCodeDraftDirty, setIsPortableBundleExporting, setIsPortableBundleImporting, setIsPrivateKeyVisible, setIsResetLocalHistoryDialogOpen, setIsResolvingLocalPath, setIsVerifyingNip05, setLocalMediaAbsolutePath, setLocalMediaConfig, setModerationActionMessage, setModerationActionPhase, setNewRelayUrl, setNip96Config, setNotificationActionMessage, setNotificationActionPhase, setNsecKey, setPrivacySettings, setProfilePreflightError, setProfileSaveActionMessage, setProfileSaveActionPhase, setProviderReachabilityNote, setRelayActionMessage, setRelayActionPhase, setReliabilityTick, setRevealExpiresAtMs, setRevealSecondsLeft, setSecurityActionMessage, setSecurityActionPhase, setShowAdvancedRelays, setStorageActionMessage, setStorageActionPhase, setStorageHealthState, setStorageStatsTick, showAdvancedRelays, sovereignRoomDefinition, startupState, storageActionMessage, storageActionPhase, storageHealthState, storageMode, storageStats, storageStatsTick, t, theme, translatePermissionState, translateRelayConfidenceLabel, translateRelayNodeBadge, translateRelayNodeDetail, translateRelayNodeRole, translateRelayPresetLabel, translateRelayRuntimeText, translateStorageMode, triggerRelayRecovery, userInviteCode, verifyInviteCodeAvailability, wipeLocalRuntimeData } = useSettingsTabPanelModel() as Record<string, any>;
     useEffect(() => {
         const onPrepareSearchNavigate = (event: Event): void => {
             const detail = (event as CustomEvent<SettingsSearchPrepareDetail>).detail;
@@ -55,6 +77,54 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
         };
     }, [setShowAdvancedRelays]);
     const relayScopePartition = useMemo(() => partitionRelayListByTransportScope(relayList.state.relays), [relayList.state.relays]);
+    const scrollToCustomEndpoint = useCallback((): void => {
+        document.getElementById("relay-custom-endpoint")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        setShowAdvancedRelays(true);
+    }, [setShowAdvancedRelays]);
+    const focusCustomEndpointInput = useCallback((): void => {
+        window.requestAnimationFrame(() => {
+            customEndpointInputRef.current?.focus();
+            customEndpointInputRef.current?.select();
+        });
+    }, []);
+    const applyTemplatePrefill = useCallback((prefillUrl: string | undefined): void => {
+        if (!prefillUrl) {
+            return;
+        }
+        setNewRelayUrl(prefillUrl);
+        scrollToCustomEndpoint();
+        focusCustomEndpointInput();
+    }, [focusCustomEndpointInput, scrollToCustomEndpoint, setNewRelayUrl]);
+    const handleApplyTransportPreset = useCallback((presetId: TransportPresetId): void => {
+        const prefillUrl = requestApplyRelayPreset(presetId);
+        applyTemplatePrefill(prefillUrl);
+    }, [applyTemplatePrefill, requestApplyRelayPreset]);
+    const handleConfirmApplyTransportPreset = useCallback((): void => {
+        const prefillUrl = confirmApplyRelayPreset();
+        applyTemplatePrefill(prefillUrl);
+    }, [applyTemplatePrefill, confirmApplyRelayPreset]);
+    const navigateToSecuritySettings = useCallback((): void => {
+        dispatchSettingsSearchPrepare({
+            entryId: "tab-security",
+            tab: "security",
+        });
+        router.replace(`${pathname}?tab=security`, { scroll: false });
+    }, [pathname, router]);
+    const pendingPresetLabel = pendingPresetApplyId
+        ? translateRelayPresetLabel(pendingPresetApplyId as TransportPresetId)
+        : "";
+    const transportPresetMatches = useMemo(
+        () => resolveTransportPresetMatches(relayList.state.relays, relayTransportMode),
+        [relayList.state.relays, relayTransportMode],
+    );
+    const activeTransportPresetId = useMemo(
+        () => resolveActiveTransportPresetId(transportPresetMatches),
+        [transportPresetMatches],
+    );
+    const activeTransportMix = useMemo(
+        () => resolveActiveTransportMix(relayList.state.relays, relayTransportMode, classifyRelayEndpointAdapter),
+        [relayList.state.relays, relayTransportMode],
+    );
     const renderRelayListSection = (sectionRelays: ReadonlyArray<{
         url: string;
         enabled: boolean;
@@ -82,13 +152,19 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             runtimePhase: relayRuntime.phase,
             lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
         });
+        const adapterKind = classifyRelayEndpointAdapter(relay.url);
         return (<div key={relay.url} className="group flex items-center justify-between gap-4 rounded-2xl border border-black/10 dark:border-white/10 p-5 bg-white/60 backdrop-blur-md transition-all hover:bg-white/80 hover:shadow-md dark:bg-zinc-900/40 dark:hover:bg-zinc-900/60">
           <div className="flex items-center gap-5 min-w-0">
             <SettingsToggle checked={relay.enabled} onChange={(enabled: boolean) => relayList.setRelayEnabled({ url: relay.url, enabled })}/>
             <div className="min-w-0 flex flex-col gap-1">
-              <p className={cn("font-mono text-[11px] font-bold tracking-tight truncate transition-opacity", !relay.enabled ? "text-zinc-400 opacity-60" : "text-zinc-900 dark:text-zinc-100")}>
-                {relay.url}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={cn("font-mono text-[11px] font-bold tracking-tight truncate transition-opacity max-w-full", !relay.enabled ? "text-zinc-400 opacity-60" : "text-zinc-900 dark:text-zinc-100")}>
+                  {relay.url}
+                </p>
+                <span className="rounded-md bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-indigo-700 dark:text-indigo-300">
+                  {t(relayEndpointAdapterI18nKey(adapterKind))}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
                 <div className={cn("h-1.5 w-1.5 rounded-full ring-2 ring-offset-1 ring-offset-transparent", derivedStatus.status === "healthy"
                 ? "bg-emerald-500 ring-emerald-500/20"
@@ -141,14 +217,61 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
         <Card title={t("settings.relays.title")} description={t("settings.relays.desc")} className="w-full">
           <div className="space-y-6">
             <RelayReadinessSettingsBanner />
-            <ConduitMeshSettingsPanel relays={relayList.state.relays} />
-            {/* API Status Panel */}
-            <div id="relay-api-status" className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
-              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">
-                <Activity className="h-4 w-4 text-purple-500"/>
-                {t("settings.health.api")}
-              </div>
 
+            <TransportPresetCatalogPanel
+              onApplyPreset={handleApplyTransportPreset}
+              translatePresetLabel={translateRelayPresetLabel}
+              presetMatches={transportPresetMatches}
+              activeMix={activeTransportMix}
+              activePresetId={activeTransportPresetId}
+              onScrollToCustomEndpoint={scrollToCustomEndpoint}
+              torState={torState}
+              onNavigateToSecurity={navigateToSecuritySettings}
+            />
+
+            <div id="relay-custom-endpoint" className="space-y-3 rounded-2xl border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-black/20">
+              <div className="space-y-1">
+                <Label className="font-semibold text-base">{t("settings.relays.customEndpointTitle")}</Label>
+                <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  {t("settings.relays.customEndpointDesc")}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  ref={customEndpointInputRef}
+                  value={newRelayUrl}
+                  onChange={(e) => setNewRelayUrl(e.target.value)}
+                  placeholder={t("settings.relays.customEndpointPlaceholder")}
+                  className="bg-zinc-50 dark:bg-black/20 border-black/5 dark:border-white/10 font-mono text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddRelay();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={handleAddRelay} className="shrink-0 whitespace-nowrap">
+                  <Plus className="mr-2 h-4 w-4"/>
+                  {t("settings.relays.addNode")}
+                </Button>
+              </div>
+            </div>
+
+            <ConduitMeshSettingsPanel relays={relayList.state.relays} />
+
+            <Collapsible
+              open={showApiHealthSection}
+              onOpenChange={() => setShowApiHealthSection((prev) => !prev)}
+              className="rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50"
+            >
+              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-5 text-left">
+                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">
+                  <Activity className="h-4 w-4 text-purple-500"/>
+                  {t("settings.relays.collapse.apiHealth")}
+                </div>
+                <ChevronDown className={cn("h-4 w-4 shrink-0 text-zinc-400 transition-transform", showApiHealthSection && "rotate-180")}/>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 border-t border-black/5 px-5 pb-5 pt-4 dark:border-white/10" id="relay-api-status">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-black/20 border border-black/5 dark:border-white/5 shadow-sm">
                 <div className="space-y-1 overflow-hidden">
                   <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">{t("settings.relays.endpoint")}</div>
@@ -177,7 +300,8 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                     Connection Error: {apiHealth.message}
                   </motion.div>)}
               </AnimatePresence>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Relay Runtime Setup */}
             <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
@@ -264,15 +388,8 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                 <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{translateRelayRuntimeText(relayQuickHealth.recommendation)}</p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{t("settings.relays.presets")}</Label>
+              <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {RELAY_PRESETS.map((preset: {
-            id: string;
-            label: string;
-        }) => (<Button key={preset.id} type="button" size="sm" variant="outline" onClick={() => applyRelayPreset(preset.id)}>
-                      {translateRelayPresetLabel(preset.id)}
-                    </Button>))}
                   <Button type="button" variant="outline" size="sm" onClick={() => void handleRefreshRelayStatus()}>
                     <RefreshCcw className="mr-2 h-4 w-4"/>
                     {t("settings.relays.refreshStatus")}
@@ -305,9 +422,26 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                 </div>
               </div>
 
+              <Collapsible
+                open={showCommunitySection}
+                onOpenChange={() => setShowCommunitySection((prev) => !prev)}
+                className="rounded-2xl border border-black/5 dark:border-white/10"
+              >
+                <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 bg-zinc-50/70 p-5 text-left dark:bg-zinc-900/40">
+                  <div className="space-y-1">
+                    <Label className="font-semibold text-base">
+                      {t("settings.relays.collapse.communityModes")}
+                    </Label>
+                    <p className="text-xs text-zinc-500">
+                      {t("settings.relays.collapse.communityModesHint")}
+                    </p>
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-zinc-400 transition-transform", showCommunitySection && "rotate-180")}/>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 border-t border-black/5 bg-zinc-50/70 p-5 dark:border-white/10 dark:bg-zinc-900/40">
               <OperatorTrustSetupWizard />
 
-              <div id="relay-community-modes" className="rounded-2xl border border-black/5 bg-zinc-50/70 p-5 dark:border-white/10 dark:bg-zinc-900/40">
+              <div id="relay-community-modes" className="rounded-2xl border border-black/5 bg-white/60 p-5 dark:border-white/10 dark:bg-black/20">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">
                     <Label className="font-semibold text-base">
@@ -373,6 +507,8 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               </div>
 
               <CommunityMembershipSyncSettingsPanel />
+              </CollapsibleContent>
+              </Collapsible>
             </div>
 
             {/* Advanced Configuration */}
@@ -409,21 +545,9 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                      <Input value={newRelayUrl} onChange={(e) => setNewRelayUrl(e.target.value)} placeholder="wss://relay.example.com" className="bg-white dark:bg-black/20 border-black/5 dark:border-white/10" onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddRelay();
-                }
-            }}/>
-                      <div className="flex gap-2">
-                        <Button type="button" onClick={handleAddRelay} className="whitespace-nowrap">
-                          <Plus className="h-4 w-4 mr-2"/>
-                          {t("settings.relays.addNode")}
-                        </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={handleResetRelaySection} className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">
-                          Reset
-                        </Button>
-                      </div>
+                      <p className="text-[11px] leading-relaxed text-zinc-500 sm:col-span-full">
+                        {t("settings.relays.endpointListHint")}
+                      </p>
                     </div>
 
                     <div className="space-y-4 pt-2">
@@ -460,17 +584,25 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                     </div>
                   </div>
 
-                  {/* Performance Monitor (Also inside Advanced) */}
-                  <div className="space-y-4 pt-2">
-                    <div className="flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-widest text-zinc-400">
-                      <Wifi className="h-3.5 w-3.5"/>
-                      Network Performance Metrics
-                    </div>
+                  <Collapsible
+                    open={showPerformanceMetrics}
+                    onOpenChange={() => setShowPerformanceMetrics((prev) => !prev)}
+                    className="rounded-2xl border border-black/5 dark:border-white/5"
+                  >
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400">
+                        <Wifi className="h-3.5 w-3.5"/>
+                        {t("settings.relays.collapse.performanceMetrics")}
+                      </div>
+                      <ChevronDown className={cn("h-4 w-4 shrink-0 text-zinc-400 transition-transform", showPerformanceMetrics && "rotate-180")}/>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-4 border-t border-black/5 px-2 pb-2 pt-3 dark:border-white/10">
                     <RelaySettingsMetricsToolbar category={relayMetricsCategory} onCategoryChange={setRelayMetricsCategory} availableOnly={relayMetricsAvailableOnly} onAvailableOnlyChange={setRelayMetricsAvailableOnly}/>
                     <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/30 dark:bg-black/10 p-2">
                       <RelayDashboard category={relayMetricsCategory} availableOnly={relayMetricsAvailableOnly}/>
                     </div>
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </motion.div>)}
             </AnimatePresence>
             <SettingsActionStatus title={t("settings.relays.actionsTitle")} phase={relayActionPhase} message={relayActionMessage || undefined} summary={t("settings.relays.actionsSummary", {
@@ -482,6 +614,20 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
           </div>
         </Card>
       <ConfirmDialog isOpen={isDisableAllRelaysDialogOpen} onClose={() => setIsDisableAllRelaysDialogOpen(false)} onConfirm={handleRelayBulkDisableAllConfirm} title={t("settings.relays.disableAllDialogTitle")} description={t("settings.relays.disableAllDialogDesc")} confirmLabel={t("settings.relays.disableAllConfirm")} cancelLabel={t("common.cancel")} variant="danger"/>
+
+      <ConfirmDialog
+        isOpen={isPresetApplyConfirmOpen}
+        onClose={cancelApplyRelayPreset}
+        onConfirm={handleConfirmApplyTransportPreset}
+        title={t("settings.relays.applyPresetConfirmTitle")}
+        description={t("settings.relays.applyPresetConfirmDesc", {
+          label: pendingPresetLabel,
+          count: relayList.state.relays.length,
+        })}
+        confirmLabel={t("settings.relays.applyPresetConfirmAction")}
+        cancelLabel={t("common.cancel")}
+        variant="danger"
+      />
 
       <ConfirmDialog isOpen={isClearDataDialogOpen} onClose={() => setIsClearDataDialogOpen(false)} onConfirm={handleClearData} title={t("settings.dialogs.clearDataTitle")} description={t("settings.dialogs.clearDataDesc")} confirmLabel={t("settings.actions.clear")} variant="danger"/>
 

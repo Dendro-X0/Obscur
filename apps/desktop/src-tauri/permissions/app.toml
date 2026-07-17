@@ -98,6 +98,17 @@ commands.allow = [
 ]
 
 [[permission]]
+identifier = "allow-les-commands"
+description = "Local Encrypted Store (LES) commands — Rust vault replacement"
+commands.allow = [
+    "desktop_les_commit",
+    "desktop_les_list",
+    "desktop_les_get",
+    "desktop_les_read_decrypted",
+    "desktop_les_delete"
+]
+
+[[permission]]
 identifier = "allow-wallet-commands"
 description = "Native Wallet and Crypto commands"
 commands.allow = [
@@ -182,6 +193,7 @@ permissions = [
     "allow-misc-commands",
     "allow-relay-commands",
     "allow-wallet-commands",
+    "allow-les-commands",
     "allow-db-commands",
     "allow-protocol-commands"
 ]

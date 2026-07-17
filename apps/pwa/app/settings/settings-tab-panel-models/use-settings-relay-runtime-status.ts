@@ -39,7 +39,13 @@ export function useSettingsRelayRuntimeStatus(): RelayRuntimeStatus {
       phase: relayRuntime.phase,
       recoveryStage: relayRuntime.recoveryStage,
       lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
+      lastSuccessfulPublishAtUnixMs: relayRuntime.lastSuccessfulPublishAtUnixMs,
       fallbackRelayCount: relayRuntime.fallbackRelayUrls.length,
+      meshReadiness: relayRuntime.recovery.readiness === "healthy"
+        && relayRuntime.writableRelayCount > 0
+        && relayRuntime.writableRelayCount < enabledRelays.length
+        ? "degraded"
+        : relayRuntime.recovery.readiness,
     });
   }, [pool?.connections, relayList?.state?.relays, relayRuntime]);
 }

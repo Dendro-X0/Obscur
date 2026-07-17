@@ -90,42 +90,20 @@ export type IdentityStorageMode = "native" | "encrypted_local" | "session_only" 
 export type IdentityIntegrityState = "ok" | "mismatch" | "unknown";
 export type SecurityPosture = "strong" | "moderate" | "weak";
 export type CapabilityState = "supported" | "unavailable" | "error";
-export type RelayPresetId = "default_stable" | "high_redundancy" | "low_latency";
+export {
+  DEFAULT_STABLE_PRESET,
+  RELAY_PRESETS,
+  TRANSPORT_PRESET_GROUPS,
+  getTransportPresetsForGroup,
+  type RelayPresetId,
+  type TransportPreset,
+  type TransportPresetCategory,
+  type TransportPresetGroup,
+} from "@/app/features/transport-kernel/transport-preset-catalog";
+
 type RelayFailureHint = "timeout" | "network" | "tls" | "rate_limited" | "unknown";
 export type StorageMode = "nip96" | "local_vault" | "hybrid" | "disabled";
 export type StorageStats = Readonly<{ itemCount: number; totalBytes: number; lastSavedAtUnixMs?: number }>;
-
-type RelayPreset = Readonly<{
-  id: RelayPresetId;
-  label: string;
-  relays: ReadonlyArray<string>;
-}>;
-
-export const DEFAULT_STABLE_PRESET: RelayPreset = {
-  id: "default_stable",
-  label: "Default Stable",
-  relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"],
-};
-
-const HIGH_REDUNDANCY_PRESET: RelayPreset = {
-  id: "high_redundancy",
-  label: "High Redundancy",
-  relays: [
-    "wss://relay.damus.io",
-    "wss://nos.lol",
-    "wss://relay.primal.net",
-    "wss://relay.snort.social",
-    "wss://relay.nostr.band",
-  ],
-};
-
-const LOW_LATENCY_PRESET: RelayPreset = {
-  id: "low_latency",
-  label: "Low Latency",
-  relays: ["wss://relay.primal.net", "wss://relay.damus.io", "wss://nos.lol"],
-};
-
-export const RELAY_PRESETS: ReadonlyArray<RelayPreset> = [DEFAULT_STABLE_PRESET, HIGH_REDUNDANCY_PRESET, LOW_LATENCY_PRESET];
 
 export const classifyRelayFailureHint = (message?: string): RelayFailureHint => {
   if (!message) return "unknown";
