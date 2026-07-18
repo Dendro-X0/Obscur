@@ -5,6 +5,7 @@
 
 #[cfg(not(target_os = "android"))]
 use crate::keychain_session_envelope;
+#[cfg(not(target_os = "android"))]
 use keyring::Entry;
 #[cfg(not(target_os = "android"))]
 use zeroize::Zeroizing;
