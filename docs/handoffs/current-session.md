@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-18T09:50:00Z
+- Last Updated (UTC): 2026-07-18T10:30:00Z
 
 ## Next atomic step
 
@@ -8,9 +8,9 @@
 
 | Field | Value |
 |-------|--------|
-| Done | Android `keyring` cfg fix committed · retag `v1.9.14` to re-run Full Release |
-| Next | Watch Full Release · confirm Android green · triage Win/Linux Build Desktop as separate class · land macOS/Linux artifacts |
-| Proof | tag `v1.9.14` on fix commit · Actions Obscur Full Release · [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) |
+| Done | Android green · desktop fail = pubkey without `TAURI_SIGNING_PRIVATE_KEY` after successful bundle · CI unsigned prepare + installer tolerance |
+| Next | Push + retag `v1.9.14` · confirm Win/macOS/Linux desktop green · download artifacts → `release-assets/` |
+| Proof | [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) iter 4 · `scripts/ci-prepare-unsigned-desktop-bundle.mjs` |
 
 **Paused:** community roster · `v2.0.0` tag.
 
