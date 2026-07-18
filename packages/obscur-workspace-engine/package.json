@@ -1,6 +1,6 @@
 {
   "name": "@obscur/workspace-engine",
-  "version": "1.9.13",
+  "version": "1.9.14",
   "private": true,
   "type": "module",
   "description": "Workspace engine — managed workspace roster and SQLite group reads via HostEnginePort.",

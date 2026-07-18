@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.9.13",
+  "version": "1.9.14",
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.11.0"

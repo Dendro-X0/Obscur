@@ -1,6 +1,6 @@
 {
   "name": "@obscur/engine-contracts",
-  "version": "1.9.13",
+  "version": "1.9.14",
   "private": true,
   "type": "module",
   "description": "Host ↔ engine boundary. UI imports only this package — never libobscur, relay pool, or hydrate internals.",

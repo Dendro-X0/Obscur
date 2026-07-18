@@ -1,6 +1,6 @@
 {
   "name": "@obscur/engine-host",
-  "version": "1.9.13",
+  "version": "1.9.14",
   "private": true,
   "type": "module",
   "description": "Tauri and in-process HostEnginePort adapters — sole bridge from host to engine_invoke.",

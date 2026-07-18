@@ -1,6 +1,6 @@
 {
   "name": "@dweb/coordination-contracts",
-  "version": "1.9.13",
+  "version": "1.9.14",
   "private": true,
   "type": "module",
   "description": "Shared coordination API contracts — membership delta signing.",

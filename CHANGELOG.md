@@ -4,8 +4,8 @@ All notable changes to Obscur are documented here.
 
 **Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
 
-**Current tree version:** **1.9.13** ([release notes](docs/releases/v1.9.13-release.md)).  
-**Next tag:** **v1.9.14** (pool + transport presets) after this cut is tagged/packaged.
+**Current tree version:** **1.9.14** ([release notes](docs/releases/v1.9.14-release.md)).  
+**Tagged:** **v1.9.13** (Vault LES). **Next:** tag/package **v1.9.14** (pool + transport presets).
 
 ---
 

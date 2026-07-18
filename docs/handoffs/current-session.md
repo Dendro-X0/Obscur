@@ -1,19 +1,18 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-18T06:45:00Z
+- Last Updated (UTC): 2026-07-18T06:50:00Z
 
 ## Next atomic step
 
-**v1.9.13 committed** · 2026-07-18
+**v1.9.14 bumped (post v1.9.13 tag)** · 2026-07-18
 
 | Field | Value |
 |-------|--------|
-| Done | Version **1.9.13** · commit `992b9218` · website/guide media · `ci:local` |
-| Next | Tag `v1.9.13` · package/Full Release · then bump **1.9.14** |
-| Proof | `pnpm version:check` · commit on `main` (ahead of origin by 2) |
+| Done | Tag **v1.9.13** pushed · tree bumped + committed **1.9.14** (`a91ba10a`) |
+| Next | Push 1.9.14 bump (optional) · package/Full Release · tag `v1.9.14` |
+| Proof | `origin` has `v1.9.13` · local `version.json` = 1.9.14 |
 
-**Left unstaged:** `.codectx/verify/mcp-audit.jsonl` · `docs/assets/gifs/preview_files_1.gif` (large archive).  
-**Paused:** community roster · `v2.0.0` tag. Not pushed / not tagged yet.
+**Paused:** community roster · `v2.0.0` tag.
 
 ---
 
