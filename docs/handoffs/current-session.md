@@ -8,9 +8,9 @@
 
 | Field | Value |
 |-------|--------|
-| Done | Android fail class: unguarded `keyring` import in `native_keychain.rs` (crate already non-Android in Cargo.toml) · cfg-gated locally · host `cargo check` PASS |
-| Next | Commit + push Android fix · retag `v1.9.14` (or workflow_dispatch) · then triage Win/Linux Build Desktop logs as separate class |
-| Proof | [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) iter 3 · Actions run 29638968258 |
+| Done | Android `keyring` cfg fix committed · retag `v1.9.14` to re-run Full Release |
+| Next | Watch Full Release · confirm Android green · triage Win/Linux Build Desktop as separate class · land macOS/Linux artifacts |
+| Proof | tag `v1.9.14` on fix commit · Actions Obscur Full Release · [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) |
 
 **Paused:** community roster · `v2.0.0` tag.
 
