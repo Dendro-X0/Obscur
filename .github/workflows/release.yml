@@ -231,6 +231,12 @@ jobs:
           set -euo pipefail
           rm -rf apps/desktop/src-tauri/target/release/bundle
 
+      - name: Prepare unsigned desktop bundle (no updater .sig without private key)
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: node scripts/ci-prepare-unsigned-desktop-bundle.mjs
+
       - name: Build Desktop Bundles
         shell: bash
         env:
@@ -239,12 +245,40 @@ jobs:
           CARGO_NET_RETRY: 10
           CARGO_HTTP_TIMEOUT: 300
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          bundle_root="apps/desktop/src-tauri/target/release/bundle"
+          has_platform_bundle() {
+            case "${{ matrix.os }}" in
+              windows-latest)
+                find "${bundle_root}" -type f \( -name '*-setup.exe' -o -name '*.msi' \) 2>/dev/null | grep -q .
+                ;;
+              macos-latest)
+                find "${bundle_root}" -type f -name '*.dmg' 2>/dev/null | grep -q .
+                ;;
+              ubuntu-latest)
+                find "${bundle_root}" -type f \( -name '*.AppImage' -o -name '*.deb' \) 2>/dev/null | grep -q .
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
           for attempt in 1 2 3; do
             if pnpm -C apps/desktop tauri build; then
               echo "tauri build succeeded on attempt ${attempt}"
               exit 0
+            fi
+            # Installers may already exist when createUpdaterArtifacts fails on missing private key.
+            if has_platform_bundle; then
+              echo "tauri build exited non-zero but platform installer exists (unsigned Full Release tolerance). Continuing."
+              exit 0
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "tauri build failed on attempt ${attempt} with no platform installer" >&2
+              exit 1
             fi
             echo "tauri build failed on attempt ${attempt} (often transient crates.io curl); retrying in 30s..."
             sleep 30
