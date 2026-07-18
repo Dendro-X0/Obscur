@@ -1,8 +1,8 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-07-15T15:33:54Z",
-  "gitCommit": "6fc1d465",
-  "version": "1.9.12",
+  "generatedAt": "2026-07-18T08:46:29Z",
+  "gitCommit": "423cbc69",
+  "version": "1.9.14",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
@@ -11,11 +11,11 @@
       "platform": "windows",
       "kind": "nsis-installer",
       "buildCommand": "pnpm desktop:package",
-      "path": "release-assets/windows/Obscur_1.9.12_x64-setup.exe",
-      "fileName": "Obscur_1.9.12_x64-setup.exe",
-      "sizeBytes": 9258472,
-      "sha256": "96fa632546d64935afe7936de49368ae6ff35373561d56aaf377c00d52111e1f",
-      "builtAt": "2026-07-15T15:33:41Z"
+      "path": "release-assets/windows/Obscur_1.9.14_x64-setup.exe",
+      "fileName": "Obscur_1.9.14_x64-setup.exe",
+      "sizeBytes": 9284526,
+      "sha256": "f8a5af93649411b7cf084472d2daafe0740a4e12efca88af90930c28717f1cec",
+      "builtAt": "2026-07-18T08:20:00Z"
     },
     {
       "platform": "android",
@@ -28,13 +28,14 @@
       "builtAt": "2026-07-04T12:27:35Z",
       "abiFilter": "x86_64 (emulator build; universal debug output)",
       "installHint": "adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk",
-      "note": "Stale vs 1.9.12 desktop — regenerate before claiming Android parity"
+      "note": "Stale vs 1.9.14 desktop — regenerate before claiming Android parity"
     }
   ],
   "notes": [
-    "v1.9.12 demo-safe — Conduit Mesh C0–C14 + trust/voice; vault chat-save OFF",
+    "v1.9.14 local Windows NSIS after Full Release CI red (Win/Linux/Android) — see specs/ci/2026-07-18-v1.9.14-full-release-investigation.md",
     "Windows NSIS unsigned — SmartScreen / unknown publisher expected",
     "Updater .sig skipped locally (TAURI_SIGNING_PRIVATE_KEY password / comment)",
-    "Supersedes Obscur_1.9.10_x64-setup.exe for desktop demos"
+    "macOS/Linux installers not landed from CI yet — Windows-only download path for now",
+    "Supersedes Obscur_1.9.12_x64-setup.exe for desktop demos"
   ]
 }

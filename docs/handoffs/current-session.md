@@ -1,16 +1,17 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-18T06:50:00Z
+- Last Updated (UTC): 2026-07-18T08:25:00Z
 
 ## Next atomic step
 
-**v1.9.14 bumped (post v1.9.13 tag)** · 2026-07-18
+**Full Release — v1.9.14 multi-OS** · 2026-07-18
 
 | Field | Value |
 |-------|--------|
-| Done | Tag **v1.9.13** pushed · tree bumped + committed **1.9.14** (`a91ba10a`) |
-| Next | Push 1.9.14 bump (optional) · package/Full Release · tag `v1.9.14` |
-| Proof | `origin` has `v1.9.13` · local `version.json` = 1.9.14 |
+| Done | Tagged **v1.9.14** · Full Release red (Win/Linux/Android) · macOS/Web/iOS green · local `pnpm ci:local:desktop-win` **PASS** after corrupt `cc` registry repair · installer `release-assets/windows/Obscur_1.9.14_x64-setup.exe` |
+| Next | Get Actions Build Desktop Bundles stderr (Win+Ubuntu) via `gh` auth or paste · classify one failure class · fix or cache-bust · then land multi-OS `release-assets/` + regenerate manifest (still 1.9.12) |
+| Proof | [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) · `pnpm ci:local:desktop-win` PASS · Actions run 29635736220 |
+| Local note | Signing decode error from `.env.signing.local` is maintainer-only; package script tolerates when NSIS exists. CI does not inject Tauri updater secrets. |
 
 **Paused:** community roster · `v2.0.0` tag.
 
