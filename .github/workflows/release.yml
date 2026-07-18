@@ -744,6 +744,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       
+      # Checked-out release-assets/ may still contain prior-version installers (e.g. 1.9.10).
+      # Version parity scans the whole tree — wipe lanes before merging CI artifacts.
+      - name: Clear checked-out release-assets lanes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release-assets/windows release-assets/macos release-assets/linux \
+            release-assets/android release-assets/web release-assets/ios \
+            release-assets/streaming-update
+          mkdir -p release-assets/windows release-assets/macos release-assets/linux \
+            release-assets/android release-assets/web release-assets/ios \
+            release-assets/streaming-update
+
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -874,6 +887,18 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Same as verify-artifacts: do not mix committed historical installers with this tag's CI outputs.
+      - name: Clear checked-out release-assets lanes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release-assets/windows release-assets/macos release-assets/linux \
+            release-assets/android release-assets/web release-assets/ios \
+            release-assets/streaming-update
+          mkdir -p release-assets/windows release-assets/macos release-assets/linux \
+            release-assets/android release-assets/web release-assets/ios \
+            release-assets/streaming-update
 
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
