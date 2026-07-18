@@ -77,3 +77,4 @@ apps/relay-gateway/data/hide-registry.json
 
 .wrangler/
 .playwright-mcp
+.tools/

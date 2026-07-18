@@ -1,8 +1,8 @@
-import Image from "next/image";
-import type { CSSProperties } from "react";
-import {
-  loadSiteContent,
-} from "./site-content";
+import { AmbientDemoVideo } from "./ambient-demo-video";
+import { HeroStage } from "./hero-stage";
+import { ObscurLogo } from "./obscur-logo";
+import { RevealScope } from "./reveal-on-view";
+import { loadSiteContent } from "./site-content";
 
 const statusLabelByKind = {
   pass: "Verified",
@@ -22,53 +22,54 @@ export default async function Home() {
     currentVersion,
     docsLinks,
     featureCards,
+    heroShowcase,
     platformCards,
-    primaryLinks,
     proofLinks,
     releaseHighlights,
     verificationItems,
   } = await loadSiteContent();
 
-  const docsHref =
-    primaryLinks.find((link) => link.label.startsWith("Read"))?.href ??
-    "https://github.com/Dendro-X0/Obscur/tree/main/docs";
-
   return (
-    <main className="site-shell site-shell--home">
-      <section className="hero hero-fold">
-        <div className="hero-copy">
-          <p className="eyebrow">Obscur official website</p>
-          <h1>
-            Privacy-first communication,{" "}
-            <span className="hero-h1-accent">shipped with evidence</span> instead of hype.
+    <RevealScope className="theater-root">
+      <section className="hero-theater" aria-label="Obscur">
+        {heroShowcase ? (
+          <HeroStage media={heroShowcase.media} hasAudio={heroShowcase.hasAudio} />
+        ) : (
+          <div className="hero-theater-media hero-theater-media--empty" aria-hidden="true" />
+        )}
+        <div className="hero-theater-veil" aria-hidden="true" />
+        <div className="hero-theater-overlay">
+          <div className="hero-theater-brand" data-reveal data-reveal-delay="0">
+            <ObscurLogo size={56} priority className="hero-theater-logo" />
+            <p className="hero-theater-wordmark">Obscur</p>
+          </div>
+          <h1 className="hero-theater-title" data-reveal data-reveal-delay="1">
+            Privacy kept close —{" "}
+            <span className="hero-h1-accent">releases you can verify</span>
           </h1>
-          <p className="hero-summary">
-            End-to-end encrypted, decentralized messaging with local ownership and auditable
-            releases. This site mirrors repo truth — not a second product story.
+          <p className="hero-theater-summary" data-reveal data-reveal-delay="2">
+            End-to-end encrypted messaging with local ownership. This site mirrors repo truth —
+            not a second product story.
           </p>
-          <div className="hero-actions">
+          <div className="hero-theater-actions" data-reveal data-reveal-delay="3">
             <a className="button button-primary" href="/download">
               Download {currentVersion}
             </a>
-            <a className="button button-secondary" href="/limitations">
-              Known limitations
-            </a>
-            <a className="button button-secondary" href={docsHref} target="_blank" rel="noreferrer">
-              Read the docs
+            <a className="button button-secondary" href="/guide">
+              User guide
             </a>
           </div>
+          <p className="hero-theater-release" data-reveal data-reveal-delay="4">
+            Current public release{" "}
+            <a href={currentReleaseHref} target="_blank" rel="noreferrer">
+              {currentVersion}
+            </a>
+          </p>
         </div>
-        <aside className="hero-panel">
-          <p className="panel-label">Current public release</p>
-          <a className="release-chip release-chip-link" href={currentReleaseHref} target="_blank" rel="noreferrer">
-            {currentVersion}
-          </a>
-          <ul className="hero-points hero-points--compact">
-            <li>DM, communities, media, voice — desktop and mobile runtimes.</li>
-            <li>Unsigned installers with SHA-256 checksums; scope documented honestly.</li>
-          </ul>
-        </aside>
-        <div className="hero-proof proof-strip" aria-label="Source of truth links">
+      </section>
+
+      <div className="site-shell site-shell--home site-shell--theater">
+        <nav className="proof-strip proof-strip--quiet" aria-label="Source of truth links">
           {proofLinks.map((link) => (
             <a
               key={link.href}
@@ -79,137 +80,146 @@ export default async function Home() {
               {link.label}
             </a>
           ))}
-        </div>
-      </section>
+        </nav>
 
-      <section className="section-grid editorial-band">
-        <div className="section-header">
-          <p className="eyebrow">Release snapshot</p>
-          <h2>What is actually shipping right now</h2>
-        </div>
-        <div className="release-grid">
-          {releaseHighlights.map((release) => (
-            <article key={release.version} className="release-card">
-              <div className="release-meta">
-                <span>{release.version}</span>
-                <span>{release.releasedOn}</span>
-              </div>
-              <ul className="release-list">
-                {release.highlights.map((highlight) => (
-                  <li key={highlight}>{highlight}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section-grid editorial-band editorial-band--gallery">
-        <div className="section-header section-header--wide">
-          <p className="eyebrow">Feature evidence</p>
-          <h2>Captured product surfaces from the canonical demo library</h2>
-          <p className="section-lead">
-            Real GIF captures from maintainer verification — not mockups. Each surface maps to a
-            shipped runtime band in the repo.
-          </p>
-        </div>
-        <div className="feature-grid">
-          {featureCards.map((feature, index) => (
-            <article
-              key={feature.title}
-              className="feature-card"
-              style={{ "--feature-index": index } as CSSProperties}
-            >
-              <div className="feature-media">
-                <Image
-                  src={feature.gifUrl}
-                  alt={feature.gifAlt}
-                  fill
-                  sizes="(max-width: 760px) 100vw, (max-width: 1100px) 100vw, 50vw"
-                  unoptimized
-                />
-              </div>
-              <div className="feature-copy">
-                <h3>{feature.title}</h3>
-                <p>{feature.summary}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="split-section editorial-band">
-        <div className="section-header">
-          <p className="eyebrow">Platform coverage</p>
-          <h2>One product, explicit runtime boundaries</h2>
-        </div>
-        <div className="platform-grid">
-          {platformCards.map((platform) => (
-            <article key={platform.name} className="platform-card">
-              <h3>{platform.name}</h3>
-              <p>{platform.summary}</p>
-              <span className="path-chip">{platform.path}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="split-section editorial-band editorial-band--proof">
-        <div className="section-header section-header--wide">
-          <p className="eyebrow">Verification status</p>
-          <h2>Release truth stays tied to evidence</h2>
-          <p className="section-lead">
-            Maintainer matrix outcomes — verified, in progress, and accepted limitations — surfaced
-            honestly instead of buried in issue trackers.
-          </p>
-        </div>
-        <div className="status-grid">
-          {verificationItems.map((item) => (
-            <article key={item.label} className="status-card">
-              <div className="status-topline">
-                <h3>{item.label}</h3>
-                <span className={`status-pill ${statusClassNameByKind[item.status]}`}>
-                  {statusLabelByKind[item.status]}
-                </span>
-              </div>
-              <p>{item.note}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="split-layout editorial-band">
-        <article className="docs-panel">
-          <div className="section-header">
-            <p className="eyebrow">Documentation</p>
-            <h2>Canonical engineering entry points</h2>
+        <section className="theater-chapter" data-reveal>
+          <div className="section-header theater-chapter-header">
+            <p className="eyebrow">Chapter I · Release</p>
+            <h2>What is actually shipping right now</h2>
           </div>
-          <div className="docs-links">
-            {docsLinks.map((link) => (
-              <a key={link.href} className="docs-link" href={link.href} target="_blank" rel="noreferrer">
-                {link.label}
-              </a>
+          <div className="release-grid">
+            {releaseHighlights.map((release) => (
+              <article key={release.version} className="release-card">
+                <div className="release-meta">
+                  <span>{release.version}</span>
+                  <span>{release.releasedOn}</span>
+                </div>
+                <ul className="release-list">
+                  {release.highlights.map((highlight) => (
+                    <li key={highlight}>{highlight}</li>
+                  ))}
+                </ul>
+              </article>
             ))}
           </div>
-        </article>
-        <article className="cta-panel">
-          <p className="eyebrow">Distribution</p>
-          <h2>Install from the download page — checksums included.</h2>
-          <p>
-            Windows NSIS @ {currentVersion} is linked from /download with SHA-256 from
-            release-assets/manifest.json. Android debug builds are documented as local-only sideload
-            paths — no store claims.
-          </p>
-          <div className="hero-actions">
-            <a className="button button-primary" href="/download">
-              Download {currentVersion}
-            </a>
-            <a className="button button-secondary" href="/limitations">
-              Known limitations
-            </a>
+        </section>
+
+        <section className="theater-chapter theater-chapter--stages">
+          <div className="section-header theater-chapter-header section-header--wide" data-reveal>
+            <p className="eyebrow">Chapter II · Surfaces</p>
+            <h2>Captured product stages from the demo library</h2>
+            <p className="section-lead">
+              Web-compressed captures — not mockups. Open the <a href="/guide">user guide</a> for
+              every how-to.
+            </p>
           </div>
-        </article>
-      </section>
-    </main>
+
+          <div className="feature-stages">
+            {featureCards.map((feature) => (
+              <article
+                key={feature.title}
+                className={`feature-stage feature-stage--${feature.stageLayout}`}
+                data-reveal
+              >
+                <div className="feature-stage-media">
+                  {feature.media.kind === "mp4" ? (
+                    <AmbientDemoVideo media={feature.media} className="feature-stage-video" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element -- rare GIF fallback
+                    <img src={feature.media.url} alt={feature.gifAlt} className="feature-stage-video" />
+                  )}
+                </div>
+                <div className="feature-stage-copy">
+                  <h3>{feature.title}</h3>
+                  <p>{feature.summary}</p>
+                  <a className="feature-guide-link" href={feature.guideHref}>
+                    Open in guide
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="theater-chapter" data-reveal>
+          <div className="section-header theater-chapter-header">
+            <p className="eyebrow">Chapter III · Runtimes</p>
+            <h2>One product, explicit platform boundaries</h2>
+          </div>
+          <div className="platform-grid">
+            {platformCards.map((platform) => (
+              <article key={platform.name} className="platform-card">
+                <h3>{platform.name}</h3>
+                <p>{platform.summary}</p>
+                <span className="path-chip">{platform.path}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="theater-chapter theater-chapter--proof" data-reveal>
+          <div className="section-header theater-chapter-header section-header--wide">
+            <p className="eyebrow">Chapter IV · Evidence</p>
+            <h2>Release truth stays tied to verification</h2>
+            <p className="section-lead">
+              Maintainer matrix outcomes — verified, in progress, and accepted limitations —
+              surfaced honestly.
+            </p>
+          </div>
+          <div className="status-grid">
+            {verificationItems.map((item) => (
+              <article key={item.label} className="status-card">
+                <div className="status-topline">
+                  <h3>{item.label}</h3>
+                  <span className={`status-pill ${statusClassNameByKind[item.status]}`}>
+                    {statusLabelByKind[item.status]}
+                  </span>
+                </div>
+                <p>{item.note}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="split-layout theater-chapter theater-chapter--close" data-reveal>
+          <article className="docs-panel">
+            <div className="section-header">
+              <p className="eyebrow">Documentation</p>
+              <h2>Canonical engineering entry points</h2>
+            </div>
+            <div className="docs-links">
+              {docsLinks.map((link) => (
+                <a
+                  key={link.href}
+                  className="docs-link"
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </article>
+          <article className="cta-panel">
+            <p className="eyebrow">Distribution</p>
+            <h2>Install from the download page — checksums included.</h2>
+            <p>
+              Windows NSIS @ {currentVersion} is linked from /download with SHA-256 from
+              release-assets/manifest.json. Android debug builds are documented as local-only
+              sideload paths — no store claims.
+            </p>
+            <div className="hero-actions">
+              <a className="button button-primary" href="/download">
+                Download {currentVersion}
+              </a>
+              <a className="button button-secondary" href="/limitations">
+                Known limitations
+              </a>
+            </div>
+          </article>
+        </section>
+      </div>
+    </RevealScope>
   );
 }

@@ -13,6 +13,7 @@ _Last updated: 2026-07-04 · **Runtime repair band EXIT** (R1–R5 **VERIFIED t4
 | 1 | [CURRENT.md](./CURRENT.md) | Version, phase status, verify commands |
 | 2 | [program/obscur-v2-known-limitations.md](./program/obscur-v2-known-limitations.md) | What works / what does not (demo truth) |
 | 3 | [program/obscur-v2-install-build-guide.md](./program/obscur-v2-install-build-guide.md) | How to dev, package, and install |
+| 3b | [program/ci-local-fast-loop.md](./program/ci-local-fast-loop.md) | Local CI tiers before GitHub Full Release waits |
 
 Agents: [AGENTS.md](../AGENTS.md) → [rules/](../rules/README.md)
 

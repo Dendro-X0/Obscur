@@ -1,6 +1,6 @@
 {
   "name": "@dweb/db",
-  "version": "1.9.12",
+  "version": "1.9.13",
   "private": true,
   "description": "Typed TypeScript bindings for the Obscur SQLite database layer",
   "main": "./src/index.ts",

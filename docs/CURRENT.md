@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents (2026-07-16).
 
-_Last updated: 2026-07-17 · Version train: **v2.0.0 fast-track** (collapse 1.9.13/1.9.14 into 2.0.0 notes)_
+_Last updated: 2026-07-17 · **Website `/guide` MVP** · GIF→MP4 web assets · **v2.0.0 paused** pending relay assessment_
 
 ---
 
@@ -10,14 +10,14 @@ _Last updated: 2026-07-17 · Version train: **v2.0.0 fast-track** (collapse 1.9.
 
 | Track | Status |
 |-------|--------|
-| **v1.9.12 MESH-TRUST** | **Shipped** (tag) · GitHub Release assets still stale @ 1.8.11 |
-| **v1.9.13–1.9.14** | Landed in tree · L3 soak **accepted via GIF** · no separate tag required for v2 |
-| **v2.0.0 gate** | **Fast-track** — [v2.0.0-gate.md](./releases/v2.0.0-gate.md) · [fast-track plan](../specs/backend/v2.0.0-fast-track-2026-07.md) |
-| **Download surface** | Canonical = `release-assets/` · **`obscur.app` is not the messenger site** |
-| **CI** | `reliability-gates` green · Full Release native-build red — [investigation](../specs/ci/2026-07-17-full-release-investigation.md) |
-| **Community feature patches** | **PAUSED** — ACC-02 |
+| **v1.9.12 MESH-TRUST** | **Shipped** (tag) |
+| **LES + presets train** | **Committed** `914a33eb` |
+| **Website** | **`/guide` MVP** — 22 web MP4s (~7.8 MB) · [charter](../specs/backend/website-user-guide-charter-2026-07.md) |
+| **v2.0.0 gate** | **Paused** — website progressing · relay reliability still maintainer-owned |
+| **Download surface** | Canonical = `release-assets/` · **`obscur.app` ≠ messenger site** |
+| **Community** | **PAUSED** — ACC-02 |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → commit train · bump 2.0.0 · package + GitHub Release · sign gate · tag
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → commit guide assets · smoke → relay assessment → v2
 
 ---
 

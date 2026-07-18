@@ -2,7 +2,64 @@
 
 All notable changes to Obscur are documented here.
 
-**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md). **Current version:** **1.9.12** ([release notes](docs/releases/v1.9.12-release.md)).
+**Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
+
+**Current tree version:** **1.9.13** ([release notes](docs/releases/v1.9.13-release.md)).  
+**Next tag:** **v1.9.14** (pool + transport presets) after this cut is tagged/packaged.
+
+---
+
+## [1.9.14] — 2026-07-18 (Connection pool + transport presets)
+
+**Release notes:** [v1.9.14-release.md](docs/releases/v1.9.14-release.md). **Scope:** [v1.9.14-scope.md](docs/program/v1.9.14-scope.md).  
+**Tag after:** **v1.9.13**.
+
+### Added
+
+- **Transport presets (P14-S)** — preset catalog, active/partial badges, apply confirm, Tor inline gate, template pre-fill
+- **Pool health UI (P14-P)** — readable pool / degraded connectivity signals (L3 soak optional for EXIT)
+
+### Changed
+
+- Honest client-crypto copy: networks carry ciphertext; encryption stays on the client
+- Settings transport surface aligned with Conduit Mesh pool owner (subtract dual-truth where touched)
+
+### Verification
+
+```bash
+pnpm release:test-pack -- --skip-preflight
+# L3 (optional closeout): docs/program/v1.9.14-p14-l3-soak-runbook.md
+```
+
+**Honesty:** Community roster divergence (ACC-02) remains accepted · community patches **PAUSED**. C13 Tor mesh L3 not required for this tag.
+
+---
+
+## [1.9.13] — 2026-07-17 (Vault LES cutover)
+
+**Release notes:** [v1.9.13-release.md](docs/releases/v1.9.13-release.md). **Scope:** [v1.9.13-scope.md](docs/program/v1.9.13-scope.md).  
+**Tag before:** **v1.9.14**.
+
+### Added
+
+- **Local Encrypted Store (LES)** — desktop Vault data plane: encrypt-on-write, encrypted catalog, profile-scoped layout
+- **Chat Save → LES** + Secure Upload into one catalog
+- **Remove from Vault** — LES hard delete (V13-5)
+- **Preview stability** — Vault grid / lightbox after decrypt · close · reopen (R6b maintainer soak)
+
+### Changed
+
+- Legacy chat→vault flag path **superseded** by LES (do not re-enable old `VAULT_SAVE_FROM_CHAT` owner)
+- Vault UI reads LES catalog only on desktop shell
+
+### Verification
+
+```bash
+pnpm verify:les-l1
+pnpm verify:les-l3
+```
+
+Maintainer soak **PASS** 2026-07-17 (preview · remove · Secure Upload / chat Save / grid).
 
 ---
 
@@ -50,6 +107,13 @@ Maintainer G8 (optional before marketing claim): L3/L4 sections in vault-sandbox
 ---
 
 ## [Unreleased]
+
+Website / local-CI tooling and other work not yet bound to a semver cut (keep below until folded into a tagged release).
+
+### Website + maintainer CI (2026-07-17…18)
+
+- Paginated `/guide`, cinematic landing theater, changelog pagination/timestamps
+- `pnpm ci:local:*` tier runner — [ci-local-fast-loop.md](docs/program/ci-local-fast-loop.md)
 
 ### Maintenance (v2.0.0 precheck — 2026-07-04)
 

@@ -6,13 +6,9 @@ const navItems: ReadonlyArray<
 > = [
   { label: "Product", href: "/" },
   { label: "Download", href: "/download" },
+  { label: "Guide", href: "/guide" },
   { label: "Limitations", href: "/limitations" },
   { label: "Changelog", href: "/changelog" },
-  {
-    label: "Docs",
-    href: "https://github.com/Dendro-X0/Obscur/tree/main/docs",
-    external: true,
-  },
 ];
 
 export function SiteNav() {
@@ -57,6 +53,7 @@ export function SiteFooter() {
         </p>
         <div className="site-footer-links">
           <Link href="/download">Download</Link>
+          <Link href="/guide">Guide</Link>
           <Link href="/limitations">Known limitations</Link>
           <a
             href="https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md"

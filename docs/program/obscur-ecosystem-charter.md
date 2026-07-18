@@ -308,7 +308,7 @@ Obscur   →  speak privately under stress (E2EE + pluggable transport)
 | Vectis | How do we commit, deliver, and close fairly on-log? |
 | Obscur | How do we communicate without a platform landlord — under attack? |
 
-Obscur does **not** settle deals or mint credits. Vectis does **not** own the chat threat model. Cross-links: Vectis `docs/foundation/` · Obscur [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md).
+Obscur does **not** settle deals or mint credits. Vectis does **not** own the chat threat model. Cross-links: Vectis foundation docs (sibling product) · Obscur [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md).
 
 ---
 

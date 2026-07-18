@@ -4,15 +4,26 @@ import type { Attachment } from "@/app/features/messaging/types";
 const mocks = vi.hoisted(() => ({
   hasNativeRuntime: vi.fn(() => true),
   canSaveChatAttachmentsToLes: vi.fn(() => true),
-  saveChatAttachmentToLesWithOutcome: vi.fn(async () => ({
-    status: "saved" as const,
-    receipt: {
-      lesObjectId: "abc",
-      profileId: "default",
-      relativePath: "profiles/default/les/images/abc.obscurvault",
-      catalogRevision: 1,
-    },
-  })),
+  saveChatAttachmentToLesWithOutcome: vi.fn(
+    async (): Promise<
+      | { status: "saved"; receipt: {
+          lesObjectId: string;
+          profileId: string;
+          relativePath: string;
+          catalogRevision: number;
+        } }
+      | { status: "unlock_required" }
+      | { status: "failed"; reason: string }
+    > => ({
+      status: "saved",
+      receipt: {
+        lesObjectId: "abc",
+        profileId: "default",
+        relativePath: "profiles/default/les/images/abc.obscurvault",
+        catalogRevision: 1,
+      },
+    }),
+  ),
   saveChatAttachmentToLes: vi.fn(async () => true),
   saveChatAttachmentsToLes: vi.fn(async () => 1),
   isChatAttachmentSavedToLes: vi.fn(async () => false),

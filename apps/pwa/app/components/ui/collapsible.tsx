@@ -43,10 +43,15 @@ export const CollapsibleTrigger = ({ children, className }: CollapsibleTriggerPr
 type CollapsibleContentProps = Readonly<{
     children: ReactNode;
     className?: string;
+    id?: string;
 }>;
 
-export const CollapsibleContent = ({ children, className }: CollapsibleContentProps) => {
+export const CollapsibleContent = ({ children, className, id }: CollapsibleContentProps) => {
     const { open } = useContext(CollapsibleContext);
     if (!open) return null;
-    return <div className={className}>{children}</div>;
+    return (
+        <div id={id} className={className}>
+            {children}
+        </div>
+    );
 };

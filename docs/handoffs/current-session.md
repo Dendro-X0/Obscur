@@ -1,20 +1,29 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-17T15:20:00Z
+- Last Updated (UTC): 2026-07-18T06:45:00Z
 
 ## Next atomic step
 
-**v2.0.0 fast-track — distribution + gate** · 2026-07-17
+**v1.9.13 committed** · 2026-07-18
 
 | Field | Value |
 |-------|--------|
-| Done | Maintainer override: skip P14 manual L3 (GIF evidence DM+group) · CI triage · domain probe |
-| Next | Accept D3 = `release-assets` (+ publish GitHub Release) · commit train · bump **2.0.0** · `release:test-pack` · package NSIS · sign gate · tag |
-| Plan | [v2.0.0-fast-track-2026-07.md](../../specs/backend/v2.0.0-fast-track-2026-07.md) |
-| CI | [2026-07-17-full-release-investigation.md](../../specs/ci/2026-07-17-full-release-investigation.md) — Full Release native-build red; reliability-gates green |
-| Proof | Gate D3 unblocked via release-assets · GitHub Release assets for tag · `pnpm release:test-pack` |
+| Done | Version **1.9.13** · commit `992b9218` · website/guide media · `ci:local` |
+| Next | Tag `v1.9.13` · package/Full Release · then bump **1.9.14** |
+| Proof | `pnpm version:check` · commit on `main` (ahead of origin by 2) |
 
-**Blocked without maintainer:** Vercel login (optional B) · `gh` auth or paste Full Release build logs (CI fix band, not tag-blocker if D3=A).
+**Left unstaged:** `.codectx/verify/mcp-audit.jsonl` · `docs/assets/gifs/preview_files_1.gif` (large archive).  
+**Paused:** community roster · `v2.0.0` tag. Not pushed / not tagged yet.
+
+---
+
+## Prior atomic step — v2.0.0 fast-track (paused)
+
+| Field | Value |
+|-------|--------|
+| Done | D3 path A documented · domain mismatch (`obscur.app` ≠ messenger) · CI triage |
+| Next | Resume after website guide MVP + relay assessment |
+| Plan | [v2.0.0-fast-track-2026-07.md](../../specs/backend/v2.0.0-fast-track-2026-07.md) |
 
 ---
 

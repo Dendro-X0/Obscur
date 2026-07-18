@@ -20,6 +20,7 @@ One page for **how to run**, **how to package**, and **what to expect** — no c
 | **Android debug APK (emulator)** | `pnpm build:android:debug:emulator` | Universal debug APK under `gen/android/.../debug/` |
 | **Android prereq check** | `pnpm verify:android-prerequisites` | Non-destructive SDK/JDK/Rust check |
 | **Release gates** | `pnpm release:test-pack` · `pnpm docs:check` | Before tag or Phase 3 sign-off |
+| **Local CI tiers (fast)** | `pnpm ci:local:all-cheap` · see [ci-local-fast-loop.md](./ci-local-fast-loop.md) | Prefer before any Full Release / 40m GitHub wait |
 
 **Product limits before demo:** [obscur-v2-known-limitations.md](./obscur-v2-known-limitations.md)
 
