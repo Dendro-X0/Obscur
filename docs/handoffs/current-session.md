@@ -9,8 +9,8 @@
 | Field | Value |
 |-------|--------|
 | Done | Tagged **v1.9.14** · Full Release red (Win/Linux/Android) · macOS/Web/iOS green · local `pnpm ci:local:desktop-win` **PASS** after corrupt `cc` registry repair · installer `release-assets/windows/Obscur_1.9.14_x64-setup.exe` |
-| Next | Get Actions Build Desktop Bundles stderr (Win+Ubuntu) via `gh` auth or paste · classify one failure class · fix or cache-bust · then land multi-OS `release-assets/` + regenerate manifest (still 1.9.12) |
-| Proof | [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) · `pnpm ci:local:desktop-win` PASS · Actions run 29635736220 |
+| Next | Get Actions Build Desktop Bundles stderr (Win+Ubuntu) via `gh` auth or paste · classify one failure class · fix or cache-bust · then land macOS/Linux (+ Android) into `release-assets/` |
+| Proof | [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) · `pnpm ci:local:desktop-win` PASS · Actions run 29635736220 · local Windows NSIS + `release-assets/manifest.json` @ 1.9.14 |
 | Local note | Signing decode error from `.env.signing.local` is maintainer-only; package script tolerates when NSIS exists. CI does not inject Tauri updater secrets. |
 
 **Paused:** community roster · `v2.0.0` tag.
