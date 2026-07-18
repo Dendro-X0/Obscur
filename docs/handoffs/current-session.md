@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-18T11:10:00Z
+- Last Updated (UTC): 2026-07-18T12:25:00Z
 
 ## Next atomic step
 
@@ -8,9 +8,9 @@
 
 | Field | Value |
 |-------|--------|
-| Done | All build jobs green on run 29640879468 · Verify failed on **stale checked-out** `release-assets` (1.9.10/1.9.12 vs expected 1.9.14) · wipe-lanes fix in `release.yml` |
-| Next | Push + retag `v1.9.14` · confirm Verify Artifacts green · land multi-OS artifacts into `release-assets/` + site download |
-| Proof | Local: `pnpm release:artifact-version-parity -- --assets-dir release-assets --expected-version 1.9.14 --skip-android` reproduces stale-semver · [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) iter 5 |
+| Done | Full Release **success** run 29642033281 · landed Win/macOS/Linux/web into `release-assets/` + refreshed manifest · removed stale 1.9.10/1.9.12 Windows installers |
+| Next | Commit + push land · optional Android land when download TLS works · optional `workflow_dispatch` Publish Release |
+| Proof | [Actions 29642033281](https://github.com/Dendro-X0/Obscur/actions/runs/29642033281) · `release-assets/manifest.json` @ 1.9.14 multi-OS · `pnpm release:artifact-version-parity -- --skip-android` PASS |
 
 **Paused:** community roster · `v2.0.0` tag.
 

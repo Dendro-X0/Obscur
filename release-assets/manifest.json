@@ -1,41 +1,59 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-07-18T08:46:29Z",
-  "gitCommit": "423cbc69",
+  "generatedAt": "2026-07-18T12:20:36Z",
+  "gitCommit": "db00828c",
   "version": "1.9.14",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
+  "sourceRun": "https://github.com/Dendro-X0/Obscur/actions/runs/29642033281",
   "artifacts": [
     {
       "platform": "windows",
       "kind": "nsis-installer",
-      "buildCommand": "pnpm desktop:package",
+      "buildCommand": "Obscur Full Release CI (desktop-windows)",
       "path": "release-assets/windows/Obscur_1.9.14_x64-setup.exe",
       "fileName": "Obscur_1.9.14_x64-setup.exe",
-      "sizeBytes": 9284526,
-      "sha256": "f8a5af93649411b7cf084472d2daafe0740a4e12efca88af90930c28717f1cec",
-      "builtAt": "2026-07-18T08:20:00Z"
+      "sizeBytes": 9146326,
+      "sha256": "8d8ed1f34ed3505591f35feb192f3b031d6f0eecb880cef670820bbe587db234",
+      "builtAt": "2026-07-18T12:20:21Z"
     },
     {
-      "platform": "android",
-      "kind": "debug-apk-universal",
-      "buildCommand": "pnpm build:android:debug:emulator",
-      "path": "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk",
-      "fileName": "app-universal-debug.apk",
-      "sizeBytes": 292511220,
-      "sha256": "04afc48f28d22f38e8be840bb60974b3644c0bdd4eff35883a1e07904ab7d29c",
-      "builtAt": "2026-07-04T12:27:35Z",
-      "abiFilter": "x86_64 (emulator build; universal debug output)",
-      "installHint": "adb install -r apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk",
-      "note": "Stale vs 1.9.14 desktop — regenerate before claiming Android parity"
+      "platform": "macos",
+      "kind": "dmg",
+      "buildCommand": "Obscur Full Release CI (desktop-macos)",
+      "path": "release-assets/macos/Obscur_1.9.14_aarch64.dmg",
+      "fileName": "Obscur_1.9.14_aarch64.dmg",
+      "sizeBytes": 6850979,
+      "sha256": "8a82d3f0eb86e8f81b340002b00d001e3e9e1a3ebf143e2c062df68a66aa2da7",
+      "builtAt": "2026-07-18T12:20:21Z"
+    },
+    {
+      "platform": "linux",
+      "kind": "appimage",
+      "buildCommand": "Obscur Full Release CI (desktop-linux)",
+      "path": "release-assets/linux/Obscur_1.9.14_amd64.AppImage",
+      "fileName": "Obscur_1.9.14_amd64.AppImage",
+      "sizeBytes": 82586104,
+      "sha256": "620c05e278491cfd1bf0edd242681932e23a86e93858c3c32b0ef2cbf6ea07e2",
+      "builtAt": "2026-07-18T12:20:21Z"
+    },
+    {
+      "platform": "web",
+      "kind": "pwa-static-tarball",
+      "buildCommand": "Obscur Full Release CI (web-pwa)",
+      "path": "release-assets/web/obscur-pwa-static.tar.gz",
+      "fileName": "obscur-pwa-static.tar.gz",
+      "sizeBytes": 2497616,
+      "sha256": "1ef232c7b6bbcd066ae24a1fbed4c3873bea47d9d90141a6182cc5c5ee7b29ae",
+      "builtAt": "2026-07-18T12:20:21Z"
     }
   ],
   "notes": [
-    "v1.9.14 local Windows NSIS after Full Release CI red (Win/Linux/Android) — see specs/ci/2026-07-18-v1.9.14-full-release-investigation.md",
-    "Windows NSIS unsigned — SmartScreen / unknown publisher expected",
-    "Updater .sig skipped locally (TAURI_SIGNING_PRIVATE_KEY password / comment)",
-    "macOS/Linux installers not landed from CI yet — Windows-only download path for now",
-    "Supersedes Obscur_1.9.12_x64-setup.exe for desktop demos"
+    "v1.9.14 multi-OS desktop + web landed from green Full Release run 29642033281",
+    "Windows NSIS / macOS DMG / Linux AppImage unsigned — SmartScreen / Gatekeeper expected",
+    "Android APK/AAB not landed in this commit (artifact download TLS failures on maintainer host)",
+    "Publish GitHub Release still requires workflow_dispatch publish_release=true",
+    "Removed stale 1.9.10/1.9.12 Windows installers from release-assets/windows"
   ]
 }
