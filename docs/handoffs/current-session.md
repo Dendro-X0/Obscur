@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-18T10:30:00Z
+- Last Updated (UTC): 2026-07-18T11:10:00Z
 
 ## Next atomic step
 
@@ -8,9 +8,9 @@
 
 | Field | Value |
 |-------|--------|
-| Done | Android green · desktop fail = pubkey without `TAURI_SIGNING_PRIVATE_KEY` after successful bundle · CI unsigned prepare + installer tolerance |
-| Next | Push + retag `v1.9.14` · confirm Win/macOS/Linux desktop green · download artifacts → `release-assets/` |
-| Proof | [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) iter 4 · `scripts/ci-prepare-unsigned-desktop-bundle.mjs` |
+| Done | All build jobs green on run 29640879468 · Verify failed on **stale checked-out** `release-assets` (1.9.10/1.9.12 vs expected 1.9.14) · wipe-lanes fix in `release.yml` |
+| Next | Push + retag `v1.9.14` · confirm Verify Artifacts green · land multi-OS artifacts into `release-assets/` + site download |
+| Proof | Local: `pnpm release:artifact-version-parity -- --assets-dir release-assets --expected-version 1.9.14 --skip-android` reproduces stale-semver · [specs/ci/2026-07-18-v1.9.14-full-release-investigation.md](../../specs/ci/2026-07-18-v1.9.14-full-release-investigation.md) iter 5 |
 
 **Paused:** community roster · `v2.0.0` tag.
 
