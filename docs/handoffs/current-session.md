@@ -1,16 +1,16 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-18T12:25:00Z
+- Last Updated (UTC): 2026-07-19T14:35:00Z
 
 ## Next atomic step
 
-**Full Release — v1.9.14 multi-OS** · 2026-07-18
+**Full Release — v1.9.14 multi-OS** · 2026-07-19
 
 | Field | Value |
 |-------|--------|
-| Done | Full Release **success** run 29642033281 · landed Win/macOS/Linux/web into `release-assets/` + refreshed manifest · removed stale 1.9.10/1.9.12 Windows installers |
-| Next | Commit + push land · optional Android land when download TLS works · optional `workflow_dispatch` Publish Release |
-| Proof | [Actions 29642033281](https://github.com/Dendro-X0/Obscur/actions/runs/29642033281) · `release-assets/manifest.json` @ 1.9.14 multi-OS · `pnpm release:artifact-version-parity -- --skip-android` PASS |
+| Done | Desktop+web landed · Android **universal release-unsigned APK** landed in `release-assets/android/` + manifest · download page Ready/Download for Android |
+| Next | Commit + push Android land + download copy · optional GitHub Release publish |
+| Proof | APK `Obscur_1.9.14_universal-release-unsigned.apk` · CI run 29642033281 · site `/download` reads manifest |
 
 **Paused:** community roster · `v2.0.0` tag.
 

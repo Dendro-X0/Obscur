@@ -168,8 +168,9 @@ export default async function DownloadPage() {
           <p className="eyebrow">Desktop</p>
           <h2>Platform installers</h2>
           <p className="section-lead">
-            Windows installer available for {site.currentVersion}. macOS and Linux builds are
-            build-from-source until packaged artifacts land in the manifest.
+            Windows, macOS (Apple Silicon), and Linux AppImage for {site.currentVersion} are in
+            the release manifest. Builds are unsigned. Linux is larger because the AppImage
+            ships WebKit/GTK libraries; Windows and macOS use the OS webview instead.
           </p>
         </div>
 
@@ -219,40 +220,54 @@ export default async function DownloadPage() {
       <section className="section-grid">
         <div className="section-header section-header--wide">
           <p className="eyebrow">Mobile</p>
-          <h2>Android debug · iOS out of scope</h2>
+          <h2>Android sideload · iOS out of scope</h2>
           <p className="section-lead">
-            Android debug APK is produced locally — not distributed via Play Store. iOS is not in
-            the v2 installer scope.
+            Android universal APK is in the release manifest (unsigned — enable unknown sources /
+            use adb). Not on Play Store. iOS is not in the v2 installer scope.
           </p>
         </div>
 
         <div className="platform-grid platform-grid--two">
           <article className="platform-card">
             <div className="platform-card-topline">
-              <h3>Android (debug)</h3>
-              <span className="status-pill status-partial">Local build</span>
+              <h3>Android</h3>
+              <span
+                className={`status-pill ${androidArtifact?.href ? "status-pass" : "status-partial"}`}
+              >
+                {androidArtifact?.href ? "Ready" : "Local build"}
+              </span>
             </div>
             {androidArtifact ? (
               <>
+                <p>{androidArtifact.fileName}</p>
                 <p>
-                  Build:{" "}
-                  <code className="inline-code">
-                    {androidArtifact.buildCommand ?? "pnpm build:android:debug:emulator"}
-                  </code>
+                  {formatSize(androidArtifact.sizeBytes)} · unsigned release · sideload only
                 </p>
-                <p>{formatSize(androidArtifact.sizeBytes)} universal debug · sideload after local build</p>
                 {androidArtifact.installHint && (
                   <p className="platform-card-hint">{androidArtifact.installHint}</p>
                 )}
+                <div className="platform-card-footer">
+                  {androidArtifact.href ? (
+                    <a
+                      className="button button-primary button-compact"
+                      href={androidArtifact.href}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Download
+                    </a>
+                  ) : (
+                    <a className="text-link" href={buildGuideHref} target="_blank" rel="noreferrer">
+                      Android build steps →
+                    </a>
+                  )}
+                </div>
                 <code
                   className="checksum-value checksum-value--compact"
                   data-codactrl-sha256={androidArtifact.sha256}
                 >
                   {androidArtifact.sha256}
                 </code>
-                <a className="text-link" href={buildGuideHref} target="_blank" rel="noreferrer">
-                  Android build steps →
-                </a>
               </>
             ) : (
               <p>No Android artifact recorded in manifest.</p>

@@ -1,7 +1,7 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-07-18T12:20:36Z",
-  "gitCommit": "db00828c",
+  "generatedAt": "2026-07-19T14:31:43Z",
+  "gitCommit": "a84ffe89",
   "version": "1.9.14",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
@@ -47,13 +47,26 @@
       "sizeBytes": 2497616,
       "sha256": "1ef232c7b6bbcd066ae24a1fbed4c3873bea47d9d90141a6182cc5c5ee7b29ae",
       "builtAt": "2026-07-18T12:20:21Z"
+    },
+    {
+      "platform": "android",
+      "kind": "apk-universal-release-unsigned",
+      "buildCommand": "Obscur Full Release CI (mobile-android)",
+      "path": "release-assets/android/Obscur_1.9.14_universal-release-unsigned.apk",
+      "fileName": "Obscur_1.9.14_universal-release-unsigned.apk",
+      "sizeBytes": 66650411,
+      "sha256": "144a435179480016a364802f107619f4d5c1ecf2dfea74f103f0b7db8a07c1c1",
+      "builtAt": "2026-07-19T14:31:42Z",
+      "abiFilter": "universal (CI release unsigned)",
+      "installHint": "adb install -r release-assets/android/Obscur_1.9.14_universal-release-unsigned.apk (enable unknown sources; not Play Store)",
+      "note": "Unsigned release APK from Full Release run 29642033281 — sideload only"
     }
   ],
   "notes": [
     "v1.9.14 multi-OS desktop + web landed from green Full Release run 29642033281",
     "Windows NSIS / macOS DMG / Linux AppImage unsigned — SmartScreen / Gatekeeper expected",
-    "Android APK/AAB not landed in this commit (artifact download TLS failures on maintainer host)",
     "Publish GitHub Release still requires workflow_dispatch publish_release=true",
-    "Removed stale 1.9.10/1.9.12 Windows installers from release-assets/windows"
+    "Removed stale 1.9.10/1.9.12 Windows installers from release-assets/windows",
+    "Android universal release-unsigned APK landed from CI — sideload only, not Play Store"
   ]
 }
