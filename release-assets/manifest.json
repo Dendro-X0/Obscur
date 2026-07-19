@@ -58,8 +58,8 @@
       "sha256": "144a435179480016a364802f107619f4d5c1ecf2dfea74f103f0b7db8a07c1c1",
       "builtAt": "2026-07-19T14:31:42Z",
       "abiFilter": "universal (CI release unsigned)",
-      "installHint": "adb install -r release-assets/android/Obscur_1.9.14_universal-release-unsigned.apk (enable unknown sources; not Play Store)",
-      "note": "Unsigned release APK from Full Release run 29642033281 — sideload only"
+      "installHint": "Allow install from this source, then open the APK. Optional: adb install -r <apk>",
+      "note": "Self-signed; no Play Developer Program / Play Store listing"
     }
   ],
   "notes": [

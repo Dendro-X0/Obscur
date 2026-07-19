@@ -222,8 +222,8 @@ export default async function DownloadPage() {
           <p className="eyebrow">Mobile</p>
           <h2>Android sideload · iOS out of scope</h2>
           <p className="section-lead">
-            Android universal APK is in the release manifest (unsigned — enable unknown sources /
-            use adb). Not on Play Store. iOS is not in the v2 installer scope.
+            No Google Play or Apple Developer Program membership — builds are self-signed.
+            Android: download the APK and install from the file. iOS: not offered here.
           </p>
         </div>
 
@@ -241,11 +241,12 @@ export default async function DownloadPage() {
               <>
                 <p>{androidArtifact.fileName}</p>
                 <p>
-                  {formatSize(androidArtifact.sizeBytes)} · unsigned release · sideload only
+                  {formatSize(androidArtifact.sizeBytes)} · self-signed · not on Play Store
                 </p>
-                {androidArtifact.installHint && (
-                  <p className="platform-card-hint">{androidArtifact.installHint}</p>
-                )}
+                <p className="platform-card-hint">
+                  Allow install from this source → open the APK. Or:{" "}
+                  <code className="inline-code">adb install -r &lt;apk&gt;</code>
+                </p>
                 <div className="platform-card-footer">
                   {androidArtifact.href ? (
                     <a
@@ -280,7 +281,7 @@ export default async function DownloadPage() {
               <span className="status-pill status-pending">Not in scope</span>
             </div>
             <p>
-              Not in v2.0.0 installer scope. No App Store or TestFlight claim on this site.
+              No Apple Developer Program build on this site — no App Store or TestFlight.
             </p>
           </article>
         </div>
