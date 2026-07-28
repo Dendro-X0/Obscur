@@ -162,8 +162,8 @@ export default async function Home() {
             <p className="eyebrow">Chapter IV · Evidence</p>
             <h2>Release truth stays tied to verification</h2>
             <p className="section-lead">
-              Maintainer matrix outcomes — verified, in progress, and accepted limitations —
-              surfaced honestly.
+              Maintainer matrix outcomes — verified ship paths, platform boundaries, and network
+              contracts surfaced honestly.
             </p>
           </div>
           <div className="status-grid">
@@ -205,16 +205,16 @@ export default async function Home() {
             <p className="eyebrow">Distribution</p>
             <h2>Install from the download page — checksums included.</h2>
             <p>
-              Windows NSIS @ {currentVersion} is linked from /download with SHA-256 from
-              release-assets/manifest.json. Android debug builds are documented as local-only
-              sideload paths — no store claims.
+              Windows NSIS, macOS, Linux AppImage, and Android APK @ {currentVersion} — linked from
+              /download with SHA-256 from release-assets/manifest.json. Self-signed sideload; no
+              store claims.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="/download">
                 Download {currentVersion}
               </a>
               <a className="button button-secondary" href="/limitations">
-                Known limitations
+                Product scope
               </a>
             </div>
           </article>

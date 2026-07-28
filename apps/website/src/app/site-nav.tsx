@@ -7,7 +7,7 @@ const navItems: ReadonlyArray<
   { label: "Product", href: "/" },
   { label: "Download", href: "/download" },
   { label: "Guide", href: "/guide" },
-  { label: "Limitations", href: "/limitations" },
+  { label: "Scope", href: "/limitations" },
   { label: "Changelog", href: "/changelog" },
 ];
 
@@ -54,7 +54,7 @@ export function SiteFooter() {
         <div className="site-footer-links">
           <Link href="/download">Download</Link>
           <Link href="/guide">Guide</Link>
-          <Link href="/limitations">Known limitations</Link>
+          <Link href="/limitations">Product scope</Link>
           <a
             href="https://github.com/Dendro-X0/Obscur/blob/main/docs/program/obscur-v2-phase3-signing-policy.md"
             target="_blank"

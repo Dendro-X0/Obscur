@@ -50,6 +50,16 @@ export default async function DownloadPage() {
   const androidArtifact = manifest?.artifacts.find((a) => a.platform === "android") ?? null;
 
   const isMobile = detectedPlatform === "android" || detectedPlatform === "ios";
+  const primaryMobileDownload =
+    detectedPlatform === "android" && androidArtifact?.href
+      ? {
+          href: androidArtifact.href,
+          label: "Android",
+          assetName: androidArtifact.fileName,
+          sizeBytes: androidArtifact.sizeBytes,
+        }
+      : null;
+  const primaryDownload = primaryMobileDownload ?? preferredDesktopDownload;
   const signingPolicy = manifest?.signingPolicy ?? "unsigned";
   const buildGuideHref = manifest?.buildFromSourceDocHref ?? "#";
   const signingPolicyHref = manifest?.signingPolicyDocHref;
@@ -68,27 +78,28 @@ export default async function DownloadPage() {
           <p className="eyebrow">Install surface</p>
           <h1>Download Obscur</h1>
           <p className="hero-summary">
-            Privacy-first messaging for {isMobile ? "mobile" : "desktop"}. Installers are{" "}
-            {signingPolicy} — verify SHA-256 checksums below before sideloading.
+            {detectedPlatform === "android" && androidArtifact?.href
+              ? "Android APK is available for sideload — self-signed, verify SHA-256 below."
+              : `Privacy-first messaging for ${isMobile ? "mobile" : "desktop"}. Installers are ${signingPolicy} — verify SHA-256 checksums below before sideloading.`}
           </p>
 
-          {preferredDesktopDownload ? (
+          {primaryDownload ? (
             <>
               <div className="hero-actions">
                 <a
                   className="button button-primary"
-                  href={preferredDesktopDownload.href}
+                  href={primaryDownload.href}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Download for {preferredDesktopDownload.label}
+                  Download for {primaryDownload.label}
                 </a>
                 <Link className="button button-secondary" href="/limitations">
-                  Known limitations
+                  Product scope
                 </Link>
               </div>
               <p className="hero-meta">
-                {preferredDesktopDownload.assetName} · {formatSize(preferredDesktopDownload.sizeBytes)}
+                {primaryDownload.assetName} · {formatSize(primaryDownload.sizeBytes)}
               </p>
             </>
           ) : (
@@ -102,7 +113,7 @@ export default async function DownloadPage() {
                 Build from source
               </a>
               <Link className="button button-secondary" href="/limitations">
-                Known limitations
+                Product scope
               </Link>
             </div>
           )}
@@ -139,8 +150,8 @@ export default async function DownloadPage() {
           </a>
           <ul className="hero-points hero-points--compact">
             <li>End-to-end encrypted messaging with local-first storage.</li>
-            <li>Open source — verify checksums before running unsigned installers.</li>
-            <li>No account required to download; identity stays on your device.</li>
+            <li>Desktop + Android APK in the release manifest — verify checksums before install.</li>
+            <li>No cloud account required; identity stays on your device.</li>
           </ul>
         </aside>
       </section>
@@ -222,8 +233,9 @@ export default async function DownloadPage() {
           <p className="eyebrow">Mobile</p>
           <h2>Android sideload · iOS out of scope</h2>
           <p className="section-lead">
-            No Google Play or Apple Developer Program membership — builds are self-signed.
-            Android: download the APK and install from the file. iOS: not offered here.
+            No Google Play or Apple Developer Program listing — builds are self-signed. Android: CI
+            universal APK on this page (installable and functional; performance improved since early
+            v1.9). Low-RAM phones may still feel heavy. iOS is not offered here.
           </p>
         </div>
 
@@ -241,10 +253,12 @@ export default async function DownloadPage() {
               <>
                 <p>{androidArtifact.fileName}</p>
                 <p>
-                  {formatSize(androidArtifact.sizeBytes)} · self-signed · not on Play Store
+                  {formatSize(androidArtifact.sizeBytes)} · universal · self-signed · not on Play
+                  Store
                 </p>
                 <p className="platform-card-hint">
-                  Allow install from this source → open the APK. Or:{" "}
+                  Allow install from this source → open the APK. Tested installable in Android Studio
+                  builds; {site.currentVersion} ships from Full Release CI. Or:{" "}
                   <code className="inline-code">adb install -r &lt;apk&gt;</code>
                 </p>
                 <div className="platform-card-footer">
@@ -345,15 +359,15 @@ export default async function DownloadPage() {
       <section className="split-section">
         <article className="cta-panel">
           <p className="eyebrow">Before you install</p>
-          <h2>Read limitations so demos stay honest</h2>
+          <h2>Understand scope before you demo</h2>
           <p>
-            Obscur is privacy-first desktop software with verified Phase 1 paths and documented
-            gaps. Read the limitations sheet so demo hosts do not over-promise roster sync,
-            restore, or delete-for-me behavior.
+            Obscur separates network contracts from product defects: public relays are immutable,
+            operator stacks enable stronger deletion, and desktop/Android are the ship surfaces. Read
+            product scope so demos stay accurate.
           </p>
           <div className="hero-actions">
             <Link className="button button-primary" href="/limitations">
-              Known limitations
+              Product scope
             </Link>
             <Link className="button button-secondary" href="/">
               Back to product

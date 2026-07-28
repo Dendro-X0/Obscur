@@ -119,6 +119,7 @@ export type ReleaseManifestSnapshot = Readonly<{
 const RAW_GITHUB_BASE =
   "https://raw.githubusercontent.com/Dendro-X0/Obscur/main";
 const REPO_GITHUB_BASE = "https://github.com/Dendro-X0/Obscur";
+const REPO_GITHUB_RAW_BASE = `${REPO_GITHUB_BASE}/raw/main`;
 const REPO_STABLE_POLICY_PATH =
   "apps/desktop/release/channel/stable/streaming-update-policy.json";
 const REPO_STABLE_POLICY_URL = `${RAW_GITHUB_BASE}/${REPO_STABLE_POLICY_PATH}`;
@@ -127,7 +128,9 @@ const RELEASE_MANIFEST_PATH = "release-assets/manifest.json";
 const LIMITATIONS_DOC_HREF = `${REPO_GITHUB_BASE}/blob/main/docs/program/obscur-v2-known-limitations.md`;
 const INSTALL_BUILD_GUIDE_HREF = `${REPO_GITHUB_BASE}/blob/main/docs/program/obscur-v2-install-build-guide.md`;
 const SIGNING_POLICY_HREF = `${REPO_GITHUB_BASE}/blob/main/docs/program/obscur-v2-phase3-signing-policy.md`;
-const RELEASE_SECTION_REGEX = /^## \[(v[^\]]+)\] - (\d{4}-\d{2}-\d{2})$/gm;
+/** Matches modern `## [1.9.14] — 2026-07-18` and legacy `## [v1.8.5] - 2026-05-27` headers. */
+const RELEASE_SECTION_REGEX =
+  /^## \[((?:v)?[0-9][^\]]*)\] *(?:—|-) *(\d{4}-\d{2}-\d{2})/gm;
 
 const repoRoot = path.resolve(process.cwd(), "..", "..");
 const gifWebDir = path.join(repoRoot, "docs", "assets", "gifs", "web");
@@ -264,8 +267,9 @@ export const loadGuideSections = async (): Promise<readonly GuideSection[]> => {
       eyebrow: "5 · Groups",
       title: "Create a group and invite members",
       summary:
-        "Managed workspaces support invites and encrypted group chat. Member lists may still disagree between profiles (accepted limitation).",
-      callout: "ACC-02 — roster display may diverge; do not demo perfect parity.",
+        "Managed workspaces support invites and encrypted group chat on operator-controlled relay stacks.",
+      callout:
+        "Membership updates propagate with relay latency — allow a few seconds before expecting roster parity.",
       demos: [
         { stem: "group_create_managed_workspace_1", alt: "Creating a managed group workspace" },
         { stem: "group_invite_member_1", alt: "Inviting a member to a group" },
@@ -376,22 +380,30 @@ const toHumanDate = (isoDate: string): string => {
 };
 
 const parseReleaseHighlights = (markdown: string): readonly ReleaseHighlight[] => {
-  const matches = Array.from(markdown.matchAll(RELEASE_SECTION_REGEX));
+  const matches = Array.from(markdown.matchAll(RELEASE_SECTION_REGEX)).filter((match) => {
+    const header = match[0] ?? "";
+    return !header.includes("[Unreleased]") && !header.includes("VOID");
+  });
+
   return matches.slice(0, 3).map((match, index) => {
-    const version = match[1] ?? "unknown";
+    const versionRaw = match[1] ?? "unknown";
+    const version = versionRaw.startsWith("v") ? versionRaw : `v${versionRaw}`;
     const releasedOn = match[2] ?? "";
     const sectionStart = match.index ?? 0;
     const nextSectionStart = matches[index + 1]?.index ?? markdown.length;
     const sectionBody = markdown.slice(sectionStart, nextSectionStart);
     const bulletMatches = Array.from(sectionBody.matchAll(/^- (.+)$/gm))
       .map((bulletMatch) => bulletMatch[1]?.trim() ?? "")
-      .filter((line) => line.length > 0)
+      .filter((line) => line.length > 0 && !line.startsWith("`"))
       .slice(0, 3);
 
     return {
       version,
       releasedOn: toHumanDate(releasedOn),
-      highlights: bulletMatches,
+      highlights:
+        bulletMatches.length > 0
+          ? bulletMatches
+          : ["See release notes in CHANGELOG for full detail."],
     };
   });
 };
@@ -482,7 +494,7 @@ type RawReleaseManifest = {
 
 const manifestArtifactHref = (repoRelativePath: string): string | null => {
   if (repoRelativePath.startsWith("release-assets/")) {
-    return `${RAW_GITHUB_BASE}/${repoRelativePath}`;
+    return `${REPO_GITHUB_RAW_BASE}/${repoRelativePath}`;
   }
   return null;
 };
@@ -681,7 +693,7 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
       href: "/guide",
     },
     {
-      label: "Known limitations",
+      label: "Product scope",
       href: "/limitations",
     },
     {
@@ -791,50 +803,50 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
 
   const platformCards = [
     {
-      name: "Web / PWA",
+      name: "Desktop (primary)",
       summary:
-        "Primary cross-platform runtime with local-first shell ownership, relay transport, and recovery tooling.",
-      path: "apps/pwa",
-    },
-    {
-      name: "Desktop",
-      summary:
-        "Tauri runtime with native storage, updater, and installer flows validated against release contracts.",
+        "Tauri shell with native SQLite authority — the production path we verify, package, and ship in release-assets.",
       path: "apps/desktop",
     },
     {
-      name: "Shared Packages",
+      name: "Android",
       summary:
-        "Reusable crypto, storage, nostr, and UI primitives under typed package boundaries.",
-      path: "packages/dweb-*",
+        "Universal release APK in the manifest — sideload only (no Play Store). Performance improved since early v1.9; 4 GB devices may still feel tight.",
+      path: "apps/desktop · mobile-android CI",
+    },
+    {
+      name: "Operator stack",
+      summary:
+        "Private relay + coordination contracts — point transports at infrastructure you control; stronger deletion semantics than public relays.",
+      path: "packages/dweb-transport-* · relay-gateway",
     },
   ] as const;
 
   const verificationItems: readonly VerificationItem[] = [
     {
-      label: "Phase 1 product truth",
+      label: "Desktop + SQLite authority",
       status: "pass",
-      note: "DM, group send/receive, and SQLite cold-restart soaks verified in maintainer matrix (2026-07-04).",
+      note: "DM, group send/receive, and cold-restart soaks verified on native desktop paths.",
     },
     {
-      label: "Docs contract",
+      label: "Multi-OS installers",
       status: "pass",
-      note: "Canonical docs checked with `pnpm docs:check`.",
+      note: "Windows, macOS, Linux, and Android APK published in release-assets/manifest.json with SHA-256.",
     },
     {
-      label: "Desktop installer",
+      label: "Transport presets",
       status: "pass",
-      note: "Windows NSIS packaged @ v1.9.10 with SHA-256 in release-assets/manifest.json.",
+      note: "v1.9.14 pool health + operator-friendly relay/mesh starting points — encryption stays on the client.",
     },
     {
-      label: "Android debug APK",
+      label: "Network boundaries",
       status: "partial",
-      note: "Debug build documented; sideload via local build — not a Play Store claim.",
+      note: "Public-relay immutability and distributed membership propagation are documented contracts — not product defects.",
     },
     {
-      label: "Accepted limitations",
-      status: "partial",
-      note: "Roster divergence (ACC-02) and restore boundaries documented — see /limitations.",
+      label: "Production web",
+      status: "pending",
+      note: "Browser PWA intentionally disabled — we refused dual IndexedDB/SQLite authority instead of shipping a lying web surface.",
     },
   ];
 

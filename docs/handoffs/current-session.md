@@ -8,9 +8,9 @@
 
 | Field | Value |
 |-------|--------|
-| Done | Desktop+web landed · Android **universal release-unsigned APK** landed in `release-assets/android/` + manifest · download page Ready/Download for Android |
-| Next | Commit + push Android land + download copy · optional GitHub Release publish |
-| Proof | APK `Obscur_1.9.14_universal-release-unsigned.apk` · CI run 29642033281 · site `/download` reads manifest |
+| Done | Desktop+web landed · Android APK in manifest · website copy reframed · **Phase A barrel trim** (ui-kit subpaths, conduit-mesh gateway/testing split, desktop/utils slim, auth leaf imports) |
+| Next | Re-run CodaCtrl Perf explore / sync · Phase B Android runtime audit on 4 GB device · deploy website · optional GitHub Release publish |
+| Proof | See [android-perf-phase-a-barrel-trim-2026-07.md](../program/android-perf-phase-a-barrel-trim-2026-07.md) · focused vitest suites green |
 
 **Paused:** community roster · `v2.0.0` tag.
 

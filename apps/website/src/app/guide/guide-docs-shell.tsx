@@ -75,7 +75,7 @@ function GuideSidebar({
           Download
         </Link>
         <Link href="/limitations" className="guide-nav-link" onClick={onClose}>
-          Known limitations
+          Product scope
         </Link>
         <Link href="/" className="guide-nav-link" onClick={onClose}>
           Product home
