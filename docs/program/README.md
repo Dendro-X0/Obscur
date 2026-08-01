@@ -33,6 +33,7 @@ Superseded program docs (~115 files) → [../archive/program/inactive-2026-06/](
 | [obscur-ui-archive-manifest.md](./obscur-ui-archive-manifest.md) | Frozen UI + preserved ui-kit |
 | [obscur-engine-lab-charter.md](./obscur-engine-lab-charter.md) | Lab frame + geometry |
 | [obscur-conduit-mesh-concept-2026-06.md](./obscur-conduit-mesh-concept-2026-06.md) | **Active** — post-relay transport concept (experimental) |
+| [self-hosted-relay-vps-operator-notes-2026-08.md](./self-hosted-relay-vps-operator-notes-2026-08.md) | **P5** — VPS / private relay stability ops (not public SLA) |
 | [conduit-mesh-c1-contracts-charter.md](./conduit-mesh-c1-contracts-charter.md) | **Landed** — `@obscur/conduit-mesh-contracts` · `verify:conduit-mesh-c1` |
 | [conduit-mesh-c2-runtime-charter.md](./conduit-mesh-c2-runtime-charter.md) | **Landed** — `@obscur/conduit-mesh` · `verify:conduit-mesh-c2` |
 | [conduit-mesh-c3-tor-policy-charter.md](./conduit-mesh-c3-tor-policy-charter.md) | **Landed** — Tor policy · `verify:conduit-mesh-c3` |

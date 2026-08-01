@@ -14,6 +14,9 @@
  */
 export type CircuitBreakerState = 'closed' | 'open' | 'half-open';
 
+/** How the latest latency sample was measured. */
+export type RelayLatencySampleSource = "connect" | "app";
+
 /**
  * Relay health metrics
  */
@@ -33,6 +36,8 @@ export interface RelayHealthMetrics {
   // Performance metrics
   latency: number; // Average latency in ms
   latencyHistory: number[]; // Last 10 latency measurements
+  /** Last sample kind — drives Relays UI "Connect" vs "RTT" label (P2). */
+  latencySampleSource?: RelayLatencySampleSource;
   successRate: number; // Percentage of successful operations
   
   // Circuit breaker
@@ -208,10 +213,16 @@ export class RelayHealthMonitor {
 
   /**
    * Record latency measurement
+   * @param source - `app` = in-pool REQ→EOSE; `connect` = open/handshake (default)
    */
-  recordLatency(url: string, latencyMs: number): void {
+  recordLatency(
+    url: string,
+    latencyMs: number,
+    source: RelayLatencySampleSource = "connect",
+  ): void {
     const metrics = this.getOrCreateMetrics(url);
     const previousAverage = metrics.latency;
+    const previousSource = metrics.latencySampleSource;
 
     // Add to history
     metrics.latencyHistory.push(latencyMs);
@@ -223,12 +234,14 @@ export class RelayHealthMonitor {
 
     // Calculate average latency
     metrics.latency = metrics.latencyHistory.reduce((sum, l) => sum + l, 0) / metrics.latencyHistory.length;
+    metrics.latencySampleSource = source;
 
     this.metrics.set(url, metrics);
 
     const firstSample = metrics.latencyHistory.length === 1;
     const averageMoved = Math.abs(metrics.latency - previousAverage) >= 75;
-    if (firstSample || averageMoved) {
+    const sourceChanged = previousSource !== source;
+    if (firstSample || averageMoved || sourceChanged) {
       this.notifyListeners();
     }
   }

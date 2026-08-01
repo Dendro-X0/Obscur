@@ -32,7 +32,7 @@ describe("deriveRelayRuntimeStatus", () => {
       nowUnixMs: 60_000,
     });
     expect(status.status).toBe("degraded");
-    expect(status.label).toContain("event flow");
+    expect(status.label).toContain("quiet");
   });
 
   it("returns healthy only when configured relays are writable and events are fresh", () => {
@@ -128,7 +128,8 @@ describe("deriveRelayNodeStatus", () => {
       nowUnixMs: 60_000,
     });
     expect(status.status).toBe("degraded");
-    expect(status.badge).toBe("No recent events");
+    expect(status.badge).toBe("Quiet");
+    expect(status.detail.toLowerCase()).toContain("not high latency");
   });
 
   it("labels probed standbys when there is no active-pool socket", () => {

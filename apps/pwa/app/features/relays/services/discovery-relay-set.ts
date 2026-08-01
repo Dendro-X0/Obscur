@@ -1,9 +1,9 @@
 "use client";
 
 export const GLOBAL_DISCOVERY_RELAY_URLS: ReadonlyArray<string> = [
-  "wss://relay.damus.io",
   "wss://nos.lol",
   "wss://relay.primal.net",
+  "wss://relay.damus.io",
 ];
 
 export const mergeRelaySets = (

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
@@ -13,17 +13,23 @@ import type { SettingsTabPanelModel } from "../settings-tab-panel-model-context"
 import {
   buildRelayRowsFromPreset,
   getTransportPreset,
+  PRODUCT_BOOT_TRANSPORT_PRESET,
 } from "@/app/features/transport-kernel/transport-preset-catalog";
+import { applyRustMeshConfigureFromPreset } from "@/app/features/transport-kernel/apply-rust-mesh-configure";
 import {
+  isTorPresetApplyBlocked,
   resolveTemplatePrefillUrl,
   shouldConfirmPresetReplace,
 } from "@/app/features/transport-kernel/transport-preset-apply-policy";
+import { useConduitMeshTorSettingsState } from "@/app/features/transport-kernel/use-conduit-mesh-tor-settings-state";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { DEFAULT_STABLE_PRESET, ENABLE_API_HEALTH_PROBE, RELAY_PRESETS, TRANSPORT_PRESET_GROUPS, type ApiHealthState, type RelayPresetId, } from "../settings-tab-panel-shared";
 import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
 import { useSettingsRelayRuntimeStatus } from "./use-settings-relay-runtime-status";
 export function useRelaysSettingsModel(): SettingsTabPanelModel {
     const { t } = useTranslation();
     const destructive = useSettingsDestructiveActionsModel();
+    const torState = useConduitMeshTorSettingsState();
     const { relayPool: pool, relayList, relayRuntime, triggerRelayRecovery, relaySelection, setRelayTransportMode, } = useRelay();
     const poolRef = useRelayPoolRef(pool);
     const [apiHealth, setApiHealth] = useState<ApiHealthState>({ status: "idle" });
@@ -61,12 +67,16 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
                 return t("settings.relays.runtime.configuredHealthyDesc");
             case "Configured relays are writable and this window is seeing recent relay events.":
                 return t("settings.relays.runtime.communicationHealthyDesc");
-            case "Relay event flow degraded":
+            case "Relay window quiet":
                 return t("settings.relays.runtime.eventFlowDegraded");
             case "Relay connectivity degraded":
                 return t("settings.relays.runtime.connectivityDegraded");
+            case "Sockets are open and may have fine Connect/RTT; this window is idle (no recent events). Quiet is not high latency — send or wait for traffic.":
+                return t("settings.relays.runtime.eventFlowDegradedDesc");
             case "Sockets are open, but this window has not seen recent relay events.":
                 return t("settings.relays.runtime.eventFlowDegradedDesc");
+            case "Relay event flow degraded":
+                return t("settings.relays.runtime.eventFlowDegraded");
             case "Fallback relays are active; connectivity is working with reduced trust and redundancy.":
                 return t("settings.relays.runtime.connectivityDegradedDesc");
             case "Some configured relays are unavailable or partially useful. Review individual relay status below.":
@@ -90,6 +100,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
             case "Fallback active": return t("settings.relays.node.badge.fallbackActive");
             case "Degraded": return t("settings.relays.node.badge.degraded");
             case "High latency": return t("settings.relays.node.badge.highLatency");
+            case "Quiet": return t("settings.relays.node.badge.quiet", { defaultValue: "Quiet" });
             case "No recent events": return t("settings.relays.node.badge.noRecentEvents");
             case "Healthy": return t("settings.relays.node.badge.healthy");
             default: return value;
@@ -120,6 +131,10 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
                 return t("settings.relays.node.detail.degraded");
             case "The socket is open, but observed latency is high enough to reduce delivery quality.":
                 return t("settings.relays.node.detail.highLatency");
+            case "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.":
+                return t("settings.relays.node.detail.quiet", {
+                    defaultValue: "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.",
+                });
             default:
                 if (value.startsWith("Repeated failures triggered backoff. Next retry is scheduled automatically.")) {
                     return t("settings.relays.node.detail.backoffRetry");
@@ -268,14 +283,39 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
             setRelayActionMessage("Unknown preset.");
             return undefined;
         }
+        if (isTorPresetApplyBlocked(preset, torState)) {
+            const blockedMessage = torState.configured
+                ? t("settings.relays.presetTorNotReady", {
+                    defaultValue: "Tor is still starting. Wait until Tor is ready, then apply this pack.",
+                })
+                : t("settings.relays.presetTorFollowUp");
+            setRelayActionPhase("error");
+            setRelayActionMessage(blockedMessage);
+            toast.error(blockedMessage);
+            return undefined;
+        }
         relayList.replaceRelays({
             relays: [...buildRelayRowsFromPreset(preset)],
         });
         setRelayTransportMode(preset.transportMode);
+        void applyRustMeshConfigureFromPreset({
+            profileId: getResolvedProfileId(),
+            preset,
+            torReady: torState.ready,
+            torConfigured: torState.configured,
+            connect: true,
+        }).then((meshResult) => {
+            if (meshResult.attempted && !meshResult.ok) {
+                console.warn(
+                    "[relays] configureMeshConduits soft-failed after preset apply",
+                    meshResult.errorMessage,
+                );
+            }
+        });
         const label = t(preset.labelKey);
         const description = t(preset.descriptionKey);
         const followUps = [
-            preset.requiresTor ? t("settings.relays.presetTorFollowUp") : "",
+            preset.requiresTor && !torState.ready ? t("settings.relays.presetTorFollowUp") : "",
             preset.isUrlTemplate ? t("settings.relays.presetTemplateFollowUp") : "",
         ].filter(Boolean).join(" ");
         setRelayActionPhase("success");
@@ -285,15 +325,19 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
             toast.info(followUps);
         }
         return resolveTemplatePrefillUrl(preset);
-    }, [relayList, setRelayTransportMode, t]);
+    }, [relayList, setRelayTransportMode, t, torState]);
     const requestApplyRelayPreset = useCallback((presetId: RelayPresetId): string | undefined => {
+        const preset = getTransportPreset(presetId);
+        if (preset && isTorPresetApplyBlocked(preset, torState)) {
+            return applyRelayPreset(presetId);
+        }
         if (shouldConfirmPresetReplace(relayList.state.relays)) {
             setPendingPresetApplyId(presetId);
             setIsPresetApplyConfirmOpen(true);
             return undefined;
         }
         return applyRelayPreset(presetId);
-    }, [applyRelayPreset, relayList.state.relays]);
+    }, [applyRelayPreset, relayList.state.relays, torState]);
     const confirmApplyRelayPreset = useCallback((): string | undefined => {
         if (!pendingPresetApplyId) {
             return undefined;
@@ -309,6 +353,14 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     }, []);
     const handleResetRelaySection = (): void => {
         relayList.resetRelays();
+        setRelayTransportMode(PRODUCT_BOOT_TRANSPORT_PRESET.transportMode);
+        void applyRustMeshConfigureFromPreset({
+            profileId: getResolvedProfileId(),
+            preset: PRODUCT_BOOT_TRANSPORT_PRESET,
+            torReady: torState.ready,
+            torConfigured: torState.configured,
+            connect: true,
+        });
         setRelayActionPhase("success");
         setRelayActionMessage("Relay section reset to default list.");
         toast.success("Relay section reset.");

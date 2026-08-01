@@ -6,6 +6,8 @@ import type {
 } from "@obscur/conduit-mesh";
 import type { NostrWsWirePort } from "@obscur/conduit-mesh";
 import { parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts";
+import { createRelayWebSocket } from "@/app/features/relays/hooks/create-relay-websocket";
+import { relayHealthMonitor } from "@/app/features/relays/hooks/relay-health-monitor";
 
 export type ConduitMeshNostrWsClient = NostrWsWirePort & ConduitMeshNostrSubscriptionPort & Readonly<{
   setRelayUrls: (urls: ReadonlyArray<string>) => void;
@@ -24,6 +26,8 @@ type RelaySocketState = {
   status: ConduitMeshNostrConnectionSnapshot["status"];
   errorMessage?: string;
   pendingOkResolvers: Map<string, (message: string) => void>;
+  /** True after success or fail-to-open has been recorded for this dial attempt. */
+  connectOutcomeRecorded: boolean;
 };
 
 const isWebSocketRelayUrl = (url: string): boolean => (
@@ -137,17 +141,37 @@ export const createConduitMeshNostrWsClient = (
       socket: null,
       status: "connecting",
       pendingOkResolvers: new Map(),
+      connectOutcomeRecorded: false,
     };
     sockets.set(url, entry);
     notifyConnectionListeners();
 
-    const socket = new WebSocket(url);
+    relayHealthMonitor.recordConnectionAttempt(url);
+
+    const recordOpenSuccess = (): void => {
+      if (entry.connectOutcomeRecorded) {
+        return;
+      }
+      entry.connectOutcomeRecorded = true;
+      relayHealthMonitor.recordConnectionSuccess(url);
+    };
+
+    const recordOpenFailure = (reason: string): void => {
+      if (entry.connectOutcomeRecorded) {
+        return;
+      }
+      entry.connectOutcomeRecorded = true;
+      relayHealthMonitor.recordConnectionFailure(url, reason);
+    };
+
+    const socket = createRelayWebSocket(url);
     entry.socket = socket;
 
     const connectTimeoutId = setTimeout(() => {
       if (entry.status === "connecting") {
         entry.status = "error";
         entry.errorMessage = "connect_timeout";
+        recordOpenFailure("connect_timeout");
         notifyConnectionListeners();
         try {
           socket.close();
@@ -161,6 +185,7 @@ export const createConduitMeshNostrWsClient = (
       clearTimeout(connectTimeoutId);
       entry.status = "open";
       entry.errorMessage = undefined;
+      recordOpenSuccess();
       notifyConnectionListeners();
     };
 
@@ -172,13 +197,23 @@ export const createConduitMeshNostrWsClient = (
     };
 
     socket.onerror = () => {
-      entry.status = "error";
-      entry.errorMessage = "websocket_error";
-      notifyConnectionListeners();
+      if (entry.status === "connecting") {
+        entry.status = "error";
+        entry.errorMessage = "websocket_error";
+        recordOpenFailure("websocket_error");
+        notifyConnectionListeners();
+      }
     };
 
     socket.onclose = () => {
       clearTimeout(connectTimeoutId);
+      const wasOpen = entry.status === "open";
+      const wasConnecting = entry.status === "connecting";
+      if (wasConnecting) {
+        recordOpenFailure("closed_before_open");
+      } else if (wasOpen) {
+        relayHealthMonitor.recordDisconnection(url);
+      }
       entry.status = "closed";
       notifyConnectionListeners();
     };

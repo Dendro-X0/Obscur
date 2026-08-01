@@ -44,22 +44,23 @@ describe("probeStandbyRelayLatency", () => {
     expect(result.latencyMs).toBe(5);
   });
 
-  it("resolves ok=true after frame-timeout (open but no frame)", async () => {
+  it("resolves ok=true with open-handshake latency when open but no frame", async () => {
     vi.useFakeTimers();
     const frameTimeoutMs = 50;
+    const openDelayMs = 5;
     const factory = (): WebSocket => {
       const ws = makeWsFake();
-      setTimeout(() => { ws.onopen?.(fakeEvent); }, 5);
+      setTimeout(() => { ws.onopen?.(fakeEvent); }, openDelayMs);
       return ws as unknown as WebSocket;
     };
 
     const promise = probeStandbyRelayLatency("wss://relay.test", frameTimeoutMs, factory);
-    await vi.advanceTimersByTimeAsync(5);
+    await vi.advanceTimersByTimeAsync(openDelayMs);
     await vi.advanceTimersByTimeAsync(frameTimeoutMs);
     await vi.runAllTimersAsync();
     const result = await promise;
     expect(result.ok).toBe(true);
-    expect(result.latencyMs).toBe(frameTimeoutMs);
+    expect(result.latencyMs).toBe(openDelayMs);
   });
 
   it("resolves ok=false when socket errors", async () => {

@@ -147,9 +147,9 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
   ) {
     return {
       status: "degraded",
-      label: staleEvents ? "Relay event flow degraded" : "Relay connectivity degraded",
+      label: staleEvents ? "Relay window quiet" : "Relay connectivity degraded",
       actionText: staleEvents
-        ? "Sockets are open, but this window has not seen recent relay events."
+        ? "Sockets are open and may have fine Connect/RTT; this window is idle (no recent events). Quiet is not high latency — send or wait for traffic."
         : effectiveConnectedCount > 0 && effectiveConnectedCount < totalCount
           ? `Redundancy reduced — ${effectiveConnectedCount} of ${totalCount} transport endpoints are publish-ready.`
           : fallbackRelayCount > 0
@@ -285,8 +285,8 @@ export const deriveRelayNodeStatus = (params: Readonly<{
     if (staleEvents) {
       return {
         status: "degraded",
-        badge: "No recent events",
-        detail: "The socket is open, but this window has not seen recent useful relay events.",
+        badge: "Quiet",
+        detail: "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.",
         roleLabel,
         successLabel,
         confidenceLabel,

@@ -23,6 +23,18 @@ const toErrorMessage = (error: unknown): string => (
     error instanceof Error ? error.message : String(error)
 );
 
+const relayHostLabel = (url: string): string => {
+    try {
+        return new URL(url).host || url;
+    } catch {
+        return url;
+    }
+};
+
+const softRelayConnectUserMessage = (url: string): string => (
+    `Couldn't reach ${relayHostLabel(url)}. The network or that relay may be temporarily unavailable.`
+);
+
 const NOT_CONNECTED_PATTERN = /\bnot connected\b/i;
 const isNotConnectedError = (message: string): boolean => NOT_CONNECTED_PATTERN.test(message);
 const TIMEOUT_PATTERN = /\b(timeout|timed out)\b/i;
@@ -70,25 +82,27 @@ export class NativeRelay implements EventTarget {
     private socket: WebSocket | null = null;
     private nativeConnected: boolean = false;
     private nativeDisconnectInFlight: boolean = false;
+    private connectStartedAtUnixMs: number | undefined;
+
+    private markConnectAttemptStarted(): void {
+        this.connectStartedAtUnixMs = Date.now();
+    }
+
+    private recordOpenLatencyOnce(): void {
+        const started = this.connectStartedAtUnixMs;
+        if (typeof started !== "number") {
+            return;
+        }
+        this.connectStartedAtUnixMs = undefined;
+        const latencyMs = Math.max(1, Date.now() - started);
+        relayHealthMonitor.recordLatency(this.url, latencyMs, "connect");
+    }
 
     private async initAndConnect() {
         try {
-            const torStatus = await relayNativeAdapter.getTorStatus();
-            if (this.closeRequested || this.readyState === NativeRelay.CLOSING || this.readyState === NativeRelay.CLOSED) {
-                return;
-            }
-
-            if (!torStatus.configured) {
-                this.transportMode = "browser";
-                logRuntimeEvent("native_relay.browser_preferred", "expected", [
-                    `[NativeRelay] Tor disabled for ${this.url}; using browser WebSocket transport`,
-                ]);
-                this.connectBrowser();
-                return;
-            }
-
             try {
                 this.transportMode = "native";
+                this.markConnectAttemptStarted();
                 await this.initListeners();
                 if (this.closeRequested || this.readyState === NativeRelay.CLOSING || this.readyState === NativeRelay.CLOSED) {
                     this.cleanup();
@@ -173,7 +187,7 @@ export class NativeRelay implements EventTarget {
                     return;
                 }
                 this.readyState = NativeRelay.OPEN;
-                relayHealthMonitor.recordConnectionSuccess(this.url);
+                this.recordOpenLatencyOnce();
                 this.dispatchEvent(new Event("open"));
                 if (this.onopen) {
                     const wsThis = this as unknown as WebSocket;
@@ -194,7 +208,6 @@ export class NativeRelay implements EventTarget {
             };
 
             browserSocket.onerror = (event) => {
-                relayHealthMonitor.recordConnectionFailure(this.url, "WebSocket error");
                 finalizeBrowserFailure(event);
             };
 
@@ -224,7 +237,7 @@ export class NativeRelay implements EventTarget {
                 this.nativeConnected = true;
                 this.readyState = NativeRelay.OPEN;
                 if (!wasOpen) {
-                    relayHealthMonitor.recordConnectionSuccess(this.url);
+                    this.recordOpenLatencyOnce();
                     this.dispatchEvent(new Event("open"));
                     if (this.onopen) {
                         const wsThis = this as unknown as WebSocket;
@@ -234,11 +247,7 @@ export class NativeRelay implements EventTarget {
             } else if (status === "disconnected") {
                 this.nativeConnected = false;
                 if (this.readyState !== NativeRelay.CLOSED) {
-                    const wasClosing = this.closeRequested || this.readyState === NativeRelay.CLOSING;
                     this.readyState = NativeRelay.CLOSED;
-                    if (!wasClosing) {
-                        relayHealthMonitor.recordConnectionFailure(this.url, "Unexpected disconnect");
-                    }
                     const closeEvent = new CloseEvent("close", { wasClean: true });
                     this.dispatchEvent(closeEvent);
                     if (this.onclose) {
@@ -248,7 +257,6 @@ export class NativeRelay implements EventTarget {
                 }
             } else if (status === "error") {
                 this.nativeConnected = false;
-                relayHealthMonitor.recordConnectionFailure(this.url, "Relay error");
                 const errorEvent = createRelayErrorEvent("Relay status error");
                 this.dispatchEvent(errorEvent);
                 if (this.onerror) {
@@ -278,14 +286,15 @@ export class NativeRelay implements EventTarget {
 
     private async connect() {
         try {
+            this.markConnectAttemptStarted();
             const result = await relayNativeAdapter.connectRelay(this.url);
-            relayHealthMonitor.recordConnectionSuccess(this.url);
             this.nativeConnected = true;
 
             // CRITICAL FIX: Handle "Already connected" response
             if (result === "Already connected") {
                 if (this.readyState !== NativeRelay.OPEN) {
                     this.readyState = NativeRelay.OPEN;
+                    this.recordOpenLatencyOnce();
                     this.dispatchEvent(new Event("open"));
                     if (this.onopen) {
                         const wsThis = this as unknown as WebSocket;
@@ -299,7 +308,6 @@ export class NativeRelay implements EventTarget {
                 `Failed to connect to native relay ${this.url}: ${errorMessage}`,
                 e,
             ]);
-            relayHealthMonitor.recordConnectionFailure(this.url, errorMessage);
             this.nativeConnected = false;
 
             const torStatus = await relayNativeAdapter.getTorStatus();
@@ -328,13 +336,18 @@ export class NativeRelay implements EventTarget {
                 this.cleanup();
                 this.transportMode = "browser";
                 this.readyState = NativeRelay.CONNECTING;
+                this.markConnectAttemptStarted();
                 this.connectBrowser();
                 return;
             }
 
             nativeErrorStore.addError({
                 code: "RELAY_CONNECT_FAILED",
-                message: `Failed to connect to ${this.url}: ${e}${probeMessage ? `\n${probeMessage}` : ""}`,
+                message: softRelayConnectUserMessage(this.url),
+                detail: [
+                    `Failed to connect to ${this.url}: ${errorMessage}`,
+                    probeMessage,
+                ].filter(Boolean).join("\n"),
                 retryable: true,
                 retry: () => this.connect()
             });

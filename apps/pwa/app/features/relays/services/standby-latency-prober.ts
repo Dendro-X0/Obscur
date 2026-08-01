@@ -8,7 +8,7 @@
  *  - Wait for the first frame from the server (typically a NOTICE or any relay
  *    greeting).  Many relays send NOTICE on connect; if none arrives within
  *    the timeout we fall back to measuring just the open-handshake time.
- *  - Record elapsed ms from open-start to first-frame-received.
+ *  - Record elapsed ms from open-start to first-frame-received (or to open).
  *  - Close the socket immediately after measurement.
  *
  * This is intentionally lightweight: no AUTH, no REQ, no EVENT.
@@ -40,6 +40,7 @@ export const probeStandbyRelayLatency = (
   return new Promise((resolve) => {
     const startMs = Date.now();
     let settled = false;
+    let openedAtMs: number | undefined;
 
     const settle = (result: StandbyProbeResult): void => {
       if (settled) return;
@@ -73,7 +74,15 @@ export const probeStandbyRelayLatency = (
     }
 
     const frameTimer = setTimeout(() => {
-      settle({ url, latencyMs: Date.now() - startMs, ok: true });
+      if (typeof openedAtMs === "number") {
+        settle({
+          url,
+          latencyMs: Math.max(1, openedAtMs - startMs),
+          ok: true,
+        });
+        return;
+      }
+      settle({ url, latencyMs: 0, ok: false, errorMessage: "frame timeout without open" });
     }, timeoutMs);
 
     const openTimer = setTimeout(() => {
@@ -81,11 +90,12 @@ export const probeStandbyRelayLatency = (
     }, OPEN_ONLY_TIMEOUT_MS);
 
     ws.onopen = (_ev: Event) => {
+      openedAtMs = Date.now();
       clearTimeout(openTimer);
     };
 
     ws.onmessage = (_ev: MessageEvent) => {
-      settle({ url, latencyMs: Date.now() - startMs, ok: true });
+      settle({ url, latencyMs: Math.max(1, Date.now() - startMs), ok: true });
     };
 
     ws.onerror = (_ev: Event) => {

@@ -1,18 +1,92 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-07-19T14:35:00Z
+- Last Updated (UTC): 2026-08-01T06:45:00Z
 
 ## Next atomic step
 
-**Full Release — v1.9.14 multi-OS** · 2026-07-19
+**Hold — Desktop Relays smoke Pass (P0–P6 signals)** · 2026-08-01
 
 | Field | Value |
 |-------|--------|
-| Done | Desktop+web landed · Android APK in manifest · website copy reframed · **Phase A barrel trim** (ui-kit subpaths, conduit-mesh gateway/testing split, desktop/utils slim, auth leaf imports) |
-| Next | Re-run CodaCtrl Perf explore / sync · Phase B Android runtime audit on 4 GB device · deploy website · optional GitHub Release publish |
-| Proof | See [android-perf-phase-a-barrel-trim-2026-07.md](../program/android-perf-phase-a-barrel-trim-2026-07.md) · focused vitest suites green |
+| Status | **Pass** (desktop evidence) — not public SLA |
+| Report | `test-results/p0-p6-relay-smoke-2026-08-01.json` |
+| Runtime | mix 3 public + local · pool nos+primal+localhost · writable=3 · primary nos.lol |
+| P2 | `Connect 908ms` · `RTT 209ms` / `RTT 1ms` · history **APP RTT** / **Connect** |
+| P3 | Open pool members `Insufficient data (1)` (not stuck at 0); standby damus may stay 0 |
+| P4 | **Quiet** + “idle … not high latency” / **Relay window quiet** |
+| P6 | Redundancy dial prefers healthy remotes with local (pool line evidence) |
+| Claim | Relays UI/runtime smoke **Pass** for P0–P6 signals; public Nostr **not** SLA-fixed |
+| Forbidden | COM-RUN-01 · AUTH-SESSION · Mbps · public SLA |
+| Optional next | Commit band (if maintainer asks) · or leave Hold |
 
-**Paused:** community roster · `v2.0.0` tag.
+**Paused:** COM-RUN-* · O-2/O-4 · RIW-8 · Dev Lab as validation · AUTH-SESSION  
+
+---
+
+## Prior atomic step — P6 E3 probe-rank dial preference (L1)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [design](../../specs/backend/relay-probe-rank-dial-preference-design-2026-08.md) |
+| Proof L1 | vitest `relay-primary-selector.test.ts` — **19 Pass** |
+
+---
+
+## Prior atomic step — P3→P4 success samples + Quiet copy (L1)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Specs | [P3](../../specs/backend/relay-mesh-connection-sample-wiring-design-2026-08.md) · [P4](../../specs/backend/relay-freshness-idle-copy-design-2026-08.md) |
+| Proof L1 | vitest mesh client + runtime-status — **18 Pass** |
+
+---
+
+## Prior atomic step — P5 self-hosted VPS operator notes
+
+| Field | Value |
+|-------|--------|
+| Status | **Done** (docs) |
+| Spec | [operator notes](../program/self-hosted-relay-vps-operator-notes-2026-08.md) |
+
+---
+
+## Prior atomic step — P2 connect-vs-RTT labels (L1)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) — desktop smoke later Pass |
+| Spec | [design](../../specs/backend/relay-latency-source-label-design-2026-07.md) |
+
+---
+
+## Prior atomic step — P1 in-pool app RTT (L1)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [design](../../specs/backend/relay-in-pool-app-rtt-design-2026-07.md) |
+
+---
+
+## Prior atomic step — P0 desktop Relays smoke Pass
+
+| Field | Value |
+|-------|--------|
+| Status | **Pass** — local + public dialed; UI Avg Latency ~50ms; writable=3 |
+| Report | `test-results/p0-relay-smoke-2026-08-01.json` |
+| Spec | [research](../../specs/backend/relay-latency-stability-research-2026-07.md) |
+
+---
+
+## Prior atomic step — E2c local-lab vs remote dial (L1)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) — P0 dial evidence supports membership with local+public |
+| Spec | [design](../../specs/backend/local-lab-remote-interaction-dial-design-2026-07.md) |
+| Proof L1 | vitest `relay-primary-selector.test.ts` — **16 Pass** |
 
 ---
 

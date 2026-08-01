@@ -14,6 +14,18 @@ describe("buildRelayHealthHints", () => {
     expect(hints[0]?.isOpen).toBe(true);
   });
 
+  it("E2b: matches localhost and 127.0.0.1 workspace relay URLs for open hints", () => {
+    const hints = buildRelayHealthHints(
+      ["ws://localhost:7000"],
+      {
+        connections: [{ url: "ws://127.0.0.1:7000", status: "open", updatedAtUnixMs: 0 }],
+        getRelayHealth: () => undefined,
+      },
+    );
+    expect(hints[0]?.isOpen).toBe(true);
+    expect(hints[0]?.isWritable).toBe(true);
+  });
+
   it("marks probed standbys as open when latency samples exist", () => {
     const hints = buildRelayHealthHints(
       ["wss://nos.lol"],

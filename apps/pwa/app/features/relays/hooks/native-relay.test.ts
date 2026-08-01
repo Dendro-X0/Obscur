@@ -19,6 +19,7 @@ const errorStoreMocks = vi.hoisted(() => ({
 const healthMocks = vi.hoisted(() => ({
   recordConnectionSuccess: vi.fn(),
   recordConnectionFailure: vi.fn(),
+  recordLatency: vi.fn(),
 }));
 
 vi.mock("./relay-native-adapter", () => ({
@@ -105,33 +106,33 @@ describe("NativeRelay", () => {
     expect(relay.readyState).toBe(NativeRelay.OPEN);
   });
 
-  it("prefers browser websocket path on desktop when tor is disabled", async () => {
+  it("uses native adapter path on desktop when tor is disabled", async () => {
     adapterMocks.getTorStatus.mockResolvedValue(torDisabledStatus);
+    adapterMocks.listenRelayStatus.mockResolvedValue(() => undefined);
+    adapterMocks.listenRelayEvent.mockResolvedValue(() => undefined);
+    adapterMocks.connectRelay.mockResolvedValue("Already connected");
 
     const relay = new NativeRelay("wss://relay.example");
     await flushRelayInit();
 
-    expect(adapterMocks.listenRelayStatus).not.toHaveBeenCalled();
-    expect(adapterMocks.listenRelayEvent).not.toHaveBeenCalled();
-    expect(adapterMocks.connectRelay).not.toHaveBeenCalled();
-    expect(MockWebSocket.instances).toHaveLength(1);
-    const browserSocket = MockWebSocket.instances[0];
-    browserSocket?.onopen?.(new Event("open"));
-
+    expect(adapterMocks.listenRelayStatus).toHaveBeenCalledTimes(1);
+    expect(adapterMocks.listenRelayEvent).toHaveBeenCalledTimes(1);
+    expect(adapterMocks.connectRelay).toHaveBeenCalledWith("wss://relay.example");
+    expect(MockWebSocket.instances).toHaveLength(0);
     expect(relay.readyState).toBe(NativeRelay.OPEN);
   });
 
-  it("does not call native connect when tor is disabled", async () => {
+  it("does not bypass native connect when tor is disabled", async () => {
     adapterMocks.getTorStatus.mockResolvedValue(torDisabledStatus);
+    adapterMocks.listenRelayStatus.mockResolvedValue(() => undefined);
+    adapterMocks.listenRelayEvent.mockResolvedValue(() => undefined);
+    adapterMocks.connectRelay.mockResolvedValue("Already connected");
 
     const relay = new NativeRelay("wss://relay.example");
     await flushRelayInit();
 
-    expect(adapterMocks.connectRelay).not.toHaveBeenCalled();
-    expect(MockWebSocket.instances).toHaveLength(1);
-    const browserSocket = MockWebSocket.instances[0];
-    browserSocket?.onopen?.(new Event("open"));
-
+    expect(adapterMocks.connectRelay).toHaveBeenCalledWith("wss://relay.example");
+    expect(MockWebSocket.instances).toHaveLength(0);
     expect(relay.readyState).toBe(NativeRelay.OPEN);
     expect(errorStoreMocks.addError).not.toHaveBeenCalledWith(
       expect.objectContaining({ code: "RELAY_CONNECT_FAILED" }),
@@ -154,7 +155,7 @@ describe("NativeRelay", () => {
     expect(adapterMocks.unsubscribeRelay).toHaveBeenCalledWith("wss://relay.example", "sub-1");
   });
 
-  it("does not call native disconnect when closed before browser fallback initialization finishes", async () => {
+  it("does not call native disconnect when closed before native initialization finishes", async () => {
     let resolveTorStatus: ((value: typeof torDisabledStatus) => void) | undefined;
     adapterMocks.getTorStatus.mockImplementation(() => new Promise((resolve) => {
       resolveTorStatus = resolve;
@@ -169,9 +170,24 @@ describe("NativeRelay", () => {
     expect(relay.readyState).toBe(NativeRelay.CLOSED);
   });
 
-  it("marks browser fallback as closed after websocket error so reconnect logic can replace it", async () => {
+  it("falls back to browser websocket after native connect failure without Tor", async () => {
     adapterMocks.getTorStatus.mockResolvedValue(torDisabledStatus);
-    adapterMocks.listenRelayStatus.mockRejectedValue(new Error("native listen failed"));
+    adapterMocks.listenRelayStatus.mockResolvedValue(() => undefined);
+    adapterMocks.listenRelayEvent.mockResolvedValue(() => undefined);
+    adapterMocks.connectRelay.mockRejectedValue(new Error("native connect failed"));
+    adapterMocks.probeRelay.mockResolvedValue({
+      url: "wss://relay.example",
+      scheme: "wss",
+      host: "relay.example",
+      port: 443,
+      tor_enabled: false,
+      proxy_url: null,
+      dns_ok: true,
+      dns_results: ["1.1.1.1"],
+      tcp_ok: true,
+      ws_ok: false,
+      error: "handshake failed",
+    });
 
     const relay = new NativeRelay("wss://relay.example");
     await flushRelayInit();
@@ -179,10 +195,15 @@ describe("NativeRelay", () => {
     const browserSocket = MockWebSocket.instances[0];
     expect(browserSocket).toBeDefined();
 
-    browserSocket?.onerror?.(new Event("error"));
+    browserSocket?.onopen?.(new Event("open"));
 
-    expect(relay.readyState).toBe(NativeRelay.CLOSED);
-    expect(healthMocks.recordConnectionFailure).toHaveBeenCalledWith("wss://relay.example", "WebSocket error");
+    expect(adapterMocks.connectRelay).toHaveBeenCalledWith("wss://relay.example");
+    expect(adapterMocks.probeRelay).toHaveBeenCalledWith("wss://relay.example");
+    expect(relay.readyState).toBe(NativeRelay.OPEN);
+    expect(healthMocks.recordLatency).toHaveBeenCalledWith(
+      "wss://relay.example",
+      expect.any(Number),
+    );
   });
 
   it("emits structured connect failure detail for native hard failures without bypassing tor diagnostics", async () => {

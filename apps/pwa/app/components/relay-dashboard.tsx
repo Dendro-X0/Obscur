@@ -8,6 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRelay } from '@/app/features/relays/providers/relay-provider';
 import type { EnhancedRelayPoolResult } from '@/app/features/relays/hooks/enhanced-relay-pool-types';
 import { deriveRelayNodeStatus } from '@/app/features/relays/lib/relay-runtime-status';
+import {
+  formatRelayLatencyHistoryCaption,
+  formatRelayLatencyLabel,
+} from '@/app/features/relays/lib/format-relay-latency-label';
 import type { RelayRuntimeSnapshot } from '@/app/features/relays/services/relay-runtime-contracts';
 import type { RelaySettingsCategory } from '@/app/features/relays/services/relay-settings-node-filter';
 import {
@@ -216,12 +220,13 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
         runtimePhase: relayRuntime.phase,
         lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
     });
-    const latencyLabel = metrics && Number.isFinite(metrics.latency) && metrics.latency > 0
-        ? `${Math.round(metrics.latency)}ms`
-        : "n/a";
+    const latencyLabel = formatRelayLatencyLabel(metrics);
     const sampleCount = metrics ? metrics.successfulConnections + metrics.failedConnections : 0;
     const latencyHistory = metrics?.latencyHistory ?? [];
     const hasLatencySamples = latencyHistory.length > 0;
+    const latencyHistoryCaption = hasLatencySamples
+        ? formatRelayLatencyHistoryCaption(metrics)
+        : `No samples (${sampleCount})`;
 
     return (
         <motion.div
@@ -274,7 +279,7 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                 <div className="space-y-1">
                     <div className="flex justify-between items-center text-[9px] uppercase tracking-tighter font-bold opacity-40">
                         <span>Latency History</span>
-                        <span>{hasLatencySamples ? "Last samples" : `No samples (${sampleCount})`}</span>
+                        <span>{latencyHistoryCaption}</span>
                     </div>
                     <div className="flex items-end gap-0.5 h-8 w-full group">
                         {hasLatencySamples ? (

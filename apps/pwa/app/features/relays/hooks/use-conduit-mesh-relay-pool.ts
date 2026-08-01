@@ -20,6 +20,9 @@ import type { ConduitMeshNostrConnectionSnapshot } from "@obscur/conduit-mesh";
 import type { RelayConnection } from "./relay-connection";
 import type { NostrFilter } from "../types/nostr-filter";
 import type { MeshInterest } from "@obscur/conduit-mesh-contracts";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
+import { relayHealthMonitor } from "./relay-health-monitor";
+import { collectRelayHealthMetricsForUrls } from "../services/collect-relay-health-metrics";
 
 const EMPTY_ACTIVITY: RelayTransportActivitySnapshot = {
   writableRelayCount: 0,
@@ -42,14 +45,17 @@ const resolveWritableRelayUrls = (
   wsConnections: ReadonlyArray<RelayConnection>,
   activitySnapshot: RelayTransportActivitySnapshot,
 ): ReadonlyArray<string> => {
-  const probed = activitySnapshot.publishReadyRelayUrls ?? [];
-  if (probed.length > 0) {
-    const poolSet = new Set(poolUrls);
-    return probed.filter((url) => poolSet.has(url));
-  }
-  return wsConnections
-    .filter((connection) => connection.status === "open")
+  const poolSet = new Set(poolUrls);
+  const inPool = (url: string): boolean => (
+    poolSet.has(url)
+    || poolUrls.some((poolUrl) => workspaceRelayUrlsMatch(poolUrl, url))
+  );
+  const fromProbe = (activitySnapshot.publishReadyRelayUrls ?? []).filter(inPool);
+  const fromOpenSockets = wsConnections
+    .filter((connection) => connection.status === "open" && inPool(connection.url))
     .map((connection) => connection.url);
+  // E3 (minimal): open pool sockets count as writable even when mesh publishReady lags.
+  return Array.from(new Set([...fromProbe, ...fromOpenSockets]));
 };
 
 const mapConnectionSnapshots = (
@@ -120,10 +126,17 @@ export const useConduitMeshRelayPool = (
   );
 
   const [activitySnapshot, setActivitySnapshot] = useState(EMPTY_ACTIVITY);
+  const [healthMetricsTick, setHealthMetricsTick] = useState(0);
 
   useEffect(() => {
     nostrClient.setRelayUrls(urlsKey ? urlsKey.split("|") : []);
   }, [nostrClient, urlsKey]);
+
+  useEffect(() => (
+    relayHealthMonitor.subscribe(() => {
+      setHealthMetricsTick((tick) => tick + 1);
+    })
+  ), []);
 
   useEffect(() => {
     void runtime.configureUrls(urlsKey ? urlsKey.split("|") : []).then(async () => {
@@ -163,9 +176,20 @@ export const useConduitMeshRelayPool = (
 
   const hasWritableRelay = activitySnapshot.writableRelayCount > 0 || writableRelayUrls.length > 0;
 
+  const healthMetricUrls = useMemo(() => (
+    Array.from(new Set([
+      ...poolUrls,
+      ...connections.map((connection) => connection.url),
+    ]))
+  ), [poolUrls, connections]);
+
+  const healthMetrics = useMemo(() => (
+    collectRelayHealthMetricsForUrls(healthMetricUrls)
+  ), [healthMetricUrls, healthMetricsTick]);
+
   return useMemo((): EnhancedRelayPoolResult => ({
     connections,
-    healthMetrics: [],
+    healthMetrics,
     sendToOpen: (payload) => {
       nostrClient.sendToOpen(payload);
     },
@@ -252,9 +276,9 @@ export const useConduitMeshRelayPool = (
     unsubscribe: (subscriptionId) => {
       nostrClient.unsubscribe(subscriptionId);
     },
-    getRelayHealth: () => undefined,
+    getRelayHealth: (url) => relayHealthMonitor.getMetrics(url),
     getRelayCircuitState: () => "healthy",
-    canConnectToRelay: () => true,
+    canConnectToRelay: (url) => relayHealthMonitor.canConnect(url),
     addTransientRelay: () => {},
     removeTransientRelay: () => {},
     reconnectRelay: () => {},
@@ -320,5 +344,5 @@ export const useConduitMeshRelayPool = (
       runtime.dispose();
       nostrClient.dispose();
     },
-  }), [runtime, nostrClient, activitySnapshot, connections, poolUrls, writableRelayUrls, hasWritableRelay]);
+  }), [runtime, nostrClient, activitySnapshot, connections, poolUrls, writableRelayUrls, hasWritableRelay, healthMetrics]);
 };

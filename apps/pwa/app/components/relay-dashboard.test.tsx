@@ -70,8 +70,53 @@ describe("RelayDashboard", () => {
     render(<RelayDashboard />);
 
     expect(screen.getByText("relay.damus.io")).toBeInTheDocument();
-    expect(screen.getByText("Last samples")).toBeInTheDocument();
+    expect(screen.getByText("Connect 150ms")).toBeInTheDocument();
+    expect(screen.getByText("Connect")).toBeInTheDocument();
     expect(screen.getAllByText("Active transport").length).toBeGreaterThan(0);
+  });
+
+  it("labels app RTT when latencySampleSource is app", async () => {
+    const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
+    vi.mocked(useRelay).mockReturnValue({
+      enabledRelayUrls: ["wss://relay.damus.io"],
+      communityCandidateRelayUrls: [],
+      activePoolRelayUrls: ["wss://relay.damus.io"],
+      relaySelection: {
+        primaryUrl: "wss://relay.damus.io",
+      },
+      relayPool: {
+        connections: [
+          { url: "wss://relay.damus.io", status: "open", updatedAtUnixMs: 1 },
+        ],
+        healthMetrics: [
+          {
+            url: "wss://relay.damus.io",
+            status: "connected",
+            connectionAttempts: 2,
+            successfulConnections: 2,
+            failedConnections: 0,
+            latency: 48,
+            latencyHistory: [48],
+            latencySampleSource: "app",
+            successRate: 100,
+            circuitBreakerState: "closed",
+            circuitBreakerFailureCount: 0,
+            retryCount: 0,
+            backoffDelay: 1000,
+          },
+        ],
+      },
+      relayRuntime: {
+        phase: "healthy",
+        lastInboundEventAtUnixMs: Date.now(),
+        fallbackRelayUrls: [],
+      },
+    } as any);
+
+    render(<RelayDashboard />);
+
+    expect(screen.getByText("RTT 48ms")).toBeInTheDocument();
+    expect(screen.getByText("App RTT")).toBeInTheDocument();
   });
 
   it("shows an explicit empty-state message when no latency samples exist yet", async () => {

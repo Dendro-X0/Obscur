@@ -1,5 +1,6 @@
 import type { EnhancedRelayPoolResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 import { relayHealthMonitor, type RelayHealthMetrics } from "@/app/features/relays/hooks/relay-health-monitor";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import type { RelayHealthHint } from "./relay-primary-selector";
 
 const isCircuitAcceptingConnections = (metrics: RelayHealthMetrics | undefined): boolean => {
@@ -40,7 +41,9 @@ export const buildRelayHealthHints = (
   pool: Pick<EnhancedRelayPoolResult, "connections" | "getRelayHealth">,
 ): ReadonlyArray<RelayHealthHint> => (
   orderedEnabledUrls.map((url, listIndex) => {
-    const connection = pool.connections.find((entry) => entry.url === url);
+    const connection = pool.connections.find(
+      (entry) => entry.url === url || workspaceRelayUrlsMatch(entry.url, url),
+    );
     const metrics = resolveRelayHealthMetrics(url, pool);
     const isCircuitOpen = !isCircuitAcceptingConnections(metrics);
     const poolOpen = connection?.status === "open";

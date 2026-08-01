@@ -8,6 +8,7 @@
 import type { RelayTransportMode } from "./relay-transport-mode";
 import { REDUNDANCY_POOL_MAX_RELAYS } from "./relay-transport-mode";
 import { isLocalDevWorkspaceRelayUrl } from "./relay-transport-scope";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 export type RelayRole = "primary" | "standby" | "disabled";
 
@@ -57,7 +58,9 @@ const buildSelection = (
 const findHint = (
   url: string,
   hints: ReadonlyArray<RelayHealthHint>,
-): RelayHealthHint | undefined => hints.find((hint) => hint.url === url);
+): RelayHealthHint | undefined => (
+  hints.find((hint) => hint.url === url || workspaceRelayUrlsMatch(hint.url, url))
+);
 
 const listIndexFor = (
   url: string,
@@ -194,6 +197,77 @@ export const reconcilePrimarySelection = (
   return null;
 };
 
+const isCircuitOpenHint = (
+  url: string,
+  hints: ReadonlyArray<RelayHealthHint>,
+): boolean => findHint(url, hints)?.isCircuitOpen ?? false;
+
+/** Remote interaction URLs — public Nostr / VPS. Local lab mesh is excluded. */
+const isRemoteInteractionRelayUrl = (url: string): boolean => (
+  !isLocalDevWorkspaceRelayUrl(url)
+);
+
+/**
+ * E3/P6: dial preference order from probe/health hints.
+ * Does not mutate Settings list order — used only when choosing dial membership.
+ */
+export const rankEnabledRelayUrlsForDial = (
+  orderedEnabledUrls: ReadonlyArray<string>,
+  hints: ReadonlyArray<RelayHealthHint> = [],
+): ReadonlyArray<string> => (
+  [...orderedEnabledUrls].sort((a, b) => {
+    const scoreDiff = scoreRelayUrl(b, hints, orderedEnabledUrls) - scoreRelayUrl(a, hints, orderedEnabledUrls);
+    if (scoreDiff !== 0) {
+      return scoreDiff;
+    }
+    return listIndexFor(a, orderedEnabledUrls, hints) - listIndexFor(b, orderedEnabledUrls, hints);
+  })
+);
+
+const collectRemoteDialUrls = (
+  orderedEnabledUrls: ReadonlyArray<string>,
+  hints: ReadonlyArray<RelayHealthHint>,
+): ReadonlyArray<string> => {
+  const remotes = orderedEnabledUrls.filter((url) => (
+    isRemoteInteractionRelayUrl(url) && !isCircuitOpenHint(url, hints)
+  ));
+  return rankEnabledRelayUrlsForDial(remotes, hints);
+};
+
+/**
+ * E2c: local lab may stay in the pool, but must not be the sole dialed member
+ * when remote (public/VPS) URLs are enabled.
+ */
+const ensureRemoteDialMembership = (
+  pool: ReadonlyArray<string>,
+  orderedEnabledUrls: ReadonlyArray<string>,
+  hints: ReadonlyArray<RelayHealthHint>,
+  maxRelays: number,
+): ReadonlyArray<string> => {
+  const remotes = collectRemoteDialUrls(orderedEnabledUrls, hints);
+  if (remotes.length === 0) {
+    return pool;
+  }
+  if (pool.some((url) => isRemoteInteractionRelayUrl(url))) {
+    return pool;
+  }
+  const remote = remotes[0];
+  if (!remote) {
+    return pool;
+  }
+  if (pool.length < maxRelays) {
+    return [...pool, remote];
+  }
+  const next = [...pool];
+  const localIndex = next.findIndex((url) => isLocalDevWorkspaceRelayUrl(url));
+  if (localIndex >= 0) {
+    next[localIndex] = remote;
+    return next;
+  }
+  next[next.length - 1] = remote;
+  return next;
+};
+
 export const resolveActivePoolRelayUrls = (params: Readonly<{
   mode: RelayTransportMode;
   orderedEnabledUrls: ReadonlyArray<string>;
@@ -207,34 +281,98 @@ export const resolveActivePoolRelayUrls = (params: Readonly<{
   }
   if (params.mode === "basic") {
     const primary = params.selection.primaryUrl ?? params.orderedEnabledUrls[0];
-    return primary ? [primary] : [];
+    if (!primary) {
+      return [];
+    }
+    const primaryHint = findHint(primary, hints);
+    const primaryLive = Boolean(primaryHint?.isOpen || primaryHint?.isWritable);
+    if (primaryLive || hints.length === 0) {
+      return [primary];
+    }
+    // Promote connected standby into the active pool when the primary has zero open sockets
+    // so recovery metrics/writable counts are not scoped to a dead public primary alone.
+    const bestOpen = pickBestRelayUrl(params.orderedEnabledUrls, hints);
+    if (
+      bestOpen
+      && bestOpen !== primary
+      && (findHint(bestOpen, hints)?.isOpen || findHint(bestOpen, hints)?.isWritable)
+    ) {
+      // E2c: local lab alone is not enough for remote interaction — keep dialing remotes.
+      if (isLocalDevWorkspaceRelayUrl(bestOpen)) {
+        const remotes = collectRemoteDialUrls(params.orderedEnabledUrls, hints);
+        if (remotes.length > 0) {
+          const primaryIsRemote = isRemoteInteractionRelayUrl(primary);
+          const seed = primaryIsRemote ? [primary, bestOpen] : [bestOpen];
+          const padded = [...seed];
+          for (const url of remotes) {
+            if (padded.length >= 3) {
+              break;
+            }
+            if (padded.some((entry) => workspaceRelayUrlsMatch(entry, url))) {
+              continue;
+            }
+            padded.push(url);
+          }
+          return padded;
+        }
+      }
+      return [bestOpen];
+    }
+    // E2: pad one cold standby into the dial set so basic mode can open a socket
+    // for failover (standbys previously stayed forever DISCONNECTED / never dialed).
+    // E3/P6: prefer probe-healthy standbys over static list order.
+    const padCandidates = params.orderedEnabledUrls.filter((url) => {
+      if (url === primary || workspaceRelayUrlsMatch(url, primary)) {
+        return false;
+      }
+      return !isCircuitOpenHint(url, hints);
+    });
+    const nextStandby = pickBestRelayUrl(padCandidates, hints) ?? padCandidates[0];
+    if (nextStandby) {
+      return [primary, nextStandby];
+    }
+    return [primary];
   }
 
   const maxRelays = params.maxRedundancy ?? REDUNDANCY_POOL_MAX_RELAYS;
-  const scored = params.orderedEnabledUrls
+  const dialOrder = rankEnabledRelayUrlsForDial(params.orderedEnabledUrls, hints);
+
+  const scored = dialOrder
+    .filter((url) => !isCircuitOpenHint(url, hints))
     .map((url) => ({
       url,
       score: scoreRelayUrl(url, hints, params.orderedEnabledUrls),
       listIndex: listIndexFor(url, params.orderedEnabledUrls, hints),
-      isCircuitOpen: findHint(url, hints)?.isCircuitOpen ?? false,
     }))
-    .filter((entry) => !entry.isCircuitOpen)
     .sort((a, b) => b.score - a.score || a.listIndex - b.listIndex);
 
-  const poolUrls = scored
-    .filter((entry) => entry.score > 0)
-    .slice(0, maxRelays)
-    .map((entry) => entry.url);
-
-  if (poolUrls.length > 0) {
-    const primary = params.selection.primaryUrl;
-    if (primary && poolUrls.includes(primary)) {
-      return [primary, ...poolUrls.filter((url) => url !== primary)];
+  // Prefer healthy/scored members, then pad with remaining enabled URLs so cold
+  // standbys still receive sockets (R-RELAY-1). Previously score>0-only left a
+  // flapping primary as the sole pool member while standbys never connected.
+  // E3/P6: cold pad follows probe-rank dial order, not raw Settings order.
+  const pool: string[] = [];
+  for (const entry of scored) {
+    if (entry.score > 0 && pool.length < maxRelays) {
+      pool.push(entry.url);
     }
-    return poolUrls;
+  }
+  for (const url of dialOrder) {
+    if (pool.length >= maxRelays) {
+      break;
+    }
+    if (isCircuitOpenHint(url, hints) || pool.includes(url)) {
+      continue;
+    }
+    pool.push(url);
   }
 
-  return params.orderedEnabledUrls.slice(0, maxRelays);
+  const withRemote = ensureRemoteDialMembership(pool, params.orderedEnabledUrls, hints, maxRelays);
+
+  const primary = params.selection.primaryUrl;
+  if (primary && withRemote.includes(primary)) {
+    return [primary, ...withRemote.filter((url) => url !== primary)];
+  }
+  return withRemote;
 };
 
 export const resolveStandbyProbeUrls = (params: Readonly<{
@@ -248,4 +386,6 @@ export const resolveStandbyProbeUrls = (params: Readonly<{
 export const relaySelectorInternals = {
   buildSelection,
   SCORE_SWITCH_THRESHOLD,
+  collectRemoteDialUrls,
+  rankEnabledRelayUrlsForDial,
 };

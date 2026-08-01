@@ -1,7 +1,7 @@
 "use client";
 /**
- * Periodically probes standby relay URLs for latency without connecting them
- * to the relay pool. Results feed relayHealthMonitor for settings UI.
+ * Periodically probes enabled relay URLs for latency without attaching them as
+ * permanent pool members. Results feed relayHealthMonitor for Settings Relays UI.
  *
  * v1.5.2: defer first cycle until after shell paint; stagger sockets; respect visibility.
  */
@@ -48,7 +48,7 @@ export const useStandbyLatencyProbe = (
         });
         for (const result of results) {
           if (result.ok && result.latencyMs > 0) {
-            relayHealthMonitor.recordLatency(result.url, result.latencyMs);
+            relayHealthMonitor.recordLatency(result.url, result.latencyMs, "connect");
           }
         }
       } finally {

@@ -7,7 +7,6 @@ import { useRelayPrimarySelection } from "../hooks/use-relay-primary-selection";
 import {
   reconcilePrimarySelection,
   resolveActivePoolRelayUrls,
-  resolveStandbyProbeUrls,
   type RelayPrimarySelection,
 } from "../services/relay-primary-selector";
 import { buildRelayHealthHints } from "../services/relay-health-hints";
@@ -33,6 +32,8 @@ import { relayNativeAdapter } from "../hooks/relay-native-adapter";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilities";
 import { useStandbyLatencyProbe } from "../hooks/use-standby-latency-probe";
+import { useInPoolAppRttProbe } from "../hooks/use-in-pool-app-rtt-probe";
+import { resolveHandshakeProbeUrls } from "../services/in-pool-app-rtt-probe";
 import { useRelaySessionWatchdog } from "../hooks/use-relay-session-watchdog";
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
 import {
@@ -55,6 +56,7 @@ import {
 } from "../services/transport-relay-pool-hydration";
 import { useTransportEnginePoolSubscribe } from "../hooks/use-transport-engine-pool-subscribe";
 import { isTransportKernelAuthority } from "@/app/features/transport-kernel/transport-kernel-policy";
+import { meshSchedulerOwnsFailover } from "@/app/features/transport-kernel/mesh-scheduler-failover-gate";
 
 interface RelayContextType {
   relayList: ReturnType<typeof useRelayList>;
@@ -293,13 +295,6 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     enginePoolHydrationRelayUrls.join("|"),
   ]);
 
-  const standbyProbeUrls = useMemo(() => (
-    resolveStandbyProbeUrls({
-      orderedEnabledUrls: effectiveDmTransportRelayUrls,
-      activePoolUrls: activePoolRelayUrls,
-    })
-  ), [effectiveDmTransportRelayUrlsKey, activePoolRelayUrls.join("|")]);
-
   const relayConnectionSignature = useMemo(
     () => relayPool.connections.map((connection) => `${connection.url}:${connection.status}`).join("|"),
     [relayPool.connections],
@@ -309,6 +304,10 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const relayRuntime = useRelayRuntimeSnapshot(relayRuntimeSupervisor);
 
   const attemptPrimaryFailover = useCallback((): boolean => {
+    const profileId = desktopSnapshot.currentWindow.profileId?.trim() ?? "";
+    if (profileId && meshSchedulerOwnsFailover(profileId)) {
+      return false;
+    }
     const orderedEnabledUrls = enabledRelayUrlsRef.current;
     if (orderedEnabledUrls.length <= 1) {
       return false;
@@ -331,7 +330,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       },
     });
     return true;
-  }, [enabledRelayUrlsKey, setPrimaryManual]);
+  }, [enabledRelayUrlsKey, setPrimaryManual, desktopSnapshot.currentWindow.profileId]);
   const attemptPrimaryFailoverRef = useRef(attemptPrimaryFailover);
   attemptPrimaryFailoverRef.current = attemptPrimaryFailover;
   const relayRuntimeRefreshRafRef = useRef<number | null>(null);
@@ -390,7 +389,25 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     };
   }, []);
 
-  useStandbyLatencyProbe(transportBootstrapReady ? standbyProbeUrls : []);
+  // P1: in-pool REQ→EOSE RTT on open sockets; handshake probes only for non-open enabled URLs.
+  const openPoolRelayUrls = useMemo(
+    () => relayPool.connections
+      .filter((connection) => connection.status === "open")
+      .map((connection) => connection.url),
+    [relayConnectionSignature],
+  );
+  const handshakeProbeUrls = useMemo(() => (
+    resolveHandshakeProbeUrls({
+      enabledUrls: effectiveDmTransportRelayUrls,
+      openUrls: openPoolRelayUrls,
+    })
+  ), [effectiveDmTransportRelayUrlsKey, openPoolRelayUrls.join("|")]);
+
+  useInPoolAppRttProbe(
+    transportBootstrapReady ? openPoolRelayUrls : [],
+    transportBootstrapReady ? relayPool : null,
+  );
+  useStandbyLatencyProbe(transportBootstrapReady ? handshakeProbeUrls : []);
 
   const permanentPoolUrls = poolConnectionRelayUrls.length > 0
     ? poolConnectionRelayUrls
@@ -412,6 +429,9 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       : activePoolRelayUrls.length > 0
         ? activePoolRelayUrls
         : effectiveDmTransportRelayUrls;
+    const meshOwnsFailover = meshSchedulerOwnsFailover(
+      desktopSnapshot.currentWindow.profileId ?? "",
+    );
     relayRuntimeSupervisor.configure({
       pool: relayPoolRef.current,
       enabledRelayUrls: supervisorActiveRelayUrls,
@@ -426,6 +446,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       engineCheckpointRelayUrls: transportKernelAuthority ? engineCheckpointRelayUrls : [],
       engineRelayCheckpointCount: transportKernelAuthority ? relayCheckpoints.length : 0,
       attemptPrimaryFailover: () => attemptPrimaryFailoverRef.current(),
+      meshSchedulerOwnsFailover: meshOwnsFailover,
       scope: {
         windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,

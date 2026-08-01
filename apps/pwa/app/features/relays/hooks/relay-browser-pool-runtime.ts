@@ -1,6 +1,7 @@
 /**
- * PWA enhanced relay pool — React hook + WebSocket runtime until transport-engine owns the pool.
- * @see docs/program/obscur-backend-engine-roadmap.md §transport-engine
+ * Browser pool runtime — web standalone publish + reliability tests only (RUST-4c).
+ * Product UI pool owner is `useConduitMeshRelayPool`. Not a failover orchestrator.
+ * @see specs/backend/r-relay-rust-4c-legacy-delete-design-2026-07.md
  */
 
 
@@ -150,9 +151,9 @@ type EnhancedRelayPoolRuntime = Readonly<{
 }>;
 
 const FALLBACK_RELAYS: ReadonlyArray<string> = [
-  "wss://relay.damus.io",
   "wss://nos.lol",
-  "wss://relay.primal.net"
+  "wss://relay.primal.net",
+  "wss://relay.damus.io",
 ];
 
 const HARD_RELAY_FAILURE_PATTERN = /(tor proxy connect failed|403 forbidden|cf-mitigated|challenge)/i;
@@ -1194,7 +1195,7 @@ const connectToRelay = (url: string, options?: RelayReconnectOptions): WebSocket
 
     // Measure connection latency
     const latency = Date.now() - connectionStartTime;
-    healthMonitor.recordLatency(url, latency);
+    healthMonitor.recordLatency(url, latency, "connect");
 
     if (socketsByUrl[url] !== socket) {
       socketsByUrl = { ...socketsByUrl, [url]: socket };
@@ -2411,11 +2412,6 @@ const shutdownRelayPool = (): void => {
   };
 };
 
-export { useEnhancedRelayPoolRuntime as useLegacyEnhancedRelayPool } from "./use-enhanced-relay-pool-runtime";
-
-/** @deprecated Use useLegacyEnhancedRelayPool */
-export { useEnhancedRelayPoolRuntime as useEnhancedRelayPool } from "./use-enhanced-relay-pool-runtime";
-
 const withStandaloneRuntime = async <T,>(
   relayUrls: ReadonlyArray<string>,
   action: (runtime: EnhancedRelayPoolRuntime) => Promise<T>,
@@ -2430,17 +2426,14 @@ const withStandaloneRuntime = async <T,>(
 };
 
 /**
- * Standalone publish function for use outside of hooks.
- * This uses a short-lived runtime so non-React callers do not depend on hidden
- * module-level relay state.
+ * Standalone publish for web non-React callers (RUST-4c — not product UI owner).
  */
 export const publishToRelayStandalone = async (url: string, payload: string): Promise<PublishResult> => {
   return withStandaloneRuntime([url], (runtime) => runtime.publishToRelay(url, payload));
 };
 
 /**
- * Standalone multi-publish function for use outside of hooks.
- * Target relay ownership stays explicit at the call site.
+ * Standalone multi-publish for web non-React callers.
  */
 export const publishToUrlsStandalone = async (
   urls: ReadonlyArray<string>,

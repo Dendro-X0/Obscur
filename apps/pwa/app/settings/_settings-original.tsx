@@ -11,13 +11,13 @@ import { AvatarUpload } from "../components/avatar-upload";
 import { useTranslation } from "react-i18next";
 import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
-import { Card } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
-import { ConfirmDialog } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
-import { Label } from "@dweb/ui-kit";
-import { Textarea } from "@dweb/ui-kit";
-import { toast } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Button } from "@dweb/ui-kit/button";
+import { ConfirmDialog } from "@dweb/ui-kit/confirm-dialog";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
+import { Textarea } from "@dweb/ui-kit/textarea";
+import { toast } from "@dweb/ui-kit/toast";
 import { DesktopUpdater } from "@/app/components/desktop-updater";
 import { ThemeToggle } from "@/app/components/theme-toggle";
 import { LanguageSelector } from "@/app/components/language-selector";
@@ -621,10 +621,14 @@ function MainContentSection({ activeTab }: {
                 return t("settings.relays.runtime.configuredHealthyDesc");
             case "Configured relays are writable and this window is seeing recent relay events.":
                 return t("settings.relays.runtime.communicationHealthyDesc");
+            case "Relay window quiet":
+                return t("settings.relays.runtime.eventFlowDegraded");
             case "Relay event flow degraded":
                 return t("settings.relays.runtime.eventFlowDegraded");
             case "Relay connectivity degraded":
                 return t("settings.relays.runtime.connectivityDegraded");
+            case "Sockets are open and may have fine Connect/RTT; this window is idle (no recent events). Quiet is not high latency — send or wait for traffic.":
+                return t("settings.relays.runtime.eventFlowDegradedDesc");
             case "Sockets are open, but this window has not seen recent relay events.":
                 return t("settings.relays.runtime.eventFlowDegradedDesc");
             case "Fallback relays are active; connectivity is working with reduced trust and redundancy.":
@@ -650,6 +654,7 @@ function MainContentSection({ activeTab }: {
             case "Fallback active": return t("settings.relays.node.badge.fallbackActive");
             case "Degraded": return t("settings.relays.node.badge.degraded");
             case "High latency": return t("settings.relays.node.badge.highLatency");
+            case "Quiet": return t("settings.relays.node.badge.quiet", { defaultValue: "Quiet" });
             case "No recent events": return t("settings.relays.node.badge.noRecentEvents");
             case "Healthy": return t("settings.relays.node.badge.healthy");
             default: return value;
@@ -680,6 +685,10 @@ function MainContentSection({ activeTab }: {
                 return t("settings.relays.node.detail.degraded");
             case "The socket is open, but observed latency is high enough to reduce delivery quality.":
                 return t("settings.relays.node.detail.highLatency");
+            case "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.":
+                return t("settings.relays.node.detail.quiet", {
+                    defaultValue: "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.",
+                });
             default:
                 if (value.startsWith("Repeated failures triggered backoff. Next retry is scheduled automatically.")) {
                     return t("settings.relays.node.detail.backoffRetry");

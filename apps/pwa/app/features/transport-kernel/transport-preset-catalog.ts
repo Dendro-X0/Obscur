@@ -11,6 +11,7 @@ export type TransportPresetId =
   | "local_dev_mesh"
   | "local_http_mesh"
   | "private_lan_ws"
+  | "ssh_bastion_forward"
   | "hybrid_public_http"
   | "tor_onion_mesh";
 
@@ -21,6 +22,17 @@ export type TransportPresetCategory =
   | "tor";
 
 export type RelayTransportMode = "basic" | "redundancy";
+
+export type TransportPresetSshTunnel = Readonly<{
+  bastionHost: string;
+  bastionPort?: number;
+  bastionUser: string;
+  remoteHost: string;
+  remotePort: number;
+  localBindHost?: string;
+  localBindPort: number;
+  identityFile?: string | null;
+}>;
 
 export type TransportPreset = Readonly<{
   id: TransportPresetId;
@@ -35,6 +47,11 @@ export type TransportPreset = Readonly<{
   requiresTor?: boolean;
   /** User must replace placeholder URLs (LAN IP, .onion host) before relying on delivery. */
   isUrlTemplate?: boolean;
+  /**
+   * RUST-5d — when set, mesh configure emits `underlay: ssh_tunnel` + these params.
+   * `relays` must be post-tunnel dial URLs (loopback), matching localBindPort.
+   */
+  sshTunnel?: TransportPresetSshTunnel;
 }>;
 
 export type TransportPresetGroup = Readonly<{
@@ -49,8 +66,9 @@ export const DEFAULT_STABLE_PRESET: TransportPreset = {
   category: "public_nostr",
   labelKey: "settings.relays.preset.defaultStable",
   descriptionKey: "settings.relays.preset.defaultStableDesc",
-  relays: ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"],
-  transportMode: "basic",
+  // Probe-preferred order (2026-07): nos/primal often clearnet-OK; damus demoted (TLS flaky on some paths).
+  relays: ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.damus.io"],
+  transportMode: "redundancy",
 };
 
 const HIGH_REDUNDANCY_PRESET: TransportPreset = {
@@ -59,11 +77,11 @@ const HIGH_REDUNDANCY_PRESET: TransportPreset = {
   labelKey: "settings.relays.preset.highRedundancy",
   descriptionKey: "settings.relays.preset.highRedundancyDesc",
   relays: [
-    "wss://relay.damus.io",
     "wss://nos.lol",
     "wss://relay.primal.net",
     "wss://relay.snort.social",
     "wss://relay.nostr.band",
+    "wss://relay.damus.io",
   ],
   transportMode: "redundancy",
 };
@@ -73,7 +91,7 @@ const LOW_LATENCY_PRESET: TransportPreset = {
   category: "public_nostr",
   labelKey: "settings.relays.preset.lowLatency",
   descriptionKey: "settings.relays.preset.lowLatencyDesc",
-  relays: ["wss://relay.primal.net", "wss://relay.damus.io", "wss://nos.lol"],
+  relays: ["wss://relay.primal.net", "wss://nos.lol", "wss://relay.damus.io"],
   transportMode: "basic",
 };
 
@@ -108,13 +126,41 @@ export const PRIVATE_LAN_WS_PRESET: TransportPreset = {
   isUrlTemplate: true,
 };
 
-/** Mixed adapters — public Nostr WS + private HTTP mesh on one profile. */
+/**
+ * RUST-5d — SSH bastion local-forward template.
+ * Dial URL is loopback after tunnel; edit bastion/remote hosts before relying on delivery.
+ */
+export const SSH_BASTION_FORWARD_PRESET: TransportPreset = {
+  id: "ssh_bastion_forward",
+  category: "private_mesh",
+  labelKey: "settings.relays.preset.sshBastionForward",
+  descriptionKey: "settings.relays.preset.sshBastionForwardDesc",
+  relays: ["ws://127.0.0.1:19001"],
+  transportMode: "basic",
+  isUrlTemplate: true,
+  sshTunnel: {
+    bastionHost: "bastion.example",
+    bastionPort: 22,
+    bastionUser: "ops",
+    remoteHost: "127.0.0.1",
+    remotePort: 7000,
+    localBindHost: "127.0.0.1",
+    localBindPort: 19001,
+  },
+};
+
+/** Mixed adapters — public Nostr pool + private HTTP mesh (user opt-in; not boot default). */
 export const HYBRID_PUBLIC_HTTP_PRESET: TransportPreset = {
   id: "hybrid_public_http",
   category: "hybrid_adapters",
   labelKey: "settings.relays.preset.hybridPublicHttp",
   descriptionKey: "settings.relays.preset.hybridPublicHttpDesc",
-  relays: ["wss://relay.damus.io", "http://127.0.0.1:8788"],
+  relays: [
+    "wss://nos.lol",
+    "wss://relay.primal.net",
+    "wss://relay.damus.io",
+    "http://127.0.0.1:8788",
+  ],
   transportMode: "redundancy",
 };
 
@@ -131,28 +177,32 @@ export const TOR_ONION_MESH_PRESET: TransportPreset = {
 };
 
 export const TRANSPORT_PRESET_CATALOG: ReadonlyArray<TransportPreset> = [
-  DEFAULT_STABLE_PRESET,
-  HIGH_REDUNDANCY_PRESET,
-  LOW_LATENCY_PRESET,
   LOCAL_DEV_MESH_PRESET,
   LOCAL_HTTP_MESH_PRESET,
   PRIVATE_LAN_WS_PRESET,
+  SSH_BASTION_FORWARD_PRESET,
+  DEFAULT_STABLE_PRESET,
+  HIGH_REDUNDANCY_PRESET,
+  LOW_LATENCY_PRESET,
   HYBRID_PUBLIC_HTTP_PRESET,
   TOR_ONION_MESH_PRESET,
 ];
 
+/** R-RELAY-RUST-2 — cold/reset product default (private local; public Nostr opt-in). */
+export const PRODUCT_BOOT_TRANSPORT_PRESET: TransportPreset = LOCAL_DEV_MESH_PRESET;
+
 export const TRANSPORT_PRESET_GROUPS: ReadonlyArray<TransportPresetGroup> = [
+  {
+    category: "private_mesh",
+    titleKey: "settings.relays.presetGroup.privateMesh",
+    descriptionKey: "settings.relays.presetGroup.privateMeshDesc",
+    presetIds: ["local_dev_mesh", "local_http_mesh", "private_lan_ws", "ssh_bastion_forward"],
+  },
   {
     category: "public_nostr",
     titleKey: "settings.relays.presetGroup.publicNostr",
     descriptionKey: "settings.relays.presetGroup.publicNostrDesc",
     presetIds: ["default_stable", "high_redundancy", "low_latency"],
-  },
-  {
-    category: "private_mesh",
-    titleKey: "settings.relays.presetGroup.privateMesh",
-    descriptionKey: "settings.relays.presetGroup.privateMeshDesc",
-    presetIds: ["local_dev_mesh", "local_http_mesh", "private_lan_ws"],
   },
   {
     category: "hybrid_adapters",
