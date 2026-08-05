@@ -38,6 +38,24 @@ vi.mock("@/app/features/groups/services/community-membership-mutation-owner", ()
   persistCommunityMembershipLedgerMutation: vi.fn(persistLedger),
 }));
 
+const loadLedger = vi.fn(() => [] as Array<{ groupId: string; relayUrl?: string; status: string }>);
+vi.mock("@/app/features/groups/services/community-membership-ledger", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/groups/services/community-membership-ledger")>();
+  return {
+    ...actual,
+    loadCommunityMembershipLedger: loadLedger as typeof actual.loadCommunityMembershipLedger,
+  };
+});
+
+const clearLeaveIntent = vi.fn();
+vi.mock("@/app/features/groups/services/community-membership-leave-intent", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/groups/services/community-membership-leave-intent")>();
+  return {
+    ...actual,
+    clearDurableCommunityLeaveIntentOnExplicitRejoin: clearLeaveIntent as typeof actual.clearDurableCommunityLeaveIntentOnExplicitRejoin,
+  };
+});
+
 vi.mock("@/app/features/groups/services/community-coordination-membership-directory-store", () => ({
   loadCoordinationMembershipDirectory: vi.fn(() => null),
   refreshCoordinationMembershipDirectory: vi.fn(refreshDirectory),
@@ -82,6 +100,7 @@ vi.mock("@/app/features/groups/services/community-dev-flags", async (importOrigi
 describe("joinManagedWorkspaceMembership atomic join (R1)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    loadLedger.mockReturnValue([]);
     getRoomKey.mockResolvedValue(null);
     refreshDirectory.mockResolvedValue({
       ...createEmptyCoordinationMembershipMaterialization(),
@@ -174,15 +193,67 @@ describe("joinManagedWorkspaceMembership atomic join (R1)", () => {
     });
     expect(result.ok).toBe(true);
     expect(persistLedger).toHaveBeenCalledTimes(1);
+    expect(persistLedger).toHaveBeenCalledWith(
+      memberPubkey,
+      expect.objectContaining({ reason: "runtime_join_confirmed" }),
+      expect.anything(),
+    );
+    expect(clearLeaveIntent).not.toHaveBeenCalled();
     expect(deleteRoomKey).not.toHaveBeenCalled();
-    expect(publishSelfRoomKeyWrap).toHaveBeenCalledWith({
+    expect(runActivation).toHaveBeenCalledWith(expect.objectContaining({
       communityId: "room:ws://localhost:7000",
       groupId: "room",
+      roomKeyHex: "ff".repeat(32),
+    }));
+    expect(publishSelfRoomKeyWrap).not.toHaveBeenCalled();
+  });
+
+  it("uses explicit_rejoin when prior ledger status is left", async () => {
+    loadLedger.mockReturnValue([{
+      groupId: "room",
+      relayUrl: "ws://localhost:7000",
+      status: "left",
+    }]);
+    getRoomKey.mockResolvedValue("ff".repeat(32));
+    runActivation.mockResolvedValue({
+      relay: { status: "synced", canonicalUrl: "ws://localhost:7000", publishTargets: ["ws://localhost:7000"] },
+      coordination: { status: "synced" },
+      summary: {
+        severity: "success",
+        title: "Joined",
+        recovery: [],
+      },
+    });
+    refreshDirectory.mockResolvedValue({
+      ...createEmptyCoordinationMembershipMaterialization(),
+      activeMemberPubkeys: [memberPubkey],
+      leftMemberPubkeys: [],
+      expelledMemberPubkeys: [],
+      headSeq: 1,
+    });
+    const { joinManagedWorkspaceMembership } = await import("./workspace-kernel-membership-port");
+    const result = await joinManagedWorkspaceMembership({
+      communityId: "room:ws://localhost:7000",
+      groupId: "room",
+      relayUrl: "ws://localhost:7000",
       memberPubkey,
       actorPubkey: memberPubkey,
       actorPrivateKeyHex,
+      pool: {} as never,
+      addRelay: vi.fn(),
       roomKeyHex: "ff".repeat(32),
     });
+    expect(result.ok).toBe(true);
+    expect(persistLedger).toHaveBeenCalledWith(
+      memberPubkey,
+      expect.objectContaining({ reason: "explicit_rejoin" }),
+      expect.anything(),
+    );
+    expect(clearLeaveIntent).toHaveBeenCalledWith(expect.objectContaining({
+      publicKeyHex: memberPubkey,
+      groupId: "room",
+      relayUrl: "ws://localhost:7000",
+    }));
   });
 
   it("does not publish room key wrap when coordination join did not sync", async () => {

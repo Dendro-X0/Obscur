@@ -1,5 +1,5 @@
-import type { DeviceUnlockPort } from "@dweb/auth";
-import { authFailed, authOk } from "@dweb/auth";
+import type { DeviceUnlockPort } from "@dweb/auth/ports/device-unlock-port";
+import { authFailed, authOk } from "@dweb/auth/contracts/auth-result";
 import {
   AuthKernelProfileScopeError,
   revokeAuthKernelDeviceUnlockMaterial,

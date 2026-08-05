@@ -102,7 +102,7 @@ export interface VaultMediaIndexRecord {
 
 /**
  * Mirror of libobscur MessageSearchResult (Rust).
- * Returned by db_search_messages — unified FTS5 result over DM + group messages.
+ * Returned by persistence.searchMessages — unified FTS5 result over DM + group messages.
  */
 export interface MessageSearchResult {
   /** "dm" | "group" */

@@ -8,7 +8,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { protocolCoreAdapter } from "@/app/features/runtime/protocol-core-adapter";

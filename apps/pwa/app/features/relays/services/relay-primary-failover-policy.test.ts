@@ -45,4 +45,62 @@ describe("relay primary failover policy", () => {
       recovery: { recoveryAttemptCount: 1 },
     })).toBe(true);
   });
+
+  it("skips TS failover when Rust mesh scheduler owns failover (RUST-4a)", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 3,
+      writableRelayCount: 0,
+      recovery: { recoveryReasonCode: "recovery_exhausted", recoveryAttemptCount: 6 },
+      meshSchedulerOwnsFailover: true,
+    })).toBe(false);
+  });
+
+  it("skips failover when writable relays remain without S2 allow flag", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 3,
+      writableRelayCount: 1,
+      recovery: { recoveryAttemptCount: 0 },
+      recoveryReason: "no_writable_relays",
+    })).toBe(false);
+  });
+
+  it("S2: allows failover probe when writable>0 with allowWithWritableRelays", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 3,
+      writableRelayCount: 1,
+      recovery: { recoveryAttemptCount: 0 },
+      allowWithWritableRelays: true,
+    })).toBe(true);
+  });
+
+  it("D2: Single-node allows failover probe when standby writable but primary unstable", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 3,
+      writableRelayCount: 1,
+      recovery: { recoveryAttemptCount: 0 },
+      recoveryReason: "no_writable_relays",
+      transportMode: "basic",
+    })).toBe(true);
+  });
+
+  it("D2: Multi-node still requires S2 flag when writable>0", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 3,
+      writableRelayCount: 1,
+      recovery: { recoveryAttemptCount: 0 },
+      recoveryReason: "no_writable_relays",
+      transportMode: "redundancy",
+    })).toBe(false);
+  });
+
+  it("D2: mesh ownership still wins over Single-node auto-correct", () => {
+    expect(shouldAttemptPrimaryFailover({
+      allEnabledRelayCount: 3,
+      writableRelayCount: 1,
+      recovery: { recoveryAttemptCount: 0 },
+      recoveryReason: "publish_timeouts",
+      transportMode: "basic",
+      meshSchedulerOwnsFailover: true,
+    })).toBe(false);
+  });
 });

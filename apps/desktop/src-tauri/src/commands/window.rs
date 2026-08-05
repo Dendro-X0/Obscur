@@ -47,7 +47,7 @@ pub async fn window_unmaximize(window: Window) -> Result<(), String> {
     }
 }
 
-/// Close the window — main window hides (tray); profile windows are destroyed.
+/// Close the window — main window hides (tray) in release; debug quits for sane DX.
 #[tauri::command]
 pub async fn window_close(window: Window, app: AppHandle) -> Result<(), String> {
     #[cfg(desktop)]
@@ -58,7 +58,16 @@ pub async fn window_close(window: Window, app: AppHandle) -> Result<(), String> 
             }
         }
         if is_main_window_label(window.label()) {
-            return window.hide().map_err(|e| e.to_string());
+            #[cfg(debug_assertions)]
+            {
+                eprintln!("[WINDOW] Debug window_close on main → exit (not tray hide)");
+                app.exit(0);
+                return Ok(());
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                return window.hide().map_err(|e| e.to_string());
+            }
         }
         return window.close().map_err(|e| e.to_string());
     }

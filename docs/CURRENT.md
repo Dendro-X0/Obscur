@@ -1,8 +1,8 @@
 # Obscur — current state
 
-**Read this first.** Snapshot for maintainers and agents (2026-07-16).
+**Read this first.** Snapshot for maintainers and agents (2026-08-05).
 
-_Last updated: 2026-07-17 · **Website `/guide` MVP** · GIF→MP4 web assets · **v2.0.0 paused** pending relay assessment_
+_Last updated: 2026-08-05 · **DM + media L3 Pass** · release prep **v1.9.15** · community still PAUSED_
 
 ---
 
@@ -10,14 +10,14 @@ _Last updated: 2026-07-17 · **Website `/guide` MVP** · GIF→MP4 web assets ·
 
 | Track | Status |
 |-------|--------|
-| **v1.9.12 MESH-TRUST** | **Shipped** (tag) |
-| **LES + presets train** | **Committed** `914a33eb` |
-| **Website** | **`/guide` MVP** — 22 web MP4s (~7.8 MB) · [charter](../specs/backend/website-user-guide-charter-2026-07.md) |
-| **v2.0.0 gate** | **Paused** — website progressing · relay reliability still maintainer-owned |
-| **Download surface** | Canonical = `release-assets/` · **`obscur.app` ≠ messenger site** |
-| **Community** | **PAUSED** — ACC-02 |
+| **DM / media (desktop)** | **L3 Pass** (maintainer 2026-08-05) — thin refactor Phase 1 |
+| **v1.9.14** | Package on tree **1.9.14** — pool/presets |
+| **v1.9.15** | **Release prep** — [v1.9.15-release.md](./releases/v1.9.15-release.md) · path/DM honesty |
+| **Community** | **PAUSED** — ACC-02 / COM-RUN — no `groups/**` churn until un-pause charter |
+| **Vault / LES** | Shipped in 1.9.11–1.9.13 band — **soak next** after 1.9.15 tag |
+| **v2.0.0 gate** | Still blocked on train EXIT honesty |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → commit guide assets · smoke → relay assessment → v2
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → commit + bump/tag **v1.9.15** → then community verify charter · Vault soak
 
 ---
 

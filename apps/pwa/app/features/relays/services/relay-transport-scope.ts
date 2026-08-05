@@ -3,7 +3,6 @@ import {
   normalizeRelayHost,
 } from "@/app/features/groups/services/community-mode-contract";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
-import { isExperimentOnlineEnabled } from "@/app/features/runtime/experiment-shell-policy";
 
 export type RelayTransportScope = "dm" | "community_candidate";
 
@@ -128,19 +127,19 @@ export const resolveDmTransportRelayUrls = (
 
   let pool: ReadonlyArray<string> = dmUrls;
 
-  if (isExperimentOnlineEnabled()) {
-    const localDevRelay = relays.find(
-      (relay) => relay.enabled && isLocalDevWorkspaceRelayUrl(relay.url),
+  // Enabled local-dev WS must join the DM pool as fallback so failover/metrics can see an
+  // open mesh socket when public primaries are dead (same honesty as loopback HTTP mesh).
+  // Keep public DM URLs first when present.
+  const localDevRelay = relays.find(
+    (relay) => relay.enabled && isLocalDevWorkspaceRelayUrl(relay.url),
+  );
+  if (localDevRelay) {
+    const withoutLocalDup = pool.filter(
+      (url) => !workspaceRelayUrlsMatch(url, localDevRelay.url),
     );
-    if (localDevRelay) {
-      const withoutLocalDup = pool.filter(
-        (url) => !workspaceRelayUrlsMatch(url, localDevRelay.url),
-      );
-      // Keep public DM relays primary when Docker relay is down; local dev stays in pool as fallback.
-      pool = withoutLocalDup.length === 0
-        ? [localDevRelay.url]
-        : [...withoutLocalDup, localDevRelay.url];
-    }
+    pool = withoutLocalDup.length === 0
+      ? [localDevRelay.url]
+      : [...withoutLocalDup, localDevRelay.url];
   }
 
   if (meshHttpUrls.length === 0) {
@@ -180,6 +179,32 @@ export const partitionRelayListByTransportScope = (
 };
 
 /**
+ * Advanced DM adapters list: partition.dm plus local-dev / loopback mesh URLs that
+ * resolveDmTransportRelayUrls joins into the DM pool (still listed under Workspace too).
+ */
+export const resolveDmAdapterListEntries = (
+  relays: ReadonlyArray<RelayListEntry>,
+): ReadonlyArray<RelayListEntry> => {
+  const partition = partitionRelayListByTransportScope(relays);
+  const dmPoolUrls = resolveDmTransportRelayUrls(relays);
+  if (dmPoolUrls.length === 0) {
+    return partition.dm;
+  }
+  const seen = new Set(partition.dm.map((relay) => relay.url));
+  const assistEntries = relays.filter((relay) => {
+    const inPool = dmPoolUrls.some((poolUrl) => (
+      poolUrl === relay.url || workspaceRelayUrlsMatch(poolUrl, relay.url)
+    ));
+    if (!inPool || seen.has(relay.url)) {
+      return false;
+    }
+    seen.add(relay.url);
+    return true;
+  });
+  return [...partition.dm, ...assistEntries];
+};
+
+/**
  * On storage migration, disable private/intranet relays so unreachable local nodes
  * do not join the DM transport pool until the user explicitly enables them.
  */
@@ -192,3 +217,44 @@ export const applyRelayListScopeMigration = (
       : relay
   ))
 );
+
+const isLoopbackRelayHost = (relayUrl: string): boolean => {
+  const host = normalizeRelayHost(relayUrl);
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+};
+
+/**
+ * True when every configured URL is loopback (lab/Docker leftover).
+ * Does not match intentional LAN/team private lists (RFC1918 non-loopback).
+ */
+export const isLoopbackOnlyRelayList = (
+  relays: ReadonlyArray<RelayListEntry>,
+): boolean => (
+  relays.length > 0 && relays.every((relay) => isLoopbackRelayHost(relay.url))
+);
+
+/**
+ * Prod-first: if storage still has only localhost relays, merge Default Stable
+ * public rows (enabled) and keep loopback rows so metrics show the public pool.
+ */
+export const mergePublicBootIntoLoopbackOnlyList = (
+  relays: ReadonlyArray<RelayListEntry>,
+  publicBootRows: ReadonlyArray<RelayListEntry>,
+): Readonly<{ relays: ReadonlyArray<RelayListEntry>; changed: boolean }> => {
+  if (!isLoopbackOnlyRelayList(relays) || publicBootRows.length === 0) {
+    return { relays, changed: false };
+  }
+  const merged: RelayListEntry[] = publicBootRows.map((row) => ({
+    url: row.url,
+    enabled: row.enabled !== false,
+  }));
+  for (const relay of relays) {
+    const exists = merged.some((entry) => (
+      entry.url === relay.url || workspaceRelayUrlsMatch(entry.url, relay.url)
+    ));
+    if (!exists) {
+      merged.push({ url: relay.url, enabled: relay.enabled });
+    }
+  }
+  return { relays: merged, changed: true };
+};

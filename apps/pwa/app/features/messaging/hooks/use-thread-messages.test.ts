@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
 import { useDmKernelThread } from "@/app/features/dm-kernel/use-dm-kernel-thread";
-import { shouldUseLegacyConversationMessagesHydrate } from "./conversation-messages-legacy-port";
 import { useThreadMessages } from "./use-thread-messages";
 import type { DmConversation, GroupConversation } from "../types";
 
@@ -23,14 +22,6 @@ vi.mock("@/app/features/dm-kernel/use-dm-kernel-thread", () => ({
     })),
 }));
 
-const useLegacyConversationMessagesMock = vi.fn(() => ({
-    messages: [{ id: "msg-1" }],
-    isLoading: false,
-    hasEarlier: true,
-    loadEarlier: loadEarlierMock,
-    pendingEventCount: 2,
-}));
-
 const useInertConversationMessagesMock = vi.fn(() => ({
     messages: [],
     isLoading: false,
@@ -46,13 +37,6 @@ const useGroupThreadMessagesMock = vi.fn(() => ({
     loadEarlier: loadEarlierMock,
     pendingEventCount: 0,
     hasHydrated: true,
-}));
-
-vi.mock("./conversation-messages-legacy-port", () => ({
-    shouldUseLegacyConversationMessagesHydrate: vi.fn(() => true),
-    useLegacyConversationMessages: (
-        ...args: Parameters<typeof useLegacyConversationMessagesMock>
-    ) => useLegacyConversationMessagesMock(...args),
 }));
 
 vi.mock("./use-inert-conversation-messages", () => ({
@@ -95,33 +79,18 @@ const groupConversation: GroupConversation = {
 
 describe("useThreadMessages", () => {
     beforeEach(() => {
-        vi.mocked(shouldUseLegacyConversationMessagesHydrate).mockReturnValue(true);
         vi.mocked(isDmKernelAuthority).mockReturnValue(false);
-        useLegacyConversationMessagesMock.mockClear();
         useInertConversationMessagesMock.mockClear();
         useGroupThreadMessagesMock.mockClear();
         vi.mocked(useDmKernelThread).mockClear();
         loadEarlierMock.mockClear();
     });
 
-    it("delegates DM threads to legacy hook when allow-legacy is on", () => {
-        const { result } = renderHook(() => useThreadMessages(dmConversation, "b".repeat(64)));
-
-        expect(useLegacyConversationMessagesMock).toHaveBeenCalledWith("dm-thread-1", "b".repeat(64));
-        expect(useLegacyConversationMessagesMock).toHaveBeenCalledTimes(2);
-        expect(useInertConversationMessagesMock).toHaveBeenCalledWith(undefined, "b".repeat(64));
-        expect(result.current.messages).toEqual([{ id: "msg-1" }]);
-        expect(result.current.hasEarlier).toBe(true);
-        expect(result.current.pendingEventCount).toBe(2);
-        expect(result.current.hasHydrated).toBe(true);
-    });
-
-    it("uses inert stub for web DM when allow-legacy is off", () => {
-        vi.mocked(shouldUseLegacyConversationMessagesHydrate).mockReturnValue(false);
+    it("uses inert stub for web DM when dm-kernel is not authority", () => {
         const { result } = renderHook(() => useThreadMessages(dmConversation, "b".repeat(64)));
 
         expect(useInertConversationMessagesMock).toHaveBeenCalledWith("dm-thread-1", "b".repeat(64));
-        expect(useLegacyConversationMessagesMock).toHaveBeenCalledWith(undefined, "b".repeat(64));
+        expect(useInertConversationMessagesMock).toHaveBeenCalledTimes(2);
         expect(result.current.messages).toEqual([]);
         expect(result.current.hasHydrated).toBe(true);
     });
@@ -130,8 +99,8 @@ describe("useThreadMessages", () => {
         const { result } = renderHook(() => useThreadMessages(groupConversation, "b".repeat(64)));
 
         expect(useGroupThreadMessagesMock).toHaveBeenCalledWith(groupConversation, "b".repeat(64));
-        expect(useLegacyConversationMessagesMock).toHaveBeenNthCalledWith(1, undefined, "b".repeat(64));
-        expect(useLegacyConversationMessagesMock).toHaveBeenNthCalledWith(2, undefined, "b".repeat(64));
+        expect(useInertConversationMessagesMock).toHaveBeenNthCalledWith(1, undefined, "b".repeat(64));
+        expect(useInertConversationMessagesMock).toHaveBeenNthCalledWith(2, undefined, "b".repeat(64));
         expect(result.current.messages).toEqual([{ id: "group-msg-1" }]);
         expect(result.current.hasEarlier).toBe(false);
         expect(result.current.pendingEventCount).toBe(0);
@@ -144,8 +113,8 @@ describe("useThreadMessages", () => {
             pinnedDmConversationId: "dm-thread-pinned",
         }));
 
-        expect(useLegacyConversationMessagesMock).toHaveBeenNthCalledWith(1, undefined, "b".repeat(64));
-        expect(useLegacyConversationMessagesMock).toHaveBeenNthCalledWith(2, "dm-thread-pinned", "b".repeat(64));
+        expect(useInertConversationMessagesMock).toHaveBeenNthCalledWith(1, undefined, "b".repeat(64));
+        expect(useInertConversationMessagesMock).toHaveBeenNthCalledWith(2, "dm-thread-pinned", "b".repeat(64));
     });
 
     it("routes native DM through dm-kernel when authority is active", () => {
@@ -153,7 +122,6 @@ describe("useThreadMessages", () => {
         const { result } = renderHook(() => useThreadMessages(dmConversation, "b".repeat(64)));
 
         expect(useDmKernelThread).toHaveBeenCalledWith("dm-thread-1", "b".repeat(64));
-        expect(useLegacyConversationMessagesMock).toHaveBeenCalledWith(undefined, "b".repeat(64));
         expect(useInertConversationMessagesMock).toHaveBeenCalledWith(undefined, "b".repeat(64));
         expect(result.current.messages).toEqual([{ id: "kernel-msg-1" }]);
     });

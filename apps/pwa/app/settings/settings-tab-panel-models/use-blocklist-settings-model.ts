@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useBlocklist } from "@/app/features/network/hooks/use-blocklist";

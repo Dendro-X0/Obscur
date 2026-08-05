@@ -5,7 +5,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { LanguageSelector } from "@/app/components/language-selector";
 import { cn } from "@/app/lib/utils";

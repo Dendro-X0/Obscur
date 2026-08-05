@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from "react";
-import { Card as UiKitCard } from "@dweb/ui-kit";
+import { Card as UiKitCard } from "@dweb/ui-kit/card";
 import { cn } from "../../lib/cn";
 
 export { UiKitCard as Card };

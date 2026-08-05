@@ -6,7 +6,7 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { nip19 } from "nostr-tools";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useAppLockAction } from "@/app/features/auth/hooks/use-app-lock-action";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { createPendingStartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";

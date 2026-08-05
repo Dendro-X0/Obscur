@@ -8,7 +8,10 @@ export type MeshEvidenceKind =
   | "coordination_head_seq"
   | "publish_failed"
   | "evidence_class_satisfied"
-  | "evidence_class_expired";
+  | "evidence_class_expired"
+  | "imported_offline"
+  | "offline_pack_rejected"
+  | "offline_export_ready";
 
 export type MeshEvidenceRecord = Readonly<{
   evidenceId: string;
@@ -57,6 +60,8 @@ export const satisfiesEvidenceClass = (
       return records.some((r) => r.kind === "inbound_at_recipient");
     case "coordination_head":
       return records.some((r) => r.kind === "coordination_head_seq");
+    case "accepted_when_imported":
+      return records.some((r) => r.kind === "imported_offline");
     default:
       return false;
   }

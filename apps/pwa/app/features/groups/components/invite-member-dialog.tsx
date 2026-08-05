@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
-import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
+import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit/avatar";
 import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";

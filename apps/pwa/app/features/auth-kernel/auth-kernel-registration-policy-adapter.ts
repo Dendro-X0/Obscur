@@ -1,5 +1,6 @@
-import type { RegistrationPolicyPort } from "@dweb/auth";
-import { authFailed, authOk, evaluateAuthRegistrationPolicy } from "@dweb/auth";
+import type { RegistrationPolicyPort } from "@dweb/auth/ports/registration-policy-port";
+import { authFailed, authOk } from "@dweb/auth/contracts/auth-result";
+import { evaluateAuthRegistrationPolicy } from "@dweb/auth/policy/registration-policy-engine";
 import { resolveAuthKernelSybilPolicy } from "./auth-kernel-sybil-policy-config";
 
 export const createAuthKernelRegistrationPolicyPort = (): RegistrationPolicyPort => ({

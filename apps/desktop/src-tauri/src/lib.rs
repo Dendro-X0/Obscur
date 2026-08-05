@@ -21,6 +21,7 @@ mod protocol;
 mod profiles;
 mod active_session_leases;
 mod relay;
+mod mesh;
 mod session;
 mod upload;
 mod wallet;
@@ -47,6 +48,10 @@ use commands::tor::{load_tor_settings, start_tor};
 use commands::tor::stop_tor_child;
 #[cfg(desktop)]
 use commands::window::{capture_window_state, write_window_state};
+#[cfg(desktop)]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(desktop)]
+use std::sync::Arc;
 
 // Import window models
 #[cfg(desktop)]
@@ -57,6 +62,10 @@ use models::window::{
     is_reasonable_window_position,
     reveal_desktop_window,
 };
+
+/// Blocks hide-to-tray for a short window after boot (dev vanished-to-tray recovery).
+#[cfg(desktop)]
+const MAIN_WINDOW_STARTUP_GUARD_SECS: u64 = 8;
 
 // Import tray models and services
 #[cfg(desktop)]
@@ -116,6 +125,7 @@ pub fn run() {
     builder
         .setup(|app| {
             app.manage(relay::RelayPool::new());
+            app.manage(mesh::runtime::MeshRuntimeState::new());
             let settings = load_tor_settings(&app.handle());
 
             app.manage(net::NativeNetworkRuntime::new(
@@ -346,31 +356,71 @@ pub fn run() {
 
                 reveal_desktop_window(&_window, "setup");
 
+                let startup_guard = Arc::new(AtomicBool::new(true));
+                let guard_for_timer = Arc::clone(&startup_guard);
                 let failsafe_window = _window.clone();
+                let guard_poll_window = _window.clone();
                 tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    let deadline = tokio::time::Instant::now()
+                        + std::time::Duration::from_secs(MAIN_WINDOW_STARTUP_GUARD_SECS);
+                    while tokio::time::Instant::now() < deadline {
+                        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                        if !guard_for_timer.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        match guard_poll_window.is_visible() {
+                            Ok(true) => {}
+                            Ok(false) => {
+                                eprintln!(
+                                    "[WINDOW] Startup guard: main window hidden unexpectedly — re-revealing"
+                                );
+                                reveal_desktop_window(&guard_poll_window, "startup_guard");
+                            }
+                            Err(error) => {
+                                eprintln!("[WINDOW] Startup guard visibility check failed: {error}");
+                            }
+                        }
+                    }
+                    guard_for_timer.store(false, Ordering::SeqCst);
+                    eprintln!("[WINDOW] Startup visibility guard released");
                     if failsafe_window.is_visible().unwrap_or(true) {
                         return;
                     }
                     eprintln!("[WINDOW] Failsafe reveal for main window after startup");
                     reveal_desktop_window(&failsafe_window, "failsafe");
                 });
-            }
 
-            // Save window state and intercept close
-            #[cfg(desktop)]
-            {
                 let app_handle = app.handle().clone();
                 let window_clone = _window.clone();
+                let close_guard = Arc::clone(&startup_guard);
                 _window.on_window_event(move |event| {
                     match event {
                         tauri::WindowEvent::CloseRequested { api, .. } => {
                             if let Ok(state) = capture_window_state(&window_clone) {
                                 let _ = write_window_state(&app_handle, window_clone.label(), &state);
                             }
-                            // Prevent the window from closing and hide it instead
-                            api.prevent_close();
-                            let _ = window_clone.hide();
+                            if close_guard.load(Ordering::SeqCst) {
+                                api.prevent_close();
+                                eprintln!(
+                                    "[WINDOW] CloseRequested ignored during startup guard — keeping window visible"
+                                );
+                                reveal_desktop_window(&window_clone, "close_guard");
+                                return;
+                            }
+                            #[cfg(debug_assertions)]
+                            {
+                                // Dev: X means quit. Hide-to-tray made "window vanished" look like a crash.
+                                eprintln!("[WINDOW] Debug close → exit (not tray hide)");
+                                let state = app_handle.state::<TorState>();
+                                let _ = stop_tor_child(&state);
+                                app_handle.exit(0);
+                                return;
+                            }
+                            #[cfg(not(debug_assertions))]
+                            {
+                                api.prevent_close();
+                                let _ = window_clone.hide();
+                            }
                         }
                         tauri::WindowEvent::Destroyed => {
                             let state = app_handle.state::<TorState>();
@@ -492,7 +542,6 @@ pub fn run() {
                     relay::probe_relay,
                     relay::disconnect_relay,
                     relay::recycle_relays,
-                    relay::publish_event,
                     relay::subscribe_relay,
                     relay::unsubscribe_relay,
                     relay::send_relay_message,
@@ -529,32 +578,12 @@ pub fn run() {
                     commands::db::db_insert_message,
                     commands::engine::engine_invoke,
                     commands::transport_engine::engine_invoke_transport_publish_relay_event,
-                    commands::db::db_get_messages,
-                    commands::db::db_delete_message,
-                    commands::db::db_delete_messages,
-                    commands::db::db_insert_tombstone,
-                    commands::db::db_insert_tombstones,
-                    commands::db::db_get_tombstones,
-                    commands::db::db_delete_all_tombstones_for_profile,
+                    commands::transport_engine::engine_invoke_transport_configure_mesh_conduits,
+                    commands::transport_engine::engine_invoke_transport_get_mesh_snapshot,
+                    commands::transport_engine::engine_invoke_transport_publish_mesh_envelope,
+                    commands::transport_engine::engine_invoke_transport_export_offline_pack,
+                    commands::transport_engine::engine_invoke_transport_import_offline_pack,
                     commands::db::db_upsert_conversation,
-                    commands::db::db_get_conversations,
-                    commands::db::db_upsert_group,
-                    commands::db::db_get_groups,
-                    commands::db::db_insert_group_message,
-                    commands::db::db_get_group_messages,
-                    commands::db::db_insert_group_tombstone,
-                    commands::db::db_insert_call_record,
-                    commands::db::db_update_call_record,
-                    commands::db::db_get_call_records,
-                    commands::db::db_upsert_relay_checkpoint,
-                    commands::db::db_get_relay_checkpoint,
-                    commands::db::db_get_relay_checkpoints,
-                    commands::db::db_upsert_vault_media_index,
-                    commands::db::db_get_vault_media_index_for_profile,
-                    commands::db::db_delete_vault_media_index,
-                    commands::db::db_delete_all_vault_media_index_for_profile,
-                    commands::db::db_search_messages,
-                    commands::db::db_wipe_profile_local_data,
                     commands::warmup::desktop_start_warmup,
                     commands::warmup::desktop_get_warmup_status
                 ]
@@ -635,7 +664,6 @@ pub fn run() {
                     relay::probe_relay,
                     relay::disconnect_relay,
                     relay::recycle_relays,
-                    relay::publish_event,
                     relay::subscribe_relay,
                     relay::unsubscribe_relay,
                     relay::send_relay_message,
@@ -672,32 +700,12 @@ pub fn run() {
                     commands::db::db_insert_message,
                     commands::engine::engine_invoke,
                     commands::transport_engine::engine_invoke_transport_publish_relay_event,
-                    commands::db::db_get_messages,
-                    commands::db::db_delete_message,
-                    commands::db::db_delete_messages,
-                    commands::db::db_insert_tombstone,
-                    commands::db::db_insert_tombstones,
-                    commands::db::db_get_tombstones,
-                    commands::db::db_delete_all_tombstones_for_profile,
+                    commands::transport_engine::engine_invoke_transport_configure_mesh_conduits,
+                    commands::transport_engine::engine_invoke_transport_get_mesh_snapshot,
+                    commands::transport_engine::engine_invoke_transport_publish_mesh_envelope,
+                    commands::transport_engine::engine_invoke_transport_export_offline_pack,
+                    commands::transport_engine::engine_invoke_transport_import_offline_pack,
                     commands::db::db_upsert_conversation,
-                    commands::db::db_get_conversations,
-                    commands::db::db_upsert_group,
-                    commands::db::db_get_groups,
-                    commands::db::db_insert_group_message,
-                    commands::db::db_get_group_messages,
-                    commands::db::db_insert_group_tombstone,
-                    commands::db::db_insert_call_record,
-                    commands::db::db_update_call_record,
-                    commands::db::db_get_call_records,
-                    commands::db::db_upsert_relay_checkpoint,
-                    commands::db::db_get_relay_checkpoint,
-                    commands::db::db_get_relay_checkpoints,
-                    commands::db::db_upsert_vault_media_index,
-                    commands::db::db_get_vault_media_index_for_profile,
-                    commands::db::db_delete_vault_media_index,
-                    commands::db::db_delete_all_vault_media_index_for_profile,
-                    commands::db::db_search_messages,
-                    commands::db::db_wipe_profile_local_data,
                     commands::warmup::desktop_start_warmup,
                     commands::warmup::desktop_get_warmup_status
                 ]

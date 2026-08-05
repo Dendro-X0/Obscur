@@ -2,7 +2,7 @@
 
 import React from "react";
 import { HardDrive, Loader2 } from "lucide-react";
-import { Progress } from "@dweb/ui-kit";
+import { Progress } from "@dweb/ui-kit/progress";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 

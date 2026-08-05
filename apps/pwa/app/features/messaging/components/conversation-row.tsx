@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
 import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
+import { resolvePeerDisplayName } from "../../profile/utils/resolve-peer-display-name";
 import { EyeOff, MoreVertical, Pin, PinOff, User } from "lucide-react";
 import { stripVoiceCallControlPreview } from "@/app/features/messaging/services/realtime-voice-signaling";
 import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
@@ -31,7 +32,13 @@ export const ConversationRow = React.memo(function ConversationRow({ conversatio
     const { state: identityState } = useIdentity();
     const viewerPublicKeyHex = identityState.publicKeyHex ?? identityState.stored?.publicKeyHex ?? undefined;
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
-    const resolvedName = metadata?.displayName || conversation.displayName;
+    const resolvedName = conversation.kind === "dm"
+        ? resolvePeerDisplayName({
+            pubkey: conversation.pubkey,
+            metadataDisplayName: metadata?.displayName,
+            fallbackDisplayName: conversation.displayName,
+        })
+        : (metadata?.displayName || conversation.displayName);
     const isDeletedConversationRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
     const effectiveIsOnline = Boolean(isOnline) && !isDeletedConversationRecipient;
     const previewMessage = formatConversationMessagePreview(stripVoiceCallControlPreview(conversation.lastMessage), conversation.kind === "dm"

@@ -1,11 +1,14 @@
 # Design — Phase 1B Slice C: coordination directory room-key wraps
 
-**Status:** Design approved for implementation (charter slice **C**)  
-**Date:** 2026-07-03 (UTC)  
+**Status:** L1 Done · **L3 Pass 2026-07-31** (U3 closeout + post-U2 re-proof) — C1–C5 owners landed; activation self-wrap residual closed.  
+**Date:** 2026-07-03 (UTC) · closeout 2026-07-31  
+**Closeout:** [community-u3-slice-c-activation-wrap-design-2026-07.md](./community-u3-slice-c-activation-wrap-design-2026-07.md)  
 **Charter:** [community-membership-redesign-charter-2026-07.md](../../docs/program/community-membership-redesign-charter-2026-07.md)  
 **Maps to:** O-4 · group-room-key-missing · COM-RUN-02 ✕ replacement path  
 **Prerequisite:** Phase 1A exit (RIW-1 · REL-005)  
 **Cancelled bands:** COM-RUN-02 restore/repair · COM-RUN-01 roster patches
+
+**Proof (L1):** coordination wrap **10 Pass** · pwa owner/activation/join/w1/group-service **39 Pass**.
 
 ---
 
@@ -335,4 +338,4 @@ Digest: `group-room-key-missing` symptom should clear when resolve hits coordina
 
 ## Handoff — next atomic step after this spec
 
-**Implement C1** — coordination migration `0003` + wrap POST/GET handlers + contract tests. No PWA changes until C1 is green.
+**U3 L1+L3 Done (2026-07-31).** Next queue: maintainer pick (R1 or remaining U-slices). Community remains PAUSED.

@@ -69,6 +69,9 @@ const ensureProfileIsolationListener = (): void => {
   void import("@tauri-apps/api/event").then(({ listen }) => {
     void listen(PROFILE_ISOLATION_CHANGED_EVENT, () => {
       void desktopProfileRuntime.refresh();
+    }).catch(() => {
+      // Vitest/jsdom (and non-IPC shells) can report hasNativeRuntime without a live transform callback.
+      profileIsolationListenerRegistered = false;
     });
   }).catch(() => {
     profileIsolationListenerRegistered = false;

@@ -3,21 +3,21 @@ import React, { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { UserPlus, LogIn, ArrowRight, Shield, User, Lock, Eye, EyeOff, ChevronLeft, CheckCircle2, Sparkles, Key, UserCheck, ArchiveRestore, AlertCircle, } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
-import { Card } from "@dweb/ui-kit";
-import { Label } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { Card } from "@dweb/ui-kit/card";
+import { Label } from "@dweb/ui-kit/label";
 import { cn } from "@/app/lib/utils";
 import { useIdentity, useIdentityInternals, getIdentitySnapshot } from "../hooks/use-identity";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import { decodePrivateKey } from "../utils/decode-private-key";
 import { LanguageSelector } from "@/app/components/language-selector";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
-import { Checkbox } from "@dweb/ui-kit";
+import { Checkbox } from "@dweb/ui-kit/checkbox";
 import { FlashMessage } from "@/app/components/ui/flash-message";
 import { PasswordStrengthIndicator } from "@/app/components/password-strength-indicator";
 import { isDesktopOsSessionRestoreAvailable } from "../services/session-credential-policy";
@@ -27,6 +27,7 @@ import { DesktopAtRestEncryptionNotice } from "@/app/features/settings/component
 import { AuthLoginHelpNote } from "./auth-login-help-note";
 import { SecurityLiteracyNote } from "@/app/features/security/components/security-literacy-note";
 import {
+  evaluateIdentityPassphrasePolicy,
   IdentityPassphrasePolicyError,
   isIdentityPassphrasePolicyCompliant,
 } from "@/app/features/security/services/identity-passphrase-policy";
@@ -42,7 +43,7 @@ import { ProfileSlotAccountConflictInline } from "@/app/features/profiles/compon
 import { AccountActiveInOtherProfileWindowError, } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { AUTH_CLIENT_REVISION, profileWindowHasLocalAccountEvidence, } from "@/app/features/auth/services/auth-profile-local-evidence";
 import { clearProfileSlotForDifferentAccount, openFreshProfileWindowForSignIn, } from "@/app/features/profiles/services/profile-slot-account-switch";
-import { ProfileSlotAccountConflictError, type ProfileSlotLoginAttemptResult, } from "@/app/features/profiles/services/profile-slot-login-guard";
+import { ProfileSlotAccountConflictError, evaluateProfileSlotLoginAttempt, type ProfileSlotLoginAttemptResult, } from "@/app/features/profiles/services/profile-slot-login-guard";
 import {
   greenfieldAuthWindowLabel,
   requiresFreshProfileWindowForGreenfieldAuth,
@@ -70,6 +71,8 @@ const resolveAuthSecurityErrorMessage = (error: unknown, t: (key: string, option
 const authCompactInputClass = "px-11 h-12 rounded-2xl bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 text-base transition-all";
 const authSecondaryPrimaryButtonClass = "h-16 w-full rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20";
 const authInputFocusRingClass = "focus:ring-4 focus:ring-purple-500/10";
+const authCreatePasswordInputClass = "px-12 h-14 md:h-12 rounded-[24px] md:rounded-2xl bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-purple-500/10 text-lg md:text-base transition-all";
+const authCreatePrimaryButtonClass = "w-full h-14 md:h-12 rounded-[24px] md:rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-lg md:text-base font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50 relative overflow-hidden group";
 const authIconFocusClass = "group-focus-within:text-purple-500 transition-colors";
 type PendingAuthAction = Readonly<{
     kind: "import_key";
@@ -139,6 +142,7 @@ export function AuthScreen() {
     const [assistantBusy, setAssistantBusy] = useState(false);
     const [showAssistantSavePrompt, setShowAssistantSavePrompt] = useState(false);
     const pendingAssistantSavePasswordRef = useRef<string | null>(null);
+    const [createConfirmFieldKey, setCreateConfirmFieldKey] = useState(0);
     const needsDevicePasswordSetupGuide = (isPasswordlessNativeOnly
         && hasStoredIdentity
         && devicePasswordUnlockSaved === false);
@@ -325,6 +329,43 @@ export function AuthScreen() {
             resetForm();
         }
     };
+    const createPassphrasePolicy = React.useMemo(
+        () => evaluateIdentityPassphrasePolicy(password as Passphrase),
+        [password],
+    );
+    const createPasswordsMatch = password.length > 0 && password === confirmPassword;
+    const createPassphraseReady = createPassphrasePolicy.ok;
+    const createBlockingReason = React.useMemo((): string | null => {
+        if (!password) {
+            return null;
+        }
+        if (!createPassphrasePolicy.ok) {
+            return t(`security.passphrase.policy.${createPassphrasePolicy.reason}`);
+        }
+        if (confirmPassword.length > 0 && !createPasswordsMatch) {
+            return t("auth.error.passwordsDoNotMatch");
+        }
+        return null;
+    }, [confirmPassword.length, createPassphrasePolicy, createPasswordsMatch, password, t]);
+    const handleCreatePasswordChange = (nextPassword: string): void => {
+        setPassword(nextPassword);
+        setAuthError(null);
+        if (confirmPassword.length > 0) {
+            setConfirmPassword("");
+            setCreateConfirmFieldKey((current) => current + 1);
+        }
+    };
+    const handleConfirmPasswordChange = (nextPassword: string): void => {
+        setConfirmPassword(nextPassword);
+        setAuthError(null);
+    };
+    const handleGenerateCreatePassword = (): void => {
+        const generatedPassword = generateSecurePassword();
+        setPassword(generatedPassword);
+        setConfirmPassword(generatedPassword);
+        setAuthError(null);
+        toast.success(t("auth.passwordGenerated"));
+    };
     const handleResetNativeSecureStorage = useCallback(async () => {
         if (!identity.resetNativeSecureStorage) {
             setAuthError(t("auth.error.secureStorageResetUnavailable"));
@@ -348,6 +389,7 @@ export function AuthScreen() {
         setUsername("");
         setPassword("");
         setConfirmPassword("");
+        setCreateConfirmFieldKey(0);
         setPrivateKey("");
         setAuthError(null);
         setAcknowledged(false);
@@ -382,6 +424,9 @@ export function AuthScreen() {
             && hasStoredIdentity) {
             const storedPubkey = identity.state.stored?.publicKeyHex;
             if (!storedPubkey || importCandidatePublicKeyHex !== storedPubkey) {
+                if (surfaceIncomingImportKeySlotConflict(keyToUse as PrivateKeyHex)) {
+                    return;
+                }
                 setAuthError(t("auth.error.privateKeyMismatch"));
                 return;
             }
@@ -479,8 +524,60 @@ export function AuthScreen() {
         setActiveSessionConflict(null);
         setAccountConflict(error.detail);
         setPendingAuthAction(pending);
+        setAuthError(null);
+        toast.info(t("auth.slotConflict.toast"));
         return true;
     };
+    const surfaceIncomingImportKeySlotConflict = (
+        privateKeyHex: PrivateKeyHex,
+        passphrase: Passphrase = "" as Passphrase,
+    ): boolean => {
+        let incomingPublicKeyHex: ReturnType<typeof derivePublicKeyHex>;
+        try {
+            incomingPublicKeyHex = derivePublicKeyHex(privateKeyHex);
+        }
+        catch {
+            return false;
+        }
+        const result = evaluateProfileSlotLoginAttempt({
+            profileId: boundProfileId,
+            incomingPublicKeyHex,
+        });
+        if (result.status !== "blocked_different_account") {
+            return false;
+        }
+        const pending: PendingAuthAction = {
+            kind: "import_key",
+            privateKeyHex,
+            passphrase,
+            username: username.trim()
+                || identity.state.stored?.username?.trim()
+                || undefined,
+        };
+        setActiveSessionConflict(null);
+        setAccountConflict(result);
+        setPendingAuthAction(pending);
+        setAuthError(null);
+        toast.info(t("auth.slotConflict.toast"));
+        return true;
+    };
+    React.useEffect(() => {
+        if (mode !== "login" || loginTab !== "key") {
+            return;
+        }
+        if (!decodedImportPrivateKey || !importCandidatePublicKeyHex) {
+            return;
+        }
+        if (accountConflict) {
+            return;
+        }
+        surfaceIncomingImportKeySlotConflict(
+            decodedImportPrivateKey as PrivateKeyHex,
+            (password.trim() || "") as Passphrase,
+        );
+        // Intentionally keyed on candidate pubkey — avoid re-toasting on every password keystroke.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- surface helper closes over stable setters
+    }, [accountConflict, decodedImportPrivateKey, importCandidatePublicKeyHex, loginTab, mode]);
     const needsFreshProfileWindowForGreenfieldAuth = requiresFreshProfileWindowForGreenfieldAuth(boundProfileId);
     const handleOpenFreshProfileWindowForGreenfieldAuth = async (intent: GreenfieldAuthIntent): Promise<void> => {
         setIsConflictBusy(true);
@@ -685,6 +782,13 @@ export function AuthScreen() {
                 setIsLoading(false);
                 return;
             }
+            if (surfaceIncomingImportKeySlotConflict(
+                keyToUse as PrivateKeyHex,
+                (importPassphrase || "") as Passphrase,
+            )) {
+                setIsLoading(false);
+                return;
+            }
             const pending: PendingAuthAction = {
                 kind: "import_key",
                 privateKeyHex: keyToUse as PrivateKeyHex,
@@ -783,7 +887,7 @@ export function AuthScreen() {
         }} transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }} className="absolute -bottom-[20%] -right-[10%] w-[70%] h-[70%] bg-blue-500/10 rounded-full blur-[120px]"/>
             </div>
 
-            <Card className="w-full max-w-lg relative bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-0 ring-1 ring-black/[0.05] dark:ring-white/[0.05] rounded-[32px] shadow-2xl overflow-hidden p-0">
+            <Card className={cn("w-full relative bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-0 ring-1 ring-black/[0.05] dark:ring-white/[0.05] rounded-[32px] shadow-2xl overflow-hidden p-0", mode === "create" && step === 2 ? "max-w-lg md:max-w-4xl" : "max-w-lg")}>
                 <div className="p-6 sm:p-8 min-h-0 flex flex-col justify-center">
                     {hasNativeMismatch && (<div className="mb-6 rounded-[28px] border border-amber-500/20 bg-amber-500/10 p-5">
                             <div className="flex items-start gap-4">
@@ -917,9 +1021,9 @@ export function AuthScreen() {
                                     </>)}
                             </motion.div>)}
 
-                        {mode === "create" && (<motion.div key={`create-step-${step}`} initial="enter" animate="center" exit="exit" variants={variants} custom={step} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="w-full space-y-8">
-                                <div className="text-center space-y-3">
-                                    <h2 className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
+                        {mode === "create" && (<motion.div key={`create-step-${step}`} initial="enter" animate="center" exit="exit" variants={variants} custom={step} transition={{ type: "spring", stiffness: 300, damping: 30 }} className={cn("w-full", step === 2 ? "space-y-6 md:space-y-5" : "space-y-8")}>
+                                <div className="text-center space-y-3 md:space-y-2">
+                                    <h2 className="text-3xl md:text-2xl font-black tracking-tighter text-zinc-900 dark:text-white">
                                         {step === 1
                 ? t("auth.create.pickNameTitle")
                 : t("auth.create.secureItTitle")}
@@ -943,73 +1047,88 @@ export function AuthScreen() {
                                             {t("common.continue")}
                                             <ArrowRight className="h-5 w-5 ml-2"/>
                                         </Button>
-                                    </div>) : (<form onSubmit={handleCreateFinal} className="space-y-6">
-                                        <div className="space-y-4">
-                                            <div className="space-y-2">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel")}</Label>
-                                                    <button type="button" onClick={() => {
-                    const gen = generateSecurePassword();
-                    setPassword(gen);
-                    setConfirmPassword(gen);
-                    toast.success(t("auth.passwordGenerated"));
-                }} className="text-[11px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors">
-                                                        {t("auth.generatePassword")}
-                                                    </button>
+                                    </div>) : (<form onSubmit={handleCreateFinal} className="space-y-6 md:space-y-0">
+                                        <div className="md:grid md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:gap-8 md:items-start">
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.masterPasswordLabel")}</Label>
+                                                        <button type="button" onClick={handleGenerateCreatePassword} className="text-[11px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors">
+                                                            {t("auth.generatePassword")}
+                                                        </button>
+                                                    </div>
+                                                    <div className="relative group">
+                                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 md:h-4 md:w-4 text-zinc-400 group-focus-within:text-purple-500 transition-colors"/>
+                                                        <Input type={showPassword ? "text" : "password"} name="new-password" autoComplete="new-password" placeholder={t("auth.createPasswordPlaceholder")} value={password} onChange={e => handleCreatePasswordChange(e.target.value)} className={authCreatePasswordInputClass}/>
+                                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+                                                            {showPassword ? <EyeOff className="h-5 w-5 md:h-4 md:w-4"/> : <Eye className="h-5 w-5 md:h-4 md:w-4"/>}
+                                                        </button>
+                                                    </div>
+                                                    <PasswordStrengthIndicator password={password} requireIdentityPolicy policyFailureMessage={(reason) => t(`security.passphrase.policy.${reason}`)}/>
                                                 </div>
-                                                <div className="relative group">
-                                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-purple-500 transition-colors"/>
-                                                    <Input type={showPassword ? "text" : "password"} placeholder={t("auth.createPasswordPlaceholder")} value={password} onChange={e => setPassword(e.target.value)} className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-purple-500/10 text-lg transition-all"/>
-                                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
-                                                        {showPassword ? <EyeOff className="h-5 w-5"/> : <Eye className="h-5 w-5"/>}
-                                                    </button>
+
+                                                <div className="space-y-2">
+                                                    <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.confirmPasswordLabel")}</Label>
+                                                    <div className="relative group">
+                                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 md:h-4 md:w-4 text-zinc-400 group-focus-within:text-purple-500 transition-colors"/>
+                                                        <Input key={`create-confirm-${createConfirmFieldKey}`} type={showPassword ? "text" : "password"} name="confirm-password" autoComplete="new-password" placeholder={t("auth.confirmPasswordPlaceholder")} value={confirmPassword} onChange={e => handleConfirmPasswordChange(e.target.value)} className={authCreatePasswordInputClass}/>
+                                                    </div>
+                                                    {createBlockingReason ? (<p className="px-1 text-xs font-semibold text-rose-600 dark:text-rose-400">{createBlockingReason}</p>) : null}
                                                 </div>
-                                                <PasswordStrengthIndicator password={password}/>
-                                            </div>
 
-                                            <div className="space-y-2">
-                                                <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">{t("auth.confirmPasswordLabel")}</Label>
-                                                <div className="relative group">
-                                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-400 group-focus-within:text-purple-500 transition-colors"/>
-                                                    <Input type={showPassword ? "text" : "password"} placeholder={t("auth.confirmPasswordPlaceholder")} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="px-12 h-16 rounded-[24px] bg-white/50 dark:bg-zinc-900/50 border-black/5 dark:border-white/5 focus:ring-4 focus:ring-purple-500/10 text-lg transition-all"/>
+                                                <div className="space-y-4 md:hidden">
+                                                    <AuthLoginHelpNote />
+                                                    <AuthSessionPolicyNotice />
+                                                    <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex gap-4">
+                                                        <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5"/>
+                                                        <div className="space-y-2">
+                                                            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
+                                                                {t("auth.passwordRecoveryWarning")}
+                                                            </p>
+                                                            <p className="text-xs text-amber-700 dark:text-amber-300 font-semibold leading-relaxed">
+                                                                {keyOwnershipReminder} {keyRecoveryReminder}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
 
-                                        <AuthLoginHelpNote />
-                                        <AuthSessionPolicyNotice />
+                                                <FlashMessage message={authError} onClose={() => setAuthError(null)} className="mt-2 md:mt-0"/>
 
-                                        <div className="p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex gap-4">
-                                            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5"/>
-                                            <div className="space-y-3">
-                                                <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
-                                                    {t("auth.passwordRecoveryWarning")}
-                                                </p>
-                                                <p className="text-xs text-amber-700 dark:text-amber-300 font-semibold leading-relaxed">
-                                                    {keyOwnershipReminder} {keyRecoveryReminder}
-                                                </p>
-                                                <div className="flex items-start space-x-4 pt-1">
-                                                    <Checkbox id="acknowledge-create" checked={acknowledged} onCheckedChange={(checked) => setAcknowledged(checked as boolean)} className="h-4 w-4 rounded border-amber-500/50 data-[state=checked]:bg-amber-500 -ml-1"/>
-                                                    <label htmlFor="acknowledge-create" className="text-[10px] font-black uppercase tracking-wider text-amber-600/80 dark:text-amber-400/80 cursor-pointer leading-tight">
+                                                <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                                                    <Checkbox id="acknowledge-create" checked={acknowledged} onCheckedChange={(checked) => setAcknowledged(checked as boolean)} className="mt-0.5 h-4 w-4 rounded border-amber-500/50 data-[state=checked]:bg-amber-500"/>
+                                                    <label htmlFor="acknowledge-create" className="text-[10px] font-black uppercase tracking-wider text-amber-700/90 dark:text-amber-300/90 cursor-pointer leading-tight">
                                                         {t("auth.acknowledgeKeyResponsibility")}
                                                     </label>
                                                 </div>
+
+                                                <Button type="submit" disabled={isLoading || !createPasswordsMatch || !createPassphraseReady || !acknowledged} className={authCreatePrimaryButtonClass}>
+                                                    {isLoading ? (<div className="flex items-center gap-2">
+                                                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+                                                                <Sparkles className="h-5 w-5"/>
+                                                            </motion.div>
+                                                            <span>{t("auth.generating")}</span>
+                                                        </div>) : (t("auth.generateSafeIdentity"))}
+
+                                                    {isLoading && (<motion.div initial={{ x: "-100%" }} animate={{ x: "100%" }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"/>)}
+                                                </Button>
                                             </div>
+
+                                            <aside className="hidden md:flex md:flex-col md:gap-4 md:rounded-[28px] md:border md:border-black/5 md:bg-black/[0.02] md:p-4 md:dark:border-white/10 md:dark:bg-white/[0.03]">
+                                                <AuthLoginHelpNote />
+                                                <AuthSessionPolicyNotice />
+                                                <div className="rounded-[24px] bg-amber-500/10 border border-amber-500/20 p-4 flex gap-3">
+                                                    <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5"/>
+                                                    <div className="space-y-2">
+                                                        <p className="text-xs text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
+                                                            {t("auth.passwordRecoveryWarning")}
+                                                        </p>
+                                                        <p className="text-xs text-amber-700 dark:text-amber-300 font-semibold leading-relaxed">
+                                                            {keyOwnershipReminder} {keyRecoveryReminder}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </aside>
                                         </div>
-
-                                        <FlashMessage message={authError} onClose={() => setAuthError(null)} className="mt-4"/>
-
-                                        <Button type="submit" disabled={isLoading || password !== confirmPassword || !isIdentityPassphrasePolicyCompliant(password as Passphrase) || !acknowledged} className="w-full h-16 rounded-[24px] bg-purple-600 hover:bg-purple-700 text-white text-lg font-bold shadow-xl shadow-purple-500/20 disabled:opacity-50 relative overflow-hidden group">
-                                            {isLoading ? (<div className="flex items-center gap-2">
-                                                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
-                                                        <Sparkles className="h-5 w-5"/>
-                                                    </motion.div>
-                                                    <span>{t("auth.generating")}</span>
-                                                    
-                                                </div>) : (t("auth.generateSafeIdentity"))}
-
-                                            {isLoading && (<motion.div initial={{ x: "-100%" }} animate={{ x: "100%" }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"/>)}
-                                        </Button>
 
                                     </form>)}
                             </motion.div>)}
@@ -1125,7 +1244,6 @@ export function AuthScreen() {
                     }} className={cn("flex w-full border ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50", authCompactInputClass, authInputFocusRingClass)}/>
                                                     </div>
                                                 </div>
-                                                <SecurityLiteracyNote compact className="mt-1" />
                                                 {hasStoredIdentity && !(needsDevicePasswordSetupGuide && importKeyGuideStep === "enter_key") ? (<div className="space-y-2">
                                                         <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">
                                                             {t("auth.login.optionalMasterPassword")}
@@ -1234,7 +1352,7 @@ export function AuthScreen() {
                 setAuthError(null);
             }}/>) : null}
 
-                    {accountConflict && pendingAuthAction ? (<ProfileSlotAccountConflictInline profileLabel={boundProfileLabel} occupantPublicKeyHex={accountConflict.occupantPublicKeyHex} incomingPublicKeyHex={pendingAuthAction.kind === "import_key"
+                    {accountConflict && pendingAuthAction ? (<ProfileSlotAccountConflictInline profileLabel={boundProfileLabel} occupantUsername={identity.state.stored?.username} occupantPublicKeyHex={accountConflict.occupantPublicKeyHex} incomingPublicKeyHex={pendingAuthAction.kind === "import_key"
                 ? derivePublicKeyHex(pendingAuthAction.privateKeyHex)
                 : accountConflict.occupantPublicKeyHex} intent={pendingAuthAction.kind === "create" ? "create_account" : "import_account"} isBusy={isConflictBusy || isLoading} canOpenAnotherWindow={hasNativeRuntime()} onOpenAnotherWindow={() => { void handleOpenAnotherProfileWindow(); }} onClearWindow={() => { void clearWindowAndRetryLogin(false); }} onExportAndClear={() => { void clearWindowAndRetryLogin(true); }} onClose={() => {
                 setAccountConflict(null);

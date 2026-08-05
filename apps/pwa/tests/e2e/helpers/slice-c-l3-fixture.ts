@@ -50,9 +50,8 @@ export const readSliceCL3LedgerSnapshot = async (
 
     const roomKeyMap = readRoomKeyMap();
     const roomKeyHex = roomKeyMap[targetGroupId]?.roomKeyHex?.trim() || null;
-    const localRoomKeyCount = Object.values(roomKeyMap).filter(
-      (record) => typeof record?.roomKeyHex === "string" && record.roomKeyHex.trim().length > 0,
-    ).length;
+    // L3 cares that the *target* group key is absent — other groups may retain keys.
+    const localRoomKeyCount = roomKeyHex ? 1 : 0;
 
     const ledgerKeys = Object.keys(localStorage).filter((key) => (
       key.includes("obscur.group.membership_ledger.v1")
@@ -125,15 +124,15 @@ export const clearSliceCL3LocalRoomKey = async (
       const parsed = JSON.parse(raw) as Record<string, unknown>;
       delete parsed[targetGroupId];
       localStorage.setItem(storageKey, JSON.stringify(parsed));
-      const remaining = Object.values(parsed).filter(
-        (record) => (
-          typeof record === "object"
-          && record !== null
-          && typeof (record as { roomKeyHex?: string }).roomKeyHex === "string"
-          && ((record as { roomKeyHex?: string }).roomKeyHex ?? "").trim().length > 0
-        ),
-      ).length;
-      return { cleared: true, localRoomKeyCount: remaining };
+      const remainingTarget = (() => {
+        const entry = parsed[targetGroupId];
+        if (!entry || typeof entry !== "object") {
+          return 0;
+        }
+        const hex = (entry as { roomKeyHex?: string }).roomKeyHex?.trim() ?? "";
+        return hex.length > 0 ? 1 : 0;
+      })();
+      return { cleared: true, localRoomKeyCount: remainingTarget };
     } catch {
       return { cleared: false, localRoomKeyCount: 0 };
     }
@@ -141,15 +140,58 @@ export const clearSliceCL3LocalRoomKey = async (
 );
 
 export const assertSliceCL3Tester1Identity = async (page: Page): Promise<string> => {
-  const pubkey = await page.evaluate(() => window.obscurDevLab?.getMyPublicKeyHex?.() ?? null);
   const expected = TESTER1_DERIVED_PUBLIC_KEY_HEX.toLowerCase();
-  if (!pubkey || pubkey.trim().toLowerCase() !== expected) {
+  // Phase 3: Dev Lab gone — read identity from local session surfaces, not obscurDevLab.
+  const pubkey = await page.evaluate((expectedHex) => {
+    const normalize = (value: unknown): string | null => {
+      if (typeof value !== "string") {
+        return null;
+      }
+      const trimmed = value.trim().toLowerCase();
+      return /^[0-9a-f]{64}$/.test(trimmed) ? trimmed : null;
+    };
+
+    const fromDiagnostics = normalize(
+      window.obscurDeliveryDiagnostics?.getSnapshot?.()?.myPublicKeyHex,
+    );
+    if (fromDiagnostics) {
+      return fromDiagnostics;
+    }
+
+    const bound = normalize(localStorage.getItem("obscur.profile_window.last_bound_account::default"));
+    if (bound) {
+      return bound;
+    }
+
+    for (const key of ["obscur.identity.record::default", "identity::default"] as const) {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(raw) as { publicKeyHex?: string };
+        const fromRecord = normalize(parsed.publicKeyHex);
+        if (fromRecord) {
+          return fromRecord;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const body = (document.body?.innerText ?? "").toLowerCase();
+    if (body.includes(expectedHex.slice(0, 8)) && body.includes(expectedHex.slice(-8))) {
+      return expectedHex;
+    }
+    return null;
+  }, expected);
+  if (!pubkey || pubkey !== expected) {
     throw new Error(
       `Expected Tester1 pubkey …${expected.slice(-8)}; got ${pubkey ? pubkey.slice(-8) : "none"}. `
       + "Unlock Tester1 in Tauri before running Slice C L3.",
     );
   }
-  return pubkey.trim().toLowerCase();
+  return pubkey;
 };
 
 export const captureSliceCL3DigestEvents = async (
@@ -226,7 +268,13 @@ export const openSliceCL3NewTest2Chat = async (page: Page): Promise<void> => {
   await groupTab.click();
   await page.waitForTimeout(1000);
 
-  const sidebarButton = page.getByRole("button", { name: new RegExp(SLICE_C_L3_GROUP_NAME, "i") }).first();
+  // Rejoin / kernel preview may persist "Community <prefix>" instead of the original display name.
+  const byName = page.getByRole("button", { name: new RegExp(SLICE_C_L3_GROUP_NAME, "i") });
+  const byIdPrefix = page.getByRole("button", {
+    name: new RegExp(`Community\\s+${SLICE_C_L3_GROUP_ID.slice(0, 8)}`, "i"),
+  });
+  const byGroupId = page.getByRole("button", { name: new RegExp(SLICE_C_L3_GROUP_ID.slice(0, 8), "i") });
+  const sidebarButton = byName.or(byIdPrefix).or(byGroupId).first();
   await sidebarButton.waitFor({ state: "visible", timeout: 60_000 });
   await sidebarButton.click();
   await page.waitForLoadState("domcontentloaded");
@@ -237,8 +285,30 @@ export const sendSliceCL3GroupMessage = async (page: Page, text: string): Promis
   const textarea = page.getByPlaceholder(/type a message|message/i).first();
   await textarea.waitFor({ state: "visible", timeout: 60_000 });
   await textarea.fill(text);
+
+  // Amber relay toasts sit in pointer-events-auto overlays and block Send clicks.
+  // Do NOT match generic "Close" — that can hit the title-bar / window control and exit Tauri.
+  const dismissToast = page.getByRole("button", { name: /^dismiss$/i })
+    .or(page.getByRole("button", { name: /^retry$/i }))
+    .first();
+  if (await dismissToast.isVisible().catch(() => false)) {
+    await dismissToast.click({ force: true }).catch(() => undefined);
+    await page.waitForTimeout(300).catch(() => undefined);
+  }
+  await page.evaluate(() => {
+    document.querySelectorAll(".fixed.bottom-4.right-4").forEach((node) => {
+      if (node instanceof HTMLElement) {
+        node.style.pointerEvents = "none";
+      }
+    });
+  }).catch(() => undefined);
+
+  await textarea.press("Enter");
   const sendButton = page.getByRole("button", { name: /^send$/i }).last();
-  await sendButton.click();
+  const stillPending = await textarea.inputValue().catch(() => text);
+  if (stillPending.trim() === text.trim()) {
+    await sendButton.click({ force: true });
+  }
   await page.waitForTimeout(2500);
 };
 

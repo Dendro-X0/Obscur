@@ -9,13 +9,14 @@ describe("p4 bundle diet contract", () => {
   const pwaRoot = path.resolve(__dirname, "../../..");
   const read = (relativePath: string) => readFileSync(path.join(pwaRoot, relativePath), "utf8");
 
-  it("resolve adapter avoids static native hydrate imports", () => {
+  it("resolve adapter always stubs (Wave 2 — no legacy require path)", () => {
     const resolver = read("app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter.ts");
     expect(resolver).not.toMatch(/from\s+["']\.\/native-dm-adapter["']/);
     expect(resolver).not.toMatch(/from\s+["']\.\/dm-adapter["']/);
-    expect(resolver).toContain("isDesktopDmKernelShipBuild");
+    expect(resolver).not.toContain("require(");
     expect(resolver).toContain("dmKernelThreadHistoryStub");
-    expect(resolver).toContain("resolveLegacyDmThreadHistoryAdapter");
+    expect(resolver).not.toContain("resolveLegacyDmThreadHistoryAdapter");
+    expect(resolver).not.toContain("isObscurAllowLegacy");
   });
 
   it("eslint config defines P4 desktop shell hydrate boundary", () => {

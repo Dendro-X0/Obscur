@@ -37,6 +37,7 @@ import { resolveHandshakeProbeUrls } from "../services/in-pool-app-rtt-probe";
 import { useRelaySessionWatchdog } from "../hooks/use-relay-session-watchdog";
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
 import {
+  isLocalDevWorkspaceRelayUrl,
   resolveCommunityCandidateRelayUrls,
   resolveDmTransportRelayUrls,
 } from "../services/relay-transport-scope";
@@ -158,6 +159,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const relayPool = useRelayPool(transportBootstrapReady ? poolRelayUrls : []);
   const relayPoolRef = useRef(relayPool);
+  relayPoolRef.current = relayPool;
 
   const [operatorWorkspaceRelayUrl, setOperatorWorkspaceRelayUrl] = useState<string | null>(
     () => (typeof window === "undefined" ? null : readOperatorWorkspaceRelayUrl()),
@@ -265,10 +267,13 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return;
     }
     if (!transportBootstrapReady) {
-      const bootstrapUrl = poolConnectionRelayUrls[0]
-        ?? effectiveDmTransportRelayUrls[0]
+      const preferRemoteFirst = (urls: ReadonlyArray<string>): string | undefined => (
+        urls.find((url) => !isLocalDevWorkspaceRelayUrl(url)) ?? urls[0]
+      );
+      const bootstrapUrl = preferRemoteFirst(poolConnectionRelayUrls)
+        ?? preferRemoteFirst(effectiveDmTransportRelayUrls)
         ?? customNodeRelayUrls[0]
-        ?? enginePoolHydrationRelayUrls[0];
+        ?? preferRemoteFirst(enginePoolHydrationRelayUrls);
       if (!bootstrapUrl) {
         setPoolRelayUrls([]);
         return;
@@ -340,6 +345,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [transportProxySummary, setTransportProxySummary] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    // Keep ref assignment in render path as well; this effect is a safety net for Strict Mode.
     relayPoolRef.current = relayPool;
   }, [relayPool]);
 
@@ -434,6 +440,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     );
     relayRuntimeSupervisor.configure({
       pool: relayPoolRef.current,
+      getPool: () => relayPoolRef.current,
       enabledRelayUrls: supervisorActiveRelayUrls,
       allEnabledRelayUrls: transportKernelAuthority
         ? mergeSupervisorRelayUrlCandidates({
@@ -447,6 +454,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       engineRelayCheckpointCount: transportKernelAuthority ? relayCheckpoints.length : 0,
       attemptPrimaryFailover: () => attemptPrimaryFailoverRef.current(),
       meshSchedulerOwnsFailover: meshOwnsFailover,
+      transportMode: relayTransportMode,
       scope: {
         windowLabel,
         profileId: desktopSnapshot.currentWindow.profileId,
@@ -468,6 +476,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     publicKeyHex,
     transportProxySummary,
     transportRoutingMode,
+    relayTransportMode,
     relayRuntimeSupervisor,
     activePoolRelayUrls.join("|"),
     poolConnectionRelayUrls.join("|"),

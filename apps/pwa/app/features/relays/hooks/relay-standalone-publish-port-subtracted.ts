@@ -6,8 +6,8 @@
  */
 
 import type { MultiRelayPublishResult, PublishResult } from "./enhanced-relay-pool-types";
-import { publishToRelayStandalone as publishLegacyToRelayStandalone } from "./enhanced-relay-pool-legacy";
-import { publishToUrlsStandalone as publishLegacyToUrlsStandalone } from "./enhanced-relay-pool-legacy";
+import { publishToRelayStandalone as publishLegacyToRelayStandalone } from "./relay-browser-pool-runtime";
+import { publishToUrlsStandalone as publishLegacyToUrlsStandalone } from "./relay-browser-pool-runtime";
 import {
   shouldUseLegacyStandaloneRelayPublish,
   shouldRouteHostTransportPublish,

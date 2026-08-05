@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { Copy, Check } from "lucide-react";
 
 interface ProfileQRCodeProps {

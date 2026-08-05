@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Button, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { toast } from "@dweb/ui-kit/toast";
 import { Upload, CheckCircle2, AlertCircle, LoaderIcon, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";

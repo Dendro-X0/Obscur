@@ -1,0 +1,50 @@
+{
+  "at": "2026-07-31T03:47:39.706Z",
+  "surface": "release-exe-cold",
+  "exe": "apps/desktop/src-tauri/target/release/obscur_desktop_app.exe",
+  "cdp": "http://127.0.0.1:9230",
+  "settle": "shell",
+  "shell": true,
+  "gate": false,
+  "text": "OBSCUR D DEMOUSER Obscur / e07f67dc...c191ea56 D Chats Requests Junk Chat Group DIRECT MESSAGES Connecting 0/0 active relays OBSCUR PREVIEW MISSING CONTACTS OR CHAT HISTORY? If you do not see contacts or chat history yet, please wait a few minutes while loading and account data synchronization completes. + Select a Conversation Choose a chat from the sidebar or start a new one to begin messaging. ",
+  "session": {
+    "ok": true,
+    "value": {
+      "is_active": true,
+      "npub": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "is_native": true
+    }
+  },
+  "boot": {
+    "ok": true,
+    "value": {
+      "profileId": "default",
+      "phase": "unlocked",
+      "storedPublicKeyHex": null,
+      "sessionPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "keychainPresent": true,
+      "restoreEligible": true,
+      "atUnixMs": 1785469659696
+    }
+  },
+  "restoreSucceeded": false,
+  "restoreExhausted": false,
+  "digestNames": [],
+  "matrix": {
+    "shellWithoutPassword": true,
+    "stayedOnGate": false,
+    "sessionActive": true,
+    "bootUnlocked": true,
+    "keychainPresent": true,
+    "pubkeyAligned": true,
+    "storedPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+    "sessionPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56"
+  },
+  "pass": true,
+  "claim": {
+    "maySay": "AUTH-KERN cold hydrate fixed (L3 release)",
+    "mustNotSay": [
+      "P2 package verified"
+    ]
+  }
+}

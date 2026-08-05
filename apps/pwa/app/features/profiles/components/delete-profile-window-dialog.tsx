@@ -2,7 +2,9 @@
 
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import { ConfirmDialog, Input, Label } from "@dweb/ui-kit";
+import { ConfirmDialog } from "@dweb/ui-kit/confirm-dialog";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
 import { DELETE_PROFILE_WINDOW_CONFIRM_TEXT } from "@/app/features/profiles/services/delete-current-profile-window";
 
 type Props = Readonly<{

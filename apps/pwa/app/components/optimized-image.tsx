@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { ExternalLink, ImageOff, Loader2, RefreshCw } from "lucide-react";
 import { classifyMediaError } from "@/app/features/messaging/components/media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
@@ -16,6 +16,10 @@ interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElem
     priority?: boolean;
     unoptimized?: boolean;
     onRequestOpenExternalLink?: (url: string) => void;
+    /** Durable remote identity for Open / external link when `src` is a session blob. */
+    openUrl?: string;
+    /** After webview load failure: return true if a new `src` will be supplied (parent updates props). */
+    onRecoverFromLoadFailure?: () => Promise<boolean>;
 }
 
 export function OptimizedImage({
@@ -27,11 +31,15 @@ export function OptimizedImage({
     unoptimized = true,
     fill = true,
     onRequestOpenExternalLink,
+    openUrl,
+    onRecoverFromLoadFailure,
     ...props
 }: OptimizedImageProps & { fill?: boolean }) {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isError, setIsError] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
+    const [isRecovering, setIsRecovering] = useState(false);
+    const recoveryAttemptedForSrcRef = React.useRef<string | null>(null);
     const {
         pendingLinkUrl,
         cancelPendingLink,
@@ -39,15 +47,24 @@ export function OptimizedImage({
         requestOpenExternalLink,
     } = useGuardedExternalLinkOpen();
 
+    const externalUrl = (openUrl ?? src).trim() || src;
+
+    React.useEffect(() => {
+        setIsLoaded(false);
+        setIsError(false);
+        setIsRecovering(false);
+        recoveryAttemptedForSrcRef.current = null;
+    }, [src]);
+
     const openExternally = (): void => {
         const requestOpen = onRequestOpenExternalLink ?? requestOpenExternalLink;
-        requestOpen(src);
+        requestOpen(externalUrl);
     };
 
     return (
         <>
         <div className={cn("relative overflow-hidden bg-zinc-100 dark:bg-zinc-800", containerClassName)}>
-            {!isLoaded && !isError && (
+            {(!isLoaded || isRecovering) && !isError && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
                     <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
                 </div>
@@ -62,6 +79,7 @@ export function OptimizedImage({
                             type="button"
                             className="inline-flex items-center gap-1 rounded-md border border-black/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:bg-black/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/10"
                             onClick={() => {
+                                recoveryAttemptedForSrcRef.current = null;
                                 setIsError(false);
                                 setIsLoaded(false);
                                 setRetryKey((prev) => prev + 1);
@@ -90,13 +108,33 @@ export function OptimizedImage({
                     unoptimized={unoptimized}
                     onLoad={() => setIsLoaded(true)}
                     onError={(event) => {
-                        setIsError(true);
-                        const classification = classifyMediaError(new Error("image_load_failed"));
-                        logRuntimeEvent(
-                            `image_player.media_error.${classification.reasonCode}`,
-                            classification.recoverable ? "degraded" : "actionable",
-                            ["[ImagePlayer] image load failed", { src, eventType: event.type }]
-                        );
+                        const failedSrc = src;
+                        void (async () => {
+                            if (
+                                onRecoverFromLoadFailure
+                                && recoveryAttemptedForSrcRef.current !== failedSrc
+                            ) {
+                                recoveryAttemptedForSrcRef.current = failedSrc;
+                                setIsRecovering(true);
+                                try {
+                                    const recovered = await onRecoverFromLoadFailure();
+                                    if (recovered) {
+                                        setIsLoaded(false);
+                                        setIsError(false);
+                                        return;
+                                    }
+                                } finally {
+                                    setIsRecovering(false);
+                                }
+                            }
+                            setIsError(true);
+                            const classification = classifyMediaError(new Error("image_load_failed"));
+                            logRuntimeEvent(
+                                `image_player.media_error.${classification.reasonCode}`,
+                                classification.recoverable ? "degraded" : "actionable",
+                                ["[ImagePlayer] image load failed", { src: failedSrc, eventType: event.type }]
+                            );
+                        })();
                     }}
                     className={cn(
                         "transition-all duration-700 ease-in-out", fill && "object-cover",

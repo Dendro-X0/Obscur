@@ -105,7 +105,17 @@ export class RoomKeyStore {
 
     async getRoomKeyRecord(groupId: string): Promise<RoomKeyRecord | null> {
         this.ensureCacheHydrated();
-        return this.cache.get(groupId) ?? null;
+        const cached = this.cache.get(groupId);
+        if (cached) {
+            return cached;
+        }
+        // Re-read persistence so CDP/fixture writers after hydrate are visible.
+        const persisted = readPersistedMap().get(groupId);
+        if (persisted) {
+            this.cache.set(groupId, persisted);
+            return persisted;
+        }
+        return null;
     }
 
     async getRoomKey(groupId: string): Promise<string | null> {

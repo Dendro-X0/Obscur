@@ -35,7 +35,7 @@ vi.mock("@/app/features/transport-kernel/transport-kernel-publish-port", () => (
   shouldRouteSubtractedStandalonePublishPort: mocks.shouldRouteSubtractedStandalonePublishPort,
 }));
 
-vi.mock("@/app/features/relays/hooks/enhanced-relay-pool-legacy", () => ({
+vi.mock("@/app/features/relays/hooks/relay-browser-pool-runtime", () => ({
   publishToRelayStandalone: vi.fn(),
   publishToUrlsStandalone: vi.fn(),
 }));
@@ -45,7 +45,7 @@ vi.mock("@/app/features/transport-kernel/transport-kernel-host-publish-shim", ()
   publishHostTransportShimToRelayUrls: mocks.publishHostTransportShimToRelayUrls,
 }));
 
-vi.mock("@/app/features/transport-kernel/transport-kernel-standalone-publish-legacy", () => ({
+vi.mock("@/app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive", () => ({
   publishTransportKernelToRelay: vi.fn(),
   publishTransportKernelToRelayUrls: mocks.publishTransportKernelToRelayUrls,
 }));
@@ -53,11 +53,6 @@ vi.mock("@/app/features/transport-kernel/transport-kernel-standalone-publish-leg
 vi.mock("@/app/features/transport-kernel/transport-kernel-standalone-publish-blocked", () => ({
   publishStandaloneLegacyBlockedToRelay: vi.fn(),
   publishStandaloneLegacyBlockedToRelayUrls: vi.fn(),
-}));
-
-vi.mock("@/app/features/relays/hooks/relay-standalone-publish-port-subtracted", () => ({
-  publishToRelayStandaloneSubtracted: vi.fn(),
-  publishToUrlsStandaloneSubtracted: vi.fn(),
 }));
 
 vi.mock("@/app/features/relays/services/relay-transport-journal", () => ({

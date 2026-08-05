@@ -5,4 +5,4 @@ export {
   SkeletonMessage,
   SkeletonChatList,
   SkeletonMessageList,
-} from "@dweb/ui-kit";
+} from "@dweb/ui-kit/skeleton";

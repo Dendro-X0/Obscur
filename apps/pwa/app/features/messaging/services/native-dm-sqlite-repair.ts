@@ -1,5 +1,8 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbGetConversations, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { listDmConversations } from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
@@ -12,6 +15,13 @@ import {
 export const NATIVE_DM_SQLITE_RELAY_BACKFILL_REPAIR_EVENT = "obscur:native-dm-sqlite-relay-backfill-repair";
 
 export const NATIVE_DM_REPAIR_COOLDOWN_MS = 60_000;
+
+let repairEngineHost: HostEnginePort | null = null;
+
+const getRepairEngineHost = (): HostEnginePort => {
+  repairEngineHost ??= createTauriEngineHost();
+  return repairEngineHost;
+};
 
 export type NativeDmOneSidedConversation = Readonly<{
   conversationId: string;
@@ -129,7 +139,10 @@ export const scanNativeDmOneSidedConversations = async (params: Readonly<{
   if (!profileId) {
     return [];
   }
-  const conversations = await dbGetConversations(profileId);
+  const conversations = await listDmConversations({
+    host: getRepairEngineHost(),
+    profileId,
+  });
   const oneSided: NativeDmOneSidedConversation[] = [];
   for (const conversation of conversations) {
     const conversationId = conversation.id?.trim();
@@ -242,7 +255,10 @@ export const runNativeDmSqliteProfileRepairScan = async (params: Readonly<{
       repairRequested: false,
     };
   }
-  const conversations = await dbGetConversations(profileId).catch(() => []);
+  const conversations = await listDmConversations({
+    host: getRepairEngineHost(),
+    profileId,
+  }).catch(() => []);
   const oneSidedConversations = await scanNativeDmOneSidedConversations({
     profileId,
     myPublicKeyHex: params.myPublicKeyHex,

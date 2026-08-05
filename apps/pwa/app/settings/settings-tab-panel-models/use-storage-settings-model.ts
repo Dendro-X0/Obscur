@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import type { Nip96Config } from "@/app/features/messaging/lib/nip96-upload-service";
 import { getNip96StorageKey } from "@/app/features/messaging/lib/nip96-upload-service";
 import { getLocalMediaStorageConfig, getLocalMediaStorageAbsolutePath, saveLocalMediaStorageConfig, DEFAULT_LOCAL_MEDIA_STORAGE_CONFIG, type LocalMediaStorageConfig, } from "@/app/features/vault/services/local-media-store";

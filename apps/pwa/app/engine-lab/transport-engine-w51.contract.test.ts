@@ -29,9 +29,9 @@ describe("transport-engine w51 — standalone owner quarantine charter", () => {
     expect(charter).toContain("verify:transport-engine-w50");
   });
 
-  it("pins w51 design-era charter (execution deferred to w52)", () => {
-    const standalone = readFromPwa("app/features/transport-kernel/transport-kernel-standalone-publish.ts");
-    expect(standalone).toContain("publishTransportKernelToRelayUrls");
+  it("pins w51 design-era charter (execution deferred to w52; production deleted in W66)", () => {
+    const archive = readFromPwa("app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive.ts");
+    expect(archive).toContain("publishTransportKernelToRelayUrls");
 
     const charter = readFromRepo(
       "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",

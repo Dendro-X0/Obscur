@@ -1,5 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbGetGroupMessages, isTauri, type GroupMessageRecord } from "@dweb/db";
+import { isTauri, type GroupMessageRecord } from "@dweb/db";
 import { parseGroupConversationStorageKey } from "@/app/features/groups/utils/group-conversation-id";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { readActiveDesktopProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
@@ -11,6 +11,7 @@ import {
   THREAD_HISTORY_DEFAULT_PAGE_SIZE,
   type ThreadHistoryPage,
 } from "./contracts";
+import { listWorkspaceGroupMessageRecords } from "./workspace-group-message-persist-port";
 
 /** Primary profile slot for group hydrate — mirrors sealed-group write resolver (Path B B3-3). */
 export const resolveGroupThreadHydratePrimaryProfileId = (profileId?: string): string => {
@@ -54,12 +55,12 @@ const loadGroupMessageRowsFromSqlite = async (params: Readonly<{
     accountPublicKeyHex: params.myPublicKeyHex,
   });
   const recordGroups = await Promise.all(profileIds.map(async (profileId) => (
-    dbGetGroupMessages(
+    listWorkspaceGroupMessageRecords({
       profileId,
-      params.storageGroupId,
-      params.pageSize,
-      params.beforeReceivedAtMs,
-    )
+      groupId: params.storageGroupId,
+      limit: params.pageSize,
+      beforeReceivedAt: params.beforeReceivedAtMs,
+    })
   )));
   return mergeGroupMessageRecordsForPage(recordGroups.flat(), params.pageSize);
 };

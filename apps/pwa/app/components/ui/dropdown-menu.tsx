@@ -14,4 +14,4 @@ export {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuRadioGroup,
-} from "@dweb/ui-kit";
+} from "@dweb/ui-kit/dropdown-menu";

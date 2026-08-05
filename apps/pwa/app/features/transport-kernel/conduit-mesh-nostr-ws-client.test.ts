@@ -38,7 +38,9 @@ class MockRelaySocket {
     MockRelaySocket.instances.push(this);
   }
 
-  send(): void {}
+  send(payload?: string): void {
+    void payload;
+  }
 
   close(): void {
     this.readyState = MockRelaySocket.CLOSED;
@@ -123,5 +125,143 @@ describe("conduit-mesh-nostr-ws-client", () => {
     expect(healthMocks.recordDisconnection).toHaveBeenCalledWith("wss://nos.lol");
     expect(healthMocks.recordConnectionFailure).not.toHaveBeenCalled();
     expect(client.getConnectionSnapshots()[0]?.status).toBe("closed");
+  });
+
+  it("accepts OK that arrives synchronously during send (local relay race)", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const client = createConduitMeshNostrWsClient({ connectTimeoutMs: 200 });
+    client.setRelayUrls(["ws://localhost:7000"]);
+
+    const socket = MockRelaySocket.instances[0]!;
+    socket.readyState = MockRelaySocket.OPEN;
+    socket.onopen?.call(socket as unknown as WebSocket, new Event("open"));
+
+    const eventId = "evt-sync-ok-race";
+    const payload = JSON.stringify(["EVENT", { id: eventId, kind: 4, content: "x", pubkey: "ab", created_at: 1, tags: [], sig: "cd" }]);
+    socket.send = () => {
+      socket.onmessage?.call(
+        socket as unknown as WebSocket,
+        new MessageEvent("message", { data: JSON.stringify(["OK", eventId, true, ""]) }),
+      );
+    };
+
+    const result = await client.publish("ws://localhost:7000", payload);
+    expect(result.accepted).toBe(true);
+    expect(result.eventId).toBe(eventId);
+    expect(result.errorMessage).toBeUndefined();
+  });
+
+  it("re-arms REQ on socket open when subscribe ran while connecting (F-RECV-LIVE)", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const client = createConduitMeshNostrWsClient();
+    client.setRelayUrls(["wss://nos.lol"]);
+
+    const socket = MockRelaySocket.instances[0]!;
+    const sent: string[] = [];
+    socket.send = (payload: string) => {
+      sent.push(payload);
+    };
+
+    const pubkey = "e".repeat(64);
+    const received: Array<{ id: string; url: string }> = [];
+    client.subscribe(
+      [{ kinds: [4, 1059], "#p": [pubkey], limit: 50 }],
+      (event, url) => {
+        received.push({ id: String(event.id ?? ""), url });
+      },
+    );
+
+    // Still connecting — no REQ on wire yet
+    expect(sent).toHaveLength(0);
+
+    socket.readyState = MockRelaySocket.OPEN;
+    socket.onopen?.call(socket as unknown as WebSocket, new Event("open"));
+
+    expect(sent).toHaveLength(1);
+    const req = JSON.parse(sent[0]!) as unknown[];
+    expect(req[0]).toBe("REQ");
+    expect(req[1]).toMatch(/^mesh-sub-/);
+    expect(req[2]).toEqual(expect.objectContaining({
+      kinds: [4, 1059],
+      "#p": [pubkey],
+    }));
+
+    // Live EVENT after re-arm must reach the handler
+    socket.onmessage?.call(
+      socket as unknown as WebSocket,
+      new MessageEvent("message", {
+        data: JSON.stringify([
+          "EVENT",
+          req[1],
+          {
+            id: "live-dm-1",
+            kind: 4,
+            pubkey: "a".repeat(64),
+            created_at: 1,
+            tags: [["p", pubkey]],
+            content: "cipher",
+            sig: "b".repeat(128),
+          },
+        ]),
+      }),
+    );
+
+    expect(received).toEqual([{ id: "live-dm-1", url: "wss://nos.lol" }]);
+  });
+
+  it("resubscribeAll re-sends REQ to every open socket", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const client = createConduitMeshNostrWsClient();
+    client.setRelayUrls(["wss://nos.lol", "wss://relay.primal.net"]);
+
+    const sentByUrl = new Map<string, string[]>();
+    for (const socket of MockRelaySocket.instances) {
+      sentByUrl.set(socket.url, []);
+      socket.send = (payload: string) => {
+        sentByUrl.get(socket.url)!.push(payload);
+      };
+      socket.readyState = MockRelaySocket.OPEN;
+      socket.onopen?.call(socket as unknown as WebSocket, new Event("open"));
+    }
+
+    client.subscribe([{ kinds: [4], "#p": ["c".repeat(64)] }], () => undefined);
+    for (const payloads of sentByUrl.values()) {
+      payloads.length = 0;
+    }
+
+    client.resubscribeAll();
+
+    for (const payloads of sentByUrl.values()) {
+      expect(payloads).toHaveLength(1);
+      expect(JSON.parse(payloads[0]!)[0]).toBe("REQ");
+    }
+  });
+
+  it("forceReconnectAll tears down sockets and redials provided URLs", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const client = createConduitMeshNostrWsClient();
+    client.setRelayUrls(["wss://nos.lol"]);
+    const first = MockRelaySocket.instances[0]!;
+    first.readyState = MockRelaySocket.OPEN;
+    first.onopen?.call(first as unknown as WebSocket, new Event("open"));
+
+    const closeSpy = vi.spyOn(first, "close");
+    client.forceReconnectAll(["wss://nos.lol", "wss://relay.damus.io"]);
+
+    expect(closeSpy).toHaveBeenCalled();
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://relay.damus.io");
+    expect(client.getConnectionSnapshots()).toEqual([
+      expect.objectContaining({ url: "wss://nos.lol", status: "connecting" }),
+      expect.objectContaining({ url: "wss://relay.damus.io", status: "connecting" }),
+    ]);
+  });
+
+  it("forceReconnectAll with empty prior map still dials explicit URLs", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const client = createConduitMeshNostrWsClient();
+    client.forceReconnectAll(["wss://nos.lol"]);
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
+    expect(client.getConnectionSnapshots()[0]?.status).toBe("connecting");
   });
 });

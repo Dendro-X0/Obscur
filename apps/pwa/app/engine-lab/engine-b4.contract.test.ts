@@ -5,7 +5,10 @@ import {
   AUTH_ENGINE_METHODS,
   WORKSPACE_ENGINE_METHODS,
   buildAuthGetBootSnapshotRequest,
+  buildWorkspaceInsertGroupMessageRequest,
+  buildWorkspaceListGroupMessagesRequest,
   buildWorkspaceListGroupsRequest,
+  buildWorkspaceUpsertGroupRequest,
   validateEngineInvokeRequest,
 } from "@obscur/engine-contracts";
 
@@ -17,6 +20,47 @@ describe("engine-b4 w0 — method catalogs", () => {
     expect(request.engine).toBe("workspace");
     expect(request.method).toBe(WORKSPACE_ENGINE_METHODS.listGroups);
     expect(validateEngineInvokeRequest(request)).toBeNull();
+  });
+
+  it("defines workspace upsertGroup invoke request", () => {
+    const request = buildWorkspaceUpsertGroupRequest({
+      profileId: "default",
+      group: {
+        id: "g1",
+        profile_id: "default",
+        name: "Test",
+        relay_url: "wss://relay.test",
+        kind: "invite-only",
+        joined_at: 1,
+      },
+    });
+    expect(request.engine).toBe("workspace");
+    expect(request.method).toBe(WORKSPACE_ENGINE_METHODS.upsertGroup);
+    expect(validateEngineInvokeRequest(request)).toBeNull();
+  });
+
+  it("defines workspace listGroupMessages + insertGroupMessage invoke requests", () => {
+    const list = buildWorkspaceListGroupMessagesRequest({
+      profileId: "default",
+      payload: { groupId: "g1", limit: 50 },
+    });
+    expect(list.method).toBe(WORKSPACE_ENGINE_METHODS.listGroupMessages);
+    expect(validateEngineInvokeRequest(list)).toBeNull();
+
+    const insert = buildWorkspaceInsertGroupMessageRequest({
+      profileId: "default",
+      message: {
+        event_id: "e1",
+        group_id: "g1",
+        profile_id: "default",
+        sender_pubkey: "aa",
+        plaintext: "hi",
+        created_at: 1,
+        received_at: 1,
+      },
+    });
+    expect(insert.method).toBe(WORKSPACE_ENGINE_METHODS.insertGroupMessage);
+    expect(validateEngineInvokeRequest(insert)).toBeNull();
   });
 
   it("defines auth getBootSnapshot catalog entry", () => {
@@ -58,13 +102,17 @@ describe("engine-b4 w0 — kernel delegates to packages", () => {
     expect(source).toContain("isAuthEngineAuthority");
   });
 
-  it("rust engine_invoke dispatches workspace listGroups via libobscur", () => {
+  it("rust engine_invoke dispatches workspace listGroups + upsertGroup + message methods via libobscur", () => {
     const source = readFileSync(
       join(REPO_ROOT, "packages/libobscur/src/engine_invoke.rs"),
       "utf8",
     );
     expect(source).toContain("dispatch_workspace");
     expect(source).toContain("\"listGroups\"");
+    expect(source).toContain("\"upsertGroup\"");
+    expect(source).toContain("\"listGroupMessages\"");
+    expect(source).toContain("\"insertGroupMessage\"");
+    expect(source).toContain("\"insertGroupTombstone\"");
   });
 
   it("engine packages do not import apps/pwa", () => {

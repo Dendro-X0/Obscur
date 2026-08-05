@@ -2,7 +2,7 @@
 import React, { useId } from "react";
 import { Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Checkbox } from "@dweb/ui-kit";
+import { Checkbox } from "@dweb/ui-kit/checkbox";
 import { cn } from "@/app/lib/utils";
 import { getDeviceTrustSnapshot } from "@/app/features/auth/services/device-trust-service";
 type DeviceTrustControlProps = Readonly<{

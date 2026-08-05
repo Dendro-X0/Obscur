@@ -3,7 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Download, X } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 
 type AttachmentExportConfirmDialogProps = Readonly<{
   fileName: string | null;

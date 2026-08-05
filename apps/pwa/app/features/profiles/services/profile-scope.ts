@@ -1,5 +1,15 @@
 import { ProfileRegistryService } from "./profile-registry-service";
 
+/**
+ * Profile-scoped storage keys + ambient override cell (R-SCOPE).
+ *
+ * Production writers (allowlisted — see `profile-scope-owner.contract.test.ts`):
+ * - `setProfileScopeOverride` — only `desktop-profile-runtime.ts` after Rust bind/snapshot
+ * - `__OBSCUR_SYNC_PROFILE_SCOPE__` — only boot inject (`desktop-window-boot-payload.ts`, `layout.tsx`)
+ *
+ * Do not write override from auth-gateway, settings, search, or feature hooks.
+ */
+
 export type ProfileMigrationReport = Readonly<{
   backupCreated: boolean;
   migratedIdentity: boolean;

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { X } from "lucide-react";
 import {
   clearPendingProfileImport,

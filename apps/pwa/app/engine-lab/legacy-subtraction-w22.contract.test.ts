@@ -44,21 +44,24 @@ describe("legacy subtraction w22 — kernel authority ports", () => {
     expect(shell).not.toContain("group-provider-legacy");
   });
 
-  it("use-thread-messages gates legacy hydrate through conversation-messages-legacy-port", () => {
+  it("use-thread-messages is dm-kernel or inert only (legacy UI hydrate deleted)", () => {
     const hook = read("app/features/messaging/hooks/use-thread-messages.ts");
-    expect(hook).toContain("conversation-messages-legacy-port");
-    expect(hook).toContain("shouldUseLegacyConversationMessagesHydrate");
     expect(hook).toContain("isDmKernelAuthority");
+    expect(hook).toContain("useDmKernelThread");
+    expect(hook).toContain("useInertConversationMessages");
+    expect(hook).not.toContain("conversation-messages-legacy-port");
     expect(hook).not.toContain("use-conversation-messages-legacy");
+    expect(hook).not.toContain("useLegacyConversationMessages");
   });
 
-  it("dm thread history adapter resolves legacy pipeline through thread-history port", () => {
+  it("dm thread history adapter is dm-kernel stub (Wave 2); resolver always stubs", () => {
     const adapter = read("app/features/messaging/services/thread-history/dm-adapter.ts");
-    expect(adapter).toContain("dm-thread-history-legacy-port");
+    expect(adapter).toContain("dmKernelThreadHistoryStub");
     expect(adapter).not.toContain("dm-conversation-hydrate-pipeline-legacy");
-    expect(adapter).not.toMatch(/@\/app\/legacy\/dm-conversation-/);
+    expect(adapter).not.toContain("runLegacyDmConversationHydrateReadModelPipeline");
     const resolver = read("app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter.ts");
-    expect(resolver).toContain("isDmKernelAuthority");
-    expect(resolver).toContain("isObscurAllowLegacy");
+    expect(resolver).toContain("dmKernelThreadHistoryStub");
+    expect(resolver).not.toContain("isObscurAllowLegacy");
+    expect(resolver).not.toContain("resolveLegacyDmThreadHistoryAdapter");
   });
 });

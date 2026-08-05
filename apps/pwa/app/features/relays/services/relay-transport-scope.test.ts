@@ -1,10 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-vi.mock("@/app/features/runtime/experiment-shell-policy", () => ({
-  isExperimentOnlineEnabled: vi.fn(() => false),
-}));
-
-import { isExperimentOnlineEnabled } from "@/app/features/runtime/experiment-shell-policy";
 import {
   applyRelayListScopeMigration,
   classifyRelayTransportScope,
@@ -13,7 +8,10 @@ import {
   isLocalMeshHttpGatewayUrl,
   isPrivateOrIntranetRelayUrl,
   partitionRelayListByTransportScope,
+  resolveDmAdapterListEntries,
   resolveDmTransportRelayUrls,
+  mergePublicBootIntoLoopbackOnlyList,
+  isLoopbackOnlyRelayList,
 } from "./relay-transport-scope";
 
 describe("relay-transport-scope", () => {
@@ -35,18 +33,16 @@ describe("relay-transport-scope", () => {
     expect(isDmTransportRelayUrl("wss://relay.team.example")).toBe(false);
   });
 
-  it("resolves DM transport URLs from enabled list only", () => {
-    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(false);
+  it("resolves DM transport URLs from enabled public list and appends enabled local-dev fallback", () => {
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "ws://localhost:7000", enabled: true },
       { url: "wss://relay.damus.io", enabled: false },
     ]);
-    expect(urls).toEqual(["wss://relay.damus.io"]);
+    expect(urls).toEqual(["wss://relay.damus.io", "ws://localhost:7000"]);
   });
 
-  it("appends enabled local dev relay after public DM relays when experiment online is set", () => {
-    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(true);
+  it("appends enabled local dev relay after public DM relays without experiment-online gate", () => {
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "ws://localhost:7000", enabled: true },
@@ -59,6 +55,14 @@ describe("relay-transport-scope", () => {
     ]);
   });
 
+  it("excludes disabled local-dev from DM pool", () => {
+    const urls = resolveDmTransportRelayUrls([
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "ws://localhost:7000", enabled: false },
+    ]);
+    expect(urls).toEqual(["wss://relay.damus.io"]);
+  });
+
   it("recognizes loopback mesh HTTP gateways", () => {
     expect(isLocalMeshHttpGatewayUrl("http://127.0.0.1:8788")).toBe(true);
     expect(isLocalMeshHttpGatewayUrl("https://localhost:8788")).toBe(true);
@@ -67,7 +71,6 @@ describe("relay-transport-scope", () => {
   });
 
   it("promotes enabled loopback mesh HTTP into DM pool when public DM list is empty", () => {
-    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(false);
     const urls = resolveDmTransportRelayUrls([
       { url: "http://127.0.0.1:8788", enabled: true },
       { url: "wss://relay.damus.io", enabled: false },
@@ -76,7 +79,6 @@ describe("relay-transport-scope", () => {
   });
 
   it("appends enabled loopback mesh HTTP after public DM relays", () => {
-    vi.mocked(isExperimentOnlineEnabled).mockReturnValue(false);
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "http://127.0.0.1:8788", enabled: true },
@@ -98,6 +100,41 @@ describe("relay-transport-scope", () => {
       "ws://localhost:7000",
       "wss://relay.team.example",
     ]);
+  });
+
+  it("lists enabled local-dev under DM adapters when it joins the DM pool", () => {
+    const relays = [
+      { url: "ws://localhost:7000", enabled: true },
+    ];
+    expect(resolveDmTransportRelayUrls(relays)).toEqual(["ws://localhost:7000"]);
+    expect(resolveDmAdapterListEntries(relays).map((entry) => entry.url)).toEqual([
+      "ws://localhost:7000",
+    ]);
+  });
+
+  it("merges public boot rows into loopback-only stored lists", () => {
+    const { relays, changed } = mergePublicBootIntoLoopbackOnlyList(
+      [{ url: "ws://localhost:7080", enabled: true }],
+      [
+        { url: "wss://nos.lol", enabled: true },
+        { url: "wss://relay.primal.net", enabled: true },
+      ],
+    );
+    expect(changed).toBe(true);
+    expect(relays.map((entry) => entry.url)).toEqual([
+      "wss://nos.lol",
+      "wss://relay.primal.net",
+      "ws://localhost:7080",
+    ]);
+    expect(isLoopbackOnlyRelayList(relays)).toBe(false);
+  });
+
+  it("does not force-merge intentional non-loopback private lists", () => {
+    const { changed } = mergePublicBootIntoLoopbackOnlyList(
+      [{ url: "ws://192.168.0.100:7000", enabled: true }],
+      [{ url: "wss://nos.lol", enabled: true }],
+    );
+    expect(changed).toBe(false);
   });
 
   it("disables private relays during storage migration", () => {

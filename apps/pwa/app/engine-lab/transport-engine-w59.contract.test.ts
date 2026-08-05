@@ -45,49 +45,45 @@ describe("transport-engine w59 — standalone legacy physical deletion execution
     expect(module).toContain("isStandaloneLegacyDeletionApproved");
   });
 
-  it("reports baseline ready while gate is closed", () => {
+  it("reports post-subtraction dry-run state after W66", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacySubtractionDryRun(recorded, createPwaFilesystem());
-    expect(report.gateApproved).toBe(false);
-    expect(report.legacyFilesPresent).toBe(true);
+    expect(report.legacyFilesPresent).toBe(false);
     expect(report.legacyArchivePresent).toBe(true);
-    expect(report.portImportsLegacy).toBe(true);
+    expect(report.portImportsLegacy).toBe(false);
     expect(report.subtractedPortPresent).toBe(true);
     expect(report.subtractedPortOmitsLegacyImport).toBe(true);
     expect(report.thinPortTemplatePresent).toBe(true);
     expect(report.thinPortOmitsLegacyImport).toBe(true);
     expect(report.postDeletionOwnersPresent).toBe(true);
     expect(report.semanticsOwnerPresent).toBe(true);
-    expect(report.contractPinsPresent).toBe(true);
-    expect(report.unitTestPinsPresent).toBe(true);
-    expect(report.existencePinMigrationReady).toBe(true);
-    expect(report.mechanicalSubtractionCommitReady).toBe(true);
-    expect(report.b5ExitVerificationReady).toBe(true);
-    expect(report.prepBandClosureReady).toBe(true);
+    expect(report.mechanicalSubtractionCommitReady).toBe(false);
     expect(report.readyForPhysicalDeletion).toBe(false);
   });
 
-  it("keeps legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });
 
 describe("transport-engine w59 — dry-run gate semantics", () => {
-  it("opens physical deletion readiness only when sign-off PASS and env approval are both set", () => {
+  it("opens gate approval with PASS+env but not physical deletion after files already removed", () => {
     const passSignOff = "**Decision:** PASS\n";
     const fs = createPwaFilesystem();
 
     vi.stubEnv("NEXT_PUBLIC_OBSCUR_TRANSPORT_STANDALONE_LEGACY_DELETION_APPROVED", "1");
     const approved = evaluateStandaloneLegacySubtractionDryRun(passSignOff, fs);
     expect(isStandaloneLegacyDeletionApproved(passSignOff)).toBe(true);
-    expect(approved.readyForPhysicalDeletion).toBe(true);
+    expect(approved.gateApproved).toBe(true);
+    expect(approved.legacyFilesPresent).toBe(false);
+    expect(approved.readyForPhysicalDeletion).toBe(false);
     vi.unstubAllEnvs();
 
-    const blocked = evaluateStandaloneLegacySubtractionDryRun(passSignOff, fs);
-    expect(blocked.readyForPhysicalDeletion).toBe(false);
+    const withoutEnv = evaluateStandaloneLegacySubtractionDryRun(passSignOff, fs);
+    expect(withoutEnv.readyForPhysicalDeletion).toBe(false);
   });
 });

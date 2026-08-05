@@ -357,8 +357,8 @@ fn fail_pending_acks_for_scope_relay(
 }
 
 // Command: Connect to a relay
-// Internal: Connect to a relay for a specific window
-async fn connect_relay_internal(
+// Internal: Connect to a relay for a specific window (also used by mesh configure RUST-1b).
+pub(crate) async fn connect_relay_internal(
     app: AppHandle,
     window_label: String,
     url: String,
@@ -773,32 +773,6 @@ pub async fn recycle_relays(
     }
 
     Ok("Recycled profile relay connections".to_string())
-}
-
-// Command: Publish Event
-#[tauri::command]
-pub async fn publish_event(
-    window: WebviewWindow,
-    state: State<'_, RelayPool>,
-    url: String,
-    event_json: Value,
-) -> Result<String, String> {
-    // Wrap event in ["EVENT", event_json] as per NIP-01
-    let msg_json = serde_json::json!(["EVENT", event_json]);
-    let msg_str = msg_json.to_string();
-    let key = (window.label().to_string(), url);
-
-    let tx = {
-        let connections = state.connections.lock().unwrap();
-        connections.get(&key).map(|c| c.tx.clone())
-    };
-
-    if let Some(tx) = tx {
-        enqueue_relay_message(&tx, Message::Text(msg_str.into()))?;
-        Ok("Published".to_string())
-    } else {
-        Err("Not connected".to_string())
-    }
 }
 
 #[tauri::command]

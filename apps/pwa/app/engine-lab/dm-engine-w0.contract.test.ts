@@ -14,6 +14,8 @@ describe("dm-engine w0 — method catalog", () => {
   it("defines canonical dm methods", () => {
     expect(DM_ENGINE_METHODS.getThread).toBe("getThread");
     expect(DM_ENGINE_METHODS.listConversations).toBe("listConversations");
+    expect(DM_ENGINE_METHODS.insertMessage).toBe("insertMessage");
+    expect(DM_ENGINE_METHODS.upsertConversation).toBe("upsertConversation");
   });
 
   it("builds typed getThread invoke requests", () => {
@@ -45,13 +47,14 @@ describe("dm-engine w0 — method catalog", () => {
 });
 
 describe("dm-engine w0 — host boundary wiring", () => {
-  it("dm-kernel thread port routes strict reads through dm-engine", () => {
+  it("dm-kernel thread port routes all reads through dm-engine", () => {
     const source = readFileSync(
       join(REPO_ROOT, "apps/pwa/app/features/dm-kernel/dm-kernel-thread-port.ts"),
       "utf8",
     );
     expect(source).toContain("fetchDmThreadRows");
-    expect(source).toContain("isEngineLabStrictMode");
+    expect(source).not.toContain("isEngineLabStrictMode");
+    expect(source).not.toMatch(/\bdbGetMessages\b/);
     expect(source).toContain("createTauriEngineHost");
   });
 

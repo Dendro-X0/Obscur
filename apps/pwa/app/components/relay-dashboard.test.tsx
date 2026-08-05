@@ -7,6 +7,11 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
     enabledRelayUrls: ["wss://relay.damus.io"],
     communityCandidateRelayUrls: [],
     activePoolRelayUrls: ["wss://relay.damus.io"],
+    relayList: {
+      state: {
+        relays: [{ url: "wss://relay.damus.io", enabled: true }],
+      },
+    },
     relaySelection: {
       primaryUrl: "wss://relay.damus.io",
     },
@@ -35,6 +40,7 @@ vi.mock("@/app/features/relays/providers/relay-provider", () => ({
       phase: "healthy",
       lastInboundEventAtUnixMs: Date.now(),
       fallbackRelayUrls: [],
+      engineConfiguredRelayUrls: [],
     },
   })),
 }));
@@ -62,6 +68,17 @@ describe("buildOrderedRelayDashboardUrls", () => {
             primaryUrl: "",
         });
         expect(ordered).toEqual(["wss://only.example"]);
+    });
+
+    it("dedupes localhost aliases into one card url", () => {
+        const ordered = buildOrderedRelayDashboardUrls({
+            metricsKeys: ["ws://127.0.0.1:7000"],
+            enabledRelayUrls: ["ws://localhost:7000"],
+            connectionUrls: ["ws://127.0.0.1:7000"],
+            fallbackRelayUrls: [],
+            primaryUrl: "ws://localhost:7000",
+        });
+        expect(ordered).toEqual(["ws://localhost:7000"]);
     });
 });
 
@@ -204,5 +221,117 @@ describe("RelayDashboard", () => {
     expect(screen.getByText("ws://localhost:7000")).toBeInTheDocument();
     expect(screen.getAllByText("Connected").length).toBeGreaterThan(0);
     expect(screen.queryByText("Disabled")).not.toBeInTheDocument();
+  });
+
+  it("matches pool connection aliases so primary is not falsely Disconnected", async () => {
+    const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
+    vi.mocked(useRelay).mockReturnValue({
+      enabledRelayUrls: ["ws://localhost:7000"],
+      communityCandidateRelayUrls: [],
+      activePoolRelayUrls: ["ws://127.0.0.1:7000"],
+      relaySelection: {
+        primaryUrl: "ws://localhost:7000",
+      },
+      relayPool: {
+        connections: [
+          { url: "ws://127.0.0.1:7000", status: "open", updatedAtUnixMs: 1 },
+        ],
+        healthMetrics: [
+          {
+            url: "ws://127.0.0.1:7000",
+            status: "connected",
+            connectionAttempts: 1,
+            successfulConnections: 1,
+            failedConnections: 0,
+            latency: 9,
+            latencyHistory: [9],
+            latencySampleSource: "app",
+            successRate: 100,
+            circuitBreakerState: "closed",
+            circuitBreakerFailureCount: 0,
+            retryCount: 0,
+            backoffDelay: 1000,
+          },
+        ],
+      },
+      relayRuntime: {
+        phase: "healthy",
+        lastInboundEventAtUnixMs: Date.now(),
+        fallbackRelayUrls: [],
+      },
+    } as any);
+
+    render(<RelayDashboard />);
+
+    expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Active transport").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("RTT 9ms").length).toBeGreaterThan(0);
+    expect(screen.queryByText("ws://127.0.0.1:7000")).not.toBeInTheDocument();
+  });
+
+  it("labels historical Connect on a disconnected primary card", async () => {
+    const { useRelay } = await import("@/app/features/relays/providers/relay-provider");
+    vi.mocked(useRelay).mockReturnValue({
+      enabledRelayUrls: ["wss://nos.lol", "wss://relay.primal.net"],
+      communityCandidateRelayUrls: [],
+      activePoolRelayUrls: ["wss://relay.primal.net"],
+      relaySelection: {
+        primaryUrl: "wss://nos.lol",
+      },
+      relayPool: {
+        connections: [
+          { url: "wss://relay.primal.net", status: "open", updatedAtUnixMs: 1 },
+        ],
+        healthMetrics: [
+          {
+            url: "wss://nos.lol",
+            status: "disconnected",
+            connectionAttempts: 2,
+            successfulConnections: 0,
+            failedConnections: 2,
+            latency: 1371,
+            latencyHistory: [900, 1371],
+            latencySampleSource: "connect",
+            successRate: 0,
+            circuitBreakerState: "closed",
+            circuitBreakerFailureCount: 0,
+            retryCount: 0,
+            backoffDelay: 1000,
+          },
+          {
+            url: "wss://relay.primal.net",
+            status: "connected",
+            connectionAttempts: 1,
+            successfulConnections: 1,
+            failedConnections: 0,
+            latency: 200,
+            latencyHistory: [200],
+            latencySampleSource: "app",
+            successRate: 100,
+            circuitBreakerState: "closed",
+            circuitBreakerFailureCount: 0,
+            retryCount: 0,
+            backoffDelay: 1000,
+          },
+        ],
+      },
+      relayRuntime: {
+        phase: "degraded",
+        lastInboundEventAtUnixMs: Date.now() - 60_000,
+        fallbackRelayUrls: [],
+      },
+    } as any);
+
+    render(<RelayDashboard />);
+
+    expect(screen.getByText("Last Connect 1371ms")).toBeInTheDocument();
+    expect(screen.getAllByText("Primary (offline)").length).toBeGreaterThan(0);
+    expect(screen.getByText("Selected primary — no open socket yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No latency samples yet")).not.toBeInTheDocument();
+    // Offline compact + Quiet slim both omit Success Rate chrome
+    expect(screen.queryByText("Success Rate")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Latency History")).toHaveLength(1);
+    expect(screen.getByText("RTT 200ms")).toBeInTheDocument();
+    expect(screen.getByText(/window idle/i)).toBeInTheDocument();
   });
 });

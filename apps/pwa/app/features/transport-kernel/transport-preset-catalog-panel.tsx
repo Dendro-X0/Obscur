@@ -5,7 +5,7 @@ import { Check, Globe, Home, Layers, Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
 
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 import {
   TRANSPORT_PRESET_GROUPS,
@@ -13,7 +13,10 @@ import {
   type TransportPresetCategory,
   type TransportPresetId,
 } from "./transport-preset-catalog";
-import { isTorPresetApplyBlocked } from "./transport-preset-apply-policy";
+import {
+  isTorPresetApplyBlocked,
+  resolveTorPresetBadgeKind,
+} from "./transport-preset-apply-policy";
 import type { ActiveTransportMix, TransportPresetMatchState } from "./transport-preset-match";
 
 const CATEGORY_META: Readonly<
@@ -174,23 +177,40 @@ export function TransportPresetCatalogPanel({
                           >
                             {matchLabel(matchState)}
                           </span>
-                          {preset.requiresTor ? (
-                            <span
-                              className={cn(
-                                "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                                resolvedTorState.ready
-                                  ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
-                                  : "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-                              )}
-                            >
-                              {resolvedTorState.ready
-                                ? t("settings.conduits.torReadyBadge", { defaultValue: "Tor ready" })
-                                : t("settings.conduits.torNotReadyBadge", { defaultValue: "Tor not ready" })}
-                            </span>
-                          ) : null}
+                          {(() => {
+                            const torBadge = resolveTorPresetBadgeKind(preset, resolvedTorState);
+                            if (!torBadge) {
+                              return null;
+                            }
+                            const badgeClass = torBadge === "ready"
+                              ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
+                              : torBadge === "off"
+                                ? "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400"
+                                : "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+                            const badgeLabel = torBadge === "ready"
+                              ? t("settings.conduits.torReadyBadge", { defaultValue: "Tor ready" })
+                              : torBadge === "off"
+                                ? t("settings.conduits.torOffBadge", { defaultValue: "Tor off" })
+                                : t("settings.conduits.torNotReadyBadge", { defaultValue: "Tor not ready" });
+                            return (
+                              <span
+                                className={cn(
+                                  "rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                                  badgeClass,
+                                )}
+                              >
+                                {badgeLabel}
+                              </span>
+                            );
+                          })()}
                           {preset.isUrlTemplate ? (
                             <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                               {t("settings.relays.presetTemplateBadge")}
+                            </span>
+                          ) : null}
+                          {preset.sshTunnel ? (
+                            <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+                              {t("settings.relays.presetSshBadge", { defaultValue: "SSH" })}
                             </span>
                           ) : null}
                         </div>

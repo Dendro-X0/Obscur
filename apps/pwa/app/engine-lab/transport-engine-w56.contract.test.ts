@@ -34,19 +34,19 @@ describe("transport-engine w56 — standalone legacy deletion execution gate", (
     expect(gate).toContain("isStandaloneLegacyDeletionApproved");
   });
 
-  it("blocks deletion with recorded sign-off BLOCKED", () => {
+  it("sign-off is PASS; deletion still requires approval env", () => {
     const recorded = readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-recorded.md");
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
     expect(isStandaloneLegacyDeletionApproved(recorded)).toBe(false);
     expect(isStandaloneLegacyDeletionEnvApprovedForPolicy()).toBe(false);
   });
 
-  it("keeps legacy module, facade, and port fallback while gate is closed", () => {
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(true);
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(true);
+  it("production legacy files are absent; port omits legacy import after W66", () => {
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(false);
 
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
   });
 });
 

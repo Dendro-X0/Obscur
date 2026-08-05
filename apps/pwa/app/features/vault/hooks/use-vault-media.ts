@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useTranslation } from "react-i18next";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useOptionalProfileMessageBus } from "../../profiles/providers/profile-runtime-provider";

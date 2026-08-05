@@ -4,7 +4,10 @@
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbGetTombstones, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { listDmTombstones } from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import type { AccountProjectionSnapshot } from "@/app/features/account-sync/account-event-contracts";
 import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
 import { messagingClientOperations } from "./messaging-client-operations";
@@ -18,6 +21,13 @@ export type PrepareDmThreadSuppressionParams = Readonly<{
   /** Unioned with durable + projection ids (in-flight deletes before SQLite flush). */
   seedIds?: ReadonlySet<string>;
 }>;
+
+let suppressionTombstoneEngineHost: HostEnginePort | null = null;
+
+const getSuppressionTombstoneEngineHost = (): HostEnginePort => {
+  suppressionTombstoneEngineHost ??= createTauriEngineHost();
+  return suppressionTombstoneEngineHost;
+};
 
 /**
  * Loads durable tombstones, merges projection `removedMessageIds`, returns a mutable set
@@ -48,7 +58,10 @@ export const prepareDmThreadSuppressionIds = async (
 
   if (isTauri() && profileId) {
     try {
-      const rows = await dbGetTombstones(profileId);
+      const rows = await listDmTombstones({
+        host: getSuppressionTombstoneEngineHost(),
+        profileId,
+      });
       rows.forEach((row) => {
         const eventId = row.event_id?.trim();
         if (eventId) {

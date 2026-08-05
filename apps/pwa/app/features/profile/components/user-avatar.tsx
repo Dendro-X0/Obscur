@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
+import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit/avatar";
 import { useResolvedProfileMetadata } from "../hooks/use-resolved-profile-metadata";
 import { cn } from "@/app/lib/utils";
 import { useRouter } from "next/navigation";

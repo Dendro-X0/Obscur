@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+  "packages/libobscur",
+]
+exclude = [
+  "apps/desktop/src-tauri",
+]
+# obscur_desktop_lib stays on its own manifest (excluded above).
+# CodaCtrl RC1 runs `cargo test -p libobscur <filter>` from repo root (MF-7).

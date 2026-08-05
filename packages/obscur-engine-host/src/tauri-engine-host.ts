@@ -22,13 +22,74 @@ export const shouldRouteTransportPublishToAsyncDesktopCommand = (
   && isTransportHostPublishNetworkEnvEnabled()
 );
 
+/** R-RELAY-RUST-1b/1c: mesh configure + snapshot use async desktop commands. */
+export const shouldRouteTransportConfigureMeshToAsyncDesktopCommand = (
+  request: EngineInvokeRequest,
+): boolean => (
+  request.engine === "transport"
+  && request.method === "configureMeshConduits"
+);
+
+export const shouldRouteTransportGetMeshSnapshotToAsyncDesktopCommand = (
+  request: EngineInvokeRequest,
+): boolean => (
+  request.engine === "transport"
+  && request.method === "getMeshSnapshot"
+);
+
+export const shouldRouteTransportPublishMeshEnvelopeToAsyncDesktopCommand = (
+  request: EngineInvokeRequest,
+): boolean => (
+  request.engine === "transport"
+  && request.method === "publishMeshEnvelope"
+);
+
+export const shouldRouteTransportExportOfflinePackToAsyncDesktopCommand = (
+  request: EngineInvokeRequest,
+): boolean => (
+  request.engine === "transport"
+  && request.method === "exportOfflinePack"
+);
+
+export const shouldRouteTransportImportOfflinePackToAsyncDesktopCommand = (
+  request: EngineInvokeRequest,
+): boolean => (
+  request.engine === "transport"
+  && request.method === "importOfflinePack"
+);
+
+export type TauriEngineInvokeCommand =
+  | "engine_invoke"
+  | "engine_invoke_transport_publish_relay_event"
+  | "engine_invoke_transport_configure_mesh_conduits"
+  | "engine_invoke_transport_get_mesh_snapshot"
+  | "engine_invoke_transport_publish_mesh_envelope"
+  | "engine_invoke_transport_export_offline_pack"
+  | "engine_invoke_transport_import_offline_pack";
+
 export const resolveTauriEngineInvokeCommand = (
   request: EngineInvokeRequest,
-): "engine_invoke" | "engine_invoke_transport_publish_relay_event" => (
-  shouldRouteTransportPublishToAsyncDesktopCommand(request)
-    ? "engine_invoke_transport_publish_relay_event"
-    : "engine_invoke"
-);
+): TauriEngineInvokeCommand => {
+  if (shouldRouteTransportConfigureMeshToAsyncDesktopCommand(request)) {
+    return "engine_invoke_transport_configure_mesh_conduits";
+  }
+  if (shouldRouteTransportGetMeshSnapshotToAsyncDesktopCommand(request)) {
+    return "engine_invoke_transport_get_mesh_snapshot";
+  }
+  if (shouldRouteTransportPublishMeshEnvelopeToAsyncDesktopCommand(request)) {
+    return "engine_invoke_transport_publish_mesh_envelope";
+  }
+  if (shouldRouteTransportExportOfflinePackToAsyncDesktopCommand(request)) {
+    return "engine_invoke_transport_export_offline_pack";
+  }
+  if (shouldRouteTransportImportOfflinePackToAsyncDesktopCommand(request)) {
+    return "engine_invoke_transport_import_offline_pack";
+  }
+  if (shouldRouteTransportPublishToAsyncDesktopCommand(request)) {
+    return "engine_invoke_transport_publish_relay_event";
+  }
+  return "engine_invoke";
+};
 
 export const isTauriEngineHostAvailable = (): boolean => {
   if (typeof window === "undefined") {

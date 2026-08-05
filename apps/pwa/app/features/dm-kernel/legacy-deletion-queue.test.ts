@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -6,24 +6,25 @@ describe("legacy deletion queue", () => {
   const pwaRoot = path.resolve(__dirname, "../../..");
   const read = (relativePath: string) => readFileSync(path.join(pwaRoot, relativePath), "utf8");
 
-  it("use-conversation-messages legacy hook lives in features behind port", () => {
+  it("use-conversation-messages thick legacy hook is deleted", () => {
+    expect(existsSync(path.join(pwaRoot, "app/features/messaging/hooks/use-conversation-messages-legacy.ts"))).toBe(false);
     const port = read("app/features/messaging/hooks/conversation-messages-legacy-port.ts");
-    const hook = read("app/features/messaging/hooks/use-conversation-messages-legacy.ts");
-    expect(port).toContain("./use-conversation-messages-legacy");
-    expect(hook).toContain("useLegacyConversationMessages");
-    expect(hook).not.toMatch(/@\/app\/legacy\//);
+    expect(port).toContain("shouldUseLegacyConversationMessagesHydrate");
+    expect(port).toMatch(/=>\s*false/);
+    expect(port).not.toContain("./use-conversation-messages-legacy");
   });
 
-  it("use-conversation-messages legacy remains inert on native via use-thread-messages kernel bypass", () => {
+  it("use-thread-messages is dm-kernel or inert only", () => {
     const threadMessages = read("app/features/messaging/hooks/use-thread-messages.ts");
     expect(threadMessages).toContain("useDmKernelThread");
-    expect(threadMessages).toContain("legacyHydrate ? displayDmId : undefined");
     expect(threadMessages).toContain("useInertConversationMessages");
+    expect(threadMessages).not.toContain("useLegacyConversationMessages");
+    expect(threadMessages).not.toContain("legacyHydrate");
   });
 
-  it("messaging-provider routes sidebar through dm-kernel when kernel authority is active", () => {
+  it("messaging-provider routes sidebar through dm-kernel sidebar port", () => {
     const source = read("app/features/messaging/providers/messaging-provider.tsx");
-    expect(source).toContain("isDmKernelAuthority");
     expect(source).toContain("loadDmKernelSidebar");
+    expect(source).toContain("dm-kernel-sidebar-port");
   });
 });

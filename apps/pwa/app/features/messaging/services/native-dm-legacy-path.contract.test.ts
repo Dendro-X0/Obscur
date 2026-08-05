@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -89,36 +89,24 @@ describe("native DM legacy path subtraction contracts", () => {
     expect(scenario).toContain("getSqliteMessagesForPeer");
   });
 
-  it("native-dm-thread-hydrate does not import interim hydrate authority stack", () => {
-    const source = readSource("features/messaging/services/thread-history/native-dm-thread-hydrate.ts");
-    const forbidden = [
-      "dm-read-authority-contract",
-      "dm-conversation-hydrate-read-model",
-      "dm-conversation-hydrate-pipeline",
-      "dm-conversation-projection-live-merge",
-      "dm-conversation-projection-evidence-messages",
-    ];
-    const importLines = source
-      .split("\n")
-      .filter((line) => /^\s*import\b/.test(line));
-    forbidden.forEach((fragment) => {
-      const offender = importLines.find((line) => line.includes(fragment));
-      expect(offender, `forbidden import: ${fragment}`).toBeUndefined();
-    });
+  it("native-dm-thread-hydrate implementation is deleted (Wave 3)", () => {
+    expect(existsSync(join(APP_ROOT, "features/messaging/services/thread-history/native-dm-thread-hydrate.ts"))).toBe(false);
+    expect(existsSync(join(APP_ROOT, "features/messaging/services/thread-history/native-dm-adapter.ts"))).toBe(false);
   });
 
-  it("resolve-dm-thread-history-adapter routes native sqlite owner through dm-kernel stub", () => {
+  it("resolve-dm-thread-history-adapter always returns dm-kernel stub (Wave 2)", () => {
     const source = readSource("features/messaging/services/thread-history/resolve-dm-thread-history-adapter.ts");
     expect(source).toContain("dmKernelThreadHistoryStub");
-    expect(source).toContain("isDmKernelAuthority");
-    expect(source).toContain("isObscurAllowLegacy");
+    expect(source).not.toContain("isObscurAllowLegacy");
+    expect(source).not.toContain("require(");
     expect(source).not.toMatch(/from\s+["']\.\/native-dm-adapter["']/);
+    expect(source).not.toMatch(/from\s+["']\.\/dm-adapter["']/);
   });
 
-  it("use-conversation-messages delegates native hydrate to native-dm-conversation-hydrate-owner", () => {
-    const source = readSource("features/messaging/hooks/use-conversation-messages-legacy.ts");
-    expect(source).toContain("runLegacyNativeDmConversationHistoryHydrate");
-    expect(source).toContain("shouldNativeDmSkipHydrateRetryTrigger");
+  it("legacy UI hydrate hook and native refuse owner are deleted (Wave 4)", () => {
+    expect(existsSync(join(APP_ROOT, "features/messaging/hooks/use-conversation-messages-legacy.ts"))).toBe(false);
+    expect(existsSync(join(APP_ROOT, "features/messaging/services/native-dm-conversation-hydrate-owner.ts"))).toBe(false);
+    expect(existsSync(join(APP_ROOT, "features/messaging/services/native-dm-conversation-hydrate-port.ts"))).toBe(false);
   });
 
   it("messaging-provider uses native sqlite sidebar list owner on desktop", () => {
@@ -131,16 +119,9 @@ describe("native DM legacy path subtraction contracts", () => {
     );
   });
 
-  it("dm-native-relay-backfill scenario forces relay sync repair on native CDP", () => {
-    const scenario = readFileSync(
-      join(REPO_SCRIPTS_ROOT, "lib/dev-lab-dm-native-relay-backfill.mjs"),
-      "utf8",
-    );
-    expect(scenario).toContain("forceNativeDmRelayBackfillSync");
-    expect(scenario).toContain("messaging.transport.sync_start");
-    expect(scenario).toContain("sqlite_bidirectional_after_repair");
-    expect(scenario).toContain("two_actor_inbound_seed");
-    expect(scenario).toContain("native_sqlite_write_probe");
-    expect(scenario).toContain("triggerMissedMessageSync");
+  it("product transport owner remains the native relay backfill repair surface", () => {
+    const provider = readSource("features/messaging/providers/runtime-messaging-transport-owner-provider.tsx");
+    expect(provider).toContain("subscribeNativeDmRelayBackfillRepair");
+    expect(provider).toContain("syncMissedMessagesRef.current");
   });
 });

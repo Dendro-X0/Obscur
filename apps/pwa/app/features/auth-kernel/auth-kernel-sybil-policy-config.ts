@@ -1,5 +1,6 @@
-import type { AuthSybilPolicySnapshot, AuthSybilTier } from "@dweb/auth";
-import { DEFAULT_AUTH_SYBIL_POLICY, resolveAuthSybilPolicyForTier } from "@dweb/auth";
+import type { AuthSybilPolicySnapshot, AuthSybilTier } from "@dweb/auth/contracts/auth-sybil-policy";
+import { DEFAULT_AUTH_SYBIL_POLICY } from "@dweb/auth/contracts/auth-sybil-policy";
+import { resolveAuthSybilPolicyForTier } from "@dweb/auth/policy/registration-policy-engine";
 
 const SYBIL_TIER_OVERRIDE_STORAGE_KEY = "obscur.auth.sybil_tier_override";
 

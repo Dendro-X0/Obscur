@@ -125,8 +125,16 @@ export const SETTINGS_SEARCH_INDEX: readonly SettingsSearchEntry[] = [
         id: "relay-advanced",
         tab: "relays",
         title: "Relay advanced settings",
-        description: "Primary relay selection, redundancy presets, and relay list editing.",
-        keywords: ["advanced", "primary relay", "redundancy", "latency", "preset"],
+        description: "Bulk relay actions and DM / workspace endpoint list editing.",
+        keywords: ["advanced", "primary relay", "redundancy", "preset", "bulk"],
+    },
+    {
+        id: "relay-performance",
+        tab: "relays",
+        elementId: "relay-performance-metrics",
+        title: "Network performance metrics",
+        description: "Per-relay Connect/RTT history and node health on the Relays page.",
+        keywords: ["latency", "rtt", "connect", "performance", "metrics", "quiet", "dashboard"],
     },
     {
         id: "relay-community-modes",

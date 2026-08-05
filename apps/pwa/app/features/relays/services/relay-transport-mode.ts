@@ -8,8 +8,8 @@ export const REDUNDANCY_POOL_MAX_RELAYS = 3;
 
 const STORAGE_KEY = "obscur.relay_transport_mode.v1";
 
-const isRedundancyEnvDefault = (): boolean => (
-  process.env.NEXT_PUBLIC_OBSCUR_RELAY_REDUNDANCY === "1"
+const isBasicEnvForced = (): boolean => (
+  process.env.NEXT_PUBLIC_OBSCUR_RELAY_BASIC === "1"
 );
 
 export const getRelayTransportModeStorageKey = (profileId?: string): string => (
@@ -18,7 +18,7 @@ export const getRelayTransportModeStorageKey = (profileId?: string): string => (
 
 export const readRelayTransportMode = (profileId?: string): RelayTransportMode => {
   if (typeof window === "undefined") {
-    return isRedundancyEnvDefault() ? "redundancy" : "basic";
+    return isBasicEnvForced() ? "basic" : "redundancy";
   }
   try {
     const raw = window.localStorage.getItem(getRelayTransportModeStorageKey(profileId));
@@ -28,7 +28,8 @@ export const readRelayTransportMode = (profileId?: string): RelayTransportMode =
   } catch {
     // ignore
   }
-  return isRedundancyEnvDefault() ? "redundancy" : "basic";
+  // Prod-first 2026-08: Default Stable uses redundancy; force basic only via env.
+  return isBasicEnvForced() ? "basic" : "redundancy";
 };
 
 export const writeRelayTransportMode = (

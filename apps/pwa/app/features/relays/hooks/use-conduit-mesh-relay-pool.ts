@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type {
   EnhancedRelayPoolResult,
   MultiRelayPublishResult,
@@ -39,6 +39,14 @@ export const isHttpMeshPoolUrl = (url: string): boolean => {
   const trimmed = url.trim().toLowerCase();
   return trimmed.startsWith("http://") || trimmed.startsWith("https://");
 };
+
+/** Sync P-evidence overlay — React state alone lags getTransportActivitySnapshot readers. */
+export const resolveLastSuccessfulPublishAtUnixMs = (params: Readonly<{
+  stampedAtUnixMs?: number;
+  activityLastSuccessfulPublishAtUnixMs?: number;
+}>): number | undefined => (
+  params.stampedAtUnixMs ?? params.activityLastSuccessfulPublishAtUnixMs
+);
 
 const resolveWritableRelayUrls = (
   poolUrls: ReadonlyArray<string>,
@@ -127,6 +135,8 @@ export const useConduitMeshRelayPool = (
 
   const [activitySnapshot, setActivitySnapshot] = useState(EMPTY_ACTIVITY);
   const [healthMetricsTick, setHealthMetricsTick] = useState(0);
+  /** Synchronous P-evidence — survives until React commits activitySnapshot stamp. */
+  const publishEvidenceRef = useRef<{ lastSuccessfulPublishAtUnixMs?: number }>({});
 
   useEffect(() => {
     nostrClient.setRelayUrls(urlsKey ? urlsKey.split("|") : []);
@@ -138,26 +148,41 @@ export const useConduitMeshRelayPool = (
     })
   ), []);
 
+  const mergeActivitySnapshot = useCallback(async () => {
+    const next = await runtime.getTransportActivitySnapshot();
+    setActivitySnapshot((previous) => ({
+      ...next,
+      // Preserve passthrough P-evidence stamp — mesh ledger refresh must not wipe it.
+      lastSuccessfulPublishAtUnixMs: resolveLastSuccessfulPublishAtUnixMs({
+        stampedAtUnixMs: publishEvidenceRef.current.lastSuccessfulPublishAtUnixMs
+          ?? previous.lastSuccessfulPublishAtUnixMs,
+        activityLastSuccessfulPublishAtUnixMs: next.lastSuccessfulPublishAtUnixMs,
+      }),
+    }));
+  }, [runtime]);
+
   useEffect(() => {
-    void runtime.configureUrls(urlsKey ? urlsKey.split("|") : []).then(async () => {
-      setActivitySnapshot(await runtime.getTransportActivitySnapshot());
+    void runtime.configureUrls(urlsKey ? urlsKey.split("|") : []).then(() => {
+      void mergeActivitySnapshot();
     });
-  }, [runtime, urlsKey]);
+  }, [runtime, urlsKey, mergeActivitySnapshot]);
 
   useEffect(() => {
     const unsubscribeEvidence = runtime.mesh.subscribeEvidence(() => {
-      void runtime.getTransportActivitySnapshot().then(setActivitySnapshot);
+      void mergeActivitySnapshot();
     });
     const unsubscribeTor = subscribeConduitMeshTorHostRefresh(() => {
-      void runtime.getTransportActivitySnapshot().then(setActivitySnapshot);
+      void mergeActivitySnapshot();
     });
     return () => {
       unsubscribeEvidence();
       unsubscribeTor();
-      runtime.dispose();
-      nostrClient.dispose();
+      // Do not dispose useState-owned runtime/nostrClient here.
+      // React Strict Mode remount reuses the same instances; dispose() would
+      // permanently yield client_disposed on every Soft L3 / DM publish.
+      // Intentional teardown remains on pool.dispose().
     };
-  }, [runtime, nostrClient]);
+  }, [runtime, nostrClient, mergeActivitySnapshot]);
 
   const connections = useMemo(
     () => mapConnectionSnapshots(connectionSnapshots),
@@ -204,6 +229,19 @@ export const useConduitMeshRelayPool = (
     },
     publishToUrls: async (targetUrls, payload) => {
       const result = await runtime.publishToUrls(targetUrls, payload);
+      // Passthrough Nostr EVENT publish does not write mesh evidence ledger — stamp
+      // P-evidence so supervisor Soft L3 / Relays UI see lastSuccessfulPublishAtUnixMs.
+      if (result.success) {
+        const stampedAt = Date.now();
+        publishEvidenceRef.current.lastSuccessfulPublishAtUnixMs = stampedAt;
+        const next = await runtime.getTransportActivitySnapshot();
+        setActivitySnapshot({
+          ...next,
+          lastSuccessfulPublishAtUnixMs: stampedAt,
+        });
+      } else {
+        void mergeActivitySnapshot();
+      }
       return {
         success: result.success,
         successCount: result.successCount,
@@ -225,6 +263,9 @@ export const useConduitMeshRelayPool = (
     publishToRelay: async (url, payload) => {
       const result = await runtime.publishToUrls([url], payload);
       const first = result.results[0];
+      if (result.success) {
+        publishEvidenceRef.current.lastSuccessfulPublishAtUnixMs = Date.now();
+      }
       return {
         success: first?.success ?? false,
         relayUrl: url,
@@ -233,6 +274,14 @@ export const useConduitMeshRelayPool = (
     },
     publishToAll: async (payload) => {
       const result = await runtime.publishToUrls([], payload);
+      if (result.success) {
+        const stampedAt = Date.now();
+        publishEvidenceRef.current.lastSuccessfulPublishAtUnixMs = stampedAt;
+        setActivitySnapshot((previous) => ({
+          ...previous,
+          lastSuccessfulPublishAtUnixMs: stampedAt,
+        }));
+      }
       return {
         success: result.success,
         successCount: result.successCount,
@@ -248,6 +297,9 @@ export const useConduitMeshRelayPool = (
     },
     broadcastEvent: async (payload): Promise<MultiRelayPublishResult> => {
       const result = await runtime.publishToUrls([], payload);
+      if (result.success) {
+        publishEvidenceRef.current.lastSuccessfulPublishAtUnixMs = Date.now();
+      }
       return {
         success: result.success,
         successCount: result.successCount,
@@ -281,26 +333,43 @@ export const useConduitMeshRelayPool = (
     canConnectToRelay: (url) => relayHealthMonitor.canConnect(url),
     addTransientRelay: () => {},
     removeTransientRelay: () => {},
-    reconnectRelay: () => {},
+    reconnectRelay: (url) => {
+      const target = url.trim();
+      if (!target) {
+        return;
+      }
+      // setRelayUrls re-dials closed/error only — do not tear down open sockets.
+      nostrClient.setRelayUrls(Array.from(new Set([...poolUrls, target])));
+    },
     reconnectAll: () => {
-      void runtime.configureUrls(poolUrls).then(async () => {
-        setActivitySnapshot(await runtime.getTransportActivitySnapshot());
+      // Dial missing/closed URLs without forceReconnectAll (that cancels Rust OK waiters).
+      if (poolUrls.length > 0) {
+        nostrClient.setRelayUrls(poolUrls);
+      }
+      void runtime.configureUrls(poolUrls).then(() => {
+        void mergeActivitySnapshot();
       });
     },
-    resubscribeAll: () => {},
+    resubscribeAll: () => {
+      nostrClient.resubscribeAll();
+    },
     recycle: async () => {},
     isConnected: () => hasWritableRelay,
     waitForConnection: async (timeoutMs) => {
-      if (hasWritableRelay) {
+      const hasOpenSocket = (): boolean => (
+        nostrClient.getConnectionSnapshots().some((entry) => entry.status === "open")
+        || connections.some((connection) => connection.status === "open")
+      );
+      if (hasOpenSocket()) {
         return true;
       }
       return new Promise((resolve) => {
         const timeoutId = setTimeout(() => {
           unsubscribe();
-          resolve(false);
+          resolve(hasOpenSocket());
         }, timeoutMs);
         const unsubscribe = nostrClient.subscribeConnections(() => {
-          if (nostrClient.getConnectionSnapshots().some((entry) => entry.status === "open")) {
+          if (hasOpenSocket()) {
             clearTimeout(timeoutId);
             unsubscribe();
             resolve(true);
@@ -310,20 +379,29 @@ export const useConduitMeshRelayPool = (
     },
     waitForScopedConnection: async (relayUrls, timeoutMs) => {
       const normalized = relayUrls.map((url) => url.trim()).filter(Boolean);
-      const hasScoped = (): boolean => {
-        const readyUrls = new Set(writableRelayUrls);
-        return normalized.some((url) => readyUrls.has(url));
+      const hasScopedOpen = (): boolean => {
+        const openUrls = [
+          ...nostrClient.getConnectionSnapshots()
+            .filter((entry) => entry.status === "open")
+            .map((entry) => entry.url),
+          ...connections
+            .filter((connection) => connection.status === "open")
+            .map((connection) => connection.url),
+        ];
+        return normalized.some((target) => (
+          openUrls.some((open) => workspaceRelayUrlsMatch(open, target))
+        ));
       };
-      if (hasScoped()) {
+      if (hasScopedOpen()) {
         return true;
       }
       return new Promise((resolve) => {
         const timeoutId = setTimeout(() => {
           unsubscribe();
-          resolve(false);
+          resolve(hasScopedOpen());
         }, timeoutMs);
         const unsubscribe = nostrClient.subscribeConnections(() => {
-          if (hasScoped()) {
+          if (hasScopedOpen()) {
             clearTimeout(timeoutId);
             unsubscribe();
             resolve(true);
@@ -336,13 +414,30 @@ export const useConduitMeshRelayPool = (
       configuredRelayUrls: poolUrls,
       writableRelayUrls,
       totalRelayCount: poolUrls.length,
-      openRelayCount: writableRelayUrls.length,
+      // Honest open count — do not mirror probe-writable length as open sockets.
+      openRelayCount: connections.filter((connection) => connection.status === "open").length,
     }),
-    getTransportActivitySnapshot: () => activitySnapshot,
+    getTransportActivitySnapshot: () => ({
+      ...activitySnapshot,
+      lastSuccessfulPublishAtUnixMs: resolveLastSuccessfulPublishAtUnixMs({
+        stampedAtUnixMs: publishEvidenceRef.current.lastSuccessfulPublishAtUnixMs,
+        activityLastSuccessfulPublishAtUnixMs: activitySnapshot.lastSuccessfulPublishAtUnixMs,
+      }),
+      // Overlay open-socket honesty — mesh publishReady/subscribable can lag behind WS open.
+      writableRelayCount: Math.max(activitySnapshot.writableRelayCount, writableRelayUrls.length),
+      subscribableRelayCount: Math.max(
+        activitySnapshot.subscribableRelayCount,
+        writableRelayUrls.length,
+      ),
+      publishReadyRelayUrls: Array.from(new Set([
+        ...(activitySnapshot.publishReadyRelayUrls ?? []),
+        ...writableRelayUrls,
+      ])),
+    }),
     getActiveSubscriptionCount: () => 0,
     dispose: () => {
       runtime.dispose();
       nostrClient.dispose();
     },
-  }), [runtime, nostrClient, activitySnapshot, connections, poolUrls, writableRelayUrls, hasWritableRelay, healthMetrics]);
+  }), [runtime, nostrClient, activitySnapshot, connections, poolUrls, writableRelayUrls, hasWritableRelay, healthMetrics, mergeActivitySnapshot]);
 };

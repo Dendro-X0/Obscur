@@ -7,7 +7,10 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbInsertGroupMessage: vi.fn(async () => undefined),
+}));
+
+vi.mock("./workspace-group-message-persist-port", () => ({
+  insertWorkspaceGroupMessageRecord: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
@@ -20,13 +23,14 @@ vi.mock("./group-thread-messages-changed", () => ({
 }));
 
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { dbInsertGroupMessage, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { insertWorkspaceGroupMessageRecord } from "./workspace-group-message-persist-port";
 
 describe("appendGroupThreadMessage", () => {
   beforeEach(() => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
     vi.mocked(isTauri).mockReturnValue(true);
-    vi.mocked(dbInsertGroupMessage).mockClear();
+    vi.mocked(insertWorkspaceGroupMessageRecord).mockClear();
     dispatchMock.mockClear();
   });
 
@@ -41,7 +45,7 @@ describe("appendGroupThreadMessage", () => {
     });
 
     expect(result).toEqual({ status: "persisted", eventId });
-    expect(dbInsertGroupMessage).toHaveBeenCalledWith(expect.objectContaining({
+    expect(insertWorkspaceGroupMessageRecord).toHaveBeenCalledWith(expect.objectContaining({
       event_id: eventId,
       group_id: "group-1",
       profile_id: "profile-1",
@@ -63,7 +67,7 @@ describe("appendGroupThreadMessage", () => {
       eventId: "550e8400-e29b-41d4-a716-446655440000",
     });
     expect(result).toEqual({ status: "suspended" });
-    expect(dbInsertGroupMessage).not.toHaveBeenCalled();
+    expect(insertWorkspaceGroupMessageRecord).not.toHaveBeenCalled();
   });
 
   it("suspends on web runtimes", async () => {
@@ -76,6 +80,6 @@ describe("appendGroupThreadMessage", () => {
       eventId: "c".repeat(64),
     });
     expect(result).toEqual({ status: "suspended" });
-    expect(dbInsertGroupMessage).not.toHaveBeenCalled();
+    expect(insertWorkspaceGroupMessageRecord).not.toHaveBeenCalled();
   });
 });

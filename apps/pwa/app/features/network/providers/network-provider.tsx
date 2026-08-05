@@ -11,7 +11,7 @@ import { runIdentityIntegrityMigrationV085 } from "../services/identity-integrit
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRealtimePresence } from "../hooks/use-realtime-presence";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import {
   isExperimentOfflineStubEnabled,
   scheduleExperimentIdleWork,

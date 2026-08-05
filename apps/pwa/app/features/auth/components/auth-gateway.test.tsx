@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthGateway } from "./auth-gateway";
 import { SESSION_AUTO_UNLOCK_ENABLED } from "@/app/features/auth/services/session-credential-policy";
@@ -154,6 +154,7 @@ vi.mock("@/app/shared/log-app-event", () => ({
 
 const bootMocks = vi.hoisted(() => ({
   profileBootReconcileComplete: true,
+  authKernelBootRestoreSettled: true,
 }));
 
 vi.mock("@/app/features/profiles/services/desktop-window-boot", () => ({
@@ -162,7 +163,7 @@ vi.mock("@/app/features/profiles/services/desktop-window-boot", () => ({
 }));
 
 vi.mock("@/app/features/auth-kernel/auth-kernel-boot-owner", () => ({
-  isAuthKernelBootRestoreSettled: vi.fn(() => true),
+  isAuthKernelBootRestoreSettled: () => bootMocks.authKernelBootRestoreSettled,
   waitForAuthKernelBootRestore: vi.fn(async () => undefined),
 }));
 
@@ -182,6 +183,7 @@ describe("AuthGateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     bootMocks.profileBootReconcileComplete = true;
+    bootMocks.authKernelBootRestoreSettled = true;
     sessionPolicyMocks.SESSION_AUTO_UNLOCK_ENABLED = false;
     localStorage.clear();
     authGatewayMocks.hasNativeRuntime = false;
@@ -361,6 +363,7 @@ describe("AuthGateway", () => {
 
   it("shows restore overlay on manual reload while native restore is in flight", async () => {
     bootMocks.profileBootReconcileComplete = false;
+    bootMocks.authKernelBootRestoreSettled = false;
     const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
     vi.stubGlobal("performance", {
       ...performance,
@@ -378,6 +381,94 @@ describe("AuthGateway", () => {
 
     expect(screen.getByText("Restoring session…")).toBeInTheDocument();
     expect(screen.queryByText("Profile Bound Auth Shell")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("exits restore overlay when boot restore has settled even if startup is still native_restorable", () => {
+    bootMocks.profileBootReconcileComplete = true;
+    bootMocks.authKernelBootRestoreSettled = true;
+    const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
+    });
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "native_restorable";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.queryByText("Restoring session…")).not.toBeInTheDocument();
+    expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("hard-caps restore overlay after timeout even when boot restore never settles", async () => {
+    vi.useFakeTimers();
+    bootMocks.profileBootReconcileComplete = false;
+    bootMocks.authKernelBootRestoreSettled = false;
+    const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
+    });
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "native_restorable";
+
+    render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.getByText("Restoring session…")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_500);
+    });
+
+    expect(screen.queryByText("Restoring session…")).not.toBeInTheDocument();
+    expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("drops restore overlay immediately when startup leaves native_restorable", async () => {
+    bootMocks.profileBootReconcileComplete = false;
+    bootMocks.authKernelBootRestoreSettled = false;
+    const getEntriesByType = vi.fn(() => [{ type: "reload" } as PerformanceNavigationTiming]);
+    vi.stubGlobal("performance", {
+      ...performance,
+      getEntriesByType,
+    });
+    authGatewayMocks.hasNativeRuntime = true;
+    authGatewayMocks.pathname = "/";
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "native_restorable";
+
+    const { rerender } = render(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    expect(screen.getByText("Restoring session…")).toBeInTheDocument();
+
+    authGatewayMocks.runtime.snapshot.session.startupState.kind = "stored_locked";
+    rerender(
+      <AuthGateway>
+        <div>Runtime Children</div>
+      </AuthGateway>,
+    );
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText("Restoring session…")).not.toBeInTheDocument();
+      expect(screen.getByText("Profile Bound Auth Shell")).toBeInTheDocument();
+    });
     vi.unstubAllGlobals();
   });
 

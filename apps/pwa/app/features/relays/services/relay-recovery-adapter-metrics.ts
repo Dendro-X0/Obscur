@@ -1,6 +1,7 @@
 import type { RelayPoolRuntime } from "@/app/features/relays/services/relay-pool-runtime-port";
 import type { TransportAdapterMetrics } from "@obscur/transport-engine";
 import type { RelayRecoverySnapshot } from "@/app/features/relays/services/relay-recovery-types";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 export type RelayRecoveryAdapterConfig = Readonly<{
   pool: RelayPoolRuntime;
@@ -27,16 +28,56 @@ const findLastFailureReason = (pool: RelayPoolRuntime): string | undefined => {
   return sorted.find((metric) => typeof metric.lastError === "string" && metric.lastError.length > 0)?.lastError;
 };
 
+const isEnabledPoolUrl = (
+  url: string,
+  enabledRelayUrls: ReadonlyArray<string>,
+): boolean => (
+  enabledRelayUrls.some((enabled) => (
+    enabled === url || workspaceRelayUrlsMatch(enabled, url)
+  ))
+);
+
+/**
+ * Open in-pool sockets count as writable/subscribable even when mesh publishReady lags
+ * (parity with use-conduit-mesh-relay-pool resolveWritableRelayUrls E3).
+ */
+export const resolveRecoveryWritableRelayCount = (params: Readonly<{
+  writableRelayUrls: ReadonlyArray<string>;
+  openPoolRelayUrls: ReadonlyArray<string>;
+  activityWritableRelayCount: number;
+}>): number => (
+  Math.max(
+    params.activityWritableRelayCount,
+    params.writableRelayUrls.length,
+    params.openPoolRelayUrls.length,
+  )
+);
+
 export const extractRelayRecoveryAdapterMetrics = (
   config: RelayRecoveryAdapterConfig,
 ): TransportAdapterMetrics => {
   const writableSnapshot = config.pool.getWritableRelaySnapshot(config.enabledRelayUrls);
   const activity = config.pool.getTransportActivitySnapshot();
+  const openPoolRelayUrls = (config.pool.connections ?? [])
+    .filter((connection) => (
+      connection.status === "open"
+      && isEnabledPoolUrl(connection.url, config.enabledRelayUrls)
+    ))
+    .map((connection) => connection.url);
+  const writableRelayCount = resolveRecoveryWritableRelayCount({
+    writableRelayUrls: writableSnapshot.writableRelayUrls,
+    openPoolRelayUrls,
+    activityWritableRelayCount: activity.writableRelayCount,
+  });
+  const subscribableRelayCount = Math.max(
+    activity.subscribableRelayCount,
+    writableRelayCount,
+  );
   return {
     enabledRelayCount: config.enabledRelayUrls.length,
-    writableRelayCount: writableSnapshot.writableRelayUrls.length,
+    writableRelayCount,
     fallbackWritableRelayCount: activity.fallbackWritableRelayCount ?? 0,
-    subscribableRelayCount: activity.subscribableRelayCount,
+    subscribableRelayCount,
     writeBlockedRelayCount: activity.writeBlockedRelayCount,
     coolingDownRelayCount: activity.coolingDownRelayCount,
     lastInboundMessageAtUnixMs: activity.lastInboundMessageAtUnixMs,

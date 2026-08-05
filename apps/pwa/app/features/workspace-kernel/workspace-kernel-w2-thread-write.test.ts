@@ -18,7 +18,6 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbGetGroupMessages: vi.fn(async () => []),
 }));
 
 vi.mock("@/app/features/groups/services/group-service", () => ({
@@ -124,9 +123,35 @@ describe("workspace-kernel write-port", () => {
     if (result.ok) {
       expect(result.message.content).toBe("hello workspace");
       expect(result.message.id).toBe("evt-workspace-1");
+      expect(result.relayPublished).toBe(true);
     }
     expect(publishSealedEvent).toHaveBeenCalledTimes(1);
     const { commitSealedGroupMessages } = await import("@/app/features/groups/services/sealed-group-message-persistence");
     expect(commitSealedGroupMessages).toHaveBeenCalled();
+  });
+
+  it("persists locally when relay publish fails after sign", async () => {
+    const publishSealedEvent = vi.fn(async () => {
+      throw new Error("relay_offline");
+    });
+    const { commitSealedGroupMessages } = await import("@/app/features/groups/services/sealed-group-message-persistence");
+    const result = await sendWorkspaceKernelGroupMessage({
+      conversationId: "community:group-1",
+      groupId: "group-1",
+      relayUrl: "ws://localhost:7000",
+      publicKeyHex: "a".repeat(64) as `${string}`,
+      privateKeyHex: "c".repeat(64) as `${string}`,
+      plaintext: "durable offline",
+      publishSealedEvent,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.relayPublished).toBe(false);
+      expect(result.message.content).toBe("durable offline");
+      expect(result.message.status).toBe("sending");
+    }
+    expect(commitSealedGroupMessages).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [expect.objectContaining({ id: "evt-workspace-1", content: "durable offline" })],
+    }));
   });
 });

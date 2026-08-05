@@ -12,7 +12,7 @@ import { classifyRelayEndpointAdapter } from "./relay-endpoint-adapter";
 describe("transport-preset-match", () => {
   it("marks preset active when enabled URLs and mode match exactly", () => {
     const relays = DEFAULT_STABLE_PRESET.relays.map((url) => ({ url, enabled: true }));
-    expect(matchTransportPreset(relays, "basic", DEFAULT_STABLE_PRESET)).toBe("active");
+    expect(matchTransportPreset(relays, "redundancy", DEFAULT_STABLE_PRESET)).toBe("active");
   });
 
   it("marks preset partial when extra enabled URLs exist", () => {
@@ -20,17 +20,44 @@ describe("transport-preset-match", () => {
       ...DEFAULT_STABLE_PRESET.relays.map((url) => ({ url, enabled: true })),
       { url: "ws://localhost:7000", enabled: true },
     ];
-    expect(matchTransportPreset(relays, "basic", DEFAULT_STABLE_PRESET)).toBe("partial");
+    expect(matchTransportPreset(relays, "redundancy", DEFAULT_STABLE_PRESET)).toBe("partial");
   });
 
   it("marks preset available when no overlap", () => {
     const relays = [{ url: "ws://localhost:7000", enabled: true }];
-    expect(matchTransportPreset(relays, "basic", DEFAULT_STABLE_PRESET)).toBe("available");
+    expect(matchTransportPreset(relays, "redundancy", DEFAULT_STABLE_PRESET)).toBe("available");
   });
 
   it("resolves active preset id from match map", () => {
     const relays = DEFAULT_STABLE_PRESET.relays.map((url) => ({ url, enabled: true }));
+    const matches = resolveTransportPresetMatches(relays, "redundancy");
+    expect(resolveActiveTransportPresetId(matches)).toBe("default_stable");
+  });
+
+  it("resolves hybrid pack active when user applies mixed adapters (not boot default)", () => {
+    const relays = [
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "wss://nos.lol", enabled: true },
+      { url: "wss://relay.primal.net", enabled: true },
+      { url: "http://127.0.0.1:8788", enabled: true },
+      { url: "ws://localhost:7000", enabled: false },
+    ];
+    const matches = resolveTransportPresetMatches(relays, "redundancy");
+    expect(matches.hybrid_public_http).toBe("active");
+    expect(resolveActiveTransportPresetId(matches)).toBe("hybrid_public_http");
+  });
+
+  it("resolves local_dev_mesh active when user applies that optional pack", () => {
+    const relays = [{ url: "ws://localhost:7000", enabled: true }];
     const matches = resolveTransportPresetMatches(relays, "basic");
+    expect(matches.local_dev_mesh).toBe("active");
+    expect(resolveActiveTransportPresetId(matches)).toBe("local_dev_mesh");
+  });
+
+  it("resolves default_stable active for prod-first product boot defaults", () => {
+    const relays = DEFAULT_STABLE_PRESET.relays.map((url) => ({ url, enabled: true }));
+    const matches = resolveTransportPresetMatches(relays, "redundancy");
+    expect(matches.default_stable).toBe("active");
     expect(resolveActiveTransportPresetId(matches)).toBe("default_stable");
   });
 

@@ -3,7 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { ExternalLink, X } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 
 type LinkOpenConfirmDialogProps = Readonly<{
   url: string | null;

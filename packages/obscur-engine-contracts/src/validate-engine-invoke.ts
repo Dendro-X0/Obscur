@@ -43,6 +43,19 @@ export const validateEngineInvokeRequest = (
   if (request.engine === "transport" && !isTransportEngineMethod(request.method)) {
     return { code: "invalid_method", message: `Unknown transport method: ${request.method}` };
   }
+  if (request.engine === "transport" && request.method === "upsertRelayCheckpoint") {
+    const payload = request.payload as {
+      profile_id?: string;
+      relay_url?: string;
+      last_event_at?: number;
+    } | undefined;
+    if (!payload?.relay_url?.trim()) {
+      return { code: "invalid_payload", message: "upsertRelayCheckpoint requires payload.relay_url" };
+    }
+    if (typeof payload.last_event_at !== "number") {
+      return { code: "invalid_payload", message: "upsertRelayCheckpoint requires payload.last_event_at" };
+    }
+  }
   if (request.engine === "transport" && request.method === "publishRelayEvent") {
     const payload = request.payload as { relayUrls?: ReadonlyArray<string>; payload?: string } | undefined;
     const relayUrls = payload?.relayUrls?.map((url) => url.trim()).filter((url) => url.length > 0) ?? [];

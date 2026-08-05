@@ -3,7 +3,8 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { toast } from "@dweb/ui-kit/toast";
 import { Copy, FileSearch, FolderOpen } from "lucide-react";
 import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
 import {

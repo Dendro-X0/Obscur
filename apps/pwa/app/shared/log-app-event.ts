@@ -494,6 +494,22 @@ const CROSS_DEVICE_DIGEST_EVENT_CONFIG: Readonly<Record<string, ReadonlyArray<st
     "wrapSeq",
     "owner",
   ],
+  "workspace.leave.committed": [
+    "groupId",
+    "relayUrl",
+    "conversationId",
+    "tombstone",
+  ],
+  "workspace.leave.rejected": [
+    "groupId",
+    "relayUrl",
+    "communityId",
+  ],
+  "groups.leave_proof_published": [
+    "groupId",
+    "communityId",
+    "relayUrl",
+  ],
   "messaging.chat_state_replaced": [
     "publicKeySuffix",
     "profileId",

@@ -15,8 +15,8 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { PageShell } from "../components/page-shell";
-import { Button } from "@dweb/ui-kit";
-import { Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
 import { IdentityCard } from "../components/identity-card";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";

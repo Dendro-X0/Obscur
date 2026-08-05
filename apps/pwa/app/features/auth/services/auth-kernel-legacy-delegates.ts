@@ -179,6 +179,11 @@ export const rehydrateAuthKernelIdentityForActiveProfile = async (): Promise<voi
   await useIdentityInternals.rehydrateIdentityForActiveProfile();
 };
 
+/** Seed locked identity into the store so boot restore can unlock without racing ensureInitialized. */
+export const seedAuthKernelLockedIdentity = (record: IdentityRecord): void => {
+  useIdentityInternals.setIdentityState(useIdentityInternals.createLockedState(record));
+};
+
 export const retryAuthKernelNativeSessionUnlock = async (): Promise<boolean> => (
   useIdentityInternals.retryNativeSessionUnlockAction()
 );

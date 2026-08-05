@@ -511,7 +511,13 @@ const readStoredCommunityMembershipLedger = (
       ? parseCommunityMembershipLedgerSnapshot(JSON.parse(legacyRaw))
       : [];
 
-    return mergeCommunityMembershipLedgerEntries(scopedEntries, legacyEntries);
+    // Scoped snapshot is authoritative when present. Merging legacy after an
+    // explicit_rejoin can resurrect a stale `left` via REL-001 left-beats-joined
+    // and undo a durable join (NewTest 2 rejoin → U2 soak false-not-joined).
+    if (scopedEntries.length > 0) {
+      return scopedEntries;
+    }
+    return legacyEntries;
   } catch {
     return [];
   }

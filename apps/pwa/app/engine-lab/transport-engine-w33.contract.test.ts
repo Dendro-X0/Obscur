@@ -21,10 +21,10 @@ describe("transport-engine w33 — host publish port shim charter", () => {
     expect(charter).toContain("design + contract only");
   });
 
-  it("keeps default routing on transport-kernel standalone owner", () => {
+  it("production port is thin subtracted re-export after W66", () => {
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
-    expect(port).not.toMatch(/shouldUseHostTransportPublishShim\(\)[\s\S]*publishRelayEventViaTransportEngineHost/);
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
+    expect(port).not.toContain("publishTransportKernelToRelayUrls");
   });
 
   it("keeps Rust publish stubbed for valid invokes", () => {

@@ -10,12 +10,13 @@ vi.mock("@/app/features/relays/hooks/relay-native-adapter", () => ({
   },
 }));
 
+/** Retargeted to W60 archive after W66 production legacy deletion. */
 import {
   publishTransportKernelToRelay,
   publishTransportKernelToRelayUrls,
-} from "./transport-kernel-standalone-publish";
+} from "@/app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive";
 
-describe("transport-kernel-standalone-publish", () => {
+describe("transport-kernel-standalone-publish (archive after W66)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.sendRelayMessage.mockResolvedValue(undefined);
@@ -54,4 +55,3 @@ describe("transport-kernel-standalone-publish", () => {
     expect(result.failures).toHaveLength(1);
   });
 });
-

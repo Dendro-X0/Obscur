@@ -8,8 +8,8 @@ import { NetworkDashboard } from "@/app/features/network/components/network-dash
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { Card } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Button } from "@dweb/ui-kit/button";
 import { useRouter } from "next/navigation";
 import { IdentityCard } from "../components/identity-card";
 import { useTranslation } from "react-i18next";

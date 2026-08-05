@@ -2,7 +2,7 @@
 import React from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { ConfirmDialog } from "@/app/components/ui/confirm-dialog";
 export const CommunityMembershipEvidenceToolbar: React.FC<Readonly<{
     terminalRecordCount: number;

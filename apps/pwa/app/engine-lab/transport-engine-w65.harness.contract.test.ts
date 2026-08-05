@@ -21,7 +21,7 @@ describe("transport-engine w65 — existence pin migration harness", () => {
     );
     expect(w64).toContain("gate-closed existence contract pins");
     expect(w65).toContain("thin port");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents post-subtraction pin flip markers in migration module", () => {

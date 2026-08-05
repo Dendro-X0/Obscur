@@ -1,14 +1,15 @@
 # Dev Lab — in-app testing module
 
-**Status:** Phase 1 — scenario catalog + benchmark runner  
-**Parent:** [testing-and-issue-tracking-spec.md](../archive/program/inactive-2026-06/testing-and-issue-tracking-spec.md)  
-**API surface:** `window.obscurDevLab` (dev / `NEXT_PUBLIC_OBSCUR_DEV_LAB=1` only)
+**Status:** **CANCELLED as validation** — tombstoned (`DEV_LAB_TOMBSTONED`). Do **not** treat Dev Lab Pass as feature proof.  
+**Canonical validation:** [prod-first-validation-policy-2026-08.md](./prod-first-validation-policy-2026-08.md)  
+**Parent (archive):** [testing-and-issue-tracking-spec.md](../archive/program/inactive-2026-06/testing-and-issue-tracking-spec.md)  
+**API surface:** removed — `window.obscurDevLab` must not be product proof
 
 ---
 
-## Purpose
+## Purpose (historical)
 
-Dev Lab is Obscur's **continuous benchmark module** — an integrated dev-only layer that verifies core functionality across auth, navigation, settings, runtime digests, and fatal error boundaries. It is designed to **grow scenario-by-scenario** until it covers the app's critical paths and serves as the default “is the desktop app OK?” check.
+Dev Lab was Obscur's in-app benchmark module. **Maintainer mandate 2026-08:** success in that environment is an illusion for production. Scripts under `pnpm dev:lab:*` refuse via tombstone. Keep this file only as archive context.
 
 ---
 

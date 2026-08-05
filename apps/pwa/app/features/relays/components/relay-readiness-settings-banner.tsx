@@ -1,7 +1,7 @@
 "use client";
 
 import { RefreshCcw } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 import { useRelay } from "../providers/relay-provider";
 import {
@@ -12,13 +12,23 @@ import {
 
 /**
  * Settings → Network → Relays: surfaces relay recovery readiness when transport is not healthy.
+ * Suppress offline during startup warmup / booting (parity with RelayReadinessInlineBanner).
  */
 export function RelayReadinessSettingsBanner() {
-  const { relayRecovery, triggerRelayRecovery } = useRelay();
+  const { relayRecovery, relayRuntime, triggerRelayRecovery } = useRelay();
   const bannerCopy = getRelayReadinessBannerCopy(relayRecovery);
   const detailCopy = getRelayReadinessDetailCopy(relayRecovery);
+  const suppressStartupOffline = (
+    relayRecovery.readiness === "offline"
+    && (
+      relayRecovery.recoveryReasonCode === "startup_warmup"
+      || relayRuntime.phase === "booting"
+      || relayRecovery.writableRelayCount > 0
+      || relayRuntime.writableRelayCount > 0
+    )
+  );
 
-  if (!bannerCopy || relayRecovery.readiness === "healthy") {
+  if (!bannerCopy || relayRecovery.readiness === "healthy" || suppressStartupOffline) {
     return null;
   }
 

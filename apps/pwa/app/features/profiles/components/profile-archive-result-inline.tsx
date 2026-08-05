@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
 import { ProfileArchiveResultBanner } from "./profile-archive-result-banner";
 

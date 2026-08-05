@@ -27,6 +27,8 @@ export type SendCeremonyRequest = Readonly<{
   recipientDisplayName?: string | null;
   plaintextPreview?: string;
   reason?: SendCeremonyReason;
+  /** How the recipient was resolved — defaults to manual for unknown first-DM peers. */
+  recipientResolverSource?: IdentityBindingViewModel["resolverSource"];
 }>;
 
 export type SendCeremonyRequirement = Readonly<{
@@ -81,7 +83,12 @@ export const requiresFirstDmSendCeremony = (params: Readonly<{
   profileId: string;
   peerPublicKeyHex: PublicKeyHex;
   priorOutgoingUserMessageCount: number;
+  /** Accepted contacts already passed identity binding — skip first-DM confirm. */
+  isPeerAccepted?: boolean;
 }>): boolean => {
+  if (params.isPeerAccepted) {
+    return false;
+  }
   if (params.priorOutgoingUserMessageCount > 0) {
     return false;
   }
@@ -95,6 +102,7 @@ export const resolveSendCeremonyRequirement = (
     profileId: params.profileId,
     peerPublicKeyHex: params.peerPublicKeyHex,
     priorOutgoingUserMessageCount: params.priorOutgoingUserMessageCount,
+    isPeerAccepted: params.isPeerAccepted,
   })) {
     return { required: true, reason: "first_dm" };
   }
@@ -119,7 +127,7 @@ export const buildSendCeremonyViewModel = (
   const recipientBinding = buildIdentityBindingViewModel({
     publicKeyHex: request.recipientPublicKeyHex,
     displayName: request.recipientDisplayName ?? null,
-    resolverSource: "manual",
+    resolverSource: request.recipientResolverSource ?? "manual",
     confidence: "relay_confirmed",
   });
   if (!recipientBinding) {

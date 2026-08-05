@@ -72,11 +72,9 @@ import {
     resolveNativeDmSidebarConnections,
     shouldNativeDmSkipChatStateSidebarConnectionHydrate,
 } from "../services/native-dm-conversation-list-owner";
-import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
 import { loadDmKernelSidebar } from "@/app/features/dm-kernel/dm-kernel-sidebar-port";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
-import { isTauri, dbGetConversations } from "@dweb/db";
-import type { ConversationRecord } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 
 const hasMeaningfulMessagingState = (value: PersistedChatState | null | undefined): value is PersistedChatState => {
     if (!value) {
@@ -211,23 +209,9 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [hasHydrated, setHasHydrated] = useState(false);
     const [chatStateReplaceTick, setChatStateReplaceTick] = useState(0);
 
-    const sqliteConvToRaw = (rec: ConversationRecord): DmConversation => ({
-        kind: "dm",
-        id: rec.id,
-        pubkey: rec.peer_pubkey as PublicKeyHex,
-        displayName: rec.peer_pubkey,
-        lastMessage: rec.last_plaintext_preview ?? "",
-        unreadCount: rec.unread_count,
-        lastMessageTime: rec.last_message_at != null ? new Date(rec.last_message_at) : new Date(0),
-    });
-
-    const loadSidebarConversations = useCallback(async (profileId: string): Promise<ReadonlyArray<DmConversation>> => {
-        if (isDmKernelAuthority()) {
-            return loadDmKernelSidebar(profileId);
-        }
-        const recs = await dbGetConversations(profileId);
-        return recs.map(sqliteConvToRaw);
-    }, []);
+    const loadSidebarConversations = useCallback(async (profileId: string): Promise<ReadonlyArray<DmConversation>> => (
+        loadDmKernelSidebar(profileId)
+    ), []);
 
     const reloadSqliteConversations = useCallback((): void => {
         if (!isTauri() || !activeProfileId) {

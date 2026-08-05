@@ -3,16 +3,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbMocks = vi.hoisted(() => ({
   isTauri: vi.fn(() => true),
-  dbInsertCallRecord: vi.fn(async (_record: CallRecord) => undefined),
-  dbUpdateCallRecord: vi.fn(async () => undefined),
-  dbGetCallRecords: vi.fn(async () => []),
+}));
+
+const persistenceMocks = vi.hoisted(() => ({
+  upsertCallRecord: vi.fn(async (_params: { record: CallRecord }) => undefined),
+  listCallRecords: vi.fn(async () => []),
 }));
 
 vi.mock("@dweb/db", () => ({
   isTauri: dbMocks.isTauri,
-  dbInsertCallRecord: dbMocks.dbInsertCallRecord,
-  dbUpdateCallRecord: dbMocks.dbUpdateCallRecord,
-  dbGetCallRecords: dbMocks.dbGetCallRecords,
+}));
+
+vi.mock("@obscur/persistence-engine", () => ({
+  upsertCallRecord: persistenceMocks.upsertCallRecord,
+  listCallRecords: persistenceMocks.listCallRecords,
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
@@ -41,10 +49,12 @@ describe("call-state-runtime native persist (ACC-04)", () => {
     initiateCall(PROFILE_ID, "call-1", PEER, "voice", 1_000);
     endCall(PROFILE_ID, "call-1", 5_000, { accountPublicKeyHex: ACCOUNT });
     await vi.waitFor(() => {
-      expect(dbMocks.dbInsertCallRecord).toHaveBeenCalled();
+      expect(persistenceMocks.upsertCallRecord).toHaveBeenCalled();
     });
-    const record = dbMocks.dbInsertCallRecord.mock.calls[0]?.[0] as { call_id?: string } | undefined;
-    expect(record?.call_id).toBe("call-1");
+    const params = persistenceMocks.upsertCallRecord.mock.calls[0]?.[0] as {
+      record?: { call_id?: string };
+    } | undefined;
+    expect(params?.record?.call_id).toBe("call-1");
   });
 
   it("persists declined records for call-reject signals", async () => {
@@ -69,9 +79,11 @@ describe("call-state-runtime native persist (ACC-04)", () => {
     } as never, 5_000, { accountPublicKeyHex: ACCOUNT });
 
     await vi.waitFor(() => {
-      expect(dbMocks.dbInsertCallRecord).toHaveBeenCalled();
+      expect(persistenceMocks.upsertCallRecord).toHaveBeenCalled();
     });
-    const record = dbMocks.dbInsertCallRecord.mock.calls[0]?.[0] as { status?: string } | undefined;
-    expect(record?.status).toBe("declined");
+    const params = persistenceMocks.upsertCallRecord.mock.calls[0]?.[0] as {
+      record?: { status?: string };
+    } | undefined;
+    expect(params?.record?.status).toBe("declined");
   });
 });

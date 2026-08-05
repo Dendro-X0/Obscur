@@ -1,7 +1,7 @@
 import i18next, { type i18n } from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
-// trigger HMR for new translations
+// trigger HMR for new translations — vault.writeUnlock* 2026-08-04
 
 import en from "./locales/en.json";
 import zh from "./locales/zh.json";
@@ -18,7 +18,14 @@ const RESOURCES = {
 } as const;
 
 type TranslationResources = typeof en;
-type I18nResources = Readonly<Record<string, TranslationResources>>;
+
+const mergeLatestTranslationBundles = (instance: i18n): void => {
+  (Object.entries(RESOURCES) as Array<[keyof typeof RESOURCES, TranslationResources]>).forEach(
+    ([lng, bundle]) => {
+      instance.addResourceBundle(lng, "translation", bundle.translation, true, true);
+    },
+  );
+};
 
 const createInstance = (): i18n => {
   const instance: i18n = i18next.createInstance();
@@ -39,4 +46,12 @@ const createInstance = (): i18n => {
   return instance;
 };
 
-export const i18nInstance: i18n = i18next.isInitialized ? i18next : createInstance();
+const resolveI18nInstance = (): i18n => {
+  if (i18next.isInitialized) {
+    mergeLatestTranslationBundles(i18next);
+    return i18next;
+  }
+  return createInstance();
+};
+
+export const i18nInstance: i18n = resolveI18nInstance();

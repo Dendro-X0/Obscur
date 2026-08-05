@@ -83,14 +83,16 @@ Gate: `pnpm verify:legacy-subtraction`
 | ~~`chat-state-store-legacy.ts`~~ | chat-state ports | **Subtracted w40** → `features/messaging/services/chat-state-store-legacy.ts` |
 | `group-provider-legacy.tsx` | `group-provider-port` | workspace-kernel roster/groups authority |
 | `use-sealed-community-legacy.ts` | `sealed-community-port` | community kernel owns sealed scope |
-| `use-conversation-messages-legacy.ts` | `conversation-messages-legacy-port` | `useDmKernelThread` is sole hydrate path |
-| `dm-conversation-hydrate-pipeline-legacy.ts` | `dm-conversation-hydrate-pipeline-port` | thread-history adapter never calls legacy pipeline |
-| `native-dm-conversation-hydrate-owner-legacy.ts` | `native-dm-conversation-hydrate-port` | libobscur native hydrate replaces owner |
+| `use-conversation-messages-legacy.ts` | `conversation-messages-legacy-port` | **Deleted R1-delete 2026-07-31** — port permanent-off; product = dm-kernel \| inert |
+| `dm-conversation-hydrate-pipeline-legacy.ts` | `dm-conversation-hydrate-pipeline-port` | **Deleted R1 Wave 2 2026-07-31** — features pipeline + port gone; adapter = stub |
+| `native-dm-conversation-hydrate-owner-legacy.ts` | `native-dm-conversation-hydrate-port` | **Owner refuse-only tombstone** — Wave 3 may drop remaining helpers |
 | `dm-read-authority-contract-legacy.ts` | `dm-read-authority-port` | dm-engine read authority is canonical |
-| `dm-conversation-hydrate-read-model-legacy.ts` | `dm-thread-history-legacy-port` | dm-engine read model assembly |
-| `dm-conversation-hydrate-indexed-scan-legacy.ts` | `dm-thread-history-legacy-port` | libobscur indexed scan |
-| `dm-conversation-hydrate-indexed-map-rows-legacy.ts` | `dm-thread-history-legacy-port` | libobscur row mapping |
+| `dm-conversation-hydrate-read-model-legacy.ts` | `dm-thread-history-legacy-port` | **Deleted Wave 3** — assembler gone; types kept |
+| `dm-conversation-hydrate-indexed-scan-legacy.ts` | `dm-thread-history-legacy-port` | **Deleted Wave 3** |
+| `dm-conversation-hydrate-indexed-map-rows-legacy.ts` | `dm-thread-history-legacy-port` | **Deleted Wave 3** |
 | `enhanced-relay-pool-legacy.ts` | `enhanced-relay-pool-port` | transport-engine pool is canonical |
+
+**Subtracted (Wave 3 · 2026-07-31):** native-dm-adapter, native-dm-thread-hydrate, hydrate-indexed-*, hydrate-read-model, materialization-*, projection-*-messages, dm-thread-history-legacy-port
 
 **Subtracted (w27):** `relay-recovery-policy-legacy.ts` → `features/relays/services/relay-recovery-controller-legacy.ts` (transport-engine-w9 quarantine behind `relay-recovery-port`)
 

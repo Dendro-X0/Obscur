@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import {
   assertNoBlockedSecretMaterial,
   SECRET_INPUT_FIREWALL_MESSAGE,
@@ -492,6 +492,7 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     recipientDisplayName: recipientMetadata.displayName,
                     plaintextPreview: messageInput.trim(),
                     reason: ceremonyRequirement.reason ?? "first_dm",
+                    recipientResolverSource: isPeerAccepted ? "contact_card" : "manual",
                 });
                 if (!ceremony) {
                     toast.error("Could not verify recipient identity before sending.");
@@ -691,6 +692,9 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                         throw new Error(kernelSend.errorMessage || WORKSPACE_KERNEL_GROUP_SEND_DEFERRED_MESSAGE);
                     }
                     messageBus.emitNewMessage(conversationId, kernelSend.message);
+                    if (kernelSend.relayPublished === false) {
+                        toast.error("Message saved locally; relay publish failed — will need a writable relay to deliver.");
+                    }
                 } else {
                 const groupService = new GroupService(
                     identity.state.publicKeyHex,
@@ -701,11 +705,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     groupId: selectedConversation.groupId,
                     content: currentInput,
                     replyTo: currentReplyTo?.messageId,
-                });
-
-                await publishGroupEvent({
-                    relayUrl: selectedConversation.relayUrl,
-                    event,
                 });
 
                 const createdAtUnixSeconds = typeof event.created_at === "number"
@@ -723,13 +722,25 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     }],
                 });
 
+                let relayPublished = true;
+                try {
+                    await publishGroupEvent({
+                        relayUrl: selectedConversation.relayUrl,
+                        event,
+                    });
+                } catch (publishError) {
+                    relayPublished = false;
+                    console.error("Group relay publish failed after local commit:", publishError);
+                    toast.error("Message saved locally; relay publish failed — will need a writable relay to deliver.");
+                }
+
                 const optimisticMessage: Message = {
                     id: event.id,
                     kind: 'user',
                     content: currentInput,
                     timestamp: new Date(createdAtUnixSeconds * 1000),
                     isOutgoing: true,
-                    status: 'delivered',
+                    status: relayPublished ? 'delivered' : 'sending',
                     eventId: event.id,
                     senderPubkey: identity.state.publicKeyHex,
                     reactions: createEmptyReactions(),

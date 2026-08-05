@@ -1,11 +1,10 @@
 "use client";
 
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import type { Attachment } from "@/app/features/messaging/types";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
 import { normalizeAttachmentUrl } from "@/app/shared/public-url";
-import { isVaultEncryptionSessionReady } from "@/app/features/vault/services/local-media-store";
 import {
   classifyAttachmentFetchUrlForLesSave,
   fetchRemoteAttachmentBytesForLesSave,
@@ -82,14 +81,13 @@ const resolveAttachmentBytes = async (attachment: Attachment): Promise<Uint8Arra
 };
 
 const ensureLesEncryptionReady = async (): Promise<"ready" | "unlock_required"> => {
-  if (isVaultEncryptionSessionReady()) {
-    return "ready";
-  }
-  const { restoreNativeVaultEncryptionSessionIfNeeded } = await import(
+  const { ensureNativeVaultEncryptionSessionForWrites } = await import(
     "@/app/features/storage/services/native-storage-at-rest-service"
   );
-  await restoreNativeVaultEncryptionSessionIfNeeded();
-  return isVaultEncryptionSessionReady() ? "ready" : "unlock_required";
+  const ready = await ensureNativeVaultEncryptionSessionForWrites({
+    profileId: resolveVaultProfileId(),
+  });
+  return ready ? "ready" : "unlock_required";
 };
 
 export const isChatAttachmentSavedToLes = async (remoteUrl: string): Promise<boolean> => {

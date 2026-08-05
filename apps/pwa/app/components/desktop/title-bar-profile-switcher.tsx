@@ -3,7 +3,8 @@
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { toast } from "@dweb/ui-kit/toast";
 import { AlertTriangle, ChevronDown, Lock, LogOut, RefreshCw, Settings2, UserPlus } from "lucide-react";
 import { UserAvatar } from "@/app/components/user-avatar";
 import { cn } from "@/app/lib/utils";

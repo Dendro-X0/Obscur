@@ -1,6 +1,11 @@
 //! Canonical engine_invoke dispatch — shared by Tauri and headless CLI.
 
 use crate::db::Database;
+use crate::db::repositories::{
+    ConversationRecord, GroupMessageRecord, GroupRecord, GroupTombstoneRecord, MessageRecord,
+    TombstoneRecord,
+};
+
 use crate::protocol::types::{unix_ms_now, QuorumPublishReport, RelayPublishAttempt};
 use crate::protocol::ProtocolRuntime;
 use serde::{Deserialize, Serialize};
@@ -71,6 +76,27 @@ fn default_thread_limit() -> u32 {
     200
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceListGroupMessagesPayload {
+    group_id: String,
+    #[serde(default = "default_thread_limit")]
+    limit: u32,
+    before_received_at: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DmDeleteMessagesPayload {
+    event_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DmDeleteMessagePayload {
+    event_id: String,
+}
+
 fn dispatch_dm(
     db: &Database,
     method: &str,
@@ -103,16 +129,268 @@ fn dispatch_dm(
             Ok(rows) => ok(rows),
             Err(e) => err("db_error", e.to_string()),
         },
+        "insertMessage" => {
+            let parsed: MessageRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err("invalid_payload", format!("invalid insertMessage payload: {e}"))
+                    }
+                },
+                None => return err("invalid_payload", "insertMessage requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "message.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.event_id.trim().is_empty() {
+                return err("invalid_payload", "event_id is required");
+            }
+            if parsed.conversation_id.trim().is_empty() {
+                return err("invalid_payload", "conversation_id is required");
+            }
+            match db.insert_message(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "inserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "upsertConversation" => {
+            let parsed: ConversationRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid upsertConversation payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "upsertConversation requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "conversation.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.id.trim().is_empty() {
+                return err("invalid_payload", "conversation id is required");
+            }
+            match db.upsert_conversation(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "upserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "listTombstones" => match db.get_tombstones(&scope.profile_id) {
+            Ok(rows) => ok(rows),
+            Err(e) => err("db_error", e.to_string()),
+        },
+        "insertTombstone" => {
+            let parsed: TombstoneRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid insertTombstone payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "insertTombstone requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "tombstone.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.event_id.trim().is_empty() {
+                return err("invalid_payload", "event_id is required");
+            }
+            match db.insert_tombstone(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "inserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "deleteAllTombstones" => match db.delete_all_tombstones_for_profile(&scope.profile_id) {
+            Ok(()) => ok(serde_json::json!({ "deleted": true })),
+            Err(e) => err("db_error", e.to_string()),
+        },
+        "deleteMessages" => {
+            let parsed: DmDeleteMessagesPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid deleteMessages payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "deleteMessages requires payload"),
+            };
+            let event_ids: Vec<String> = parsed
+                .event_ids
+                .into_iter()
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty())
+                .collect();
+            if event_ids.is_empty() {
+                return err("invalid_payload", "eventIds must be non-empty");
+            }
+            match db.delete_messages(&event_ids, &scope.profile_id) {
+                Ok(()) => ok(serde_json::json!({ "deleted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "deleteMessage" => {
+            let parsed: DmDeleteMessagePayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid deleteMessage payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "deleteMessage requires payload"),
+            };
+            if parsed.event_id.trim().is_empty() {
+                return err("invalid_payload", "eventId is required");
+            }
+            match db.delete_message(&parsed.event_id, &scope.profile_id) {
+                Ok(()) => ok(serde_json::json!({ "deleted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
         other => err("invalid_method", format!("unknown dm method: {other}")),
     }
 }
 
-fn dispatch_workspace(db: &Database, method: &str, scope: &EngineScope) -> EngineInvokeResult {
+fn dispatch_workspace(
+    db: &Database,
+    method: &str,
+    scope: &EngineScope,
+    payload: Option<serde_json::Value>,
+) -> EngineInvokeResult {
     match method {
         "listGroups" => match db.get_groups(&scope.profile_id) {
             Ok(rows) => ok(rows),
             Err(e) => err("db_error", e.to_string()),
         },
+        "upsertGroup" => {
+            let parsed: GroupRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid upsertGroup payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "upsertGroup requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "group.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.id.trim().is_empty() {
+                return err("invalid_payload", "group id is required");
+            }
+            match db.upsert_group(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "upserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "listGroupMessages" => {
+            let parsed: WorkspaceListGroupMessagesPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid listGroupMessages payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "listGroupMessages requires payload"),
+            };
+            if parsed.group_id.trim().is_empty() {
+                return err("invalid_payload", "groupId is required");
+            }
+            match db.get_group_messages(
+                &scope.profile_id,
+                &parsed.group_id,
+                parsed.limit,
+                parsed.before_received_at,
+            ) {
+                Ok(rows) => ok(rows),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "insertGroupMessage" => {
+            let parsed: GroupMessageRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid insertGroupMessage payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "insertGroupMessage requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "group_message.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.event_id.trim().is_empty() {
+                return err("invalid_payload", "event_id is required");
+            }
+            if parsed.group_id.trim().is_empty() {
+                return err("invalid_payload", "group_id is required");
+            }
+            match db.insert_group_message(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "inserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "insertGroupTombstone" => {
+            let parsed: GroupTombstoneRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid insertGroupTombstone payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "insertGroupTombstone requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "group_tombstone.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.event_id.trim().is_empty() {
+                return err("invalid_payload", "event_id is required");
+            }
+            match db.insert_group_tombstone(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "inserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
         other => err("invalid_method", format!("unknown workspace method: {other}")),
     }
 }
@@ -424,6 +702,33 @@ fn dispatch_transport(
             Ok(rows) => ok(rows),
             Err(e) => err("db_error", e.to_string()),
         },
+        "upsertRelayCheckpoint" => {
+            let parsed: crate::db::repositories::RelayCheckpointRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid upsertRelayCheckpoint payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "upsertRelayCheckpoint requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "checkpoint.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.relay_url.trim().is_empty() {
+                return err("invalid_payload", "relay_url is required");
+            }
+            match db.upsert_relay_checkpoint(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "upserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
         "listConfiguredRelayUrls" => {
             let mut urls: Vec<String> = Vec::new();
             let mut seen = std::collections::HashSet::new();
@@ -452,7 +757,197 @@ fn dispatch_transport(
             ok(urls)
         }
         "publishRelayEvent" => dispatch_transport_publish_relay_event(payload),
+        "configureMeshConduits" => err(
+            "desktop_required",
+            "configureMeshConduits requires desktop mesh runtime (RUST-1b)",
+        ),
+        "getMeshSnapshot" => err(
+            "desktop_required",
+            "getMeshSnapshot requires desktop mesh runtime (RUST-1c)",
+        ),
+        "publishMeshEnvelope" => err(
+            "desktop_required",
+            "publishMeshEnvelope requires desktop mesh runtime (RUST-1d)",
+        ),
+        "exportOfflinePack" => err(
+            "desktop_required",
+            "exportOfflinePack requires desktop mesh offline IPC (RUST-6b)",
+        ),
+        "importOfflinePack" => err(
+            "desktop_required",
+            "importOfflinePack requires desktop mesh offline IPC (RUST-6b)",
+        ),
         other => err("invalid_method", format!("unknown transport method: {other}")),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistenceDeleteVaultMediaIndexPayload {
+    #[serde(alias = "remote_url")]
+    remote_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistenceSearchMessagesPayload {
+    query: String,
+    #[serde(default = "default_search_limit")]
+    limit: u32,
+}
+
+fn default_search_limit() -> u32 {
+    50
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistenceWipeProfileLocalDataPayload {
+    #[serde(default)]
+    remove_profile_row: bool,
+}
+
+fn dispatch_persistence(
+    db: &Database,
+    method: &str,
+    scope: &EngineScope,
+    payload: Option<Value>,
+) -> EngineInvokeResult {
+    match method {
+        "listVaultMediaIndex" => match db.get_vault_media_index_for_profile(&scope.profile_id) {
+            Ok(rows) => ok(rows),
+            Err(e) => err("db_error", e.to_string()),
+        },
+        "upsertVaultMediaIndex" => {
+            let parsed: crate::db::repositories::VaultMediaIndexRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid upsertVaultMediaIndex payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "upsertVaultMediaIndex requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "record.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.remote_url.trim().is_empty() {
+                return err("invalid_payload", "remote_url is required");
+            }
+            match db.upsert_vault_media_index(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "upserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "deleteVaultMediaIndex" => {
+            let parsed: PersistenceDeleteVaultMediaIndexPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid deleteVaultMediaIndex payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "deleteVaultMediaIndex requires payload"),
+            };
+            if parsed.remote_url.trim().is_empty() {
+                return err("invalid_payload", "remote_url is required");
+            }
+            match db.delete_vault_media_index(&scope.profile_id, &parsed.remote_url) {
+                Ok(()) => ok(serde_json::json!({ "deleted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "deleteAllVaultMediaIndex" => {
+            match db.delete_all_vault_media_index_for_profile(&scope.profile_id) {
+                Ok(deleted) => ok(serde_json::json!({ "deleted": deleted })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "listCallRecords" => match db.get_call_records(&scope.profile_id) {
+            Ok(rows) => ok(rows),
+            Err(e) => err("db_error", e.to_string()),
+        },
+        "upsertCallRecord" => {
+            let parsed: crate::db::repositories::CallRecord = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid upsertCallRecord payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "upsertCallRecord requires payload"),
+            };
+            if parsed.profile_id.trim() != scope.profile_id.trim() {
+                return err(
+                    "invalid_scope",
+                    "record.profile_id must match scope.profileId",
+                );
+            }
+            if parsed.call_id.trim().is_empty() {
+                return err("invalid_payload", "call_id is required");
+            }
+            if let Err(e) = db.insert_call_record(&parsed) {
+                return err("db_error", e.to_string());
+            }
+            match db.update_call_record(&parsed) {
+                Ok(()) => ok(serde_json::json!({ "upserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "searchMessages" => {
+            let parsed: PersistenceSearchMessagesPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid searchMessages payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "searchMessages requires payload"),
+            };
+            if parsed.query.trim().is_empty() {
+                return err("invalid_payload", "query is required");
+            }
+            match db.search_messages(&scope.profile_id, &parsed.query, parsed.limit) {
+                Ok(rows) => ok(rows),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "wipeProfileLocalData" => {
+            let parsed: PersistenceWipeProfileLocalDataPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid wipeProfileLocalData payload: {e}"),
+                        )
+                    }
+                },
+                None => PersistenceWipeProfileLocalDataPayload {
+                    remove_profile_row: false,
+                },
+            };
+            match db.wipe_profile_local_data(&scope.profile_id, parsed.remove_profile_row) {
+                Ok(report) => ok(report),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        other => err("invalid_method", format!("unknown persistence method: {other}")),
     }
 }
 
@@ -464,8 +959,11 @@ pub fn dispatch(db: &Database, request: &EngineInvokeRequest) -> EngineInvokeRes
 
     match request.engine.as_str() {
         "dm" => dispatch_dm(db, &request.method, &request.scope, request.payload.clone()),
-        "workspace" => dispatch_workspace(db, &request.method, &request.scope),
+        "workspace" => dispatch_workspace(db, &request.method, &request.scope, request.payload.clone()),
         "transport" => dispatch_transport(db, &request.method, &request.scope, request.payload.clone()),
+        "persistence" => {
+            dispatch_persistence(db, &request.method, &request.scope, request.payload.clone())
+        }
         "auth" => err(
             "invalid_engine",
             "auth engine uses auth_boot_snapshot command — not engine_invoke",
@@ -477,7 +975,9 @@ pub fn dispatch(db: &Database, request: &EngineInvokeRequest) -> EngineInvokeRes
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::repositories::{ConversationRecord, GroupRecord, RelayCheckpointRecord};
+    use crate::db::repositories::{
+        ConversationRecord, GroupMessageRecord, GroupRecord, MessageRecord, RelayCheckpointRecord,
+    };
 
     fn transport_publish_network_env_lock() -> std::sync::MutexGuard<'static, ()> {
         static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -537,6 +1037,114 @@ mod tests {
     }
 
     #[test]
+    fn dm_insert_message_round_trips_via_get_thread() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .unwrap();
+        let insert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "insertMessage".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "event_id": "evt-1",
+                    "profile_id": "p",
+                    "conversation_id": "dm:a:b",
+                    "sender_pubkey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "recipient_pubkey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "plaintext": "hello",
+                    "kind": 4,
+                    "created_at": 1,
+                    "received_at": 1000,
+                    "is_outgoing": true,
+                    "reply_to_event_id": null,
+                    "has_attachment": false
+                })),
+            },
+        );
+        assert!(insert.ok, "{:?}", insert.error_message);
+
+        let upsert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "upsertConversation".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "id": "dm:a:b",
+                    "profile_id": "p",
+                    "peer_pubkey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "last_event_id": "evt-1",
+                    "last_message_at": 1000,
+                    "last_plaintext_preview": "hello",
+                    "unread_count": 0
+                })),
+            },
+        );
+        assert!(upsert.ok, "{:?}", upsert.error_message);
+
+        let thread = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "getThread".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "conversationId": "dm:a:b",
+                    "limit": 10
+                })),
+            },
+        );
+        assert!(thread.ok, "{:?}", thread.error_message);
+        let rows: Vec<MessageRecord> = serde_json::from_value(thread.data.unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].event_id, "evt-1");
+        assert_eq!(rows[0].plaintext, "hello");
+    }
+
+    #[test]
+    fn dm_insert_message_rejects_profile_scope_mismatch() {
+        let db = Database::new(None).unwrap();
+        let result = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "insertMessage".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "event_id": "evt-1",
+                    "profile_id": "other",
+                    "conversation_id": "dm:a:b",
+                    "sender_pubkey": "a",
+                    "recipient_pubkey": "b",
+                    "plaintext": "x",
+                    "kind": 4,
+                    "created_at": 1,
+                    "received_at": 1,
+                    "is_outgoing": true,
+                    "reply_to_event_id": null,
+                    "has_attachment": false
+                })),
+            },
+        );
+        assert!(!result.ok);
+        assert_eq!(result.error_code.as_deref(), Some("invalid_scope"));
+    }
+
+    #[test]
     fn workspace_list_groups_returns_rows() {
         let db = Database::new(None).unwrap();
         db.ensure_profile_slot("p", "seed-pubkey").unwrap();
@@ -567,7 +1175,187 @@ mod tests {
     }
 
     #[test]
-    fn rejects_empty_profile_id() {
+    fn workspace_upsert_group_writes_row() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let upsert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "upsertGroup".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "id": "g-new",
+                    "profile_id": "p",
+                    "name": "U2 Wave A",
+                    "relay_url": "ws://localhost:7000",
+                    "kind": "invite-only",
+                    "joined_at": 42
+                })),
+            },
+        );
+        assert!(upsert.ok, "{:?}", upsert.error_message);
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "listGroups".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed.ok);
+        let rows: Vec<GroupRecord> = serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "g-new");
+        assert_eq!(rows[0].name, "U2 Wave A");
+    }
+
+    #[test]
+    fn workspace_upsert_group_rejects_profile_mismatch() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let result = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "upsertGroup".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "id": "g1",
+                    "profile_id": "other",
+                    "name": "x",
+                    "relay_url": "ws://localhost:7000",
+                    "kind": "invite-only",
+                    "joined_at": 1
+                })),
+            },
+        );
+        assert!(!result.ok);
+        assert_eq!(result.error_code.as_deref(), Some("invalid_scope"));
+    }
+
+    #[test]
+    fn workspace_group_message_roundtrip_and_tombstone() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let insert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "insertGroupMessage".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "event_id": "evt-1",
+                    "group_id": "g1",
+                    "profile_id": "p",
+                    "sender_pubkey": "aaa",
+                    "plaintext": "hello U2B",
+                    "created_at": 1,
+                    "received_at": 1000
+                })),
+            },
+        );
+        assert!(insert.ok, "{:?}", insert.error_message);
+
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "listGroupMessages".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "groupId": "g1",
+                    "limit": 10
+                })),
+            },
+        );
+        assert!(listed.ok, "{:?}", listed.error_message);
+        let rows: Vec<GroupMessageRecord> = serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].plaintext, "hello U2B");
+
+        let tombstone = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "insertGroupTombstone".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "event_id": "evt-1",
+                    "profile_id": "p",
+                    "deleted_at": 2000,
+                    "deleted_by": "aaa"
+                })),
+            },
+        );
+        assert!(tombstone.ok, "{:?}", tombstone.error_message);
+
+        let after = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "listGroupMessages".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({ "groupId": "g1" })),
+            },
+        );
+        assert!(after.ok);
+        let hidden: Vec<GroupMessageRecord> = serde_json::from_value(after.data.unwrap()).unwrap();
+        assert!(hidden.is_empty(), "tombstoned group message must be hidden");
+    }
+
+    #[test]
+    fn workspace_insert_group_message_rejects_profile_mismatch() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let result = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "workspace".to_string(),
+                method: "insertGroupMessage".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "event_id": "evt-1",
+                    "group_id": "g1",
+                    "profile_id": "other",
+                    "sender_pubkey": "aaa",
+                    "plaintext": "x",
+                    "created_at": 1,
+                    "received_at": 1
+                })),
+            },
+        );
+        assert!(!result.ok);
+        assert_eq!(result.error_code.as_deref(), Some("invalid_scope"));
+    }
+
+    #[test]
+    fn session_scope_rejects_empty_profile_id() {
         let db = Database::new(None).unwrap();
         let result = dispatch(
             &db,
@@ -583,6 +1371,33 @@ mod tests {
         );
         assert!(!result.ok);
         assert_eq!(result.error_code.as_deref(), Some("invalid_scope"));
+    }
+
+    #[test]
+    fn auth_boot_not_via_engine_invoke() {
+        let db = Database::new(None).unwrap();
+        let result = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "auth".to_string(),
+                method: "bootSnapshot".to_string(),
+                scope: EngineScope {
+                    profile_id: "default".to_string(),
+                    window_label: Some("main".to_string()),
+                },
+                payload: None,
+            },
+        );
+        assert!(!result.ok);
+        assert_eq!(result.error_code.as_deref(), Some("invalid_engine"));
+        assert!(
+            result
+                .error_message
+                .as_deref()
+                .unwrap_or("")
+                .contains("auth_boot_snapshot"),
+            "auth must stay on auth_boot_snapshot command"
+        );
     }
 
     #[test]
@@ -611,6 +1426,67 @@ mod tests {
         let rows: Vec<RelayCheckpointRecord> = serde_json::from_value(result.data.unwrap()).unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].relay_url, "wss://team.relay");
+    }
+
+    #[test]
+    fn transport_upsert_relay_checkpoint_persists_row() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let result = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "transport".to_string(),
+                method: "upsertRelayCheckpoint".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "profile_id": "p",
+                    "relay_url": "wss://upsert.relay",
+                    "last_event_at": 42
+                })),
+            },
+        );
+        assert!(result.ok, "{:?}", result.error_message);
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "transport".to_string(),
+                method: "listRelayCheckpoints".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed.ok);
+        let rows: Vec<RelayCheckpointRecord> = serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert!(rows.iter().any(|row| row.relay_url == "wss://upsert.relay" && row.last_event_at == 42));
+    }
+
+    #[test]
+    fn transport_upsert_relay_checkpoint_rejects_profile_mismatch() {
+        let db = Database::new(None).unwrap();
+        let result = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "transport".to_string(),
+                method: "upsertRelayCheckpoint".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "profile_id": "other",
+                    "relay_url": "wss://upsert.relay",
+                    "last_event_at": 1
+                })),
+            },
+        );
+        assert!(!result.ok);
+        assert_eq!(result.error_code.as_deref(), Some("invalid_scope"));
     }
 
     #[test]
@@ -788,5 +1664,328 @@ mod tests {
             .as_str()
             .unwrap_or("")
             .contains(TRANSPORT_PUBLISH_DRY_RUN_ERROR));
+    }
+
+    #[test]
+    fn persistence_vault_media_index_round_trip() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let upsert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "upsertVaultMediaIndex".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "remote_url": "obscur://vault/local/abc",
+                    "profile_id": "p",
+                    "relative_path": "vault-media/abc.obscurvault",
+                    "saved_at_unix_ms": 1_700_000_000_000i64,
+                    "file_name": "photo.jpg",
+                    "content_type": "image/jpeg",
+                    "size_bytes": 2048,
+                    "message_event_id": "evt-1",
+                    "explicit_chat_save": true
+                })),
+            },
+        );
+        assert!(upsert.ok, "{:?}", upsert.error_message);
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "listVaultMediaIndex".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed.ok);
+        let rows: Vec<crate::db::repositories::VaultMediaIndexRecord> =
+            serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].remote_url, "obscur://vault/local/abc");
+        let deleted = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "deleteVaultMediaIndex".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({ "remote_url": "obscur://vault/local/abc" })),
+            },
+        );
+        assert!(deleted.ok, "{:?}", deleted.error_message);
+        let empty = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "listVaultMediaIndex".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(empty.ok);
+        let after: Vec<crate::db::repositories::VaultMediaIndexRecord> =
+            serde_json::from_value(empty.data.unwrap()).unwrap();
+        assert!(after.is_empty());
+    }
+
+    #[test]
+    fn persistence_call_records_round_trip() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        let upsert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "upsertCallRecord".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "call_id": "call-1",
+                    "profile_id": "p",
+                    "peer_pubkey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "initiated_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "status": "answered",
+                    "started_at": 1_000,
+                    "ended_at": 5_000,
+                    "duration_ms": 4_000
+                })),
+            },
+        );
+        assert!(upsert.ok, "{:?}", upsert.error_message);
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "listCallRecords".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed.ok);
+        let rows: Vec<crate::db::repositories::CallRecord> =
+            serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].call_id, "call-1");
+        assert_eq!(rows[0].status, "answered");
+        let update = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "upsertCallRecord".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "call_id": "call-1",
+                    "profile_id": "p",
+                    "peer_pubkey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "initiated_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "status": "ended",
+                    "started_at": 1_000,
+                    "ended_at": 6_000,
+                    "duration_ms": 5_000
+                })),
+            },
+        );
+        assert!(update.ok, "{:?}", update.error_message);
+        let listed2 = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "listCallRecords".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed2.ok);
+        let rows2: Vec<crate::db::repositories::CallRecord> =
+            serde_json::from_value(listed2.data.unwrap()).unwrap();
+        assert_eq!(rows2.len(), 1);
+        assert_eq!(rows2[0].status, "ended");
+        assert_eq!(rows2[0].duration_ms, Some(5_000));
+    }
+
+    #[test]
+    fn persistence_wipe_profile_local_data() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "seed-pubkey").unwrap();
+        seed_conversation(&db, "p", "dm:a:b");
+        db.insert_message(&MessageRecord {
+            event_id: "evt-wipe-1".to_string(),
+            profile_id: "p".to_string(),
+            conversation_id: "dm:a:b".to_string(),
+            sender_pubkey: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_string(),
+            recipient_pubkey: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                .to_string(),
+            plaintext: "wipe-me".to_string(),
+            kind: 4,
+            created_at: 1,
+            received_at: 1,
+            is_outgoing: false,
+            reply_to_event_id: None,
+            has_attachment: false,
+        })
+        .unwrap();
+        let wiped = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "persistence".to_string(),
+                method: "wipeProfileLocalData".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({ "removeProfileRow": false })),
+            },
+        );
+        assert!(wiped.ok, "{:?}", wiped.error_message);
+        let report: crate::db::repositories::WipeProfileLocalDataReport =
+            serde_json::from_value(wiped.data.unwrap()).unwrap();
+        assert_eq!(report.profile_id, "p");
+        assert!(report.rows_deleted >= 1);
+        assert!(!report.profile_row_deleted);
+        let thread = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "getThread".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "conversationId": "dm:a:b",
+                    "limit": 10
+                })),
+            },
+        );
+        assert!(thread.ok);
+        let rows: Vec<MessageRecord> = serde_json::from_value(thread.data.unwrap()).unwrap();
+        assert!(rows.is_empty());
+    }
+
+    #[test]
+    fn dm_tombstone_delete_round_trip() {
+        let db = Database::new(None).unwrap();
+        db.ensure_profile_slot("p", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+            .unwrap();
+        seed_conversation(&db, "p", "dm:a:b");
+        db.insert_message(&MessageRecord {
+            event_id: "evt-del-1".to_string(),
+            profile_id: "p".to_string(),
+            conversation_id: "dm:a:b".to_string(),
+            sender_pubkey: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                .to_string(),
+            recipient_pubkey: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                .to_string(),
+            plaintext: "bye".to_string(),
+            kind: 4,
+            created_at: 1,
+            received_at: 1,
+            is_outgoing: false,
+            reply_to_event_id: None,
+            has_attachment: false,
+        })
+        .unwrap();
+        let delete = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "deleteMessages".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({ "eventIds": ["evt-del-1"] })),
+            },
+        );
+        assert!(delete.ok, "{:?}", delete.error_message);
+        let insert_ts = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "insertTombstone".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "event_id": "evt-del-1",
+                    "profile_id": "p",
+                    "deleted_at": 1_700_000_000_000i64,
+                    "deleted_by": ""
+                })),
+            },
+        );
+        assert!(insert_ts.ok, "{:?}", insert_ts.error_message);
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "listTombstones".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed.ok);
+        let rows: Vec<crate::db::repositories::TombstoneRecord> =
+            serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].event_id, "evt-del-1");
+        let cleared = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "deleteAllTombstones".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(cleared.ok, "{:?}", cleared.error_message);
+        let empty = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "dm".to_string(),
+                method: "listTombstones".to_string(),
+                scope: EngineScope {
+                    profile_id: "p".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(empty.ok);
+        let after: Vec<crate::db::repositories::TombstoneRecord> =
+            serde_json::from_value(empty.data.unwrap()).unwrap();
+        assert!(after.is_empty());
     }
 }

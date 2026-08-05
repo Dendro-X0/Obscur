@@ -312,7 +312,7 @@ export class AccountActiveInOtherProfileWindowError extends Error {
   }
 }
 
-/** Same-window manual reload (F5) must not inherit a stale cross-profile lease. */
+/** Drop local lease map — F5 and cold boot restore must not inherit a stale lease. */
 export const clearActiveSessionLeasesForPageReload = (): void => {
   if (typeof window === "undefined") {
     return;

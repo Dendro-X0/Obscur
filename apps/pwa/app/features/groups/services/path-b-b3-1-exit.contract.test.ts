@@ -26,11 +26,9 @@ describe("path B B3-1 exit contract", () => {
     expect(sealed).not.toMatch(/sendMessage:[\s\S]*GroupService/);
   });
 
-  it("group-messaging stub policy remains for dev-lab surfaces only", () => {
+  it("group-messaging stub policy remains documented", () => {
     const stub = read("app/features/groups/services/group-messaging-stub-policy.ts");
-    const devLab = read("app/features/dev-lab/dev-lab-install.ts");
     expect(stub).toContain("GROUP_MESSAGING_STUB_MESSAGE");
-    expect(devLab).toContain("GROUP_MESSAGING_STUB_MESSAGE");
   });
 
   it("P5 gate documents canonical send owner", () => {

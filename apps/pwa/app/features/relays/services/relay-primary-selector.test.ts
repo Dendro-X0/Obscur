@@ -93,7 +93,37 @@ describe("relay primary selector", () => {
     })).toEqual([urls[1]]);
   });
 
-  it("E2c: promotes open local but keeps dialing dead public primary for remote interaction", () => {
+  it("Nostr-first: healthy local primary never stays ACTIVE when remotes enabled", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol", "wss://relay.damus.io"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [
+        { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 3, successRate: 100, listIndex: 0 },
+        { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 1 },
+        { url: "wss://relay.damus.io", isOpen: false, isWritable: false, listIndex: 2 },
+      ],
+    });
+    expect(pool).not.toContain("ws://localhost:7000");
+    expect(pool.every((url) => url.startsWith("wss://"))).toBe(true);
+    expect(pool.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Nostr-first: cold basic start with local+remotes dials remotes only", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [],
+    });
+    expect(pool).toEqual(["wss://nos.lol"]);
+  });
+
+  it("Nostr-first: dead public primary does not dial open localhost when remotes enabled", () => {
     const selection = relaySelectorInternals.buildSelection(
       ["wss://relay.damus.io", "ws://localhost:7000"],
       "wss://relay.damus.io",
@@ -107,12 +137,11 @@ describe("relay primary selector", () => {
         { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 20, successRate: 100, listIndex: 1 },
       ],
     });
-    expect(pool[0]).toBe("wss://relay.damus.io");
-    expect(pool).toContain("ws://localhost:7000");
-    expect(pool.length).toBeGreaterThanOrEqual(2);
+    expect(pool).toEqual(["wss://relay.damus.io"]);
+    expect(pool).not.toContain("ws://localhost:7000");
   });
 
-  it("E2c: pads additional remotes when local is promoted and more public URLs are enabled", () => {
+  it("Nostr-first: pads remotes only — localhost excluded from mixed basic pool", () => {
     const ordered = ["wss://nos.lol", "wss://relay.primal.net", "ws://localhost:7000"];
     const selection = relaySelectorInternals.buildSelection(ordered, "wss://nos.lol");
     const pool = resolveActivePoolRelayUrls({
@@ -125,10 +154,9 @@ describe("relay primary selector", () => {
         { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 20, successRate: 100, listIndex: 2 },
       ],
     });
-    expect(pool).toContain("ws://localhost:7000");
+    expect(pool).not.toContain("ws://localhost:7000");
     expect(pool).toContain("wss://nos.lol");
     expect(pool).toContain("wss://relay.primal.net");
-    expect(pool.some((url) => url.startsWith("wss://"))).toBe(true);
   });
 
   it("E2c: redundancy never leaves a local-only pool when remotes are enabled", () => {
@@ -180,14 +208,25 @@ describe("relay primary selector", () => {
     expect(pool).toEqual(["wss://relay.damus.io", "wss://relay.primal.net"]);
   });
 
-  it("reconciles primary to open local when public primary is disconnected", () => {
+  it("Nostr-first: does not reconcile primary onto localhost when remotes are enabled", () => {
     const ordered = ["wss://relay.damus.io", "ws://localhost:7000"];
     const current = relaySelectorInternals.buildSelection(ordered, "wss://relay.damus.io");
     const next = reconcilePrimarySelection(current, ordered, [
       { url: "wss://relay.damus.io", isOpen: false, isWritable: false, listIndex: 0 },
       { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 20, successRate: 100, listIndex: 1 },
     ]);
-    expect(next?.primaryUrl).toBe("ws://localhost:7000");
+    expect(next?.primaryUrl ?? current.primaryUrl).not.toBe("ws://localhost:7000");
+  });
+
+  it("S2: promotes offline primary to open remote even when local is writable", () => {
+    const ordered = ["wss://nos.lol", "wss://relay.primal.net", "ws://localhost:7000"];
+    const current = relaySelectorInternals.buildSelection(ordered, "wss://nos.lol");
+    const next = reconcilePrimarySelection(current, ordered, [
+      { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 0 },
+      { url: "wss://relay.primal.net", isOpen: true, isWritable: true, latencyMs: 180, successRate: 100, listIndex: 1 },
+      { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 8, successRate: 100, listIndex: 2 },
+    ]);
+    expect(next?.primaryUrl).toBe("wss://relay.primal.net");
   });
 
   it("pads redundancy pool with cold standbys when only the primary still scores", () => {
@@ -203,9 +242,10 @@ describe("relay primary selector", () => {
       ],
     });
     expect(pool[0]).toBe(urls[1]);
-    expect(pool).toContain(urls[0]);
+    // Dead Docker lab is demoted when remotes are enabled — do not pad localhost.
+    expect(pool).not.toContain(urls[0]);
     expect(pool).toContain(urls[2]);
-    expect(pool).toHaveLength(3);
+    expect(pool).toHaveLength(2);
   });
 
   it("fills redundancy pool from ordered list when every relay scores zero", () => {
@@ -221,7 +261,9 @@ describe("relay primary selector", () => {
         listIndex,
       })),
     });
-    expect(pool).toEqual(urls);
+    // Dead local demoted — public remotes remain dialed.
+    expect(pool).not.toContain("ws://localhost:7000");
+    expect(pool).toEqual(["wss://relay.damus.io", "wss://nos.lol"]);
   });
 
   it("does not pad circuit-open relays into the redundancy pool", () => {
@@ -296,5 +338,127 @@ describe("relay primary selector", () => {
       ],
     });
     expect(pool).toEqual(["wss://relay.damus.io", "wss://nos.lol"]);
+  });
+
+  it("adaptive: dead Docker lab leaves basic pool so public remotes dial", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol", "wss://relay.primal.net", "wss://relay.damus.io"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [
+        { url: "ws://localhost:7000", isOpen: false, isWritable: false, listIndex: 0 },
+        { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 1 },
+        { url: "wss://relay.primal.net", isOpen: false, isWritable: false, listIndex: 2 },
+        { url: "wss://relay.damus.io", isOpen: false, isWritable: false, listIndex: 3 },
+      ],
+    });
+    expect(pool).not.toContain("ws://localhost:7000");
+    expect(pool[0]).toMatch(/^wss:\/\//);
+    expect(pool.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("adaptive: high-latency open localhost demotes from basic ACTIVE pool", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol", "wss://relay.damus.io"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [
+        {
+          url: "ws://localhost:7000",
+          isOpen: true,
+          isWritable: true,
+          latencyMs: 1648,
+          successRate: 100,
+          listIndex: 0,
+        },
+        { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 1 },
+        { url: "wss://relay.damus.io", isOpen: false, isWritable: false, listIndex: 2 },
+      ],
+    });
+    expect(pool).not.toContain("ws://localhost:7000");
+    expect(pool).toContain("wss://nos.lol");
+  });
+
+  it("Nostr-first: healthy low-RTT localhost still excluded when remotes enabled", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [
+        {
+          url: "ws://localhost:7000",
+          isOpen: true,
+          isWritable: true,
+          latencyMs: 12,
+          successRate: 100,
+          listIndex: 0,
+        },
+        { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 1 },
+      ],
+    });
+    expect(pool).toEqual(["wss://nos.lol"]);
+  });
+
+  it("Soft L3-only: localhost remains ACTIVE when no remotes enabled", () => {
+    const ordered = ["ws://localhost:7000"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [
+        {
+          url: "ws://localhost:7000",
+          isOpen: true,
+          isWritable: true,
+          latencyMs: 12,
+          successRate: 100,
+          listIndex: 0,
+        },
+      ],
+    });
+    expect(pool).toEqual(["ws://localhost:7000"]);
+  });
+
+  it("adaptive: reconcile demotes local primary to public remote whenever remotes enabled", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol", "wss://relay.primal.net"];
+    const current = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const next = reconcilePrimarySelection(current, ordered, [
+      {
+        url: "ws://localhost:7000",
+        isOpen: true,
+        isWritable: true,
+        latencyMs: 12,
+        successRate: 100,
+        listIndex: 0,
+      },
+      { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 1 },
+      { url: "wss://relay.primal.net", isOpen: false, isWritable: false, listIndex: 2 },
+    ]);
+    expect(next?.primaryUrl).toMatch(/^wss:\/\//);
+    expect(next?.primaryUrl).not.toBe("ws://localhost:7000");
+  });
+
+  it("adaptive: reconcile does not re-promote demoted local over cold remotes", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol"];
+    const current = relaySelectorInternals.buildSelection(ordered, "wss://nos.lol");
+    const next = reconcilePrimarySelection(current, ordered, [
+      {
+        url: "ws://localhost:7000",
+        isOpen: true,
+        isWritable: true,
+        latencyMs: 2000,
+        successRate: 100,
+        listIndex: 0,
+      },
+      { url: "wss://nos.lol", isOpen: false, isWritable: false, listIndex: 1 },
+    ]);
+    expect(next).toBeNull();
   });
 });

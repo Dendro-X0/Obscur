@@ -5,6 +5,7 @@ import {
   CUSTOM_CONDUIT_HTTP_V1,
   resolveCandidateConduits,
   satisfiesEvidenceClass,
+  sshTunnelConfigureSkipReason,
   validateMeshEnvelope,
 } from "./index";
 import type { ConduitDescriptor, MeshEnvelope, MeshEvidenceRecord } from "./index";
@@ -121,5 +122,46 @@ describe("conduit-mesh-contracts — custom gateway HTTP v1", () => {
     expect(CUSTOM_CONDUIT_HTTP_PATHS.publish).toBe("/mesh/v1/envelopes");
     expect(CUSTOM_CONDUIT_HTTP_PATHS.stream).toBe("/mesh/v1/stream");
     expect(CUSTOM_CONDUIT_HTTP_PATHS.health).toBe("/mesh/v1/health");
+  });
+});
+
+describe("conduit-mesh-contracts — RUST-5a sshTunnel", () => {
+  const sshBase = (): ConduitDescriptor => ({
+    conduitId: "home-via-bastion",
+    dialect: "nostr_ws",
+    endpoints: ["ws://127.0.0.1:19001"],
+    capabilities: ["publish", "subscribe"],
+    networkPolicy: "clearnet",
+    trustTier: "user_configured",
+    enabled: true,
+    priority: 10,
+    underlay: "ssh_tunnel",
+    sshTunnel: {
+      bastionHost: "bastion.example",
+      bastionUser: "ops",
+      remoteHost: "127.0.0.1",
+      remotePort: 7000,
+      localBindPort: 19001,
+    },
+  });
+
+  it("accepts matching loopback endpoint + params", () => {
+    expect(sshTunnelConfigureSkipReason(sshBase())).toBeNull();
+  });
+
+  it("flags missing sshTunnel params", () => {
+    const { sshTunnel: _omit, ...rest } = sshBase();
+    expect(sshTunnelConfigureSkipReason(rest)).toBe("ssh_params_missing");
+  });
+
+  it("flags endpoint / localBindPort mismatch", () => {
+    expect(sshTunnelConfigureSkipReason({
+      ...sshBase(),
+      endpoints: ["ws://127.0.0.1:7000"],
+    })).toBe("ssh_endpoint_mismatch");
+  });
+
+  it("ignores non-ssh underlays", () => {
+    expect(sshTunnelConfigureSkipReason(teamConduit())).toBeNull();
   });
 });

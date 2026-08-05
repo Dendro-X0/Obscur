@@ -139,18 +139,24 @@ fn delete_entry(entry: &Entry) -> Result<(), keyring::Error> {
     entry.delete_credential()
 }
 
-/// Read nsec for `profile_id`, migrating a legacy keychain entry when found.
+/// OS-store presence only — never treat process cache as disk truth (AUTH boot).
 #[cfg(not(target_os = "android"))]
-pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String> {
-    if let Some(cached) = cached_session_secret_payload(profile_id) {
-        return Ok(Some(cached));
-    }
+pub fn os_keychain_has_nsec_for_profile(profile_id: &str) -> Result<bool, String> {
+    Ok(read_nsec_from_os_store(profile_id)?.is_some())
+}
+
+#[cfg(target_os = "android")]
+pub fn os_keychain_has_nsec_for_profile(_profile_id: &str) -> Result<bool, String> {
+    Ok(false)
+}
+
+#[cfg(not(target_os = "android"))]
+fn read_nsec_from_os_store(profile_id: &str) -> Result<Option<String>, String> {
     let canonical = Entry::new(APP_SERVICE, &key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
     match read_password(&canonical) {
         Ok(stored) => {
             let secret = decode_stored_session_payload(profile_id, &stored)?;
             if let Some(secret) = secret {
-                remember_session_secret_payload(profile_id, &secret);
                 return Ok(Some(secret));
             }
         }
@@ -169,7 +175,6 @@ pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String>
             let wrapped = keychain_session_envelope::wrap_session_secret_for_keychain(profile_id, &secret_zero)?;
             write_password(&canonical, &wrapped).map_err(|e| e.to_string())?;
             let _ = delete_entry(&legacy);
-            remember_session_secret_payload(profile_id, &secret_zero);
             eprintln!(
                 "[SESSION] Migrated legacy keychain entry to canonical wrapped envelope for profile {}",
                 profile_id
@@ -179,6 +184,19 @@ pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String>
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
+}
+
+/// Read nsec for `profile_id`, migrating a legacy keychain entry when found.
+#[cfg(not(target_os = "android"))]
+pub fn read_nsec_for_profile(profile_id: &str) -> Result<Option<String>, String> {
+    if let Some(cached) = cached_session_secret_payload(profile_id) {
+        return Ok(Some(cached));
+    }
+    let secret = read_nsec_from_os_store(profile_id)?;
+    if let Some(ref secret) = secret {
+        remember_session_secret_payload(profile_id, secret);
+    }
+    Ok(secret)
 }
 
 #[cfg(target_os = "android")]
@@ -195,22 +213,37 @@ pub fn write_nsec_for_profile(profile_id: &str, nsec: &str) -> Result<(), String
     if let Ok(legacy) = Entry::new(APP_SERVICE, &legacy_key_name_for_profile(profile_id)) {
         let _ = delete_entry(&legacy);
     }
-    match read_password(&canonical) {
-        Ok(stored) if stored == wrapped => {
+    // Fresh Entry for read-back — same-process cache must not hide a failed OS persist.
+    let verify = || -> Result<(), String> {
+        let verify_entry =
+            Entry::new(APP_SERVICE, &key_name_for_profile(profile_id)).map_err(|e| e.to_string())?;
+        match read_password(&verify_entry) {
+            Ok(stored) if stored == wrapped => Ok(()),
+            Ok(_) => Err("Keychain entry did not round-trip".to_string()),
+            Err(keyring::Error::NoEntry) => Err("Keychain write did not persist (NoEntry on read-back)".to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    };
+    match verify() {
+        Ok(()) => {
             remember_session_secret_payload(profile_id, nsec);
             Ok(())
         }
-        Ok(_) => Err("Keychain entry did not round-trip".to_string()),
-        Err(keyring::Error::NoEntry) => {
-            // Windows Credential Manager can lag between Entry instances; keep in-process cache.
-            remember_session_secret_payload(profile_id, nsec);
-            eprintln!(
-                "[SESSION] Keychain read-back missed for profile {}; using in-process cache",
-                profile_id
-            );
-            Ok(())
+        Err(first) => {
+            // One retry for Credential Manager lag between Entry instances.
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            write_password(&canonical, &wrapped).map_err(|e| e.to_string())?;
+            match verify() {
+                Ok(()) => {
+                    remember_session_secret_payload(profile_id, nsec);
+                    Ok(())
+                }
+                Err(second) => {
+                    forget_session_secret_payload(profile_id);
+                    Err(format!("{first}; retry: {second}"))
+                }
+            }
         }
-        Err(e) => Err(e.to_string()),
     }
 }
 

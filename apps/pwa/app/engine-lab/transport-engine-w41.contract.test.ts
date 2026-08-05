@@ -22,9 +22,12 @@ describe("transport-engine w41 — pre-authority-flip exit charter (design-only)
     expect(charter).toContain("design + contract only");
   });
 
-  it("keeps default port routing on standalone kernel owner", () => {
-    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
+  it("production port is thin; subtracted owns host routing after W66", () => {
+    const thin = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    expect(thin).toContain("relay-standalone-publish-port-subtracted");
+    expect(thin).not.toContain("publishTransportKernelToRelayUrls");
+
+    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("shouldRouteHostTransportPublish");
   });
 

@@ -40,10 +40,11 @@ describe("v2 slim native routing quarantine", () => {
     }
   });
 
-  it("use-thread-messages keeps legacy hook inert on native (undefined conversation id)", () => {
+  it("use-thread-messages has no legacy UI hydrate branch", () => {
     const source = read("app/features/messaging/hooks/use-thread-messages.ts");
-    expect(source).toContain("useLegacyConversationMessages(");
-    expect(source).toContain("legacyHydrate ? displayDmId : undefined");
+    expect(source).not.toContain("useLegacyConversationMessages");
+    expect(source).not.toContain("legacyHydrate");
+    expect(source).toContain("useInertConversationMessages");
   });
 
   it("use-thread-messages routes through dm-kernel authority", () => {

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createWorkspaceActivationPublisher,
@@ -83,5 +85,11 @@ describe("community-workspace-activation", () => {
     });
     expect(summary.severity).not.toBe("success");
     expect(summary.recovery).toContain("configure_relays");
+  });
+
+  it("coordination join evidence source wires Slice C self-wrap", () => {
+    const source = readFileSync(join(__dirname, "community-workspace-activation.ts"), "utf8");
+    expect(source).toContain("publishSelfCoordinationRoomKeyWrapAfterJoin");
+    expect(source).toMatch(/roomKeyWrap[\s\S]*publishSelfCoordinationRoomKeyWrapAfterJoin/);
   });
 });

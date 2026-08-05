@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   applyWorkspaceDevRelayBootstrap,
+  hasEnabledNonLocalRelay,
   pruneUnreachableLocalDevWorkspaceRelay,
 } from "./workspace-dev-relay-bootstrap";
 
 describe("workspace-dev-relay-bootstrap", () => {
+  it("detects enabled public remotes beside localhost", () => {
+    expect(hasEnabledNonLocalRelay([
+      { url: "wss://nos.lol", enabled: true },
+      { url: "ws://localhost:7000", enabled: false },
+    ])).toBe(true);
+    expect(hasEnabledNonLocalRelay([
+      { url: "ws://localhost:7000", enabled: true },
+    ])).toBe(false);
+  });
+
   it("enables an existing disabled localhost relay entry", () => {
     const result = applyWorkspaceDevRelayBootstrap([
       { url: "wss://relay.damus.io", enabled: true },

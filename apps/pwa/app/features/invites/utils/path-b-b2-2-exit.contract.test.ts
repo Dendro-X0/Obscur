@@ -17,11 +17,17 @@ describe("path B B2-2 exit contract", () => {
     expect(inviteManager).not.toMatch(/obscur\.relay_list\.v2\./);
   });
 
-  it("invite-manager uses enabled relays for coordination create and connection publish", () => {
+  it("invite-manager uses mesh transport bridge for connection publish (no standalone)", () => {
     const inviteManager = read("app/features/invites/utils/invite-manager.ts");
     expect(inviteManager).toMatch(/loadEnabledRelayUrlsForIdentity\(identity\.publicKey\)/);
     expect(inviteManager).toContain("coordinationCreateInvite");
-    expect(inviteManager).toContain("publishToUrlsStandalone(targetRelays");
+    expect(inviteManager).toContain("configureInviteRequestTransportBridge");
+    expect(inviteManager).toContain("inviteRequestTransportBridge");
+    expect(inviteManager).toContain(
+      "Invite relay publish unavailable — configureInviteRequestTransportBridge required (mesh)",
+    );
+    expect(inviteManager).not.toContain("publishToUrlsStandalone");
+    expect(inviteManager).not.toContain("enhanced-relay-pool-port");
   });
 
   it("relay-list-enabled-urls reads v2 before v1 (same order as use-relay-list)", () => {

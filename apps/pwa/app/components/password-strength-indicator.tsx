@@ -2,10 +2,17 @@
 
 import { cn } from "@/app/lib/utils";
 import { evaluatePasswordStrength } from "@/app/shared/password-strength";
+import {
+  evaluateIdentityPassphrasePolicy,
+  type PassphrasePolicyFailureReason,
+} from "@/app/features/security/services/identity-passphrase-policy";
+import type { Passphrase } from "@dweb/crypto/passphrase";
 
 type PasswordStrengthIndicatorProps = Readonly<{
   password: string;
   className?: string;
+  requireIdentityPolicy?: boolean;
+  policyFailureMessage?: (reason: PassphrasePolicyFailureReason) => string;
 }>;
 
 const levelStyles: Record<ReturnType<typeof evaluatePasswordStrength>["level"], Readonly<{ bar: string; text: string }>> = {
@@ -23,9 +30,41 @@ const activeBarCount = (score: number): number => {
   return 0;
 };
 
-export const PasswordStrengthIndicator = ({ password, className }: PasswordStrengthIndicatorProps) => {
+export const PasswordStrengthIndicator = ({
+  password,
+  className,
+  requireIdentityPolicy = false,
+  policyFailureMessage,
+}: PasswordStrengthIndicatorProps) => {
   if (password.length === 0) {
     return null;
+  }
+  if (requireIdentityPolicy) {
+    const policyEvaluation = evaluateIdentityPassphrasePolicy(password as Passphrase);
+    if (!policyEvaluation.ok) {
+      const policyHint = policyFailureMessage?.(policyEvaluation.reason)
+        ?? "Use at least 12 characters, or a passphrase of four or more words.";
+      return (
+        <div className={cn("space-y-2 rounded-2xl border border-rose-500/20 bg-rose-500/5 p-3", className)}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Password Strength</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-rose-500">Too short</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[0, 1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className={cn(
+                  "h-1.5 rounded-full",
+                  index === 0 ? "bg-rose-500" : "bg-zinc-300/70 dark:bg-zinc-700/70",
+                )}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-rose-600 dark:text-rose-400">{policyHint}</p>
+        </div>
+      );
+    }
   }
   const snapshot = evaluatePasswordStrength(password);
   const activeCount = activeBarCount(snapshot.score);

@@ -12,7 +12,7 @@ export {
   toLoadEarlierParamsFromCursor,
   toThreadHistoryPageFromLoadEarlierResult,
 } from "./contracts";
-export type { ThreadHistoryPort, DmConversationMaterializationPort } from "./port";
+export type { ThreadHistoryPort } from "./port";
 export {
   THREAD_HISTORY_OWNER_ID,
   DM_CONVERSATION_MATERIALIZATION_OWNER_ID,

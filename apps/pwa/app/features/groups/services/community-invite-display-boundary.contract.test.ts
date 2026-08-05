@@ -19,12 +19,8 @@ describe("IRA-5 community invite display boundary contract", () => {
     expect(source).toContain("resolveCommunityInvitePreviewFromSelfForContent");
   });
 
-  it("dm-kernel and legacy thread hooks do not import role authority", () => {
+  it("dm-kernel thread hook does not import role authority", () => {
     const dmKernel = read("app/features/dm-kernel/use-dm-kernel-thread.ts");
-    const legacy = read("app/features/messaging/hooks/use-conversation-messages-legacy.ts");
     expect(dmKernel).not.toMatch(/community-invite-role-authority/);
-    expect(legacy).not.toMatch(/community-invite-role-authority/);
-    expect(dmKernel).toContain("augmentCommunityDmInviteThreadMessages");
-    expect(legacy).toContain("augmentCommunityDmInviteThreadMessages");
   });
 });

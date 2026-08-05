@@ -1,5 +1,5 @@
-import type { IdentityRootPort } from "@dweb/auth";
-import { authFailed, authOk } from "@dweb/auth";
+import type { IdentityRootPort } from "@dweb/auth/ports/identity-root-port";
+import { authFailed, authOk } from "@dweb/auth/contracts/auth-result";
 import {
   AuthKernelProfileScopeError,
   readStoredIdentitySnapshot,

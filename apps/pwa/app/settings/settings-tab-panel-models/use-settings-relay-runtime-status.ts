@@ -6,6 +6,7 @@ import {
   deriveRelayRuntimeStatus,
   type RelayRuntimeStatus,
 } from "@/app/features/relays/lib/relay-runtime-status";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 export const UNAVAILABLE_RELAY_RUNTIME_STATUS: RelayRuntimeStatus = {
   status: "unavailable",
@@ -26,26 +27,30 @@ export function useSettingsRelayRuntimeStatus(): RelayRuntimeStatus {
     }
 
     const enabledRelays = relays.filter((relay) => relay.enabled);
-    const enabledRelaySet = new Set(enabledRelays.map((relay) => relay.url));
-    const openCount = connections.filter(
-      (connection) => connection.status === "open" && enabledRelaySet.has(connection.url),
-    ).length;
+    const openCount = connections.filter((connection) => (
+      connection.status === "open"
+      && enabledRelays.some((relay) => (
+        relay.url === connection.url || workspaceRelayUrlsMatch(relay.url, connection.url)
+      ))
+    )).length;
+    const writableCount = Math.max(relayRuntime.writableRelayCount, openCount);
+    const subscribableCount = Math.max(relayRuntime.subscribableRelayCount, openCount);
 
     return deriveRelayRuntimeStatus({
       openCount,
       totalCount: enabledRelays.length,
-      writableCount: relayRuntime.writableRelayCount,
-      subscribableCount: relayRuntime.subscribableRelayCount,
+      writableCount,
+      subscribableCount,
       phase: relayRuntime.phase,
       recoveryStage: relayRuntime.recoveryStage,
       lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
       lastSuccessfulPublishAtUnixMs: relayRuntime.lastSuccessfulPublishAtUnixMs,
       fallbackRelayCount: relayRuntime.fallbackRelayUrls.length,
-      meshReadiness: relayRuntime.recovery.readiness === "healthy"
-        && relayRuntime.writableRelayCount > 0
-        && relayRuntime.writableRelayCount < enabledRelays.length
+      meshReadiness: relayRuntime.recovery?.readiness === "healthy"
+        && writableCount > 0
+        && writableCount < enabledRelays.length
         ? "degraded"
-        : relayRuntime.recovery.readiness,
+        : relayRuntime.recovery?.readiness,
     });
   }, [pool?.connections, relayList?.state?.relays, relayRuntime]);
 }

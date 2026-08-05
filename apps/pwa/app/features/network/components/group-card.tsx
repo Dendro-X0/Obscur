@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
+import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit/avatar";
 import { Users, Globe, ChevronRight } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 
 interface GroupCardProps {
     id: string;

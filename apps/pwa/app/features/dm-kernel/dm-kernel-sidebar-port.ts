@@ -1,9 +1,7 @@
-import { dbGetConversations } from "@dweb/db";
 import { listDmConversations } from "@obscur/dm-engine";
 import { createTauriEngineHost } from "@obscur/engine-host/tauri";
 import type { HostEnginePort } from "@obscur/engine-contracts";
 import type { DmConversation } from "@/app/features/messaging/types";
-import { isEngineLabStrictMode } from "@/app/engine-lab/engine-lab-policy";
 import {
   conversationRecordToDmKernelRow,
   resolveDmKernelSidebarConnections,
@@ -17,7 +15,7 @@ const getDmKernelEngineHost = (): HostEnginePort => {
   return dmKernelEngineHost;
 };
 
-/** Sole native sidebar read — SQLite conversation index only. */
+/** Sole native sidebar read — engine_invoke listConversations only. */
 export const loadDmKernelSidebar = async (profileId: string): Promise<ReadonlyArray<DmConversation>> => {
   recordDmKernelInvoke({
     kind: "conversations",
@@ -25,8 +23,6 @@ export const loadDmKernelSidebar = async (profileId: string): Promise<ReadonlyAr
     atUnixMs: Date.now(),
     source: "sqlite",
   });
-  const records = isEngineLabStrictMode()
-    ? await listDmConversations({ host: getDmKernelEngineHost(), profileId })
-    : await dbGetConversations(profileId);
+  const records = await listDmConversations({ host: getDmKernelEngineHost(), profileId });
   return resolveDmKernelSidebarConnections(records.map(conversationRecordToDmKernelRow));
 };

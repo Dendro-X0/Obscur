@@ -17,9 +17,16 @@ vi.mock("@/app/features/account-sync/services/account-event-store", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: () => false,
-  dbDeleteMessages: vi.fn(),
-  dbDeleteMessage: vi.fn(),
-  dbInsertTombstone: vi.fn(),
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+  deleteDmMessages: vi.fn(),
+  deleteDmMessage: vi.fn(),
+  insertDmTombstone: vi.fn(),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("../services/message-delete-tombstone-store", () => ({

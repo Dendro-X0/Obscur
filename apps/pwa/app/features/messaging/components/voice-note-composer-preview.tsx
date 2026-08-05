@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { useVoiceNotePlayback } from "@/app/features/messaging/hooks/use-voice-note-playback";
 import { VoiceNotePlayerBody } from "./voice-note-player-body";

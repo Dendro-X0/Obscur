@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";

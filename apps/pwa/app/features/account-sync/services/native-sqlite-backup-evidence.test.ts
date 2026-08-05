@@ -12,9 +12,8 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
 }));
 
-vi.mock("@dweb/db", () => ({
-  isTauri: vi.fn(() => true),
-  dbGetConversations: vi.fn(async () => [{
+vi.mock("@obscur/dm-engine", () => ({
+  listDmConversations: vi.fn(async () => [{
     id: "dm:aa:bb",
     profile_id: "profile-a",
     peer_pubkey: "b".repeat(64),
@@ -23,7 +22,7 @@ vi.mock("@dweb/db", () => ({
     last_plaintext_preview: null,
     unread_count: 0,
   }]),
-  dbGetMessages: vi.fn(async () => [{
+  fetchDmThreadRows: vi.fn(async () => [{
     event_id: "evt-dm",
     profile_id: "profile-a",
     conversation_id: "dm:aa:bb",
@@ -37,7 +36,10 @@ vi.mock("@dweb/db", () => ({
     reply_to_event_id: null,
     has_attachment: false,
   }]),
-  dbGetGroups: vi.fn(async () => [{
+}));
+
+vi.mock("@obscur/workspace-engine", () => ({
+  listWorkspaceGroups: vi.fn(async () => [{
     id: "g1",
     profile_id: "profile-a",
     name: "Group",
@@ -45,7 +47,7 @@ vi.mock("@dweb/db", () => ({
     kind: "invite-only",
     joined_at: 1000,
   }]),
-  dbGetGroupMessages: vi.fn(async () => [{
+  listWorkspaceGroupMessages: vi.fn(async () => [{
     event_id: "evt-group",
     group_id: "g1",
     profile_id: "profile-a",
@@ -54,9 +56,20 @@ vi.mock("@dweb/db", () => ({
     created_at: 1000,
     received_at: 1000,
   }]),
-  dbInsertMessage: vi.fn(async () => undefined),
-  dbInsertGroupMessage: vi.fn(async () => undefined),
-  dbUpsertGroup: vi.fn(async () => undefined),
+  upsertWorkspaceGroup: vi.fn(async () => undefined),
+  insertWorkspaceGroupMessage: vi.fn(async () => undefined),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
+}));
+
+vi.mock("@dweb/db", () => ({
+  isTauri: vi.fn(() => true),
+}));
+
+vi.mock("@/app/features/dm-kernel/dm-kernel-write-port", () => ({
+  writeDmKernelMessage: vi.fn(async () => ({ ok: true, reason: "insert_ok", errorMessage: null })),
 }));
 
 vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", () => ({
@@ -71,12 +84,16 @@ vi.mock("@/app/features/groups/services/community-group-sqlite-store", () => ({
   syncPersistedGroupsToSqliteFromChatState: vi.fn(async () => 1),
 }));
 
-import { dbInsertGroupMessage, dbInsertMessage, dbUpsertGroup } from "@dweb/db";
+import {
+  insertWorkspaceGroupMessage,
+  upsertWorkspaceGroup,
+} from "@obscur/workspace-engine";
+import { writeDmKernelMessage } from "@/app/features/dm-kernel/dm-kernel-write-port";
 import { syncPersistedGroupsToSqliteFromChatState } from "@/app/features/groups/services/community-group-sqlite-store";
 
 const PUBLIC_KEY = "a".repeat(64) as PublicKeyHex;
 
-describe("native-sqlite-backup-evidence (Path B B4)", () => {
+describe("native-sqlite-backup-evidence (Path B B4 / U2 Wave C)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -197,9 +214,15 @@ describe("native-sqlite-backup-evidence (Path B B4)", () => {
       },
     });
 
-    expect(dbUpsertGroup).toHaveBeenCalledWith(expect.objectContaining({ profile_id: "profile-restore" }));
-    expect(dbInsertMessage).toHaveBeenCalledWith(expect.objectContaining({ profile_id: "profile-restore" }));
-    expect(dbInsertGroupMessage).toHaveBeenCalledWith(expect.objectContaining({ profile_id: "profile-restore" }));
+    expect(upsertWorkspaceGroup).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "profile-restore",
+      group: expect.objectContaining({ profile_id: "profile-restore" }),
+    }));
+    expect(writeDmKernelMessage).toHaveBeenCalledWith(expect.objectContaining({ profile_id: "profile-restore" }));
+    expect(insertWorkspaceGroupMessage).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "profile-restore",
+      message: expect.objectContaining({ profile_id: "profile-restore" }),
+    }));
   });
 
   it("applyNativeRestoreSqliteMaterialization syncs group list and sqlite evidence (B4-2)", async () => {
@@ -247,6 +270,6 @@ describe("native-sqlite-backup-evidence (Path B B4)", () => {
       expect.arrayContaining([expect.objectContaining({ groupId: "g1" })]),
       "profile-restore",
     );
-    expect(dbInsertGroupMessage).toHaveBeenCalled();
+    expect(insertWorkspaceGroupMessage).toHaveBeenCalled();
   });
 });

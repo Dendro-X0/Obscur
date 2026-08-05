@@ -3,22 +3,21 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { Users, MessageSquare, Shield, Globe, ArrowLeft, Share2, ExternalLink, Bell, BellOff, LogOut, UserPlus, Ban, X, ChevronRight, ChevronLeft, Search, Settings, Trash2, } from "lucide-react";
+import { Users, MessageSquare, Shield, Globe, ArrowLeft, Share2, ExternalLink, Bell, BellOff, LogOut, UserPlus, Ban, ChevronRight, Settings, Trash2, } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { PageShell } from "@/app/components/page-shell";
-import { Button } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
-import { Card } from "@dweb/ui-kit";
-import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit/avatar";
 import { InviteConnectionsDialog } from "@/app/features/groups/components/invite-connections-dialog";
 import { GroupManagementDialog } from "@/app/features/groups/components/group-management-dialog";
 import type { GroupManagementTabId } from "@/app/features/groups/components/group-management/constants";
 import { shouldMountGroupManagementDialog } from "@/app/features/groups/components/group-management-mount-policy";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useCommunityGovernanceProjection } from "@/app/features/groups/hooks/use-community-governance-projection";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
@@ -32,7 +31,7 @@ import { toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-communi
 import { useLegacySealedCommunity } from "@/app/features/groups/hooks/sealed-community-port";
 import { useGroupThreadRelayIngest } from "@/app/features/groups/hooks/use-group-thread-relay-ingest";
 import { useGroupHomeParticipantPubkeys } from "@/app/features/groups/hooks/use-group-home-participant-pubkeys";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { roomKeyStore } from "@/app/features/crypto/room-key-store";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import Image from "next/image";
@@ -43,7 +42,6 @@ import { isGroupTombstoned } from "@/app/features/groups/services/group-tombston
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import { resolveWorkspaceKernelActiveMemberPubkeys } from "@/app/features/workspace-kernel/workspace-kernel-roster-port";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
-import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import type { GroupAccessMode } from "@/app/features/groups/types";
 import { dispatchGroupInviteReceived, dispatchGroupMembershipConfirmed, } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
@@ -69,9 +67,8 @@ import { reconcileWorkspaceMembershipEvidence } from "@/app/features/groups/serv
 import { buildManagedWorkspaceRosterRepairContext } from "@/app/features/groups/services/managed-workspace-roster-repair-context";
 import { resolveEffectiveCommunityMode } from "@/app/features/groups/services/community-workspace-r1-policy";
 import { usesCoordinationMembershipDirectory } from "@/app/features/groups/services/community-workspace-transport-policy";
-import { CommunityMembershipEvidenceChip } from "@/app/features/groups/components/community-membership-evidence-chip";
-import { resolveCommunityMemberEvidenceTier, type CommunityMemberEvidenceTier, type CommunityTerminalMemberKind, } from "@/app/features/groups/utils/community-member-evidence-tier";
-import { CommunityMembershipEvidenceToolbar } from "@/app/features/groups/components/community-membership-evidence-toolbar";
+import { resolveCommunityMemberEvidenceTier, type CommunityTerminalMemberKind, } from "@/app/features/groups/utils/community-member-evidence-tier";
+import { CommunityFindInCommunityPicker } from "@/app/features/groups/components/community-find-in-community-picker";
 import { collectGroupMessageAuthorPubkeys } from "@/app/features/groups/services/community-message-author-evidence";
 import { ManagementControlCard, ManagementControlRow, ManagementSectionHeader, } from "@/app/components/ui/management-control-row";
 import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
@@ -88,9 +85,7 @@ import { useCommunityRelayPoolWritable } from "@/app/features/groups/hooks/use-c
 import { resolveCommunityDirectoryHonestyDetail, resolveCommunityDirectoryHonestySummary, } from "@/app/features/groups/utils/community-directory-honesty-copy";
 import { useDocumentPageVisible } from "@/app/features/runtime/use-document-page-visible";
 import { resolveGroupHomeCascadeGate } from "@/app/features/groups/services/community-group-home-cascade-policy";
-import { summarizeCommunityParticipantContactCoverage, isCommunityParticipantInContacts, } from "@/app/features/groups/services/community-participant-contact-read-model";
 export default function GroupHomePage() {
-    const MEMBERS_PER_PAGE = 20;
     const params = useParams();
     const searchParams = useSearchParams();
     const id = resolveGroupRouteToken({
@@ -109,11 +104,7 @@ export default function GroupHomePage() {
     const discoveredRelay = searchParams.get("relay");
     const forceSafeRenderMode = searchParams.get("renderMode") === "safe";
     const [isMemberListOpen, setIsMemberListOpen] = useState(false);
-    const [memberSearchQuery, setMemberSearchQuery] = useState("");
-    const [participantContactFilter, setParticipantContactFilter] = useState<"all" | "not_in_contacts">("all");
     const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
-    const [onlinePage, setOnlinePage] = useState(1);
-    const [offlinePage, setOfflinePage] = useState(1);
     const [isInviteConnectionsOpen, setIsInviteConnectionsOpen] = useState(false);
     const [isManagementOpen, setIsManagementOpen] = useState(false);
     const [managementInitialTab, setManagementInitialTab] = useState<GroupManagementTabId | undefined>(undefined);
@@ -668,49 +659,12 @@ export default function GroupHomePage() {
         ...rosterExpelledMemberPubkeys,
     ].map((pubkey) => pubkey.trim().toLowerCase())), [rosterExpelledMemberPubkeys, rosterLeftMemberPubkeys]);
     const activeVisibleMembers = React.useMemo(() => visibleMembers.filter((pubkey) => !terminalParticipantSet.has(pubkey.trim().toLowerCase())), [terminalParticipantSet, visibleMembers]);
-    const participantContactCoverage = React.useMemo(() => summarizeCommunityParticipantContactCoverage(activeVisibleMembers, peerTrust.state.acceptedPeers, localMemberPubkey), [activeVisibleMembers, localMemberPubkey, peerTrust.state.acceptedPeers]);
-    const participantPassesContactFilter = React.useCallback((pubkey: string): boolean => {
-        if (participantContactFilter !== "not_in_contacts") {
-            return true;
-        }
-        return !isCommunityParticipantInContacts(pubkey, peerTrust.state.acceptedPeers, localMemberPubkey);
-    }, [localMemberPubkey, participantContactFilter, peerTrust.state.acceptedPeers]);
     const provisionalVisibleCount = React.useMemo(() => activeVisibleMembers.filter((pk) => (resolveCommunityMemberEvidenceTier(pk, {
         activeMemberPubkeys: activeMembers,
         provisionalMemberPubkeys,
     }) === "provisional")).length, [activeMembers, activeVisibleMembers, provisionalMemberPubkeys]);
     const terminalRecordCount = React.useMemo(() => new Set([...rawLeftMemberPubkeys, ...rawExpelledMemberPubkeys]).size, [rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
     const displayMemberCount = activeVisibleMembers.length;
-    const onlineMembers = React.useMemo(() => {
-        if (!isMemberListOpen) {
-            return [] as ReadonlyArray<string>;
-        }
-        return activeVisibleMembers.filter((pk) => presence.isPeerOnline(pk as PublicKeyHex));
-    }, [activeVisibleMembers, isMemberListOpen, presence]);
-    const offlineMembers = React.useMemo(() => {
-        if (!isMemberListOpen) {
-            return activeVisibleMembers;
-        }
-        return activeVisibleMembers.filter((pk) => !presence.isPeerOnline(pk as PublicKeyHex));
-    }, [activeVisibleMembers, isMemberListOpen, presence]);
-    const normalizedMemberSearch = memberSearchQuery.trim().toLowerCase();
-    const memberMatchesSearch = React.useCallback((pubkey: string): boolean => {
-        if (normalizedMemberSearch.length === 0) {
-            return true;
-        }
-        const profile = discoveryCache.getProfile(pubkey);
-        const haystack = [
-            pubkey,
-            profile?.displayName,
-            profile?.name,
-            profile?.nip05,
-            profile?.about,
-        ]
-            .filter((value): value is string => typeof value === "string" && value.length > 0)
-            .join(" ")
-            .toLowerCase();
-        return haystack.includes(normalizedMemberSearch);
-    }, [normalizedMemberSearch]);
     const terminalMemberEntries = React.useMemo(() => {
         const leftSet = new Set(rawLeftMemberPubkeys.map((pk) => pk.trim().toLowerCase()));
         return [
@@ -723,9 +677,6 @@ export default function GroupHomePage() {
             kind: CommunityTerminalMemberKind;
         }>>;
     }, [rawExpelledMemberPubkeys, rawLeftMemberPubkeys]);
-    const filteredTerminalMemberEntries = React.useMemo(() => terminalMemberEntries.filter((entry) => memberMatchesSearch(entry.pubkey)), [memberMatchesSearch, terminalMemberEntries]);
-    const filteredOnlineMembers = React.useMemo(() => onlineMembers.filter((pubkey) => memberMatchesSearch(pubkey) && participantPassesContactFilter(pubkey)), [memberMatchesSearch, onlineMembers, participantPassesContactFilter]);
-    const filteredOfflineMembers = React.useMemo(() => offlineMembers.filter((pubkey) => memberMatchesSearch(pubkey) && participantPassesContactFilter(pubkey)), [offlineMembers, memberMatchesSearch, participantPassesContactFilter]);
     useEffect(() => {
         if (!group || !isMemberListOpen) {
             return;
@@ -764,8 +715,6 @@ export default function GroupHomePage() {
                 provisionalParticipantCount: provisionalMemberPubkeys.length,
                 stableParticipantCount: participantDisplayPubkeys.length,
                 visibleParticipantCount: activeVisibleMembers.length,
-                onlineParticipantCount: onlineMembers.length,
-                offlineParticipantCount: offlineMembers.length,
                 projectionThinnerThanKnown: projectionThinnerThanKnown ? 1 : 0,
                 projectionThinnerThanAuthors: projectionThinnerThanAuthors ? 1 : 0,
                 visibleShrankBelowStable: visibleShrankBelowStable ? 1 : 0,
@@ -779,32 +728,10 @@ export default function GroupHomePage() {
         groupState.membership.status,
         isMemberListOpen,
         knownParticipantPubkeys?.length,
-        onlineMembers.length,
-        offlineMembers.length,
         projectionMemberPubkeys?.length,
         provisionalMemberPubkeys.length,
         participantDisplayPubkeys.length,
     ]);
-    const onlineTotalPages = Math.max(1, Math.ceil(filteredOnlineMembers.length / MEMBERS_PER_PAGE));
-    const offlineTotalPages = Math.max(1, Math.ceil(filteredOfflineMembers.length / MEMBERS_PER_PAGE));
-    const pagedOnlineMembers = React.useMemo(() => {
-        const start = (onlinePage - 1) * MEMBERS_PER_PAGE;
-        return filteredOnlineMembers.slice(start, start + MEMBERS_PER_PAGE);
-    }, [filteredOnlineMembers, onlinePage, MEMBERS_PER_PAGE]);
-    const pagedOfflineMembers = React.useMemo(() => {
-        const start = (offlinePage - 1) * MEMBERS_PER_PAGE;
-        return filteredOfflineMembers.slice(start, start + MEMBERS_PER_PAGE);
-    }, [filteredOfflineMembers, offlinePage, MEMBERS_PER_PAGE]);
-    React.useEffect(() => {
-        setOnlinePage(1);
-        setOfflinePage(1);
-    }, [normalizedMemberSearch]);
-    React.useEffect(() => {
-        setOnlinePage((current) => Math.min(current, onlineTotalPages));
-    }, [onlineTotalPages]);
-    React.useEffect(() => {
-        setOfflinePage((current) => Math.min(current, offlineTotalPages));
-    }, [offlineTotalPages]);
     React.useEffect(() => {
         if (typeof window === "undefined") {
             return;
@@ -976,10 +903,6 @@ export default function GroupHomePage() {
     };
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes((group?.groupId || id || "") as any) ?? false;
     const openMemberList = (): void => {
-        setMemberSearchQuery("");
-        setParticipantContactFilter("all");
-        setOnlinePage(1);
-        setOfflinePage(1);
         setIsMemberListOpen(true);
     };
     useEffect(() => {
@@ -1010,9 +933,6 @@ export default function GroupHomePage() {
     ]);
     const closeMemberList = (): void => {
         setIsMemberListOpen(false);
-        setMemberSearchQuery("");
-        setOnlinePage(1);
-        setOfflinePage(1);
     };
     const handleReconcileMembership = React.useCallback(async (options?: Readonly<{
         silent?: boolean;
@@ -1460,212 +1380,34 @@ export default function GroupHomePage() {
                 access: groupState.metadata?.access || "invite-only"
             }}/>)}
 
-                {isMemberListOpen && (<div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={closeMemberList}>
-                        <div className="w-full max-w-2xl overflow-hidden rounded-[28px] border border-black/10 bg-white/95 shadow-2xl dark:border-white/10 dark:bg-[#0C0C0E]" onClick={(event) => event.stopPropagation()}>
-                            <div className="flex items-start justify-between gap-4 border-b border-black/10 p-6 dark:border-white/10">
-                                <div className="min-w-0 flex-1">
-                                    <h3 className="text-xl font-black text-zinc-900 dark:text-white">{t("groups.home.participantsModal.title")}</h3>
-                                    <p className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-500">
-                                        {directoryHonesty.claimsAuthoritativeDirectory
-                ? t(membershipSyncMode === "coordination_preferred"
-                    ? "groups.membershipEvidence.participantModalSubtitleCoordination"
-                    : "groups.membershipEvidence.participantModalSubtitle")
-                : directoryHonestyDetail}
-                                    </p>
-                                    {!directoryHonesty.claimsAuthoritativeDirectory ? (<button type="button" className="mt-2 text-[10px] font-bold uppercase tracking-widest text-sky-700 underline dark:text-sky-300" onClick={() => router.push("/settings?tab=relays#membership-sync-settings")}>
-                                            {t("groups.openMembershipSyncSettings")}
-                                        </button>) : null}
-                                    {participantContactCoverage.notInContactsCount > 0 ? (
-                                        <p className="mt-2 text-xs font-medium leading-snug text-amber-800/90 dark:text-amber-200/90">
-                                            {t("groups.home.participantsModal.notInContactsSummary", {
-                                                count: participantContactCoverage.notInContactsCount,
-                                            })}
-                                        </p>
-                                    ) : (
-                                        <p className="mt-2 text-xs font-medium leading-snug text-zinc-600 dark:text-zinc-400">
-                                            {t("groups.home.participantsModal.allInContactsSummary")}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="flex shrink-0 items-start gap-2">
-                                    <CommunityMembershipEvidenceToolbar terminalRecordCount={terminalRecordCount} onReconcile={handleReconcileMembership} onClearTerminalConfirmed={handleClearTerminalMembership}/>
-                                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-zinc-600 hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white" onClick={closeMemberList}>
-                                    <X className="h-4 w-4"/>
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="border-b border-black/10 p-6 dark:border-white/10">
-                                <div className="relative">
-                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"/>
-                                    <Input value={memberSearchQuery} onChange={(event) => setMemberSearchQuery(event.target.value)} placeholder={t("groups.home.participantsModal.searchPlaceholder")} className="h-11 rounded-xl border-black/10 bg-black/[0.04] pl-10 text-zinc-900 placeholder:text-zinc-500 focus:border-emerald-400/40 focus:ring-emerald-400/25 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100 dark:placeholder:text-zinc-500"/>
-                                </div>
-                                {participantContactCoverage.notInContactsCount > 0 ? (
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setParticipantContactFilter("all")}
-                                            className={cn(
-                                                "rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest transition-colors",
-                                                participantContactFilter === "all"
-                                                    ? "border-zinc-900/20 bg-zinc-900 text-white dark:border-white/20 dark:bg-white dark:text-black"
-                                                    : "border-black/10 bg-black/[0.04] text-zinc-600 hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-400 dark:hover:text-white",
-                                            )}
-                                        >
-                                            {t("groups.home.participantsModal.filterAll")}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setParticipantContactFilter("not_in_contacts")}
-                                            className={cn(
-                                                "rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest transition-colors",
-                                                participantContactFilter === "not_in_contacts"
-                                                    ? "border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-100"
-                                                    : "border-amber-500/25 bg-amber-500/[0.06] text-amber-800/80 hover:border-amber-500/35 dark:text-amber-200/80",
-                                            )}
-                                        >
-                                            {t("groups.home.participantsModal.filterNotInContacts", {
-                                                count: participantContactCoverage.notInContactsCount,
-                                            })}
-                                        </button>
-                                    </div>
-                                ) : null}
-                            </div>
-                            <div className="grid gap-4 p-6 md:grid-cols-2 max-h-[70vh] overflow-y-auto">
-                                <div className="space-y-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-b from-emerald-500/[0.08] via-emerald-500/[0.03] to-transparent p-3">
-                                    <h4 className="px-1 text-xs font-black uppercase tracking-widest text-emerald-400">{t("groups.home.participantsModal.online")}</h4>
-                                    {filteredOnlineMembers.length === 0 ? (<p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">{participantContactFilter === "not_in_contacts" ? t("groups.home.participantsModal.noNotInContacts") : t("groups.home.participantsModal.noOnline")}</p>) : (pagedOnlineMembers.map((pk) => (<MemberProfileRow key={`online-${pk}`} pubkey={pk} status="online" evidenceTier={resolveCommunityMemberEvidenceTier(pk, {
-                    activeMemberPubkeys: activeMembers,
-                    provisionalMemberPubkeys,
-                })} showContactStatus={!localMemberPubkey || pk.trim().toLowerCase() !== localMemberPubkey.trim().toLowerCase()} inContacts={isCommunityParticipantInContacts(pk, peerTrust.state.acceptedPeers, localMemberPubkey)} membershipEvidenceUiContext={membershipEvidenceUiContext} onOpenProfile={(memberPubkey) => {
-                    closeMemberList();
-                    router.push(getPublicProfileHref(memberPubkey));
-                }}/>)))}
-                                    {filteredOnlineMembers.length > MEMBERS_PER_PAGE && (<div className="flex items-center justify-between px-1 pt-1">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => setOnlinePage((page) => Math.max(1, page - 1))} disabled={onlinePage <= 1} className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white">
-                                                <ChevronLeft className="mr-1 h-3.5 w-3.5"/>
-                                                {t("groups.home.participantsModal.prev")}
-                                            </Button>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                                                {t("groups.home.participantsModal.page", { current: onlinePage, total: onlineTotalPages })}
-                                            </p>
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => setOnlinePage((page) => Math.min(onlineTotalPages, page + 1))} disabled={onlinePage >= onlineTotalPages} className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white">
-                                                {t("groups.home.participantsModal.next")}
-                                                <ChevronRight className="ml-1 h-3.5 w-3.5"/>
-                                            </Button>
-                                        </div>)}
-                                </div>
-                                <div className="space-y-3 rounded-2xl border border-violet-400/20 bg-gradient-to-b from-violet-500/[0.08] via-indigo-500/[0.03] to-transparent p-3">
-                                    <h4 className="px-1 text-xs font-black uppercase tracking-widest text-violet-700 dark:text-violet-300">{t("groups.home.participantsModal.offline")}</h4>
-                                    {filteredOfflineMembers.length === 0 ? (<p className="px-1 py-2 text-xs text-zinc-600 dark:text-zinc-500">{participantContactFilter === "not_in_contacts" ? t("groups.home.participantsModal.noNotInContacts") : t("groups.home.participantsModal.noOffline")}</p>) : (pagedOfflineMembers.map((pk) => (<MemberProfileRow key={`offline-${pk}`} pubkey={pk} status="offline" evidenceTier={resolveCommunityMemberEvidenceTier(pk, {
-                    activeMemberPubkeys: activeMembers,
-                    provisionalMemberPubkeys,
-                })} showContactStatus={!localMemberPubkey || pk.trim().toLowerCase() !== localMemberPubkey.trim().toLowerCase()} inContacts={isCommunityParticipantInContacts(pk, peerTrust.state.acceptedPeers, localMemberPubkey)} membershipEvidenceUiContext={membershipEvidenceUiContext} onOpenProfile={(memberPubkey) => {
-                    closeMemberList();
-                    router.push(getPublicProfileHref(memberPubkey));
-                }}/>)))}
-                                    {filteredOfflineMembers.length > MEMBERS_PER_PAGE && (<div className="flex items-center justify-between px-1 pt-1">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => setOfflinePage((page) => Math.max(1, page - 1))} disabled={offlinePage <= 1} className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white">
-                                                <ChevronLeft className="mr-1 h-3.5 w-3.5"/>
-                                                {t("groups.home.participantsModal.prev")}
-                                            </Button>
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
-                                                {t("groups.home.participantsModal.page", { current: offlinePage, total: offlineTotalPages })}
-                                            </p>
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => setOfflinePage((page) => Math.min(offlineTotalPages, page + 1))} disabled={offlinePage >= offlineTotalPages} className="h-8 rounded-lg border border-black/10 bg-black/[0.04] px-3 text-zinc-600 hover:text-zinc-900 disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-300 dark:hover:text-white">
-                                                {t("groups.home.participantsModal.next")}
-                                                <ChevronRight className="ml-1 h-3.5 w-3.5"/>
-                                            </Button>
-                                        </div>)}
-                                </div>
-                            </div>
-                            {filteredTerminalMemberEntries.length > 0 ? (<div className="border-t border-black/10 p-6 dark:border-white/10">
-                                    <div className="space-y-3 rounded-2xl border border-zinc-400/25 bg-gradient-to-b from-zinc-500/[0.08] via-zinc-500/[0.03] to-transparent p-3">
-                                        <h4 className="px-1 text-xs font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-400">
-                                            {t("groups.membershipEvidence.terminalSectionTitle")}
-                                        </h4>
-                                        {filteredTerminalMemberEntries.map((entry) => (<TerminalMemberProfileRow key={`terminal-${entry.kind}-${entry.pubkey}`} pubkey={entry.pubkey} terminalKind={entry.kind} membershipEvidenceUiContext={membershipEvidenceUiContext} onOpenProfile={(memberPubkey) => {
+                <CommunityFindInCommunityPicker
+                    open={isMemberListOpen}
+                    onClose={closeMemberList}
+                    visiblePubkeys={activeVisibleMembers}
+                    authorEvidencePubkeys={authorEvidencePubkeys}
+                    acceptedPeers={peerTrust.state.acceptedPeers}
+                    selfPubkey={localMemberPubkey}
+                    activeMemberPubkeys={activeMembers}
+                    provisionalMemberPubkeys={provisionalMemberPubkeys}
+                    membershipEvidenceUiContext={membershipEvidenceUiContext}
+                    terminalEntries={terminalMemberEntries}
+                    isPeerOnline={(pubkey) => presence.isPeerOnline(pubkey)}
+                    getSearchHaystack={(pubkey) => {
+                        const profile = discoveryCache.getProfile(pubkey);
+                        return [
+                            profile?.displayName,
+                            profile?.name,
+                            profile?.nip05,
+                            profile?.about,
+                        ].filter((value): value is string => typeof value === "string" && value.length > 0).join(" ");
+                    }}
+                    onOpenProfile={(memberPubkey) => {
                         closeMemberList();
                         router.push(getPublicProfileHref(memberPubkey));
-                    }}/>))}
-                                    </div>
-                                </div>) : null}
-                        </div>
-                    </div>)}
+                    }}
+                    onClearTerminalConfirmed={handleClearTerminalMembership}
+                />
 
             </div>
         </PageShell>);
-}
-function TerminalMemberProfileRow({ pubkey, terminalKind, membershipEvidenceUiContext, onOpenProfile, }: Readonly<{
-    pubkey: string;
-    terminalKind: CommunityTerminalMemberKind;
-    membershipEvidenceUiContext: MembershipEvidenceUiContext;
-    onOpenProfile: (pubkey: string) => void;
-}>): React.JSX.Element {
-    const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(pubkey);
-    const displayName = metadata?.displayName || t("groups.home.memberFallbackName", { prefix: pubkey.slice(0, 8) });
-    const kindLabel = terminalKind === "left"
-        ? t("groups.membershipEvidence.terminalLeft")
-        : t("groups.membershipEvidence.terminalExpelled");
-    return (<button type="button" onClick={() => onOpenProfile(pubkey)} className="group w-full rounded-2xl border border-zinc-400/30 bg-gradient-to-r from-zinc-500/[0.12] via-zinc-500/[0.05] to-transparent p-3 text-left transition-all hover:border-zinc-400/45">
-            <div className="flex items-center gap-3">
-                <UserAvatar pubkey={pubkey} size="sm" showProfileOnClick={false} className="rounded-xl border border-black/10 dark:border-white/10 opacity-80"/>
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-black text-zinc-800 dark:text-zinc-200">{displayName}</p>
-                        <CommunityMembershipEvidenceChip tier="terminal" uiContext={membershipEvidenceUiContext}/>
-                        <span className="shrink-0 rounded-full bg-zinc-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">
-                            {kindLabel}
-                        </span>
-                    </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-zinc-500"/>
-            </div>
-        </button>);
-}
-function MemberProfileRow({ pubkey, status, evidenceTier, inContacts, showContactStatus, membershipEvidenceUiContext, onOpenProfile, }: Readonly<{
-    pubkey: string;
-    status: "online" | "offline";
-    evidenceTier: CommunityMemberEvidenceTier;
-    inContacts: boolean;
-    showContactStatus: boolean;
-    membershipEvidenceUiContext: MembershipEvidenceUiContext;
-    onOpenProfile: (pubkey: string) => void;
-}>): React.JSX.Element | null {
-    const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(pubkey);
-    const displayName = metadata?.displayName
-        || t("groups.home.memberFallbackName", { prefix: pubkey.slice(0, 8) });
-    const statusLabel = status === "online"
-        ? t("groups.home.memberStatus.online")
-        : t("groups.home.memberStatus.offline");
-    return (<button type="button" onClick={() => onOpenProfile(pubkey)} className={cn("group w-full rounded-2xl border p-3 text-left transition-all", status === "online"
-            ? "border-emerald-400/30 bg-gradient-to-r from-emerald-500/[0.16] via-cyan-500/[0.08] to-transparent hover:border-emerald-300/40 hover:from-emerald-500/[0.2] hover:via-cyan-500/[0.12]"
-            : "border-violet-400/25 bg-gradient-to-r from-violet-500/[0.14] via-indigo-500/[0.08] to-transparent hover:border-violet-300/35 hover:from-violet-500/[0.18] hover:via-indigo-500/[0.12]")}>
-            <div className="flex items-center gap-3">
-                <UserAvatar pubkey={pubkey} size="sm" showProfileOnClick={false} className="rounded-xl border border-black/10 dark:border-white/10"/>
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-black text-zinc-900 dark:text-zinc-100">{displayName}</p>
-                        <CommunityMembershipEvidenceChip tier={evidenceTier} uiContext={membershipEvidenceUiContext}/>
-                        {showContactStatus && !inContacts ? (
-                            <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">
-                                {t("groups.home.participantsModal.notInContactsBadge")}
-                            </span>
-                        ) : null}
-                        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest", status === "online"
-            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-200"
-            : "bg-violet-500/20 text-violet-700 dark:text-violet-200")}>
-                            {statusLabel}
-                        </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-400">
-                        {metadata.isDeleted ? t("groups.home.memberStatus.profileUnavailable") : t("groups.home.memberStatus.identityHidden")}
-                    </p>
-                </div>
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-black/10 bg-black/[0.05] text-zinc-500 transition-colors group-hover:border-black/20 group-hover:text-zinc-900 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400 dark:group-hover:border-white/20 dark:group-hover:text-white">
-                    <ChevronRight className="h-4 w-4"/>
-                </div>
-            </div>
-        </button>);
 }

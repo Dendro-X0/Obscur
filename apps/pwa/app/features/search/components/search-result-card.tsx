@@ -1,10 +1,10 @@
 "use client";
 import React from "react";
-import { Avatar, AvatarFallback } from "@dweb/ui-kit";
+import { Avatar, AvatarFallback } from "@dweb/ui-kit/avatar";
 import { User, Users, PlusCircle, ChevronRight, UserPlus, Globe } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import Image from "next/image";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import type { DiscoveryResult } from "@/app/features/search/types/discovery";

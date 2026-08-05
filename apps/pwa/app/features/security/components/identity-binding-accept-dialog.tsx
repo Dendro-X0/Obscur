@@ -3,7 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, ShieldCheck, X } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import type { IdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
 import type { DmTrustAssessment } from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";

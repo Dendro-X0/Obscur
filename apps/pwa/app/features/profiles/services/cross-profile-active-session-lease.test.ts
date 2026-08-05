@@ -81,4 +81,19 @@ describe("cross-profile-active-session-lease", () => {
       excludeWindowLabel: "profile-profile-2-1",
     })).toBeNull();
   });
+
+  it("clearActiveSessionLeasesForPageReload drops stale map so same-account unlock is allowed", async () => {
+    const { clearActiveSessionLeasesForPageReload } = await import("./cross-profile-active-session-lease");
+    claimActiveSessionLease({
+      publicKeyHex: PK_A as any,
+      profileId: "default",
+      windowLabel: "main",
+    });
+    clearActiveSessionLeasesForPageReload();
+    expect(() => assertAccountNotActiveInOtherProfileWindow({
+      incomingPublicKeyHex: PK_A as any,
+      currentProfileId: "default",
+      currentWindowLabel: "main",
+    })).not.toThrow();
+  });
 });

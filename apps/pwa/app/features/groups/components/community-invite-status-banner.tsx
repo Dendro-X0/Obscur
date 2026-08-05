@@ -2,7 +2,7 @@
 import React from "react";
 import { MailCheck, X, Ban, History, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import type { CommunityInviteCardStatus } from "../utils/community-invite-lifecycle";
 import { isCommunityInviteHistoricalStatus } from "../utils/community-invite-lifecycle";
 export type CommunityInviteResolutionStatus = "accepted" | "declined" | "canceled";

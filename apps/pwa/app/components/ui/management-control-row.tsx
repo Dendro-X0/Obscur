@@ -2,7 +2,7 @@
 
 import React from "react";
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
 export function ManagementSectionHeader({

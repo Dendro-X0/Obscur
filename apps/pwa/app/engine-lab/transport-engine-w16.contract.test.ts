@@ -29,10 +29,10 @@ describe("transport-engine w16 — host publish charter decision", () => {
     expect(charter).toContain("read-only in this wave");
   });
 
-  it("native standalone publish owner remains transport-kernel path", () => {
+  it("production port is thin subtracted re-export after W66", () => {
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelay");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
+    expect(port).not.toContain("publishTransportKernelToRelay");
   });
 });
 

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Shield } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { assessLegacySovereignRoomCommunity } from "../services/community-legacy-sovereign-policy";
 import type { CommunityMode } from "../types";
 

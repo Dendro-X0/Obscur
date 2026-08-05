@@ -1,0 +1,14 @@
+{
+  "name": "@obscur/persistence-engine",
+  "version": "1.9.15",
+  "private": true,
+  "type": "module",
+  "description": "Persistence engine — vault media index via HostEnginePort only.",
+  "dependencies": {
+    "@dweb/db": "workspace:*",
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

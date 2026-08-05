@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import useNavBadges from "@/app/features/main-shell/hooks/use-nav-badges";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";

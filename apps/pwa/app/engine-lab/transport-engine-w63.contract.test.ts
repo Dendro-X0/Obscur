@@ -36,21 +36,21 @@ describe("transport-engine w63 — standalone legacy port swap rehearsal", () =>
     expect(policy).toContain("shouldRouteSubtractedStandalonePublishPort");
   });
 
-  it("wires subtracted module delegation in relay-standalone-publish-port", () => {
+  it("wires subtracted module as thin production port after W66", () => {
     const port = readFileSync(join(PWA_ROOT, STANDALONE_LEGACY_PORT_PATHS_TO_UPDATE[0]!), "utf8");
     expect(port).toContain("relay-standalone-publish-port-subtracted");
-    expect(port).toContain("shouldRouteSubtractedStandalonePublishPort");
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).not.toContain("shouldRouteSubtractedStandalonePublishPort");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
   });
 
   it("keeps subtracted rehearsal gate off by default", () => {
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
     expect(shouldRouteSubtractedStandalonePublishPort()).toBe(false);
   });
 
   it("keeps production legacy files on disk while gate is closed", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

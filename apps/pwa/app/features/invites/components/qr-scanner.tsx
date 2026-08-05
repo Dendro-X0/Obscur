@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import QrScanner from "qr-scanner";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { X, Camera } from "lucide-react";
 
 interface QRScannerProps {

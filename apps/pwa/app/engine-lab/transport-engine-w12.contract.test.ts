@@ -25,10 +25,15 @@ describe("transport-engine w12 — standalone publish port gating", () => {
     expect(port).toContain("publishToRelayStandalone");
   });
 
-  it("invite-manager uses pool port publish and does not import legacy runtime directly", () => {
+  it("invite-manager uses mesh transport bridge (no standalone / legacy pool)", () => {
     const inviteManager = read("app/features/invites/utils/invite-manager.ts");
-    expect(inviteManager).toContain("publishToUrlsStandalone");
-    expect(inviteManager).toContain("enhanced-relay-pool-port");
+    expect(inviteManager).toContain("configureInviteRequestTransportBridge");
+    expect(inviteManager).toContain("inviteRequestTransportBridge");
+    expect(inviteManager).toContain(
+      "Invite relay publish unavailable — configureInviteRequestTransportBridge required (mesh)",
+    );
+    expect(inviteManager).not.toContain("publishToUrlsStandalone");
+    expect(inviteManager).not.toContain("enhanced-relay-pool-port");
     expect(inviteManager).not.toContain("enhanced-relay-pool-legacy");
   });
 });

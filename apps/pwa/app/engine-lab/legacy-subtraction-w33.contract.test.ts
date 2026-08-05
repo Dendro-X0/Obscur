@@ -35,9 +35,9 @@ describe("legacy subtraction w33 — dm read authority deleted from legacy", () 
     expect(port).not.toContain("dm-read-authority-contract-legacy");
   });
 
-  it("hydrate read model routes authority through dm-read-authority-port", () => {
-    const readModel = read("app/features/messaging/services/thread-history/hydrate-read-model.ts");
-    expect(readModel).toContain("dm-read-authority-port");
-    expect(readModel).not.toContain("dm-read-authority-contract-legacy");
+  it("hydrate read-model assembler deleted; authority remains on port", () => {
+    expect(existsSync(join(PWA_ROOT, "app/features/messaging/services/thread-history/hydrate-read-model.ts"))).toBe(false);
+    const port = read("app/features/messaging/services/dm-read-authority-port.ts");
+    expect(port).toContain("./dm-read-authority-contract");
   });
 });

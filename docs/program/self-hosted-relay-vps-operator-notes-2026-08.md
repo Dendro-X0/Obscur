@@ -1,9 +1,10 @@
 # Self-hosted relay / VPS operator notes
 
-- Date (UTC): 2026-08-01
+- Date (UTC): 2026-08-01 · **updated 2026-08-04** (public default first-class)
 - Audience: Operators who want **stable remote** messaging (team / private mesh), not public-Nostr SLA
 - Research: [relay-latency-stability-research-2026-07.md](../../specs/backend/relay-latency-stability-research-2026-07.md) · **P5**
 - Lab vs remote: [local-lab-remote-interaction-dial-design-2026-07.md](../../specs/backend/local-lab-remote-interaction-dial-design-2026-07.md)
+- **Ship default + Single/Multi:** [relay-pool-auto-correction-operator-notes-2026-08.md](./relay-pool-auto-correction-operator-notes-2026-08.md)
 - Compaction (managed workspace): [infra/nostr/operator-relay-compaction.md](../../infra/nostr/operator-relay-compaction.md)
 
 **Paused bands (do not expand here):** COM-RUN-* · AUTH-SESSION · Dev Lab as production validation.
@@ -15,10 +16,10 @@
 | Surface | Role |
 |---------|------|
 | `ws://localhost:7000` (Docker / ephemeral) | **Lab / L3 fixture only** — not multi-user remote |
-| Public clearnet (`nos` / `primal` / …) | Best-effort rendezvous — **no SLA** |
-| Self-hosted VPS (`wss://relay.example.org`) | Controllable capacity + region — **preferred for team remote** |
+| Public clearnet Default Stable (`nos` / `primal` / `damus`) | **Ship / cold-boot default** (`PRODUCT_BOOT_TRANSPORT_PRESET`) — Multi-node · **no SLA** |
+| Self-hosted VPS (`wss://relay.example.org`) | Controllable capacity + region — **optional** for team remote |
 
-Obscur cannot make a distant public relay “local-fast.” For true remote interaction between users, run a **public relay you accept**, or a **VPS / private mesh** you operate.
+Obscur cannot make a distant public relay “local-fast.” For true remote interaction between users, the **public default pool** is the first-class rendezvous; run a **VPS / private mesh** you operate when you need controllable capacity. Single/Multi auto-correct applies to whichever enabled URLs the profile has — see [auto-correction operator notes](./relay-pool-auto-correction-operator-notes-2026-08.md).
 
 ---
 

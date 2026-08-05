@@ -13,7 +13,10 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbGetGroupMessages: vi.fn(async () => []),
+}));
+
+vi.mock("./workspace-group-message-persist-port", () => ({
+  listWorkspaceGroupMessageRecords: vi.fn(async () => []),
 }));
 
 vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
@@ -36,15 +39,16 @@ vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", ()
 }));
 
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { dbGetGroupMessages, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
+import { listWorkspaceGroupMessageRecords } from "./workspace-group-message-persist-port";
 
 describe("group-thread-sqlite-store", () => {
   beforeEach(() => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
     vi.mocked(isTauri).mockReturnValue(true);
-    vi.mocked(dbGetGroupMessages).mockReset();
-    vi.mocked(dbGetGroupMessages).mockResolvedValue([]);
+    vi.mocked(listWorkspaceGroupMessageRecords).mockReset();
+    vi.mocked(listWorkspaceGroupMessageRecords).mockResolvedValue([]);
   });
 
   it("resolveGroupStorageId prefers explicit groupId", () => {
@@ -74,7 +78,7 @@ describe("group-thread-sqlite-store", () => {
   });
 
   it("loads latest page from sqlite on native", async () => {
-    vi.mocked(dbGetGroupMessages).mockResolvedValue([
+    vi.mocked(listWorkspaceGroupMessageRecords).mockResolvedValue([
       {
         event_id: "evt-new",
         group_id: "group-1",
@@ -101,19 +105,27 @@ describe("group-thread-sqlite-store", () => {
       pageSize: 200,
     });
     expect(listAccountSharedSqliteProfileIds).toHaveBeenCalled();
-    expect(dbGetGroupMessages).toHaveBeenCalledWith("desktop-profile-slot", "group-1", 200, undefined);
-    expect(dbGetGroupMessages).toHaveBeenCalledWith("profile-secondary", "group-1", 200, undefined);
+    expect(listWorkspaceGroupMessageRecords).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "desktop-profile-slot",
+      groupId: "group-1",
+      limit: 200,
+    }));
+    expect(listWorkspaceGroupMessageRecords).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "profile-secondary",
+      groupId: "group-1",
+      limit: 200,
+    }));
     expect(page.messages.map((message) => message.id)).toEqual(["evt-old", "evt-new"]);
     expect(page.hasEarlier).toBe(false);
   });
 
   it("merges duplicate event ids across profile slots (B3-3 multi-slot scan)", async () => {
-    vi.mocked(dbGetGroupMessages).mockImplementation(async (profileId: string) => {
-      if (profileId === "desktop-profile-slot") {
+    vi.mocked(listWorkspaceGroupMessageRecords).mockImplementation(async (params) => {
+      if (params.profileId === "desktop-profile-slot") {
         return [{
           event_id: "evt-shared",
           group_id: "group-1",
-          profile_id: profileId,
+          profile_id: params.profileId,
           sender_pubkey: "b".repeat(64),
           plaintext: "stale copy",
           created_at: 100,
@@ -123,7 +135,7 @@ describe("group-thread-sqlite-store", () => {
       return [{
         event_id: "evt-shared",
         group_id: "group-1",
-        profile_id: profileId,
+        profile_id: params.profileId,
         sender_pubkey: "b".repeat(64),
         plaintext: "fresh copy",
         created_at: 200,
@@ -131,7 +143,7 @@ describe("group-thread-sqlite-store", () => {
       }, {
         event_id: "evt-secondary-only",
         group_id: "group-1",
-        profile_id: profileId,
+        profile_id: params.profileId,
         sender_pubkey: "b".repeat(64),
         plaintext: "secondary slot",
         created_at: 150,
@@ -185,11 +197,11 @@ describe("group-thread-sqlite-store", () => {
       myPublicKeyHex: "a".repeat(64),
     });
     expect(page.messages).toEqual([]);
-    expect(dbGetGroupMessages).not.toHaveBeenCalled();
+    expect(listWorkspaceGroupMessageRecords).not.toHaveBeenCalled();
   });
 
   it("prepends earlier sqlite page without dropping existing messages", async () => {
-    vi.mocked(dbGetGroupMessages).mockResolvedValue([
+    vi.mocked(listWorkspaceGroupMessageRecords).mockResolvedValue([
       {
         event_id: "evt-older",
         group_id: "group-1",

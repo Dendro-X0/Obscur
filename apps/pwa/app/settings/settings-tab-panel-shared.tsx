@@ -4,7 +4,7 @@ import type React from "react";
 import { Check } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/app/lib/utils";
-import { Label } from "@dweb/ui-kit";
+import { Label } from "@dweb/ui-kit/label";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import type { TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import type { ProfilePublishPhase } from "@/app/features/profile/hooks/use-profile-publisher";

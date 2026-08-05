@@ -21,7 +21,7 @@ import type { ConduitSocksFetch } from "./create-routed-conduit-mesh-fetch";
 import { createRoutedConduitMeshFetch } from "./create-routed-conduit-mesh-fetch";
 import { mapMeshSnapshotToRelayActivitySnapshot } from "./map-mesh-snapshot-to-relay-activity";
 import type { MeshRelayActivitySnapshot } from "./map-mesh-snapshot-to-relay-activity";
-import { resolveRelayPoolConduitDescriptors } from "./resolve-relay-pool-conduit-descriptors";
+import { resolveRelayPoolConduitDescriptors, prioritizeLocalDevWarmupUrls } from "./resolve-relay-pool-conduit-descriptors";
 import type { NostrWsWirePort } from "./nostr-ws-wire-port";
 
 export type ConduitMeshRelayPoolPublishResult = Readonly<{
@@ -128,12 +128,35 @@ const buildEnvelopeFromPayload = (
   createdAtUnixMs: Date.now(),
 });
 
+const relayEndpointKeysMatch = (left: string, right: string): boolean => {
+  if (left === right) {
+    return true;
+  }
+  try {
+    const a = new URL(left);
+    const b = new URL(right);
+    const hostA = a.hostname === "127.0.0.1" ? "localhost" : a.hostname;
+    const hostB = b.hostname === "127.0.0.1" ? "localhost" : b.hostname;
+    return a.protocol === b.protocol && hostA === hostB && a.port === b.port;
+  } catch {
+    return false;
+  }
+};
+
 const resolveTargetUrls = (
   urls: ReadonlyArray<string>,
   configuredUrls: ReadonlyArray<string>,
-): ReadonlyArray<string> => (
-  urls.length > 0 ? urls : configuredUrls
-);
+): ReadonlyArray<string> => {
+  const requested = urls.length > 0 ? urls : configuredUrls;
+  if (configuredUrls.length === 0) {
+    return requested;
+  }
+  // Prefer configured endpoint spelling so nostrWire socket keys match.
+  return requested.flatMap((url) => {
+    const configured = configuredUrls.find((entry) => relayEndpointKeysMatch(entry, url));
+    return configured ? [configured] : [];
+  });
+};
 
 const resolveDescriptorForUrl = (
   url: string,
@@ -336,24 +359,32 @@ export const createConduitMeshRelayPoolRuntime = (
     mesh,
 
     configureUrls: async (urls) => {
-      configuredUrls = urls;
-      configuredDescriptors = resolveRelayPoolConduitDescriptors(urls);
+      configuredUrls = prioritizeLocalDevWarmupUrls(urls);
+      configuredDescriptors = resolveRelayPoolConduitDescriptors(configuredUrls);
       await mesh.configureConduits(configuredDescriptors);
     },
 
     publishToUrls: async (urls, payload, options) => {
+      const requested = urls.length > 0 ? urls : configuredUrls;
       const targetUrls = resolveTargetUrls(urls, configuredUrls);
       const quorumRequired = options?.quorumRequired ?? 1;
       const profileId = options?.profileId ?? params.profileId;
 
       if (targetUrls.length === 0) {
+        const rejected = requested.length > 0 ? requested : [];
         return {
           success: false,
           successCount: 0,
-          totalRelays: 0,
+          totalRelays: rejected.length,
           metQuorum: false,
           quorumRequired,
-          results: [],
+          results: rejected.map((relayUrl) => ({
+            success: false,
+            relayUrl,
+            error: configuredUrls.length === 0
+              ? "no_mesh_active_endpoints"
+              : `relay_url_not_in_mesh_active_set:${relayUrl}`,
+          })),
         };
       }
 

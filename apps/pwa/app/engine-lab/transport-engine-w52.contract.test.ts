@@ -28,20 +28,17 @@ describe("transport-engine w52 — standalone owner quarantine execution", () =>
     expect(charter).toContain("no deletion");
   });
 
-  it("moves implementation to legacy module with facade re-export", () => {
+  it("archives implementation after W66 production deletion", () => {
     const legacy = readFromPwa(resolveTransportEngineStandaloneLegacyReadPath(PWA_ROOT));
     expect(legacy).toContain("publishTransportKernelToRelayUrls");
     expect(legacy).toContain("mapLegacyPublishResultToRelayPublishResult");
-
-    const facade = readFromPwa("app/features/transport-kernel/transport-kernel-standalone-publish.ts");
-    expect(facade).toContain("transport-kernel-standalone-publish-legacy");
-    expect(facade).toContain("publishTransportKernelToRelayUrls");
+    expect(legacy).toContain("W60 frozen archive");
   });
 
-  it("switches relay-standalone-publish-port to legacy import", () => {
+  it("switches relay-standalone-publish-port to thin subtracted re-export", () => {
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
-    expect(port).toContain("shouldRouteHostTransportPublish");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
   });
 
   it("keeps host routing gates off by default", () => {
@@ -51,8 +48,9 @@ describe("transport-engine w52 — standalone owner quarantine execution", () =>
 });
 
 describe("transport-engine w52 — quarantine filesystem layout", () => {
-  it("has legacy module on disk with facade re-export", () => {
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(true);
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(true);
+  it("production legacy module and facade are absent after W66", () => {
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive.ts"))).toBe(true);
   });
 });

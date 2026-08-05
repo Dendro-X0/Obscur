@@ -1,5 +1,4 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { dbGetMessages } from "@dweb/db";
 import { fetchDmThreadRows } from "@obscur/dm-engine";
 import { loadDmKernelThread } from "./dm-kernel-thread-port";
 import { evaluateDmKernelThreadOpenBudget, resetDmKernelInvokeAuditForTests } from "./dm-kernel-invoke-audit";
@@ -9,8 +8,8 @@ vi.mock("@obscur/dm-engine", () => ({
   fetchDmThreadRows: vi.fn(),
 }));
 
-vi.mock("@dweb/db", () => ({
-  dbGetMessages: vi.fn(),
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
@@ -29,10 +28,6 @@ vi.mock("@/app/features/profiles/services/profile-registry-service", () => ({
   },
 }));
 
-vi.mock("@/app/engine-lab/engine-lab-policy", () => ({
-  isEngineLabStrictMode: vi.fn(() => false),
-}));
-
 const profileId = "default";
 const conversationId = "dm:aa:bb";
 const myPublicKeyHex = "aa".repeat(32);
@@ -40,13 +35,12 @@ const myPublicKeyHex = "aa".repeat(32);
 describe("loadDmKernelThread", () => {
   beforeEach(() => {
     vi.mocked(fetchDmThreadRows).mockReset();
-    vi.mocked(dbGetMessages).mockReset();
     resetDmKernelInvokeAuditForTests();
     clearDmKernelThreadSessionCacheForTests();
   });
 
   it("maps sqlite rows to display messages sorted ascending", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([
       {
         event_id: "evt-2",
         profile_id: profileId,
@@ -86,13 +80,13 @@ describe("loadDmKernelThread", () => {
     expect(messages).toHaveLength(2);
     expect(messages[0]?.content).toBe("earlier");
     expect(messages[1]?.content).toBe("later");
-    expect(dbGetMessages).toHaveBeenCalled();
+    expect(fetchDmThreadRows).toHaveBeenCalled();
     expect(evaluateDmKernelThreadOpenBudget(profileId, conversationId).pass).toBe(true);
   });
 
   it("merges rows from every account profile slot", async () => {
-    vi.mocked(dbGetMessages).mockImplementation(async (slotProfileId) => {
-      if (slotProfileId === "default") {
+    vi.mocked(fetchDmThreadRows).mockImplementation(async (params) => {
+      if (params.profileId === "default") {
         return [{
           event_id: "evt-old",
           profile_id: "default",
@@ -136,7 +130,7 @@ describe("loadDmKernelThread", () => {
   });
 
   it("reuses session cache on second initial open without another sqlite invoke", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([
       {
         event_id: "evt-1",
         profile_id: profileId,
@@ -154,21 +148,21 @@ describe("loadDmKernelThread", () => {
     ]);
 
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
-    const callsAfterFirst = vi.mocked(dbGetMessages).mock.calls.length;
+    const callsAfterFirst = vi.mocked(fetchDmThreadRows).mock.calls.length;
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
 
-    expect(vi.mocked(dbGetMessages).mock.calls.length).toBe(callsAfterFirst);
+    expect(vi.mocked(fetchDmThreadRows).mock.calls.length).toBe(callsAfterFirst);
   });
 
   it("does not cache empty initial loads", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([]);
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([]);
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
-    expect(vi.mocked(dbGetMessages).mock.calls.length).toBeGreaterThan(1);
+    expect(vi.mocked(fetchDmThreadRows).mock.calls.length).toBeGreaterThan(1);
   });
 
   it("still invokes sqlite for pagination", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([]);
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([]);
     await loadDmKernelThread({ profileId, conversationId, myPublicKeyHex });
     await loadDmKernelThread({
       profileId,
@@ -176,6 +170,6 @@ describe("loadDmKernelThread", () => {
       myPublicKeyHex,
       beforeReceivedAt: 500,
     });
-    expect(vi.mocked(dbGetMessages).mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(vi.mocked(fetchDmThreadRows).mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 });

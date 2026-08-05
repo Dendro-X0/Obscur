@@ -2,7 +2,7 @@
 import React from "react";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { ChevronRight, ShieldCheck } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { useTranslation } from "react-i18next";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 const PRIVATE_CONTACT_LABEL = "Unknown contact";

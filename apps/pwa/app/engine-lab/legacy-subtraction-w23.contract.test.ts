@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -25,7 +25,6 @@ const W23_ROUTED_PRODUCTION_PATHS = [
   "app/groups/leave/page.tsx",
   "app/groups/[...id]/group-home-page-client.tsx",
   "app/features/messaging/services/thread-history/dm-adapter.ts",
-  "app/features/messaging/services/thread-history/native-dm-adapter.ts",
 ] as const;
 
 describe("legacy subtraction w23 — sealed community and thread-history ports", () => {
@@ -45,14 +44,12 @@ describe("legacy subtraction w23 — sealed community and thread-history ports",
     expect(mainShell).not.toContain("use-sealed-community-legacy");
   });
 
-  it("thread-history adapters import legacy slices only through dm-thread-history-legacy-port", () => {
+  it("dm-adapter is stub; native adapter and legacy-port deleted (Wave 3)", () => {
     const webAdapter = read("app/features/messaging/services/thread-history/dm-adapter.ts");
-    const nativeAdapter = read("app/features/messaging/services/thread-history/native-dm-adapter.ts");
-    expect(webAdapter).toContain("dm-thread-history-legacy-port");
-    expect(nativeAdapter).toContain("dm-thread-history-legacy-port");
-    expect(webAdapter).not.toMatch(/@\/app\/legacy\/dm-conversation-/);
-    expect(nativeAdapter).not.toMatch(/@\/app\/legacy\/dm-conversation-/);
-    expect(nativeAdapter).not.toContain("native-dm-thread-hydrate-legacy");
+    expect(webAdapter).toContain("dmKernelThreadHistoryStub");
+    expect(webAdapter).not.toContain("dm-thread-history-legacy-port");
+    expect(existsSync(join(PWA_ROOT, "app/features/messaging/services/thread-history/native-dm-adapter.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/messaging/services/thread-history/dm-thread-history-legacy-port.ts"))).toBe(false);
   });
 
   it("sealed-community instance policy gates legacy hook on workspace-kernel authority", () => {

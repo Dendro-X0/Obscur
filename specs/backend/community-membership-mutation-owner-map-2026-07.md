@@ -79,13 +79,14 @@ No facade may call `upsertCommunityMembershipLedgerEntry` directly in production
 | Caller | Path |
 |--------|------|
 | `workspace-kernel-membership-port.ts` | Create/join managed workspace → `persistCommunityMembershipLedgerMutation` |
-| `group-provider-legacy.tsx` | Relay-confirmed join/rejoin under workspace kernel authority |
+| `workspace-kernel-leave-port.ts` | `leaveManagedWorkspaceMembership` → `commitCommunityLeaveAfterRelayConfirmation` |
 | `community-relay-confirmed-leave.ts` | `persistExplicitCommunityMembershipLeave` |
 | `community-membership-hydrate-repair.ts` | `applyCommunityMembershipRuntimeEvidence` |
 | `community-leave-recovery.ts` | `applyCommunityMembershipRuntimeEvidence` |
 
-**Contract pin:** `transport-gateway-boundary-sec-v2.contract.test.ts` asserts `group-provider` and `workspace-kernel-membership-port` import mutation owner, not raw `upsertCommunityMembershipLedgerEntry`.
+**U4 Wave B (2026-07-31):** `group-provider-legacy` no longer live-writes join ledger.
 
+**Contract pin:** `transport-gateway-boundary-sec-v2.contract.test.ts` asserts provider does **not** import mutation owner join writes; membership-port does.
 ---
 
 ## Bulk restore exceptions (not live mutations)

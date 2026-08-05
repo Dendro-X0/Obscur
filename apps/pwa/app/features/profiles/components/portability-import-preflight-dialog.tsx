@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Dialog, DialogContent } from "@dweb/ui-kit";
+import { Dialog, DialogContent } from "@dweb/ui-kit/dialog";
 import type { PortabilityImportPreflight } from "@/app/features/profiles/services/portability-import-preflight";
 import { PortabilityImportPreflightContent } from "./portability-import-preflight-content";
 

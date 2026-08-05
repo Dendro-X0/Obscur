@@ -188,16 +188,10 @@ export const TRANSPORT_PRESET_CATALOG: ReadonlyArray<TransportPreset> = [
   TOR_ONION_MESH_PRESET,
 ];
 
-/** R-RELAY-RUST-2 — cold/reset product default (private local; public Nostr opt-in). */
-export const PRODUCT_BOOT_TRANSPORT_PRESET: TransportPreset = LOCAL_DEV_MESH_PRESET;
+/** Prod-first 2026-08 — cold/reset product default is public Default Stable (Nostr). */
+export const PRODUCT_BOOT_TRANSPORT_PRESET: TransportPreset = DEFAULT_STABLE_PRESET;
 
 export const TRANSPORT_PRESET_GROUPS: ReadonlyArray<TransportPresetGroup> = [
-  {
-    category: "private_mesh",
-    titleKey: "settings.relays.presetGroup.privateMesh",
-    descriptionKey: "settings.relays.presetGroup.privateMeshDesc",
-    presetIds: ["local_dev_mesh", "local_http_mesh", "private_lan_ws", "ssh_bastion_forward"],
-  },
   {
     category: "public_nostr",
     titleKey: "settings.relays.presetGroup.publicNostr",
@@ -205,16 +199,22 @@ export const TRANSPORT_PRESET_GROUPS: ReadonlyArray<TransportPresetGroup> = [
     presetIds: ["default_stable", "high_redundancy", "low_latency"],
   },
   {
-    category: "hybrid_adapters",
-    titleKey: "settings.relays.presetGroup.hybridAdapters",
-    descriptionKey: "settings.relays.presetGroup.hybridAdaptersDesc",
-    presetIds: ["hybrid_public_http"],
-  },
-  {
     category: "tor",
     titleKey: "settings.relays.presetGroup.tor",
     descriptionKey: "settings.relays.presetGroup.torDesc",
     presetIds: ["tor_onion_mesh"],
+  },
+  {
+    category: "private_mesh",
+    titleKey: "settings.relays.presetGroup.privateMesh",
+    descriptionKey: "settings.relays.presetGroup.privateMeshDesc",
+    presetIds: ["local_dev_mesh", "local_http_mesh", "private_lan_ws", "ssh_bastion_forward"],
+  },
+  {
+    category: "hybrid_adapters",
+    titleKey: "settings.relays.presetGroup.hybridAdapters",
+    descriptionKey: "settings.relays.presetGroup.hybridAdaptersDesc",
+    presetIds: ["hybrid_public_http"],
   },
 ];
 

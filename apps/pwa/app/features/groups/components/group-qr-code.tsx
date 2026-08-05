@@ -2,9 +2,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { Copy, Check, Share2 } from "lucide-react";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { getPublicGroupHref, toAbsoluteAppUrl } from "@/app/features/navigation/public-routes";
 
 interface GroupQRCodeProps {

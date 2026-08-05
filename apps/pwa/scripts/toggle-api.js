@@ -25,8 +25,11 @@ const renameWithRetry = async (fromPath, toPath) => {
             if (!isRetryableFsError(error) || attempt === MAX_RENAME_ATTEMPTS) {
                 const fromName = path.basename(fromPath);
                 const toName = path.basename(toPath);
+                const winHint = process.platform === 'win32'
+                    ? ' — often Next.js on :3340 (or another watcher) locking the folder; stop `pnpm dev:desktop:fast` / free :3340, then retry'
+                    : '';
                 throw new Error(
-                    `[toggle-api] Failed to rename "${fromName}" -> "${toName}" after ${attempt} attempt(s): ${error.message}`
+                    `[toggle-api] Failed to rename "${fromName}" -> "${toName}" after ${attempt} attempt(s): ${error.message}${winHint}`
                 );
             }
             await sleep(RETRY_DELAY_MS);

@@ -11,7 +11,14 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const libobscurDir = join(repoRoot, "packages/libobscur");
 const binaryName = process.platform === "win32" ? "engine-lab-headless.exe" : "engine-lab-headless";
-const binaryPath = join(libobscurDir, "target", "debug", binaryName);
+/** Workspace Cargo.toml owns target/; package-local target/ is unused when members=[libobscur]. */
+const resolveHeadlessBinaryPath = () => {
+  const candidates = [
+    join(repoRoot, "target", "debug", binaryName),
+    join(libobscurDir, "target", "debug", binaryName),
+  ];
+  return candidates.find((path) => existsSync(path)) ?? candidates[0];
+};
 
 const run = (cwd, command, args) => {
   const result = spawnSync(command, args, { cwd, encoding: "utf8", stdio: "pipe" });
@@ -26,6 +33,7 @@ const run = (cwd, command, args) => {
 run(libobscurDir, "cargo", ["test", "engine_invoke", "--", "--nocapture"]);
 run(libobscurDir, "cargo", ["build", "--bin", "engine-lab-headless"]);
 
+const binaryPath = resolveHeadlessBinaryPath();
 if (!existsSync(binaryPath)) {
   throw new Error(`engine-lab-headless binary missing: ${binaryPath}`);
 }

@@ -24,7 +24,7 @@ import type {
   RequestsInboxContract,
   DmControllerState,
 } from "./dm-controller-types";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { sendDm, sendConnectionRequest, type SendConfirmation } from "./dm-send-pipeline";
 import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import {
@@ -121,6 +121,10 @@ export type UseDmControllerResult = Readonly<{
     attachments?: ReadonlyArray<Attachment>;
     replyTo?: string;
     customTags?: string[][];
+    /** Await relay OK ACK before resolving (voice invite honesty). */
+    waitForConfirmation?: boolean;
+    /** Caller owns toast when waiting for confirmation. */
+    suppressPublishFeedbackToast?: boolean;
   }>) => Promise<SendResult>;
   sendConnectionRequest: (params: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
@@ -657,6 +661,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     attachments?: ReadonlyArray<Attachment>;
     replyTo?: string;
     customTags?: string[][];
+    waitForConfirmation?: boolean;
+    suppressPublishFeedbackToast?: boolean;
   }>): Promise<SendResult> => {
     if (!myPublicKeyHex || !myPrivateKeyHex) {
       return {
@@ -721,6 +727,20 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       onNewMessageRef.current?.(optimisticMessage);
     }
 
+    // Filled after Phase-1 return; used when ACK arrives (P-evidence: not on wire fire).
+    const publishEvidenceRef: {
+      canonicalDmId?: string;
+      nip17GiftWrapId?: string;
+    } = {};
+
+    // Object box avoids TS narrowing the Promise resolve callback to `never`.
+    const waitResolveBox: { current: ((result: SendResult) => void) | null } = { current: null };
+    const waitForConfirmationPromise = sendParams.waitForConfirmation
+      ? new Promise<SendResult>((resolve) => {
+          waitResolveBox.current = resolve;
+        })
+      : null;
+
     // Background confirmation handler — upgrades status after relay OK responses
     const handleConfirmed = (confirmation: SendConfirmation): void => {
       const confirmedStatus: MessageStatus = confirmation.success ? "accepted" : "failed";
@@ -740,6 +760,44 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             : m
         )
       );
+
+      if (
+        confirmation.success
+        && publishEvidenceRef.canonicalDmId
+        && sendParams.peerPublicKeyInput
+      ) {
+        void appendCanonicalDmEvent({
+          accountPublicKeyHex: myPublicKeyHex,
+          peerPublicKeyHex: sendParams.peerPublicKeyInput as PublicKeyHex,
+          type: "DM_SENT_CONFIRMED",
+          conversationId: optimisticMessage.conversationId!,
+          messageId: publishEvidenceRef.canonicalDmId,
+          eventCreatedAtUnixSeconds: Math.floor(Date.now() / 1000),
+          plaintextPreview: toAccountEventPlaintextPreview(sendParams.plaintext),
+        }).catch((err) => {
+          console.error("[dm-controller:v2] appendCanonicalDmEvent DM_SENT_CONFIRMED failed", err);
+        });
+      }
+
+      const resolveWait = waitResolveBox.current;
+      if (resolveWait) {
+        waitResolveBox.current = null;
+        resolveWait({
+          success: confirmation.success,
+          deliveryStatus: confirmation.deliveryStatus,
+          messageId: optimisticId,
+          eventId: publishEvidenceRef.canonicalDmId ?? "",
+          relayResults: confirmation.relayResults,
+          error: confirmation.error,
+          partialWireDelivery: confirmation.partialWireDelivery,
+          reasonCode: confirmation.reasonCode,
+        });
+      }
+
+      if (sendParams.suppressPublishFeedbackToast) {
+        publishFeedbackShownRef.current.add(optimisticId);
+        return;
+      }
 
       if (publishFeedbackShownRef.current.has(optimisticId)) {
         return;
@@ -764,8 +822,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       }
     };
 
-    // Execute send — returns immediately after sendToOpen (fire-and-forget).
-    // Relay confirmations arrive asynchronously via handleConfirmed.
+    // Execute send — returns immediately after encrypt/wire; ACK via handleConfirmed.
     const result = await sendDm({
       pool: poolRef.current,
       senderPublicKeyHex: myPublicKeyHex,
@@ -782,6 +839,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     // CRITICAL: Do NOT replace m.id — changing the ID causes useDmSync to
     // treat the message as brand-new (different key), emitting a duplicate
     // messageBus event and leaving an orphan entry in IndexedDB.
+    // P-evidence: result.success is only true when confirmation was awaited inline
+    // (no onConfirmed). With onConfirmed, stay "sending" until relay OK.
     const immediateStatus: MessageStatus = result.success ? "accepted" : "sending";
     const canonicalDmId = result.messageId || result.eventId || undefined;
     const nip17GiftWrapId = (
@@ -791,6 +850,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     )
       ? result.eventId
       : undefined;
+    publishEvidenceRef.canonicalDmId = canonicalDmId;
+    publishEvidenceRef.nip17GiftWrapId = nip17GiftWrapId;
     const persistedOutgoingMessage: Message = {
       ...optimisticMessage,
       eventId: canonicalDmId,
@@ -833,20 +894,17 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       }
     })();
 
-    // Write to account projection so the outgoing message has projection evidence.
-    // This ensures restore cycles cannot wipe it from the UI before IndexedDB persistence.
-    if (result.success && canonicalDmId && sendParams.peerPublicKeyInput) {
-      void appendCanonicalDmEvent({
-        accountPublicKeyHex: myPublicKeyHex,
-        peerPublicKeyHex: sendParams.peerPublicKeyInput as PublicKeyHex,
-        type: "DM_SENT_CONFIRMED",
-        conversationId: optimisticMessage.conversationId!,
-        messageId: canonicalDmId,
-        eventCreatedAtUnixSeconds: Math.floor(Date.now() / 1000),
-        plaintextPreview: toAccountEventPlaintextPreview(sendParams.plaintext),
-      }).catch((err) => {
-        console.error("[dm-controller:v2] appendCanonicalDmEvent DM_SENT_CONFIRMED failed", err);
-      });
+    if (waitForConfirmationPromise) {
+      // Phase-1 hard failure (encrypt/dedup) — do not hang waiting for ACK.
+      if (!result.eventId && !result.messageId) {
+        const resolveWait = waitResolveBox.current;
+        waitResolveBox.current = null;
+        resolveWait?.({
+          ...result,
+          messageId: optimisticId,
+        });
+      }
+      return waitForConfirmationPromise;
     }
 
     return {

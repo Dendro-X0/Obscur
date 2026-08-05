@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   STATIC_SHELL_SOURCE_ROOTS,
+  isStaticShellSourceFile,
   isStaticShellStale,
   resolveStaticShellSourceRevision,
 } from "./static-shell-stale.mjs";
@@ -92,6 +93,43 @@ describe("static-shell-stale", () => {
       const revision = resolveStaticShellSourceRevision(repoRoot);
       assert.match(revision.relativeNewestPath ?? "", /settings[\\/]b\.tsx/);
       assert.match(revision.stamp, /^shell-/);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("isStaticShellSourceFile skips *.test.* and *.spec.*", () => {
+    assert.equal(isStaticShellSourceFile("language-selector.tsx"), true);
+    assert.equal(isStaticShellSourceFile("use-conduit-mesh-relay-pool.ts"), true);
+    assert.equal(isStaticShellSourceFile("use-conduit-mesh-relay-pool.http-writable.test.ts"), false);
+    assert.equal(isStaticShellSourceFile("foo.contract.test.ts"), false);
+    assert.equal(isStaticShellSourceFile("bar.spec.tsx"), false);
+    assert.equal(isStaticShellSourceFile("readme.md"), false);
+  });
+
+  it("does not mark shell stale when only a newer *.test.ts exists", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "obscur-shell-stale-test-"));
+    try {
+      const outIndex = join(repoRoot, "apps", "pwa", "out", "index.html");
+      const component = join(repoRoot, "apps", "pwa", "app", "components", "language-selector.tsx");
+      const testFile = join(
+        repoRoot,
+        "apps",
+        "pwa",
+        "app",
+        "hooks",
+        "use-conduit-mesh-relay-pool.http-writable.test.ts",
+      );
+
+      touch(component, Date.UTC(2026, 6, 1, 12, 0, 0));
+      touch(outIndex, Date.UTC(2026, 6, 10, 12, 0, 0));
+      touch(testFile, Date.UTC(2026, 6, 20, 12, 0, 0));
+
+      const stale = isStaticShellStale(repoRoot);
+      assert.equal(stale.stale, false);
+
+      const revision = resolveStaticShellSourceRevision(repoRoot);
+      assert.match(revision.relativeNewestPath ?? "", /language-selector\.tsx/);
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
     }

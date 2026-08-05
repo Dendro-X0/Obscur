@@ -26,10 +26,11 @@ describe("Phase E — group thread history plug-in", () => {
     expect(hook).toContain("useGroupThreadMessages");
   });
 
-  it("reads group history from dbGetGroupMessages rather than sealed-community state", () => {
+  it("reads group history via workspace-engine list path rather than sealed-community state", () => {
     const store = readSource("features/messaging/services/thread-history/group-thread-sqlite-store.ts");
     const mainShell = readSource("features/main-shell/main-shell.tsx");
-    expect(store).toContain("dbGetGroupMessages");
+    expect(store).toContain("listWorkspaceGroupMessageRecords");
+    expect(store).not.toContain("dbGetGroupMessages");
     expect(mainShell).not.toContain("mapSealedGroupMessagesToChatMessages");
   });
 

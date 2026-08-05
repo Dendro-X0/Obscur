@@ -20,7 +20,7 @@ describe("transport-engine w68 — prep band closure harness", () => {
     );
     expect(w67).toContain("readyForB5ExitVerification");
     expect(w68).toContain("prepBandComplete");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents maintainer-only execution after prep band closure", () => {

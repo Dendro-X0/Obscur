@@ -1,16 +1,9 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  UI_OVERLAY_Z_CLASS,
-} from "@dweb/ui-kit";
+import { Dialog, DialogContent, DialogTitle } from "@dweb/ui-kit/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@dweb/ui-kit/dropdown-menu";
+import { UI_OVERLAY_Z_CLASS } from "@dweb/ui-kit/overlay-z-index";
 
 describe("UI overlay layer stack", () => {
   it("documents canonical z-index class literals", () => {

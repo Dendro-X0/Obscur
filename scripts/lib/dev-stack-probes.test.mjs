@@ -42,4 +42,21 @@ describe("dev-stack-probes", () => {
     assert.equal(result.ok, false);
     assert.ok(result.elapsedMs >= 40);
   });
+
+  it("waitForReady aborts early when shouldAbort returns true", async () => {
+    let calls = 0;
+    const result = await waitForReady("test", async () => {
+      calls += 1;
+      return false;
+    }, {
+      maxMs: 90_000,
+      pollMs: 10,
+      progressEveryMs: 1_000,
+      shouldAbort: () => calls >= 1,
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.aborted, true);
+    assert.ok(result.elapsedMs < 5_000);
+  });
 });

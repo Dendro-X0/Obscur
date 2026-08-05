@@ -12,6 +12,7 @@ import { parseCommandMessage } from "../utils/commands";
 import { toDmConversationId } from "../utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "../utils/logic";
 import { inferPeerFromConversationId } from "../utils/dm-conversation-sibling-ids";
+import { isPersistedBlobAttachmentUrl } from "./chat-attachment-display-url";
 
 export type NormalizeDmConversationMessageRowOptions = Readonly<{
     conversationId?: string;
@@ -193,19 +194,22 @@ export const normalizeDmConversationMessageRow = (
             : value.attachment
                 ? [value.attachment as Attachment]
                 : [];
-    const inferredAttachments = (
-        storedAttachments.length === 0
-        && content.length > 0
-        && shouldInferAttachmentsFromContent(content)
-    )
-        ? extractAttachmentsFromContent(content)
-        : [];
     const normalizedStoredAttachments = storedAttachments
         .map((attachment: Attachment) => ({
             ...attachment,
             url: normalizeAttachmentUrl(attachment.url),
         }))
-        .filter((attachment: Attachment) => attachment.url.length > 0);
+        .filter((attachment: Attachment) => (
+            attachment.url.length > 0
+            && !isPersistedBlobAttachmentUrl(attachment.url)
+        ));
+    const inferredAttachments = (
+        normalizedStoredAttachments.length === 0
+        && content.length > 0
+        && shouldInferAttachmentsFromContent(content)
+    )
+        ? extractAttachmentsFromContent(content)
+        : [];
     const attachments = normalizedStoredAttachments.length > 0
         ? normalizedStoredAttachments
         : inferredAttachments.length > 0

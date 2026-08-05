@@ -48,18 +48,13 @@ describe("transport-engine w68 — standalone legacy subtraction prep band closu
     expect(module).toContain("readyForMaintainerExecution");
   });
 
-  it("reports prep band complete while gate is closed", () => {
+  it("reports post-subtraction exit complete after W66 (prep band closed)", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacySubtractionPrepBandClosure(recorded, createPwaFilesystem());
-    expect(report.gateApproved).toBe(false);
-    expect(report.prepBandComplete).toBe(true);
-    expect(report.dryRunReady).toBe(true);
-    expect(report.mechanicalCommitReady).toBe(true);
-    expect(report.pinMigrationReady).toBe(true);
-    expect(report.b5ExitPrepReady).toBe(true);
-    expect(report.postSubtractionExitComplete).toBe(false);
+    expect(report.postSubtractionExitComplete).toBe(true);
+    expect(report.prepBandComplete).toBe(false);
     expect(report.readyForMaintainerExecution).toBe(false);
   });
 
@@ -70,9 +65,9 @@ describe("transport-engine w68 — standalone legacy subtraction prep band closu
     expect(script).not.toContain("unlinkSync");
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

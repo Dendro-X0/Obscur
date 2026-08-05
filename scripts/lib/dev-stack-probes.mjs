@@ -155,11 +155,15 @@ export const waitForReady = async (label, probe, options = {}) => {
   const pollMs = options.pollMs ?? 750;
   const progressEveryMs = options.progressEveryMs ?? 15_000;
   const onProgress = options.onProgress ?? (() => {});
+  const shouldAbort = options.shouldAbort ?? (() => false);
 
   const started = Date.now();
   let lastProgressAt = started;
 
   while (Date.now() - started < maxMs) {
+    if (shouldAbort()) {
+      return { ok: false, elapsedMs: Date.now() - started, aborted: true, maxMs };
+    }
     if (await probe()) {
       return { ok: true, elapsedMs: Date.now() - started };
     }

@@ -14,15 +14,17 @@ import type { PersistedMessage } from "../types";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
-import { isTauri, dbInsertMessage, dbInsertTombstone, dbDeleteMessages, dbUpsertConversation } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { deleteDmMessages, insertDmTombstone } from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { isDmKernelChatStateMessageIoSuppressed } from "@/app/features/dm-kernel/dm-kernel-chat-state-io-policy";
 import {
-  isDmKernelWriteOwner,
   writeDmKernelConversation,
   writeDmKernelMessage,
 } from "@/app/features/dm-kernel/dm-kernel-write-port";
 import { linkLocalMediaIndexToMessageEvent } from "@/app/features/vault/services/local-media-store";
-import type { MessageRecord, TombstoneRecord, ConversationRecord } from "@dweb/db";
+import type { MessageRecord, ConversationRecord } from "@dweb/db";
 import type { ChatStateReplacedEventDetail } from "@/app/features/messaging/services/chat-state-store-types";
 import { createMicrotaskCoalescedHandler } from "@/app/features/profiles/services/profile-bus-coalesce";
 import { messagingClientOperations } from "./messaging-client-operations";
@@ -35,6 +37,13 @@ export type MessagesIndexRebuiltEventDetail = Readonly<{
     profileId: string;
     messageCount: number;
 }>;
+
+let persistenceDeleteEngineHost: HostEnginePort | null = null;
+
+const getPersistenceDeleteEngineHost = (): HostEnginePort => {
+    persistenceDeleteEngineHost ??= createTauriEngineHost();
+    return persistenceDeleteEngineHost;
+};
 
 export function dispatchMessagesIndexRebuiltEvent(detail: MessagesIndexRebuiltEventDetail): void {
     const scope = getProfileRuntimeScope();
@@ -313,6 +322,9 @@ const hasLegacyChatTimelineDomains = (value: unknown): boolean => {
  *
  * Canonical durable owner for DM bus events: SQLite on native (Tauri),
  * batched IndexedDB on web. Listens to {@link messageBus} only.
+ * Hide/unload flush is owned by {@link MessagePersistenceDurabilityOwner} — do not
+ * re-register beforeunload / visibilitychange here.
+ * @see specs/backend/dm-persist-dual-owner-design-2026-07.md
  */
 export class MessagePersistenceService {
     private isInitialized = false;
@@ -331,15 +343,6 @@ export class MessagePersistenceService {
     private activeMessageStoreScopeKey: string | null = null;
     private static readonly MIGRATION_DONE_KEY_PREFIX = "obscur:msg_migration_done::";
     private unsubscribeMessageBus: (() => void) | null = null;
-    private readonly onVisibilityChange = (): void => {
-        if (typeof document === "undefined") return;
-        if (document.visibilityState === "hidden") {
-            void this.flushPendingNow();
-        }
-    };
-    private readonly onBeforeUnload = (): void => {
-        void this.flushPendingNow();
-    };
     private chatPerformanceV2Enabled = false;
     private boundProfileId: string | null = null;
 
@@ -425,11 +428,8 @@ export class MessagePersistenceService {
             }
         });
 
-        if (typeof document !== "undefined") {
-            document.addEventListener("visibilitychange", this.onVisibilityChange);
-        }
+        // Hide/unload flush owns MessagePersistenceDurabilityOwner — do not dual-register here.
         if (typeof window !== "undefined") {
-            window.addEventListener("beforeunload", this.onBeforeUnload);
             window.addEventListener("privacy-settings-changed", this.onPrivacySettingsChanged);
         }
     }
@@ -476,11 +476,7 @@ export class MessagePersistenceService {
             this.unsubscribeMessageBus = null;
         }
 
-        if (typeof document !== "undefined") {
-            document.removeEventListener("visibilitychange", this.onVisibilityChange);
-        }
         if (typeof window !== "undefined") {
-            window.removeEventListener("beforeunload", this.onBeforeUnload);
             window.removeEventListener("privacy-settings-changed", this.onPrivacySettingsChanged);
         }
         this.chatStateBusUnsubscribe?.();
@@ -696,13 +692,9 @@ export class MessagePersistenceService {
                             has_attachment: attachments.length > 0,
                         };
                         sqliteWritePromises.push((async () => {
-                            if (isDmKernelWriteOwner()) {
-                                const writeResult = await writeDmKernelMessage(rec);
-                                if (!writeResult.ok) {
-                                    throw new Error(writeResult.errorMessage ?? writeResult.reason);
-                                }
-                            } else {
-                                await dbInsertMessage(rec);
+                            const writeResult = await writeDmKernelMessage(rec);
+                            if (!writeResult.ok) {
+                                throw new Error(writeResult.errorMessage ?? writeResult.reason);
                             }
                             if (attachments.length > 0) {
                                 const attachmentUrls = attachments
@@ -746,13 +738,9 @@ export class MessagePersistenceService {
                             unread_count: 0,
                         };
                         sqliteWritePromises.push((async () => {
-                            if (isDmKernelWriteOwner()) {
-                                const writeResult = await writeDmKernelConversation(convRec);
-                                if (!writeResult.ok) {
-                                    throw new Error(writeResult.errorMessage ?? writeResult.reason);
-                                }
-                            } else {
-                                await dbUpsertConversation(convRec);
+                            const writeResult = await writeDmKernelConversation(convRec);
+                            if (!writeResult.ok) {
+                                throw new Error(writeResult.errorMessage ?? writeResult.reason);
                             }
                         })());
                     }
@@ -765,12 +753,21 @@ export class MessagePersistenceService {
                     const profileId = getResolvedProfileId();
                     if (profileId) {
                         const nowMs = Date.now();
-                        await dbDeleteMessages(deletes, profileId).catch(() => undefined);
-                        await Promise.all(deletes.map((deleteId) => dbInsertTombstone({
-                            event_id: deleteId,
-                            profile_id: profileId,
-                            deleted_at: nowMs,
-                            deleted_by: "",
+                        const host = getPersistenceDeleteEngineHost();
+                        await deleteDmMessages({
+                            host,
+                            profileId,
+                            eventIds: deletes,
+                        }).catch(() => undefined);
+                        await Promise.all(deletes.map((deleteId) => insertDmTombstone({
+                            host,
+                            profileId,
+                            record: {
+                                event_id: deleteId,
+                                profile_id: profileId,
+                                deleted_at: nowMs,
+                                deleted_by: "",
+                            },
                         }).catch(() => undefined)));
                     }
                 }

@@ -6,12 +6,12 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
 }));
 
-vi.mock("@dweb/db", () => ({
-  dbGetGroupMessages: vi.fn(async () => []),
+vi.mock("@/app/features/messaging/services/thread-history/workspace-group-message-persist-port", () => ({
+  listWorkspaceGroupMessageRecords: vi.fn(async () => []),
 }));
 
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { dbGetGroupMessages } from "@dweb/db";
+import { listWorkspaceGroupMessageRecords } from "@/app/features/messaging/services/thread-history/workspace-group-message-persist-port";
 
 const ACCOUNT = "a".repeat(64) as PublicKeyHex;
 
@@ -19,11 +19,11 @@ describe("accountHasSqliteGroupMessageEvidence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
-    vi.mocked(dbGetGroupMessages).mockResolvedValue([]);
+    vi.mocked(listWorkspaceGroupMessageRecords).mockResolvedValue([]);
   });
 
   it("returns true when the account authored a sqlite group message", async () => {
-    vi.mocked(dbGetGroupMessages).mockResolvedValue([{
+    vi.mocked(listWorkspaceGroupMessageRecords).mockResolvedValue([{
       event_id: "evt-1",
       group_id: "group-a",
       profile_id: "default",
@@ -41,7 +41,7 @@ describe("accountHasSqliteGroupMessageEvidence", () => {
   });
 
   it("returns false when only other senders are present", async () => {
-    vi.mocked(dbGetGroupMessages).mockResolvedValue([{
+    vi.mocked(listWorkspaceGroupMessageRecords).mockResolvedValue([{
       event_id: "evt-1",
       group_id: "group-a",
       profile_id: "default",

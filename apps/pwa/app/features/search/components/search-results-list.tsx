@@ -1,6 +1,6 @@
 import React from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
+import { Avatar, AvatarFallback, AvatarImage } from "@dweb/ui-kit/avatar";
+import { Button } from "@dweb/ui-kit/button";
 import { CheckCircle2, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ProfileSearchResult } from "../services/profile-search-service";

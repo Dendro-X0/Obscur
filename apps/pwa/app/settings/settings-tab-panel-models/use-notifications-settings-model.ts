@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useNotificationPreference } from "@/app/features/notifications/hooks/use-notification-preference";
 import { requestNotificationPermission } from "@/app/features/notifications/utils/request-notification-permission";
 import { showDesktopNotification } from "@/app/features/notifications/utils/show-desktop-notification";

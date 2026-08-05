@@ -4,7 +4,7 @@ import type React from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Lock, X } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { activateNativeStorageAtRestUnlock } from "@/app/features/storage/services/native-storage-at-rest-service";
 import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
@@ -14,6 +14,18 @@ type VaultWriteUnlockDialogProps = Readonly<{
   onClose: () => void;
   onUnlocked: () => void | Promise<void>;
 }>;
+
+/** English defaults — dialog must never show raw i18n keys if the resource bundle is stale. */
+const COPY = {
+  eyebrow: "Encrypted vault",
+  title: "Unlock vault writes",
+  description:
+    "Enter this profile's password once so Obscur can encrypt vault files for this account. Stay signed in will keep vault unlock available after restart.",
+  passphraseLabel: "Profile password",
+  passphraseRequired: "Enter your profile password to continue.",
+  confirm: "Unlock and save",
+  unlockRequired: "Unlock this profile to save encrypted vault files.",
+} as const;
 
 export function VaultWriteUnlockDialog({
   isOpen,
@@ -32,7 +44,7 @@ export function VaultWriteUnlockDialog({
   const submit = async (): Promise<void> => {
     const trimmed = passphrase.trim();
     if (!trimmed) {
-      setError(t("vault.writeUnlockPassphraseRequired"));
+      setError(t("vault.writeUnlockPassphraseRequired", COPY.passphraseRequired));
       return;
     }
     setIsSubmitting(true);
@@ -48,7 +60,7 @@ export function VaultWriteUnlockDialog({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : t("vault.localSaveUnlockRequired"),
+          : t("vault.localSaveUnlockRequired", COPY.unlockRequired),
       );
     } finally {
       setIsSubmitting(false);
@@ -57,7 +69,7 @@ export function VaultWriteUnlockDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[170] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[170] flex items-center justify-center bg-transparent p-4"
       onClick={() => {
         if (!isSubmitting) {
           onClose();
@@ -72,13 +84,13 @@ export function VaultWriteUnlockDialog({
         <div className="flex items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-              {t("vault.writeUnlockEyebrow")}
+              {t("vault.writeUnlockEyebrow", COPY.eyebrow)}
             </p>
             <h2 className="mt-1 text-lg font-black text-foreground">
-              {t("vault.writeUnlockTitle")}
+              {t("vault.writeUnlockTitle", COPY.title)}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t("vault.writeUnlockDescription")}
+              {t("vault.writeUnlockDescription", COPY.description)}
             </p>
           </div>
           <Button
@@ -87,7 +99,7 @@ export function VaultWriteUnlockDialog({
             className="h-8 w-8 shrink-0"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label={t("common.close")}
+            aria-label={t("common.close", "Close")}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -102,7 +114,7 @@ export function VaultWriteUnlockDialog({
         >
           <label className="block space-y-2">
             <span className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-              {t("vault.writeUnlockPassphraseLabel")}
+              {t("vault.writeUnlockPassphraseLabel", COPY.passphraseLabel)}
             </span>
             <input
               type="password"
@@ -121,7 +133,7 @@ export function VaultWriteUnlockDialog({
           ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              {t("common.cancel")}
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
@@ -129,7 +141,7 @@ export function VaultWriteUnlockDialog({
               ) : (
                 <Lock className="mr-2 h-4 w-4" />
               )}
-              {t("vault.writeUnlockConfirm")}
+              {t("vault.writeUnlockConfirm", COPY.confirm)}
             </Button>
           </div>
         </form>

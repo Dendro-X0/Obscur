@@ -59,42 +59,26 @@ describe("legacy subtraction w25 — hydrate stack zero direct importers", () =>
     expect(offenders).toEqual([]);
   });
 
-  it("native-dm and dm-read-authority ports re-export legacy hydrate owners", () => {
-    const nativePort = readFileSync(
-      join(PWA_APP_ROOT, "features/messaging/services/native-dm-conversation-hydrate-port.ts"),
-      "utf8",
-    );
+  it("native-dm hydrate refuse port deleted (Wave 4); thick hydrate helpers gone", () => {
+    expect(existsSync(join(PWA_APP_ROOT, "features/messaging/services/native-dm-conversation-hydrate-port.ts"))).toBe(false);
+    expect(existsSync(join(PWA_APP_ROOT, "features/messaging/services/native-dm-conversation-hydrate-owner.ts"))).toBe(false);
     const readAuthorityPort = readFileSync(
       join(PWA_APP_ROOT, "features/messaging/services/dm-read-authority-port.ts"),
       "utf8",
     );
-    expect(nativePort).toContain("./native-dm-conversation-hydrate-owner");
     expect(readAuthorityPort).toContain("./dm-read-authority-contract");
-    expect(readAuthorityPort).toContain("hydrate-authority-types");
+    expect(existsSync(join(PWA_APP_ROOT, "features/messaging/services/thread-history/dm-thread-history-legacy-port.ts"))).toBe(false);
+    expect(existsSync(join(PWA_APP_ROOT, "features/messaging/services/thread-history/hydrate-indexed-legacy-port.ts"))).toBe(false);
   });
 
-  it("thread-history legacy port owns indexed scan and read-model slices", () => {
-    const port = readFileSync(
-      join(PWA_APP_ROOT, "features/messaging/services/thread-history/dm-thread-history-legacy-port.ts"),
-      "utf8",
-    );
-    const indexedPort = readFileSync(
-      join(PWA_APP_ROOT, "features/messaging/services/thread-history/hydrate-indexed-legacy-port.ts"),
-      "utf8",
-    );
-    expect(port).toContain("./hydrate-read-model");
-    expect(port).toContain("hydrate-indexed-legacy-port");
-    expect(indexedPort).toContain("loadLegacyInitialDmHydrationIndexedWindow");
-    expect(indexedPort).toContain("mapLegacyIndexedConversationRowsForDisplayableScan");
-  });
-
-  it("use-thread-messages keeps dm-kernel bypass for native hydrate stack", () => {
+  it("use-thread-messages is dm-kernel or inert only", () => {
     const threadMessages = readFileSync(
       join(PWA_APP_ROOT, "features/messaging/hooks/use-thread-messages.ts"),
       "utf8",
     );
-    expect(threadMessages).toContain("conversation-messages-legacy-port");
+    expect(threadMessages).toContain("useDmKernelThread");
     expect(threadMessages).toContain("isDmKernelAuthority");
+    expect(threadMessages).not.toContain("conversation-messages-legacy-port");
     expect(threadMessages).not.toContain("native-dm-conversation-hydrate-owner-legacy");
   });
 });

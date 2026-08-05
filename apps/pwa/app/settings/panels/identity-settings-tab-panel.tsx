@@ -2,7 +2,13 @@
 import type React from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
-import { Card, Button, ConfirmDialog, Input, Label, Textarea, toast } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Button } from "@dweb/ui-kit/button";
+import { ConfirmDialog } from "@dweb/ui-kit/confirm-dialog";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
+import { Textarea } from "@dweb/ui-kit/textarea";
+import { toast } from "@dweb/ui-kit/toast";
 import { cn } from "@/app/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { RelayDashboard } from "@/app/components/relay-dashboard";

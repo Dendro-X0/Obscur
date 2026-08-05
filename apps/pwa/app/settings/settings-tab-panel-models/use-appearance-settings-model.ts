@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useTheme } from "@/app/features/settings/hooks/use-theme";
 import { useAccessibilityPreferences } from "@/app/features/settings/hooks/use-accessibility-preferences";
 import type { SettingsActionPhase } from "@/app/features/settings/components/settings-action-status";

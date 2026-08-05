@@ -50,7 +50,7 @@ describe("dm-engine b3 — persistence hardening", () => {
     expect(source).toContain("@obscur/dm-engine");
   });
 
-  it("thread and sidebar ports route strict reads through dm-engine", () => {
+  it("thread and sidebar ports route all reads through dm-engine", () => {
     const thread = readFileSync(
       join(REPO_ROOT, "apps/pwa/app/features/dm-kernel/dm-kernel-thread-port.ts"),
       "utf8",
@@ -61,8 +61,10 @@ describe("dm-engine b3 — persistence hardening", () => {
     );
     expect(thread).toContain("fetchDmThreadRows");
     expect(sidebar).toContain("listDmConversations");
-    expect(thread).toContain("isEngineLabStrictMode");
-    expect(sidebar).toContain("isEngineLabStrictMode");
+    expect(thread).not.toMatch(/\bdbGetMessages\b/);
+    expect(sidebar).not.toMatch(/\bdbGetConversations\b/);
+    expect(thread).not.toContain("isEngineLabStrictMode");
+    expect(sidebar).not.toContain("isEngineLabStrictMode");
   });
 
   it("libobscur defines dm read page budget test", () => {

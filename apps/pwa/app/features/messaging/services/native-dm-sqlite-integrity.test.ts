@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchDmThreadRows } from "@obscur/dm-engine";
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbGetMessages: vi.fn(),
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+  fetchDmThreadRows: vi.fn(),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
@@ -13,7 +21,6 @@ vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
   getResolvedProfileId: vi.fn(() => "profile-tester1"),
 }));
 
-import { dbGetMessages } from "@dweb/db";
 import {
   evaluateNativeDmSqliteHydrateIntegrity,
   loadNativeDmSqlitePeerThreadSnapshots,
@@ -26,11 +33,11 @@ const peerPk = "bb".repeat(32) as PublicKeyHex;
 
 describe("native-dm-sqlite-integrity", () => {
   beforeEach(() => {
-    vi.mocked(dbGetMessages).mockReset();
+    vi.mocked(fetchDmThreadRows).mockReset();
   });
 
   it("flags hydrate_one_sided when UI paints only outgoing rows", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([
       {
         event_id: "out-1",
         profile_id: "profile-tester1",
@@ -68,7 +75,7 @@ describe("native-dm-sqlite-integrity", () => {
   });
 
   it("flags hydrate_empty_sqlite_nonempty when UI paints zero rows but sqlite has history", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([
       {
         event_id: "in-1",
         profile_id: "profile-tester1",
@@ -95,8 +102,8 @@ describe("native-dm-sqlite-integrity", () => {
     expect(result?.sqlite?.total).toBe(1);
   });
 
-  it("loads peer thread snapshots from sqlite rows", async () => {
-    vi.mocked(dbGetMessages).mockResolvedValue([
+  it("loads peer thread snapshots from engine thread rows", async () => {
+    vi.mocked(fetchDmThreadRows).mockResolvedValue([
       {
         event_id: "in-1",
         profile_id: "profile-tester1",

@@ -14,8 +14,9 @@ type WorkspaceDevRelayBootstrapOwnerProps = Readonly<{
 }>;
 
 /**
- * When the dev workspace relay is listening on :7000, enable it automatically.
- * When it is offline, disable it so dead localhost does not block public relay publish.
+ * Soft L3 helper: when :7000 is listening *and* no public/VPS remotes are enabled,
+ * enable Local Dev Mesh. When remotes are already enabled, never auto-enable lab
+ * (Nostr-first silo). When :7000 is offline, disable dead localhost.
  */
 export const WorkspaceDevRelayBootstrapOwner = ({
   enabled,

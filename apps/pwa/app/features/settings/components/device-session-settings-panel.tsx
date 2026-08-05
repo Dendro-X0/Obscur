@@ -2,7 +2,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { KeyRound, RefreshCcw, ShieldOff, Loader2 } from "lucide-react";
-import { Button, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { toast } from "@dweb/ui-kit/toast";
 import { cn } from "@/app/lib/cn";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";

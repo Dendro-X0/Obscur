@@ -44,10 +44,10 @@ describe("transport-engine w61 — standalone legacy production deletion executi
     expect(module).toContain("isStandaloneLegacyProductionPresent");
   });
 
-  it("resolves production legacy read path while files remain on disk", () => {
-    expect(isStandaloneLegacyProductionPresent(PWA_ROOT)).toBe(true);
+  it("resolves archive read path after W66 production deletion", () => {
+    expect(isStandaloneLegacyProductionPresent(PWA_ROOT)).toBe(false);
     expect(resolveTransportEngineStandaloneLegacyReadPath(PWA_ROOT)).toBe(
-      STANDALONE_LEGACY_FILES_TO_DELETE[0]!,
+      STANDALONE_LEGACY_ARCHIVE_PATH,
     );
 
     const legacy = readFileSync(
@@ -64,11 +64,11 @@ describe("transport-engine w61 — standalone legacy production deletion executi
     expect(resolveStandaloneLegacyContractReadPath(true)).toBe(STANDALONE_LEGACY_FILES_TO_DELETE[0]!);
   });
 
-  it("blocks production deletion while recorded sign-off is BLOCKED", () => {
+  it("sign-off is PASS; production legacy files are absent after W66", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

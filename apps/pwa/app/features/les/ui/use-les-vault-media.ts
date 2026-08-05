@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useTranslation } from "react-i18next";
 import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
 import type { VaultMediaItem } from "@/app/features/vault/types/vault-media-item";

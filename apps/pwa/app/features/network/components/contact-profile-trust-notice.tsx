@@ -3,7 +3,9 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { Button, Card, cn } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
+import { cn } from "@dweb/ui-kit/cn";
 import {
   sensitivityHintKey,
   sensitivityLabelKey,

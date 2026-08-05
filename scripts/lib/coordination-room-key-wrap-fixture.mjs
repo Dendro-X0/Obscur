@@ -132,15 +132,18 @@ export const ensureCoordinationMembershipJoin = async (params) => {
   const actorPubkey = derivePublicKeyHexFromPrivate(actorPrivateKeyHex);
   const subjectPubkey = (params.subjectPubkey ?? actorPubkey).trim().toLowerCase();
   const createdAtUnixMs = params.createdAtUnixMs ?? Date.now();
+  const force = params.force === true;
 
-  const headResponse = await fetch(
-    `${coordinationBaseUrl}/communities/${encodeURIComponent(communityId)}/membership/head`,
-  );
-  if (headResponse.ok) {
-    const headJson = await headResponse.json();
-    const seq = headJson?.data?.seq;
-    if (typeof seq === "number" && seq > 0) {
-      return { joined: true, skipped: true };
+  if (!force) {
+    const headResponse = await fetch(
+      `${coordinationBaseUrl}/communities/${encodeURIComponent(communityId)}/membership/head`,
+    );
+    if (headResponse.ok) {
+      const headJson = await headResponse.json();
+      const seq = headJson?.data?.seq;
+      if (typeof seq === "number" && seq > 0) {
+        return { joined: true, skipped: true };
+      }
     }
   }
 
@@ -170,10 +173,87 @@ export const ensureCoordinationMembershipJoin = async (params) => {
 
   const json = await response.json().catch(() => ({}));
   if (!response.ok || json.ok !== true) {
-    throw new Error(json.error ? String(json.error) : `join_delta_http_${response.status}`);
+    const errorText = json.error ? String(json.error) : `join_delta_http_${response.status}`;
+    // Rejoin after leave may already be active on coordination from a prior force join.
+    if (/already_active|already_member|duplicate/i.test(errorText)) {
+      return { joined: true, skipped: true, reason: errorText };
+    }
+    throw new Error(errorText);
   }
 
-  return { joined: true, skipped: false };
+  return { joined: true, skipped: false, seq: json?.data?.seq };
+};
+
+const fromBase64 = (value) => Uint8Array.from(Buffer.from(value, "base64"));
+
+export const nip04DecryptPayload = async ({
+  recipientPrivateKeyHex,
+  senderPublicKeyHex,
+  payload,
+}) => {
+  const parts = payload.split("?iv=");
+  if (parts.length !== 2) {
+    throw new Error("Invalid NIP-04 payload");
+  }
+  const ciphertext = fromBase64(parts[0]);
+  const iv = fromBase64(parts[1]);
+  const senderCompressedHex = `02${senderPublicKeyHex.trim().toLowerCase()}`;
+  const secret = getSharedSecret(recipientPrivateKeyHex, senderCompressedHex);
+  const keyBytes = secret.slice(1, 33);
+  const key = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CBC" }, false, ["decrypt"]);
+  const plaintextBuffer = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, key, ciphertext);
+  return new TextDecoder().decode(plaintextBuffer);
+};
+
+/**
+ * Prefer the latest self-wrap for Tester1; fall back to generating a wrap only when none decrypt.
+ */
+export const resolveNewTest2RoomKeyHex = async (params) => {
+  const coordinationBaseUrl = params.coordinationBaseUrl.replace(/\/$/, "");
+  const communityId = params.communityId.trim();
+  const groupId = params.groupId?.trim() || NEWTEST2_GROUP_ID;
+  const actorPrivateKeyHex = (params.actorPrivateKeyHex ?? TESTER1_PRIVATE_KEY_HEX).trim().toLowerCase();
+  const actorPubkey = derivePublicKeyHexFromPrivate(actorPrivateKeyHex);
+  const subjectPubkey = (params.subjectPubkey ?? actorPubkey).trim().toLowerCase();
+
+  const wraps = await fetchCoordinationRoomKeyWrapsSince(coordinationBaseUrl, communityId, 0);
+  const subjectWraps = wraps
+    .filter((wrap) => (wrap.subjectPubkey ?? "").trim().toLowerCase() === subjectPubkey)
+    .sort((a, b) => (b.wrapSeq ?? 0) - (a.wrapSeq ?? 0));
+
+  for (const wrap of subjectWraps) {
+    try {
+      const plaintext = await nip04DecryptPayload({
+        recipientPrivateKeyHex: actorPrivateKeyHex,
+        senderPublicKeyHex: wrap.actorPubkey,
+        payload: wrap.ciphertext,
+      });
+      const parsed = JSON.parse(plaintext);
+      const roomKeyHex = typeof parsed.roomKeyHex === "string" ? parsed.roomKeyHex.trim().toLowerCase() : "";
+      if (/^[0-9a-f]{64}$/.test(roomKeyHex)) {
+        return {
+          roomKeyHex,
+          roomKeySource: "existing_wrap",
+          wrapSeq: wrap.wrapSeq ?? null,
+        };
+      }
+    } catch {
+      // try next wrap
+    }
+  }
+
+  const published = await publishCoordinationRoomKeyWrapFixture({
+    coordinationBaseUrl,
+    communityId,
+    groupId,
+    actorPrivateKeyHex,
+    subjectPubkey,
+  });
+  return {
+    roomKeyHex: published.roomKeyHex,
+    roomKeySource: "published_new_wrap",
+    wrapSeq: published.wrapSeq,
+  };
 };
 
 export const publishCoordinationRoomKeyWrapFixture = async (params) => {

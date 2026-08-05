@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { ExternalLink, Play, Pause, RefreshCw, Volume2 } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";

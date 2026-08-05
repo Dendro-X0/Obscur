@@ -1,6 +1,7 @@
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contracts";
 import type {
   Attachment,
   ConnectionRequestStatusValue,
@@ -65,6 +66,7 @@ export type RelayPoolContract = Readonly<{
   resubscribeAll?: () => void;
   waitForConnection: (timeoutMs: number) => Promise<boolean>;
   waitForScopedConnection?: (relayUrls: ReadonlyArray<string>, timeoutMs: number) => Promise<boolean>;
+  reconnectAll?: (options?: Readonly<{ force?: boolean }>) => void;
   getWritableRelaySnapshot?: (scopedRelayUrls?: ReadonlyArray<string>) => {
     writableRelayUrls: ReadonlyArray<string>;
     [key: string]: unknown;
@@ -110,11 +112,15 @@ export type SendParams = Readonly<{
 
 export type SendResult = Readonly<{
   success: boolean;
-  deliveryStatus: "sent_quorum" | "sent_partial" | "queued_retrying" | "failed";
+  /** `pending_ack` = Phase-1 wire fired; relay OK still outstanding (async onConfirmed). */
+  deliveryStatus: "sent_quorum" | "sent_partial" | "queued_retrying" | "pending_ack" | "failed";
   messageId: string;
   eventId: string;
   relayResults: ReadonlyArray<RelayPublishOutcome>;
   error?: string;
+  /** Present when waitForConfirmation resolves from publish confirmation. */
+  partialWireDelivery?: boolean;
+  reasonCode?: DeliveryReasonCode;
   failureReason?: MessageActionFailureReason;
   blockReason?: RequestSendBlockReason;
   retryAtUnixMs?: number;

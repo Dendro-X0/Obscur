@@ -1,1 +1,1 @@
-export { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
+export { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit/avatar";

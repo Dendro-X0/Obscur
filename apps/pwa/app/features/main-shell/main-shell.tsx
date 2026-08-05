@@ -14,12 +14,20 @@ import { useRuntimeMessagingTransportOwnerController } from "@/app/features/mess
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { createPendingStartupAuthState, shouldShowStoredIdentityLockScreen, } from "@/app/features/auth/services/startup-auth-state-contracts";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useTranslation } from "react-i18next";
 import type { Conversation, DmConversation, GroupConversation, Message, SendDirectMessageParams, SendDirectMessageResult, VoiceCallInvitePayload, } from "@/app/features/messaging/types";
 import { applyConnectionOverrides, extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
 import { createRealtimeVoiceSessionOwner } from "@/app/features/messaging/services/realtime-voice-session-owner";
 import { getRealtimeVoiceCapability } from "@/app/features/messaging/services/realtime-voice-capability";
+import {
+    queryMediaPermission,
+    requestMediaStream,
+    shouldRequestMediaPermissionDirectly,
+} from "@/app/features/messaging/services/media-device-access";
+import { MediaDeviceConsentDialog } from "@/app/features/messaging/components/media-device-consent-dialog";
+import { isVoiceCallInviteDeliveryAccepted, shouldStartVoiceCallInviteSession } from "@/app/features/messaging/services/voice-call-invite-delivery";
+import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { resolveVoiceInviteTombstoneVerdict } from "@/app/features/messaging/services/realtime-voice-invite-tombstone";
 import { createVoiceCallSignalPayload, parseVoiceCallInvitePayload, parseVoiceCallSignalPayload, type VoiceCallSignalPayload, } from "@/app/features/messaging/services/realtime-voice-signaling";
 import { isRealtimeVoiceCallsEnabled } from "@/app/features/messaging/services/realtime-voice-feature-gate";
@@ -49,6 +57,8 @@ import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hook
 import { buildCommunityMembershipReadModelIndexGroupInputs } from "@/app/features/groups/services/community-membership-read-model-index-input";
 import { COMMUNITY_TERMINAL_MEMBERSHIP_UPDATED_EVENT, loadCommunityTerminalMembershipCache, } from "@/app/features/groups/services/community-terminal-membership-cache";
 import { dedupeCommunityMemberPubkeys } from "@/app/features/groups/services/community-member-roster-projection";
+import { loadCoordinationMembershipDirectoryRecord } from "@/app/features/groups/services/community-coordination-membership-directory-store";
+import { resolveCommunityHeaderMemberMetrics } from "@/app/features/groups/services/community-header-member-metrics";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
 import { resolveWorkspaceKernelActiveMemberPubkeys } from "@/app/features/workspace-kernel/workspace-kernel-roster-port";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
@@ -422,6 +432,8 @@ function NostrMessengerContent() {
     const activeVoiceCallSessionRef = useRef<ActiveVoiceCallSession | null>(null);
     const voicePeerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const voiceLocalStreamRef = useRef<MediaStream | null>(null);
+    const voiceMicConsentResolverRef = useRef<((stream: MediaStream | null) => void) | null>(null);
+    const [voiceMicConsentOpen, setVoiceMicConsentOpen] = useState(false);
     const voiceRemoteStreamRef = useRef<MediaStream | null>(null);
     const voiceRemoteAudioElementRef = useRef<HTMLAudioElement | null>(null);
     const voicePendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
@@ -638,21 +650,6 @@ function NostrMessengerContent() {
         selectedConversationView,
         selectedGroupMembershipReadModel,
         selectedGroupTerminalMembership,
-    ]);
-    const selectedGroupMemberCount = useMemo(() => {
-        if (selectedConversationView?.kind !== "group") {
-            return undefined;
-        }
-        const r2Count = selectedGroupMembershipReadModel[selectedConversationView.id]?.memberCount;
-        const activeCount = selectedGroupActiveMemberPubkeys.length;
-        if (activeCount > 0) {
-            return Math.max(1, activeCount, r2Count ?? 0);
-        }
-        return Math.max(1, r2Count ?? selectedConversationView.memberPubkeys?.length ?? 1);
-    }, [
-        selectedConversationView,
-        selectedGroupActiveMemberPubkeys,
-        selectedGroupMembershipReadModel,
     ]);
     const selectedCommunityBotTriggerSummary = useMemo(() => {
         if (selectedConversationView?.kind !== "group" || !groupState.metadata) {
@@ -1018,76 +1015,36 @@ function NostrMessengerContent() {
         if (typeof navigator === "undefined" || typeof navigator.mediaDevices?.getUserMedia !== "function") {
             return null;
         }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        const permission = await queryMediaPermission("microphone");
+        // Single-step: OS/WebView owns first grant. In-app dialog is recovery only.
+        if (shouldRequestMediaPermissionDirectly(permission)) {
+            const result = await requestMediaStream({ kind: "microphone" });
+            if (result.ok) {
+                voiceLocalStreamRef.current = result.stream;
+                return result.stream;
+            }
+            if (result.reasonCode !== "permission_denied") {
+                return null;
+            }
+        }
+
+        const stream = await new Promise<MediaStream | null>((resolve) => {
+            voiceMicConsentResolverRef.current = resolve;
+            setVoiceMicConsentOpen(true);
+        });
+        if (stream) {
             voiceLocalStreamRef.current = stream;
-            return stream;
         }
-        catch (error) {
-            const errorName = (error instanceof DOMException
-                ? error.name
-                : (error && typeof error === "object" && "name" in error
-                    ? String((error as {
-                        name?: unknown;
-                    }).name ?? "")
-                    : "")).trim();
-            const errorMessage = (error instanceof Error
-                ? error.message
-                : (error === null || error === undefined ? "" : String(error))).trim();
-            let reasonCode = "microphone_access_failed";
-            if (errorName === "NotAllowedError" || errorName === "SecurityError") {
-                reasonCode = "microphone_permission_denied";
-            }
-            else if (errorName === "NotFoundError" || errorName === "DevicesNotFoundError") {
-                reasonCode = "microphone_not_found";
-            }
-            else if (errorName === "NotReadableError" || errorName === "TrackStartError") {
-                reasonCode = "microphone_unavailable";
-            }
-            let permissionState: string | null = null;
-            if (typeof navigator.permissions?.query === "function") {
-                try {
-                    const status = await navigator.permissions.query({ name: "microphone" as PermissionName });
-                    permissionState = status.state;
-                }
-                catch {
-                    permissionState = null;
-                }
-            }
-            let hasAudioInput: boolean | null = null;
-            if (typeof navigator.mediaDevices?.enumerateDevices === "function") {
-                try {
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    hasAudioInput = devices.some((device) => device.kind === "audioinput");
-                }
-                catch {
-                    hasAudioInput = null;
-                }
-            }
-            logAppEvent({
-                name: "messaging.realtime_voice.media_access_failed",
-                level: "warn",
-                scope: { feature: "messaging", action: "realtime_voice_signal" },
-                context: {
-                    reasonCode,
-                    errorName: errorName || null,
-                    errorMessage: errorMessage || null,
-                    permissionState,
-                    hasAudioInput,
-                },
-            });
-            if (reasonCode === "microphone_not_found") {
-                toast.error(t("messaging.microphoneNotDetected"));
-            }
-            else if (reasonCode === "microphone_unavailable") {
-                toast.error(t("messaging.microphoneUnavailable"));
-            }
-            else {
-                toast.error(t("messaging.microphoneAccessDenied"));
-            }
-            return null;
-        }
-    }, [t]);
+        return stream;
+    }, []);
+
+    const closeVoiceMicConsent = useCallback((stream: MediaStream | null): void => {
+        setVoiceMicConsentOpen(false);
+        const resolver = voiceMicConsentResolverRef.current;
+        voiceMicConsentResolverRef.current = null;
+        resolver?.(stream);
+    }, []);
     const ensureVoicePeerConnection = useCallback(async (session: ActiveVoiceCallSession): Promise<RTCPeerConnection | null> => {
         if (voicePeerConnectionRef.current
             && activeVoiceCallSessionRef.current?.roomId === session.roomId
@@ -1380,10 +1337,17 @@ function NostrMessengerContent() {
                 peerPublicKeyInput: selectedConversationView.pubkey,
                 plaintext: JSON.stringify(payload),
                 customTags: [["t", "voice-call-invite"]],
+                waitForConfirmation: true,
+                suppressPublishFeedbackToast: true,
             });
-            const inviteSent = (result.deliveryStatus === "sent_quorum"
-                || result.deliveryStatus === "sent_partial");
-            if (!inviteSent) {
+            const inviteConfirmed = isVoiceCallInviteDeliveryAccepted(result.deliveryStatus);
+            const inviteProvisional = shouldStartVoiceCallInviteSession({
+                deliveryStatus: result.deliveryStatus,
+                partialWireDelivery: result.partialWireDelivery,
+                eventId: result.eventId || result.messageId,
+            }) && !inviteConfirmed;
+            const inviteStart = inviteConfirmed || inviteProvisional;
+            if (!inviteStart) {
                 logAppEvent({
                     name: "messaging.realtime_voice.invite_send_result",
                     level: "warn",
@@ -1394,25 +1358,38 @@ function NostrMessengerContent() {
                         roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
                         relayResultCount: result.relayResults.length,
                         hasError: !!result.error,
+                        partialWireDelivery: result.partialWireDelivery === true,
+                        reasonCode: result.reasonCode ?? null,
                     },
                 });
                 if (result.deliveryStatus === "queued_retrying") {
                     toast.warning(t("messaging.voiceCallInviteQueued"));
                 }
                 else {
-                    toast.error(result.error || t("messaging.voiceCallInviteSendFailed"));
+                    toast.error(
+                        getRelayPublishFailureUserMessage({
+                            reasonCode: result.reasonCode,
+                            error: result.error,
+                            successCount: result.relayResults.filter((r) => r.success).length,
+                            totalRelays: result.relayResults.length,
+                            partialWireDelivery: result.partialWireDelivery,
+                        }) || t("messaging.voiceCallInviteSendFailed"),
+                    );
                 }
                 return;
             }
             logAppEvent({
                 name: "messaging.realtime_voice.invite_send_result",
-                level: result.deliveryStatus === "sent_quorum" ? "info" : "warn",
+                level: inviteConfirmed && result.deliveryStatus === "sent_quorum" ? "info" : "warn",
                 scope: { feature: "messaging", action: "realtime_voice_invite" },
                 context: {
-                    status: result.deliveryStatus === "sent_quorum" ? "sent" : "partial",
+                    status: inviteConfirmed
+                        ? (result.deliveryStatus === "sent_quorum" ? "sent" : "partial")
+                        : "provisional_wire",
                     deliveryStatus: result.deliveryStatus ?? "unknown",
                     roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
                     relayResultCount: result.relayResults.length,
+                    partialWireDelivery: result.partialWireDelivery === true,
                 },
             });
             outgoingVoiceInviteRoomIdsRef.current.add(roomId);
@@ -1423,11 +1400,16 @@ function NostrMessengerContent() {
                 role: "host",
                 sinceUnixMs: Date.now(),
             });
-            if (result.deliveryStatus === "sent_quorum") {
+            if (inviteConfirmed && result.deliveryStatus === "sent_quorum") {
                 toast.success(t("messaging.voiceCallInviteSent"));
             }
-            else {
+            else if (inviteConfirmed) {
                 toast.warning(t("messaging.voiceCallInviteSentPartial"));
+            }
+            else {
+                toast.warning(getRelayPublishFailureUserMessage({
+                    partialWireDelivery: true,
+                }));
             }
         }
         catch {
@@ -3212,15 +3194,31 @@ function NostrMessengerContent() {
             lastObservedAtMs: peerLastActiveByPeerPubkey[publicKeyHex],
         });
     }, [nowMs, peerLastActiveByPeerPubkey, presence]);
-    const selectedGroupOnlineMemberCount = useMemo(() => {
+    const selectedGroupHeaderMetrics = useMemo(() => {
         if (selectedConversationView?.kind !== "group") {
-            return undefined;
+            return null;
         }
-        if (selectedGroupActiveMemberPubkeys.length === 0) {
-            return 0;
-        }
-        return selectedGroupActiveMemberPubkeys.filter((pubkey) => isPeerOnlineByEvidence(pubkey)).length;
-    }, [isPeerOnlineByEvidence, selectedConversationView, selectedGroupActiveMemberPubkeys]);
+        const communityId = selectedConversationView.communityId?.trim() ?? "";
+        const directoryRecord = communityId
+            ? loadCoordinationMembershipDirectoryRecord(communityId)
+            : null;
+        return resolveCommunityHeaderMemberMetrics({
+            directoryActivePubkeys: directoryRecord
+                ? directoryRecord.materialization.activeMemberPubkeys
+                : null,
+            directoryFetchedAtUnixMs: directoryRecord?.updatedAtUnixMs ?? null,
+            knownHerePubkeys: selectedGroupActiveMemberPubkeys,
+            isPeerOnline: isPeerOnlineByEvidence,
+        });
+    }, [
+        isPeerOnlineByEvidence,
+        selectedConversationView,
+        selectedGroupActiveMemberPubkeys,
+    ]);
+    const selectedGroupMemberCount = selectedGroupHeaderMetrics?.memberCount;
+    const selectedGroupMemberCountSource = selectedGroupHeaderMetrics?.memberCountSource;
+    const selectedGroupMemberCountFetchedAtMs = selectedGroupHeaderMetrics?.directoryFetchedAtUnixMs ?? null;
+    const selectedGroupOnlineMemberCount = selectedGroupHeaderMetrics?.onlineAmongVisible;
     const selectedGroupLastActivityAtMs = useMemo(() => {
         if (selectedConversationView?.kind !== "group") {
             return undefined;
@@ -3705,7 +3703,7 @@ function NostrMessengerContent() {
                 lastMessageTime: new Date()
             });
         }}/>) : null;
-    const activeChatView = selectedConversationView ? (<ChatView conversation={selectedConversationView} groupMemberCount={selectedGroupMemberCount} groupOnlineMemberCount={selectedGroupOnlineMemberCount} groupLastActivityAtMs={selectedGroupLastActivityAtMs} isPeerOnline={selectedConversationView.kind === "dm"
+    const activeChatView = selectedConversationView ? (<ChatView conversation={selectedConversationView} groupMemberCount={selectedGroupMemberCount} groupMemberCountSource={selectedGroupMemberCountSource} groupMemberCountFetchedAtMs={selectedGroupMemberCountFetchedAtMs} groupOnlineMemberCount={selectedGroupOnlineMemberCount} groupLastActivityAtMs={selectedGroupLastActivityAtMs} isPeerOnline={selectedConversationView.kind === "dm"
             ? isPeerOnlineByEvidence(selectedConversationView.pubkey)
             : undefined} interactionStatus={interactionByConversationId[selectedConversationView.id]} messages={visibleMessages} renderMetaMessages={visibleMessages} inviteResponseStatusByMessageId={inviteResponseStatusByMessageId} rawMessagesCount={visibleMessages.length} hasHydrated={hasHydrated || conversationHasHydrated} hasEarlierMessages={hasEarlierMessages} onLoadEarlier={handleLoadEarlier} nowMs={nowMs} flashMessageId={flashMessageId} onCopyPubkey={(pk) => {
             navigator.clipboard.writeText(pk);
@@ -3850,6 +3848,13 @@ function NostrMessengerContent() {
         ceremony={sendCeremonyViewModel}
         onClose={cancelSendCeremony}
         onConfirm={confirmSendCeremony}
+      />
+      <MediaDeviceConsentDialog
+        isOpen={voiceMicConsentOpen}
+        kind="microphone"
+        purpose="voice_call"
+        onClose={() => closeVoiceMicConsent(null)}
+        onGranted={(stream) => closeVoiceMicConsent(stream)}
       />
       <main className="flex flex-1 flex-col min-h-0 overflow-hidden bg-transparent">
         {!selectedConversationView ? (<EmptyConversationView onNewChat={() => setIsNewChatOpen(true)} showWelcome={showWelcome} myPublicKeyHex={myPublicKeyHex ?? ""} relayStatus={relayStatus} onCopyMyPubkey={handleCopyMyPubkey} onCopyChatLink={handleCopyChatLink} showHistorySyncNotice={showHistorySyncNotice}/>) : (activeChatView)}

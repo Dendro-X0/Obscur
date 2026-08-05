@@ -4,10 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { applyRelayListScopeMigration, LOCAL_DEV_WORKSPACE_RELAY_URL } from "../services/relay-transport-scope";
+import { applyRelayListScopeMigration, LOCAL_DEV_WORKSPACE_RELAY_URL, mergePublicBootIntoLoopbackOnlyList } from "../services/relay-transport-scope";
 import { normalizeWorkspaceRelayUrl } from "@/app/features/groups/services/workspace-relay-url";
 import { dedupeRelayListByWorkspaceIdentity } from "@/app/features/groups/services/workspace-relay-calibrator";
 import { validateRelayUrl } from "./validate-relay-url";
+import {
+  buildRelayRowsFromPreset,
+  PRODUCT_BOOT_TRANSPORT_PRESET,
+} from "@/app/features/transport-kernel/transport-preset-catalog";
 
 type RelayListItem = Readonly<{
   url: string;
@@ -49,16 +53,16 @@ const getE2eRelayOverride = (): ReadonlyArray<RelayListItem> | null => {
   return urls.map((url: string): RelayListItem => ({ url, enabled: true }));
 };
 
-/** Matches `infra/docker-compose.nostr.yml` (host port 7000 → container 8080). */
+/** Matches `infra/docker-compose.nostr.yml` (host port 7000 → container 8080). Lab/optional only. */
 export const LOCAL_DEV_RELAY_URL = LOCAL_DEV_WORKSPACE_RELAY_URL;
 
-const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = [
-  { url: "wss://relay.damus.io", enabled: true },
-  { url: "wss://nos.lol", enabled: true },
-  { url: LOCAL_DEV_RELAY_URL, enabled: false },
-  { url: "wss://relay.snort.social", enabled: false },
-  { url: "wss://relay.primal.net", enabled: false },
-];
+/**
+ * Cold / reset product default — public Default Stable (prod-first mandate 2026-08).
+ * Local Dev Mesh is an optional pack, not boot.
+ */
+const DEFAULT_RELAYS: ReadonlyArray<RelayListItem> = buildRelayRowsFromPreset(
+  PRODUCT_BOOT_TRANSPORT_PRESET,
+);
 
 const migrateLegacyLocalRelayUrl = (url: string): string => (
   url === "ws://localhost:7001" || url === "ws://127.0.0.1:7001"
@@ -127,6 +131,29 @@ const parseRelayListPayload = (raw: string): ReadonlyArray<RelayListItem> | null
   return sanitizedItems.length > 0 ? sanitizedItems : null;
 };
 
+const saveRelayListToStorage = (publicKeyHex: PublicKeyHex, relays: ReadonlyArray<RelayListItem>, profileId?: string): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(getRelayListStorageKey(publicKeyHex, profileId), JSON.stringify(relays));
+  } catch {
+    return;
+  }
+};
+
+const resolveLoadedRelayList = (
+  parsed: ReadonlyArray<RelayListItem>,
+  publicKeyHex: PublicKeyHex,
+  profileId?: string,
+): ReadonlyArray<RelayListItem> => {
+  const { relays: merged, changed } = mergePublicBootIntoLoopbackOnlyList(parsed, DEFAULT_RELAYS);
+  if (changed) {
+    saveRelayListToStorage(publicKeyHex, merged, profileId);
+  }
+  return merged;
+};
+
 const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex, profileId?: string): ReadonlyArray<RelayListItem> => {
   const override: ReadonlyArray<RelayListItem> | null = getE2eRelayOverride();
   if (override) {
@@ -141,7 +168,7 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex, profileId?: string
     const v2Raw = window.localStorage.getItem(v2Key);
     if (v2Raw) {
       const parsed = parseRelayListPayload(v2Raw);
-      return parsed ?? DEFAULT_RELAYS;
+      return parsed ? resolveLoadedRelayList(parsed, publicKeyHex, profileId) : DEFAULT_RELAYS;
     }
 
     const legacyRaw =
@@ -155,21 +182,13 @@ const loadRelayListFromStorage = (publicKeyHex: PublicKeyHex, profileId?: string
       return DEFAULT_RELAYS;
     }
     const migrated = applyRelayListScopeMigration(parsed);
-    saveRelayListToStorage(publicKeyHex, migrated, profileId);
-    return migrated;
+    const resolved = resolveLoadedRelayList(migrated, publicKeyHex, profileId);
+    if (resolved === migrated) {
+      saveRelayListToStorage(publicKeyHex, migrated, profileId);
+    }
+    return resolved;
   } catch {
     return DEFAULT_RELAYS;
-  }
-};
-
-const saveRelayListToStorage = (publicKeyHex: PublicKeyHex, relays: ReadonlyArray<RelayListItem>, profileId?: string): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(getRelayListStorageKey(publicKeyHex, profileId), JSON.stringify(relays));
-  } catch {
-    return;
   }
 };
 

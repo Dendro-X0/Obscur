@@ -59,9 +59,12 @@ describe("transport-engine w48 — pre-authority-flip exit evidence review", () 
     }
   });
 
-  it("keeps default port routing on standalone kernel owner with shim gate off", () => {
-    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
+  it("production port is thin; subtracted owns host routing with shim gate off", () => {
+    const thin = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    expect(thin).toContain("relay-standalone-publish-port-subtracted");
+    expect(thin).not.toContain("publishTransportKernelToRelayUrls");
+
+    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("shouldRouteHostTransportPublish");
     expect(shouldUseHostTransportPublishShim()).toBe(false);
   });

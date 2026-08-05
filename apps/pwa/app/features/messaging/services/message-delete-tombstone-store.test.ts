@@ -15,9 +15,16 @@ import {
 
 vi.mock("@dweb/db", () => ({
   isTauri: () => false,
-  dbGetTombstones: vi.fn(async () => []),
-  dbInsertTombstone: vi.fn(async () => undefined),
-  dbDeleteAllTombstonesForProfile: vi.fn(async () => undefined),
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+  listDmTombstones: vi.fn(async () => []),
+  insertDmTombstone: vi.fn(async () => undefined),
+  deleteAllDmTombstones: vi.fn(async () => undefined),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/shared/account-sync-mutation-signal", () => ({

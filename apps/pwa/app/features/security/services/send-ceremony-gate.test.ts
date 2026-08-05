@@ -56,6 +56,34 @@ describe("send-ceremony-gate (ASE-1c)", () => {
     expect(model?.reason).toBe("first_dm");
   });
 
+  it("skips first-DM ceremony when peer is already an accepted contact", () => {
+    expect(requiresFirstDmSendCeremony({
+      profileId: "default",
+      peerPublicKeyHex: PK_B,
+      priorOutgoingUserMessageCount: 0,
+      isPeerAccepted: true,
+    })).toBe(false);
+
+    expect(resolveSendCeremonyRequirement({
+      profileId: "default",
+      peerPublicKeyHex: PK_B,
+      priorOutgoingUserMessageCount: 0,
+      isPeerAccepted: true,
+      messageContent: "hello",
+      threadFirstPeerMessageAtUnixMs: null,
+    })).toEqual({ required: false, reason: null });
+  });
+
+  it("labels recipient binding as contact_card when provided", () => {
+    const model = buildSendCeremonyViewModel({
+      senderPublicKeyHex: PK_A,
+      recipientPublicKeyHex: PK_B,
+      recipientDisplayName: "Tester1",
+      recipientResolverSource: "contact_card",
+    });
+    expect(model?.recipientBinding.resolverSource).toBe("contact_card");
+  });
+
   it("requires trust confirm for risky outbound to unaccepted peer after first dm", () => {
     acknowledgeSendCeremony("default", PK_B);
     const requirement = resolveSendCeremonyRequirement({

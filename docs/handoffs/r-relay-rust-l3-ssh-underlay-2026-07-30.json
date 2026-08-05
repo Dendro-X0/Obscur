@@ -1,0 +1,41 @@
+{
+  "slice": "RUST-5c",
+  "at": "2026-07-30T16:27:30.203Z",
+  "ok": true,
+  "relay": "ws://127.0.0.1:7000",
+  "bastion": "ops@127.0.0.1:2222",
+  "localForward": "127.0.0.1:19001 → 172.18.0.2:8080",
+  "dialUrl": "ws://127.0.0.1:19001",
+  "results": [
+    {
+      "name": "product_relay_7000",
+      "ok": true,
+      "detail": "listening"
+    },
+    {
+      "name": "ssh_identity",
+      "ok": true,
+      "detail": "E:\\Temp\\obscur-l3-ssh\\id_ed25519"
+    },
+    {
+      "name": "bastion_container",
+      "ok": true,
+      "detail": "obscur-l3-ssh-bastion :2222"
+    },
+    {
+      "name": "bastion_ssh_login",
+      "ok": true,
+      "detail": "ops@127.0.0.1 BatchMode"
+    },
+    {
+      "name": "relay_remote_for_forward",
+      "ok": true,
+      "detail": "172.18.0.2:8080"
+    },
+    {
+      "name": "cargo_l3_ssh_underlay",
+      "ok": true,
+      "detail": "mesh configure→forward→REQ Pass"
+    }
+  ]
+}

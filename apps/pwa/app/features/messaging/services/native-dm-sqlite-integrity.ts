@@ -1,5 +1,8 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbGetMessages, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { fetchDmThreadRows } from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { toConversationIdDiagnosticLabel } from "@dweb/client-gateway/messaging-diagnostics";
@@ -12,6 +15,13 @@ import { toDmConversationId } from "../utils/dm-conversation-id";
 const toRowTimestampUnixMs = (value: number): number => (
   value < 1_000_000_000_000 ? value * 1000 : value
 );
+
+let integrityEngineHost: HostEnginePort | null = null;
+
+const getIntegrityEngineHost = (): HostEnginePort => {
+  integrityEngineHost ??= createTauriEngineHost();
+  return integrityEngineHost;
+};
 
 export type NativeDmSqliteDirectionCounts = Readonly<{
   outgoing: number;
@@ -34,7 +44,14 @@ export const countNativeDmSqliteDirections = async (params: Readonly<{
   }
   const limit = params.limit ?? 500;
   try {
-    const rows = await dbGetMessages(profileId, params.conversationId, limit);
+    const rows = await fetchDmThreadRows({
+      host: getIntegrityEngineHost(),
+      profileId,
+      payload: {
+        conversationId: params.conversationId,
+        limit,
+      },
+    });
     let outgoing = 0;
     let incoming = 0;
     const account = params.myPublicKeyHex.trim().toLowerCase();
@@ -225,7 +242,14 @@ export const loadNativeDmSqlitePeerThreadSnapshots = async (params: Readonly<{
   if (!profileId) {
     return [];
   }
-  const rows = await dbGetMessages(profileId, conversationId, params.limit ?? 200);
+  const rows = await fetchDmThreadRows({
+    host: getIntegrityEngineHost(),
+    profileId,
+    payload: {
+      conversationId,
+      limit: params.limit ?? 200,
+    },
+  });
   const account = params.myPublicKeyHex.trim().toLowerCase();
   return rows.map((row) => ({
     id: row.event_id,

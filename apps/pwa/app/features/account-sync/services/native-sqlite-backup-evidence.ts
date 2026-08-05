@@ -1,15 +1,16 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupMessageRecord, GroupRecord, MessageRecord } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { fetchDmThreadRows, listDmConversations } from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import {
-  dbGetConversations,
-  dbGetGroupMessages,
-  dbGetGroups,
-  dbGetMessages,
-  dbInsertGroupMessage,
-  dbInsertMessage,
-  dbUpsertGroup,
-  isTauri,
-} from "@dweb/db";
+  insertWorkspaceGroupMessage,
+  listWorkspaceGroupMessages,
+  listWorkspaceGroups,
+  upsertWorkspaceGroup,
+} from "@obscur/workspace-engine";
+import { writeDmKernelMessage } from "@/app/features/dm-kernel/dm-kernel-write-port";
 import { syncPersistedGroupsToSqliteFromChatState } from "@/app/features/groups/services/community-group-sqlite-store";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
@@ -20,6 +21,13 @@ import type { NativeSqliteBackupEvidenceSnapshot } from "../account-sync-contrac
 
 const DM_MESSAGE_LIMIT = 200;
 const GROUP_MESSAGE_LIMIT = 200;
+
+let backupEvidenceEngineHost: HostEnginePort | null = null;
+
+const getBackupEvidenceEngineHost = (): HostEnginePort => {
+  backupEvidenceEngineHost ??= createTauriEngineHost();
+  return backupEvidenceEngineHost;
+};
 
 const groupRecordKey = (record: GroupRecord): string => (
   `${record.id}@@${record.relay_url}`
@@ -149,10 +157,18 @@ export const collectNativeSqliteBackupEvidence = async (params: Readonly<{
   const groupMessageRows: GroupMessageRecord[] = [];
   const groupRows: GroupRecord[] = [];
 
+  const host = getBackupEvidenceEngineHost();
   await Promise.all(profileIds.map(async (profileId) => {
-    const conversations = await dbGetConversations(profileId).catch(() => []);
+    const conversations = await listDmConversations({ host, profileId }).catch(() => []);
     const conversationRows = await Promise.all(conversations.map(async (conversation) => (
-      dbGetMessages(profileId, conversation.id, DM_MESSAGE_LIMIT).catch(() => [])
+      fetchDmThreadRows({
+        host,
+        profileId,
+        payload: {
+          conversationId: conversation.id,
+          limit: DM_MESSAGE_LIMIT,
+        },
+      }).catch(() => [])
     )));
     conversationRows.flat().forEach((row) => {
       if (sqliteRowInvolvesAccount(row, account)) {
@@ -160,10 +176,15 @@ export const collectNativeSqliteBackupEvidence = async (params: Readonly<{
       }
     });
 
-    const groups = await dbGetGroups(profileId).catch(() => []);
+    const groups = await listWorkspaceGroups({ host, profileId }).catch(() => []);
     groupRows.push(...groups);
     const messageGroups = await Promise.all(groups.map(async (group) => (
-      dbGetGroupMessages(profileId, group.id, GROUP_MESSAGE_LIMIT).catch(() => [])
+      listWorkspaceGroupMessages({
+        host,
+        profileId,
+        groupId: group.id,
+        limit: GROUP_MESSAGE_LIMIT,
+      }).catch(() => [])
     )));
     groupMessageRows.push(...messageGroups.flat());
   }));
@@ -219,13 +240,21 @@ export const applyNativeSqliteBackupEvidence = async (params: Readonly<{
   }
   await Promise.all([
     ...params.evidence.groupRecords.map((group) => (
-      dbUpsertGroup({ ...group, profile_id: profileId }).catch(() => undefined)
+      upsertWorkspaceGroup({
+        host: getBackupEvidenceEngineHost(),
+        profileId,
+        group: { ...group, profile_id: profileId },
+      }).catch(() => undefined)
     )),
-    ...params.evidence.dmMessages.map((message) => (
-      dbInsertMessage({ ...message, profile_id: profileId }).catch(() => undefined)
-    )),
+    ...params.evidence.dmMessages.map(async (message) => {
+      await writeDmKernelMessage({ ...message, profile_id: profileId });
+    }),
     ...params.evidence.groupMessages.map((message) => (
-      dbInsertGroupMessage({ ...message, profile_id: profileId }).catch(() => undefined)
+      insertWorkspaceGroupMessage({
+        host: getBackupEvidenceEngineHost(),
+        profileId,
+        message: { ...message, profile_id: profileId },
+      }).catch(() => undefined)
     )),
   ]);
 };

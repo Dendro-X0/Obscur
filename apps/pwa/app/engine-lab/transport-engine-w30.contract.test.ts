@@ -22,9 +22,12 @@ describe("transport-engine w30 — host publish owner migration charter", () => 
     expect(charter).toContain("design + contract only");
   });
 
-  it("keeps relay-standalone-publish-port on standalone owner by default with gated host shim", () => {
-    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
+  it("production port is thin; subtracted owns host shim routing after W66", () => {
+    const thin = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    expect(thin).toContain("relay-standalone-publish-port-subtracted");
+    expect(thin).not.toContain("publishTransportKernelToRelayUrls");
+
+    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("shouldRouteHostTransportPublish");
     expect(port).toContain("publishHostTransportShimToRelayUrls");
   });

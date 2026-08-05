@@ -11,12 +11,19 @@ import {
 
 const PUBLIC_KEY = "a".repeat(64);
 
-vi.mock("@dweb/db", () => ({
-  dbWipeProfileLocalData: vi.fn(async (profileId: string, removeProfileRow: boolean) => ({
-    profile_id: profileId,
-    rows_deleted: removeProfileRow ? 4 : 3,
-    profile_row_deleted: removeProfileRow,
+vi.mock("@obscur/persistence-engine", () => ({
+  wipeProfileLocalData: vi.fn(async (params: {
+    profileId: string;
+    removeProfileRow?: boolean;
+  }) => ({
+    profile_id: params.profileId,
+    rows_deleted: params.removeProfileRow ? 4 : 3,
+    profile_row_deleted: params.removeProfileRow === true,
   })),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({

@@ -6,12 +6,14 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { TombstoneRecord } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import {
-  dbDeleteMessage,
-  dbDeleteMessages,
-  dbInsertTombstone,
-  isTauri,
-} from "@dweb/db";
+  deleteDmMessage,
+  deleteDmMessages,
+  insertDmTombstone,
+} from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { accountEventStore } from "@/app/features/account-sync/services/account-event-store";
 import { accountProjectionRuntime } from "@/app/features/account-sync/services/account-projection-runtime";
 import type { AccountEvent } from "@/app/features/account-sync/account-event-contracts";
@@ -38,6 +40,13 @@ import type {
 const inflightEnsure = new Map<string, Promise<void>>();
 const suppressedByProfile = new Map<string, ReadonlySet<string>>();
 const inflightHideBackground = new Map<string, Promise<void>>();
+
+let dmDeleteEngineHost: HostEnginePort | null = null;
+
+const getDmDeleteEngineHost = (): HostEnginePort => {
+  dmDeleteEngineHost ??= createTauriEngineHost();
+  return dmDeleteEngineHost;
+};
 
 const scheduleDeferredProjectionReplay = (params: Readonly<{
   profileId: string;
@@ -230,13 +239,22 @@ const persistNativeSqliteDeletes = async (
   if (deleteIds.length === 0) {
     return;
   }
+  const host = getDmDeleteEngineHost();
   try {
-    await dbDeleteMessages(deleteIds as string[], profileId);
+    await deleteDmMessages({
+      host,
+      profileId,
+      eventIds: deleteIds,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("db_delete_messages")) {
+    if (message.includes("deleteMessages") || message.includes("db_delete_messages")) {
       await Promise.all(deleteIds.map((deleteId) => (
-        dbDeleteMessage(deleteId, profileId).catch(() => undefined)
+        deleteDmMessage({
+          host,
+          profileId,
+          eventId: deleteId,
+        }).catch(() => undefined)
       )));
     }
   }
@@ -247,7 +265,11 @@ const persistNativeSqliteDeletes = async (
       deleted_at: deletedAtUnixMs,
       deleted_by: "",
     };
-    return dbInsertTombstone(rec).catch(() => undefined);
+    return insertDmTombstone({
+      host,
+      profileId,
+      record: rec,
+    }).catch(() => undefined);
   }));
 };
 

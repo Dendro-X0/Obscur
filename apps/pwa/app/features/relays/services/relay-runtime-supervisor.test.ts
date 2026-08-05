@@ -360,6 +360,79 @@ describe("relay-runtime-supervisor", () => {
     }
   });
 
+  it("skips primary failover when Rust mesh scheduler owns failover (RUST-4a)", async () => {
+    vi.useFakeTimers();
+    try {
+      const attemptPrimaryFailover = vi.fn(() => true);
+      const supervisor = createRelayRuntimeSupervisor();
+      const pool = createPool({
+        writableRelayUrls: [],
+        subscribableRelayCount: 0,
+      });
+
+      supervisor.configure({
+        pool,
+        enabledRelayUrls: ["ws://localhost:7000"],
+        allEnabledRelayUrls: ["ws://localhost:7000", "wss://relay.damus.io"],
+        userEnabledRelayUrls: ["ws://localhost:7000", "wss://relay.damus.io"],
+        engineConfiguredRelayUrls: [],
+        engineCheckpointRelayUrls: [],
+        engineRelayCheckpointCount: 0,
+        attemptPrimaryFailover,
+        meshSchedulerOwnsFailover: true,
+        transportMode: "basic",
+        scope: {
+          windowLabel: "main",
+          profileId: "default",
+        },
+      });
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
+      await supervisor.triggerRecovery("no_writable_relays");
+
+      expect(attemptPrimaryFailover).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("D2: Single-node recovery probes failover when standby already writable", async () => {
+    vi.useFakeTimers();
+    try {
+      const attemptPrimaryFailover = vi.fn(() => true);
+      const supervisor = createRelayRuntimeSupervisor();
+      const pool = createPool({
+        writableRelayUrls: ["wss://relay.primal.net"],
+        subscribableRelayCount: 1,
+      });
+
+      supervisor.configure({
+        pool,
+        enabledRelayUrls: ["wss://nos.lol", "wss://relay.primal.net"],
+        allEnabledRelayUrls: ["wss://nos.lol", "wss://relay.primal.net"],
+        userEnabledRelayUrls: ["wss://nos.lol", "wss://relay.primal.net"],
+        engineConfiguredRelayUrls: [],
+        engineCheckpointRelayUrls: [],
+        engineRelayCheckpointCount: 0,
+        attemptPrimaryFailover,
+        meshSchedulerOwnsFailover: false,
+        transportMode: "basic",
+        scope: {
+          windowLabel: "main",
+          profileId: "default",
+        },
+      });
+
+      vi.setSystemTime(new Date("2026-01-01T00:00:09.000Z"));
+      supervisor.refresh();
+      await supervisor.triggerRecovery("no_writable_relays");
+
+      expect(attemptPrimaryFailover).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("records replay outcomes into relay resilience observability", () => {
     relayTransportJournal.markSubscriptionReplayResult({
       reasonCode: "manual",

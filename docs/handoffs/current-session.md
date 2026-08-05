@@ -1,10 +1,608 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-01T06:45:00Z
+- Last Updated (UTC): 2026-08-05T04:50:46Z
 
 ## Next atomic step
 
-**Hold — Desktop Relays smoke Pass (P0–P6 signals)** · 2026-08-01
+**Release prep v1.9.15 (DM/path restore)** · maintainer package/tag · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | DM + media L3 Pass (maintainer). Prep **v1.9.15** notes/bump/tag — do **not** un-pause community yet |
+| Spec | [v1.9.15-release.md](../releases/v1.9.15-release.md) · [v1.9.15-scope.md](../program/v1.9.15-scope.md) · [dm-send-thin-refactor-design-2026-08.md](../../specs/backend/dm-send-thin-refactor-design-2026-08.md) |
+| L3 | **Pass** — maintainer: DMs + media upload/send restored on desktop |
+| Next band (after tag) | Community verify (needs un-pause charter) · Vault / local security soak |
+| Do **not** | Patch `groups/**` while COM-RUN PAUSED · claim community/Vault ship in 1.9.15 · AUTH-SESSION · Soft L3 Docker SLA |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — DM send thin refactor Phase 1
+
+**DM send thin refactor Phase 1 Pass (L1+L3)** · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | Removed warm/`forceReconnectAll` from send; mesh `reconnectAll` = `setRelayUrls`; Rust ACK kept |
+| Spec | [dm-send-thin-refactor-investigation-2026-08.md](../../specs/backend/dm-send-thin-refactor-investigation-2026-08.md) · [dm-send-thin-refactor-design-2026-08.md](../../specs/backend/dm-send-thin-refactor-design-2026-08.md) |
+| L1 | **40/40** |
+| Desktop verify | **Pass** — DMs + media normal (maintainer 2026-08-05) |
+| Prior | CodaCtrl error chain + thin refactor charter |
+| Do **not** | Full-tree restore · rewrite `relay.rs` · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — DM communication recovery (feasibility gate)
+
+**DM communication recovery — feasibility gate** · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | Stop warm/reconnect patch loop; choose restore vs thin rewrite |
+| Spec | [dm-comm-recovery-feasibility-2026-08.md](../../specs/backend/dm-comm-recovery-feasibility-2026-08.md) |
+| Decision | **B-variant:** thin refactor, Rust retained, preserve unrelated UI |
+| Do **not** | Soft L3 Docker · AUTH-SESSION · groups/** · video |
+
+---
+
+## Prior atomic step — Mesh reconnect re-dials WS (open=0 residual)
+
+**Mesh reconnect re-dials WS (open=0 residual) Pass (L1)** · maintainer desktop verify · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | `reconnectAll` → `forceReconnectAll(poolUrls)`; warm force-dials **before** wait when open=0; sqlite ghost-call honesty retained |
+| Spec | [relay-open-socket-ghost-call-regression-investigation-2026-08.md](../../specs/backend/relay-open-socket-ghost-call-regression-investigation-2026-08.md) |
+| L1 | warmup + nostr-ws-client + call-record + dm-send-pipeline · **38/38** |
+| Desktop verify | **Failed / residual** — reconnect thrash in NativeRelay logs; send still unreliable |
+| Prior | Open-socket warm + ghost-call honesty |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Open-socket warm + ghost-call honesty
+
+**Open-socket warm + ghost-call honesty Pass (L1)** · maintainer desktop verify · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | Warm requires real open sockets (not probe publish-ready); mesh waitFor* waits for open; reconnect once; sqlite `ended` ≠ CALL COMPLETED |
+| Spec | [relay-open-socket-ghost-call-regression-investigation-2026-08.md](../../specs/backend/relay-open-socket-ghost-call-regression-investigation-2026-08.md) |
+| L1 | warmup + call-record + dm-send-pipeline · **26/26** |
+| Desktop verify | Rebuild shell · Relays open sockets > 0 before send succeeds; no spurious CALL COMPLETED 0:30 on cold start |
+| Prior | Relay warm-up + notification hygiene (regressed to open=0 / ghost call) |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Relay warm-up + notification hygiene
+
+**Relay warm-up + notification hygiene Pass (L1)** · maintainer desktop verify · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | `warmRelayNetworkForSend` before DM publish; message toast title sans duplicate emoji; suppress when chat visible (no hasFocus); OS toast only when document hidden |
+| Spec | [relay-warmup-notification-hygiene-investigation-2026-08.md](../../specs/backend/relay-warmup-notification-hygiene-investigation-2026-08.md) · [relay-warmup-notification-hygiene-design-2026-08.md](../../specs/backend/relay-warmup-notification-hygiene-design-2026-08.md) |
+| L1 | warmup + presentation + handler + dm-send-pipeline · **50/50** |
+| Desktop verify | Rebuild shell · cold-start send waits/connects without spurious confirm-fail; OS toast single icon; open DM does not OS-toast |
+| Prior | Voice call OS notification layout |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Voice call OS notification layout
+
+**Voice call OS notification layout Pass (L1+L2)** · maintainer desktop verify · 2026-08-05
+
+| Field | Value |
+|-------|--------|
+| Slice | Circular app-logo avatar (not inline hero); call title = name, body = preview; Accept/Reject on Windows toast → `desktop://incoming-call-action` |
+| Spec | [voice-call-os-notification-investigation-2026-08.md](../../specs/backend/voice-call-os-notification-investigation-2026-08.md) · [voice-call-os-notification-design-2026-08.md](../../specs/backend/voice-call-os-notification-design-2026-08.md) |
+| L1 | notification-presentation + desktop-notification-handler · **32/32** |
+| L2 | `cargo check -p obscur_desktop_lib` · Pass |
+| Desktop verify | Rebuild shell · incoming voice OS toast: circular avatar left of name, preview under, Accept/Reject work, single icon (no dual 📞) |
+| Prior | DM send Phase-1 skip (voice invite peer-visible restored) |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — DM send Phase-1 skip when onConfirmed
+
+**DM send Phase-1 skip when onConfirmed Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Skip Phase-1 `sendToOpen` when `onConfirmed` set (avoid OK race); single publish+OK path so voice invites can reach peer |
+| Spec | [voice-invite-peer-invisible-investigation-2026-08.md](../../specs/backend/voice-invite-peer-invisible-investigation-2026-08.md) · [dm-send-skip-phase1-when-confirmed-design-2026-08.md](../../specs/backend/dm-send-skip-phase1-when-confirmed-design-2026-08.md) |
+| L1 | dm-send-pipeline · **12/12** |
+| Desktop verify | Rebuild shell · dual profile A→B voice invite → peer sees invite card (and preferably confirmed toast, not only provisional wire warning) |
+| Prior | Voice invite provisional wire + card honesty |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Voice invite provisional wire + card honesty
+
+**Voice invite provisional wire + card honesty Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Start ringing on confirmed ACK **or** provisional wire (`partialWireDelivery`); outgoing card follows `message.status` |
+| Spec | [voice-call-invite-ack-residual-investigation-2026-08.md](../../specs/backend/voice-call-invite-ack-residual-investigation-2026-08.md) · [voice-call-invite-wire-provisional-design-2026-08.md](../../specs/backend/voice-call-invite-wire-provisional-design-2026-08.md) |
+| L1 | voice-call-invite-delivery + voice-call-invite-card · **11/11** |
+| Prior | Voice note dark contrast + single-step mic |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Voice note dark contrast + single-step mic
+
+**Voice note dark contrast + single-step mic Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Outgoing voice player readable on dark-mode light bubble; first mic grant = OS prompt only (in-app dialog = recovery) |
+| Spec | [voice-note-dark-mode-mic-single-step-investigation-2026-08.md](../../specs/backend/voice-note-dark-mode-mic-single-step-investigation-2026-08.md) · [voice-note-dark-mode-mic-single-step-design-2026-08.md](../../specs/backend/voice-note-dark-mode-mic-single-step-design-2026-08.md) |
+| L1 | media-device-access · **8/8** (`shouldRequestMediaPermissionDirectly`) |
+| Desktop verify | Rebuild shell → dark mode outgoing voice note (play/waveform/time visible); tap mic → **one** WebView/OS prompt (no prior in-app Allow); denied → recovery dialog |
+| Prior | Voice call invite send honesty |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video conferencing · attempting to suppress OS permission UI |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Voice call invite send honesty
+
+**Voice call invite send honesty Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Phase-1 DM return is `pending_ack` (not `failed`); voice invite awaits ACK (`waitForConfirmation`) and owns toast (no double “failed + delivery unconfirmed”) |
+| Spec | [voice-call-invite-send-investigation-2026-08.md](../../specs/backend/voice-call-invite-send-investigation-2026-08.md) |
+| L1 | voice-call-invite-delivery + dm-send-pipeline D2 pending_ack · focused suites |
+| Desktop verify | Rebuild shell → start voice call → either success toast + ringing **or** single honest failure after ACK timeout (not instant fail while card says sent) |
+| Prior | Media device consent dialog |
+| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video conferencing |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Media device consent dialog
+
+**Media device consent dialog Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Mic consent dialog lists detected devices; Allow → getUserMedia; Not now (no red toast). Wired voice note + voice call. Camera dialog API ready (QR follow-up). No video conferencing. |
+| Spec | [media-device-consent-investigation-2026-08.md](../../specs/backend/media-device-consent-investigation-2026-08.md) · [media-device-consent-design-2026-08.md](../../specs/backend/media-device-consent-design-2026-08.md) |
+| L1 | media-device-access · **7/7** |
+| Desktop verify | Rebuild static shell → tap mic → dialog with device list → Allow records; Not now closes without “Microphone access denied” toast |
+| Prior | Chat image load after restart |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** · video conferencing |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Chat image load after restart
+
+**Chat image load after restart Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Chat bubbles resolve local/LES display src + native-fetch→blob on `<img>` failure; strip persisted `blob:` attachments |
+| Spec | [chat-image-load-after-restart-investigation-2026-08.md](../../specs/backend/chat-image-load-after-restart-investigation-2026-08.md) · [chat-image-load-after-restart-design-2026-08.md](../../specs/backend/chat-image-load-after-restart-design-2026-08.md) |
+| L1 | chat-attachment-display-url + dm-normalize + persistence.attachments · **19/19** |
+| Desktop verify | Rebuild static shell → restart app → reopen DM with prior image → paints (not LOAD FAILED). Retry still recovers via native fetch when CDN flaky. |
+| Prior | Vault save unlock i18n |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Vault save unlock i18n + PDK ensure
+
+**Vault save unlock i18n + PDK ensure Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Missing `vault.writeUnlock*` in runtime en.json; LES ensure pushes PDK to native; context-menu unlock dialog |
+| Spec | [vault-save-unlock-i18n-investigation-2026-08.md](../../specs/backend/vault-save-unlock-i18n-investigation-2026-08.md) |
+| L1 | vault-write-unlock-i18n + attachment-context-menu + save-chat-attachment · **8/8** (+ LES contracts) |
+| Desktop verify | Lightbox Save to Vault shows English unlock copy (not raw keys); after profile password, save succeeds; toast alone without dialog when PDK missing is replaced by dialog from context menu |
+| Prior | Notification peer avatar |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Notification peer avatar
+
+**Notification peer avatar Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | OS toast shows peer/group **https** avatar via Windows `image_path` (cached download) |
+| Spec | [notification-peer-avatar-design-2026-08.md](../../specs/backend/notification-peer-avatar-design-2026-08.md) |
+| L1 | notification-presentation + notification-peer-icon · **9/9** |
+| L2 | `cargo check -p obscur_desktop_lib` Pass |
+| Desktop verify | Background DM from contact with kind-0 `picture` → face on toast; emoji kind glyphs still present |
+| Prior | R1.2 dismiss-snooze + content-kind icons |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — R1.2 dismiss-snooze + notification content icons
+
+**R1.2 dismiss-snooze + notification content icons Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Soft toast | Dismiss (X) snoozes soft relay warnings **15 min** |
+| Notifications | Content-kind emoji + SVG icon (image/audio/video/voice/file/call/text) |
+| Specs | [relay-toast-r1-dedupe-design-2026-08.md](../../specs/backend/relay-toast-r1-dedupe-design-2026-08.md) · [notification-content-kind-icons-design-2026-08.md](../../specs/backend/notification-content-kind-icons-design-2026-08.md) |
+| L1 | native-error-store + notification-presentation · **13/13** |
+| Desktop verify | Dismiss primal toast → no reappear soon; image DM toast shows 🖼️ |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — R1.1 soft relay toast less intrusive
+
+**R1.1 soft relay toast less intrusive Pass (L1)** · 45s throttle · host flaps no force re-paint · L1 8/8.
+
+---
+
+## Prior atomic step — Relays UI publish-ready signal
+
+**Relays UI publish-ready signal Pass (L1)** · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| Slice | Cards follow mesh `publishReady` — not stuck CONNECTING / `n/a` / Primary (offline) while DMs work |
+| Spec | [relay-ui-publish-ready-signal-investigation-2026-08.md](../../specs/backend/relay-ui-publish-ready-signal-investigation-2026-08.md) |
+| L1 | runtime-status + latency-label (+ lab silo) · **59** in combined run |
+| Owners | `deriveRelayNodeStatus` · `formatRelayLatencyLabel` · `RelayMetricCard` |
+| Desktop verify | Refresh Relays metrics: publish-ready remotes show **Ready** / Active transport (not n/a); footer Open sockets = real WS opens |
+| Prior | Nostr-first lab silo (localhost STANDBY beside remotes) |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Nostr-first lab silo
+
+**Nostr-first lab silo Pass (L1)** · localhost always excluded from ACTIVE when remotes enabled · L1 38/38.
+
+---
+
+## Prior atomic step — Adaptive localhost demotion (latency)
+
+**Superseded** by Nostr-first always-demote. Latency ≥1500ms demote failed product verify (596ms QUIET still ACTIVE; publics STANDBY).
+
+---
+
+## Prior atomic step — Peer metadata + relay toast (M1·M2·R1)
+
+**Peer metadata + relay toast band closed** (M1·M2·R1 Pass) · maintainer desktop verify · 2026-08-04
+
+| Field | Value |
+|-------|--------|
+| R1 Pass | Soft relay toast coalesce (connect+init) · 8s UI notify throttle · L1 8/8 |
+| Spec | [relay-toast-r1-dedupe-design-2026-08.md](../../specs/backend/relay-toast-r1-dedupe-design-2026-08.md) |
+| Prior | M1 kind-0 retry · M2 short-preview labels · D0–D4 auto-correct |
+| Optional next | Refresh desktop · confirm labels + fewer toast flashes · or R2 dial-order measure |
+| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
+| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+
+---
+
+## Prior atomic step — Soft L3 after manual unlock (parked)
+
+Parked: Soft L3 mid-pass then CDP wedged. Maintainer pivot — **manual core verify** + **non-container production relay**, not Soft L3 lab Docker.
+
+---
+
+## Prior atomic step — Soft L3 credentials + MCP
+
+Maintainer supplied Tester1/Tester2 passwords. Soft-nav `/` recovered unlocked session once; Soft L3 reached dual-profile openPeer then **wedged CDP**. Desktop restarted (`pnpm dev:desktop:online`); CDP `:9230` up on `/profiles`. Fresh boot evaluate still slow — prefer **manual Sign in** then Soft L3.
+
+---
+
+## Prior atomic step — Soft L3 re-proof (core + relay band)
+
+**Blocked** (harness): preflight green; hung ≥7m at unlock with `identityStatus: locked` and no auth gate. Route fix kept. No Soft L3 Pass claim. Evidence: [soft-l3-reproof-blocked-unlock-2026-08.md](../../specs/backend/soft-l3-reproof-blocked-unlock-2026-08.md).
+
+---
+
+## Prior atomic step — Maintainer band choice (core + relay)
+
+**Pass** (L1–L2): `pnpm verify:engine-lab` exit 0. Gate fixes for proof: workspace `target/` resolve in `verify-engine-host-headless.mjs`; `verify:engine-b4-w0` uses `cargo build --lib` (avoids locked `obscur_desktop_app.exe` under `dev:desktop:online`); profile isolation `listen` rejection caught under vitest/jsdom.
+
+---
+
+## Prior atomic step — W66 standalone legacy deletion
+
+**Implemented** (L1–L2): Maintainer chat `deletion` → sign-off PASS → `execute-transport-standalone-legacy-subtraction.mjs` exit 0 · production `transport-kernel-standalone-publish{,-legacy}.ts` deleted · thin `relay-standalone-publish-port.ts` · contracts/harnesses retargeted to archive + subtracted port · `pnpm verify:transport-engine-w67` Pass · `pnpm verify:transport-engine-w68` Pass.
+
+---
+
+## Prior atomic step — W66 readiness prep (agent)
+
+**Complete:** readiness brief · stale W12/W24 invite-manager pins → mesh bridge · recovery metrics `connections` harden · `pnpm verify:transport-engine-w68` Pass. Deletion still blocked on maintainer sign-off.
+
+---
+
+## Prior atomic step — Native invite mesh smoke
+
+**Pass** (L3): Connect → Send Invitation on `/network/profile?pubkey=<valid>` · marker `INV-MESH-msebc0ca` · `[dm-send] confirmed` success · no `publishToUrlsStandalone`. Script: `scripts/invite-mesh-smoke-desktop.mjs`.
+
+---
+
+## Prior atomic step — Soft L3 re-proof (after invite mesh + legacy gate)
+
+**Blocked** (harness): preflight green; shell OK under native rehydrate divergence (`locked` snapshot + Settings chrome); Row A weak (public remotes still enabled beside lab); Row B hung on `openPeer` CDP. Harness fixes kept: evaluate-first `isShell`, passphrase-only unlock path, lock-surface ≠ session-status-alone. Investigation: [soft-l3-locked-shell-false-positive-investigation-2026-08.md](../../specs/backend/soft-l3-locked-shell-false-positive-investigation-2026-08.md). Not a product regression claim for mesh DM owner.
+
+---
+
+## Prior atomic step — Invite publish → mesh
+
+**Implemented** (L1): `invite-manager` no longer calls `publishToUrlsStandalone`; fail-closed without `configureInviteRequestTransportBridge` (main-shell → mesh `pool.publishToUrls`). Proof: `path-b-b2-2-exit.contract.test.ts` + `invite-manager.test.ts` (14 Pass).
+
+---
+
+## Prior atomic step — Soft L3 re-proof after legacy gate flip
+
+**Blocked** (harness): preflight green; full Soft L3 failed (`page closed` / isShell drift under relay toasts). Soft L3 `isShell` aligned to `isShellUnlocked` + body chrome; not a product regression claim for the gate flip (DM still mesh `publishToUrls`).
+
+---
+
+## Prior atomic step — Web-legacy path removal (browser-pool EVENT)
+
+**Implemented:** `shouldUseLegacyStandaloneRelayPublish = () => false`. L1 Pass.
+
+---
+
+## Prior atomic step — relay-publish dual-path subtraction (relays-only)
+
+**Closed** (taxonomy): pool aliases → mesh only.
+
+---
+
+## Prior atomic step — relay-publish dual-path subtraction (relays-only)
+
+**Closed** (taxonomy): CodaCtrl “many use-*-relay-pool writers” = aliases of `useConduitMeshRelayPool` + freeze packages. L1 owner contracts extended 2026-08 pins.
+
+---
+
+## Prior atomic step — Soft L3 L2 stamp re-read · fresh-compose R4
+
+**Soft L3 Pass** (agent): marker `S-POOL-L3-mse746f6` · fAck · Edge Tester2. **R4 Pass** Soft L3 marker corroboration (not O-2).
+
+---
+
+## Prior atomic step — Desktop startup optimize
+
+**Implemented** (L1):
+1. `static-shell-stale` ignores `*.test.*` / `*.spec.*` — no full shell rebuild for test-only edits
+2. `ensureRelay` aborts wait when Docker relay child exits; `dev-relay` `process.exit` on Docker-down (no 90s burn)
+
+Proof: `node --test scripts/lib/static-shell-stale.test.mjs` · `node --test scripts/lib/dev-stack-probes.test.mjs`
+
+---
+
+## Prior atomic step — CodaCtrl Studio update re-dogfood + MRI
+
+Sessionless chain append fixed. MRI remediate / RWR refactor. dm-persist closed as false dual-owner.
+
+---
+
+## Prior atomic step — CodaCtrl Track B dogfood
+
+Agent matrix vs recovery coverage goals. Dual CDP Works; stack_preflight / pathway / sessionless chain / shape-classify still Fail or Partial. Findings appended for CodaCtrl maintainers — no Obscur product patch.
+
+---
+
+## Prior atomic step — R4 · Persist smoke
+
+Agent Pass: Soft L3 marker visible before/after WebView reload. Fresh UI compose still flakes under CDP (toast/overlay); corroboration path matches R3 honesty. Not O-2 process-kill VERIFIED.
+
+---
+
+## Prior atomic step — Publish ledger stamp (sync P-evidence)
+
+Mesh `publishToUrls` success now stamps a ref before return; snapshot readers overlay ref over React state. L1 Pass; Soft L3 re-Pass not required for this residual.
+
+---
+
+## Prior atomic step — R3 · Contact / trust
+
+Agent Pass: live mutual peer_trust + Soft L3 marker send corroboration (live compose skipped after CDP flakes).
+
+---
+
+## Prior atomic step — R2 · Relays dial honesty
+
+Agent dual-CDP Pass after shell-detect fix (UI body chrome vs role=link).
+
+---
+
+## Prior atomic step — Track A · Soft L3 automation — agent Soft L3 run when stack up
+
+Preflight green → Soft L3 Pass (agent-owned). Maintainer dual-window not required.
+
+---
+
+## Prior atomic step — Maintainer choose · non-manual track → A
+
+Chose automate Soft L3 / dual-window assert.
+
+---
+
+## Prior atomic step — DELIVERY-1 · F-ACK operator confirm (parked)
+
+Investigation: [dm-f-ack-checkmark-honesty-investigation-2026-08.md](../../specs/backend/dm-f-ack-checkmark-honesty-investigation-2026-08.md). Superseded by Soft L3 `fAck=true`.
+
+---
+
+## Prior atomic step — DELIVERY-1 Soft L3 live receive re-proof
+
+F-RECV-LIVE L1 → operator dual-window Pass (synchronized DMs). F-ACK residual → investigation reframed (single Check = accepted).
+
+---
+
+## Prior atomic step — Public-path two-profile DM proof (prod)
+
+Relays visibility soak OK · delivery not claimed · triage inventory landed.  
+
+---
+
+## Prior atomic step — Prod-first multi-transport · public boot
+
+L1 policy + Default Stable boot · Tor opt-in · loopback-only list merge / metrics visibility. Delivery not claimed.
+
+---
+
+## Prior atomic step — Soft L3 Blocked · unlock + dual CDP (superseded as product north star)
+
+Lab relay `:7000` · Soft L3 Blocked on Tester1 unlock. Delivery not fixed. **Superseded:** lab Pass would still be an illusion under the 2026-08-02 prod≡dev mandate.
+
+---
+
+## Prior atomic step — Soft L3 Blocked · unlock + dual CDP
+
+Lab relay `:7000` · Soft L3 Blocked on Tester1 unlock. Delivery not fixed.
+
+---
+
+## Prior atomic step — Soft L3 Fail · receive-side / Tester2 open
+
+Lab-only agreed-path harness + local publish fallback after S1 remotes fail. Row B: no receive · `lastSuccessfulPublishAtUnixMs` null with writable≥1 (mesh passthrough does not ledger publish evidence). Tester2 Edge shell/reunlock cannot open Tester1 compose.
+
+---
+
+## Prior atomic step — D2 publish ACK honesty (L1)
+
+Subtracted fire-and-forget ⇒ success: `buildSendConfirmation` requires publish OK; optimistic `onConfirmed` path stays pending; `publishToRelays` last-resort no fake ACK; `DM_SENT_CONFIRMED` only on confirmation. L1: `dm-send-pipeline` + `dm-relay-transport` vitest Pass.
+
+---
+
+## Prior atomic step — Soft L3 Fail · E2d basic+local dial pad (L1)
+
+E2d Implemented L1 · operator Relays showed public POOL MEMBER after dial · Soft L3 still Fail (publish ACK).
+
+---
+
+## Prior atomic step — Soft L3 two-profile delivery Fail
+
+Dual-window CDP+Edge · Row B Fail · publish ACK missing.
+
+---
+
+## Prior atomic step — Soft L3 (profile-2 stranger + FK)
+
+profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; later peers hydrated.
+
+---
+
+## Prior atomic step — Relay pool S4 CM scoped store (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) — not L3 delivery-fixed; no COM-RUN |
+| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S4 / C1–C2 |
+
+---
+
+## Prior atomic step — Relay pool S3 publish-path UI (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S3 |
+| Change | Relays UI DM publish path badge/copy |
+
+---
+
+## Prior atomic step — Relay pool S2 primary promote (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S2 |
+| Change | Promote offline primary to open remote even if local writable |
+
+---
+
+## Prior atomic step — Relay pool S1 publish scope (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S1 |
+| Change | Never sole-target localhost when open remotes exist |
+
+---
+
+## Prior atomic step — Relay pool delivery strategy S0 (Designed)
+
+| Field | Value |
+|-------|--------|
+| Status | **Designed** |
+| Spec | [relay-pool-delivery-strategy-design-2026-08.md](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) |
+
+---
+
+## Prior atomic step — Relays metrics top-level U7 (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [U7 redesign](../../specs/backend/relay-metrics-toplevel-redesign-2026-08.md) |
+
+---
+
+## Prior atomic step — Relays offline card compact U6 (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [U6 compact](../../specs/backend/relay-offline-card-compact-design-2026-08.md) |
+
+---
+
+## Prior atomic step — Relays UI honesty U4–U5 (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) |
+| Spec | [U4–U5 design](../../specs/backend/relay-ui-honesty-u4-u5-offline-latency-design-2026-08.md) |
+| U4 | **Last Connect** / **Last RTT** on disconnected |
+| U5 | **Primary (offline)** role |
+
+---
+
+## Prior atomic step — Relays UI honesty U1–U3 (L1 Pass)
+
+| Field | Value |
+|-------|--------|
+| Status | **Implemented** (L1) — desktop screenshot confirmed U1 |
+| Spec | [design](../../specs/backend/relay-ui-honesty-post-smoke-design-2026-08.md) |
+| U1 | Primary without open socket → role not Active transport |
+| U2 | Dashboard URL match + identity dedupe |
+| U3 | Header Avg RTT / Avg Connect from open-pool only |
+
+---
+
+## Prior atomic step — Desktop Relays smoke Pass (P0–P6)
 
 | Field | Value |
 |-------|--------|
@@ -17,9 +615,6 @@
 | P6 | Redundancy dial prefers healthy remotes with local (pool line evidence) |
 | Claim | Relays UI/runtime smoke **Pass** for P0–P6 signals; public Nostr **not** SLA-fixed |
 | Forbidden | COM-RUN-01 · AUTH-SESSION · Mbps · public SLA |
-| Optional next | Commit band (if maintainer asks) · or leave Hold |
-
-**Paused:** COM-RUN-* · O-2/O-4 · RIW-8 · Dev Lab as validation · AUTH-SESSION  
 
 ---
 
@@ -1543,6 +2138,31 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 ## Checkpoints
 
 <!-- CONTEXT_CHECKPOINTS_START -->
+### 2026-08-02T09:20:00Z checkpoint
+- Summary: Operator dual-window Pass for live DM sync (test 2 both sides, 3/3 relays). F-RECV-LIVE runtime verified. Residual single grey checks = F-ACK next.
+- Evidence: maintainer screenshots Tester1/Tester2 · Connected 3/3 · VER 1.9.14
+- Uncertainty: Soft L3 “delivery fixed” not claimed until F-ACK Pass
+- Next: DELIVERY-1 F-ACK honesty slice
+### 2026-08-02T09:00:00Z checkpoint
+- Summary: F-RECV-LIVE — mesh client re-arms REQ on socket open + parses NIP-01 EVENT subId frame; resubscribeAll wired. Explains restart hydrate vs dead live path. F-ACK still open.
+- Evidence: vitest conduit-mesh-nostr-ws-client.test.ts Pass · specs/backend/dm-live-req-rearm-design-2026-08.md
+- Uncertainty: Runtime live Pass needs static rebuild + dual-window soak; grey-check F-ACK separate
+- Next: Rebuild shell → dual-window marker without restart → then F-ACK if needed
+### 2026-08-02T08:40:00Z checkpoint
+- Summary: CodaCtrl dogfood for DELIVERY-1 — filed issue+chain; CDP absent blocks live assert; leading F-ACK hyp documented; CodaCtrl gaps appended to improvement findings
+- Evidence: specs/backend/dm-delivery-1-public-path-investigation-2026-08.md · verify:issue:agent:9e5bbc9aa9d4a242 · docs/program/codactrl-improvement-findings-2026-07.md (Round 2026-08-02)
+- Uncertainty: Fail class not live-pinned; need dual CDP public soak
+- Next: Launch desktop CDP 9230/9231 → public DM marker → pin F-ACK vs F-TARGET
+### 2026-08-02T08:35:00Z checkpoint
+- Summary: Inventory of DM/relay issues into triage queue; active row DELIVERY-1 (public publish ACK + receive); banner maps to UX-1 info; D2/E2d/S1–S4 closed as L1 pending soak
+- Evidence: specs/backend/relay-dm-delivery-issue-triage-2026-08.md · handoff Next = DELIVERY-1 probe
+- Uncertainty: Fail class not yet pinned on live dual-profile public soak
+- Next: DELIVERY-1 probe — dual profiles, public path, classify F-ACK/F-TARGET/F-RECV/F-DIAL/F-ENV
+### 2026-08-02T07:00:00Z checkpoint
+- Summary: SendCeremonyDialog portals via AppOverlayPortal (above sidebar z-2600); first_dm skipped for accepted contacts; resolverSource contact_card when accepted
+- Evidence: `pnpm -C apps/pwa exec vitest run app/features/security/services/send-ceremony-gate.test.ts` 7 Pass
+- Uncertainty: If peer appears in Chats but is not in peerTrust.acceptedPeers, ceremony still shows — operator should Accept contact if that is the case
+- Next: Public-path two-profile DM proof (prod) — unchanged
 ### 2026-07-15T07:45:00Z checkpoint
 - Summary: Dev shell freshness guard landed (predev clean, stale roots, stamp gate); C10 L3 Row A PASS dual-window HTTP-only; Row B blocked on Nostr EVENT→WS-only publish — fix landed (HTTP mesh envelope + `#p` audience); shell rebuilt `shell-2026-07-15T07:31:49Z`; Row B re-soak not completed
 - Evidence: `pnpm verify:conduit-mesh-c10` PASS; `static-shell-stale` 6/6; `dev_shell_freshness` 5/5; C10 integration publish test; CDP sessions csess-61a6b99b9bde / csess-aed8d69e8d8d; investigation spec updated
@@ -1553,4 +2173,194 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: pnpm verify:vault-sandbox-l1 31/31; verify:storage-encryption-v1.9.8 PASS; commit 7bbaa010
 - Uncertainty: not provided
 - Next: Maintainer L3/L4 vault-sandbox-l3-verification runbook sections 3-5; CodaCtrl daemon wiring is external
+### 2026-08-01T10:28:25Z checkpoint
+- Summary: S1: resolveScopedPublishRelayUrls drops local when open remotes exist; wired into DM resolveTargetRelayUrls. L1 11 Pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Hold — optional S2 primary promote when remote open
+### 2026-08-01T10:35:18Z checkpoint
+- Summary: S2: reconcile prefers open remote when primary dead; proactive failover allowWithWritableRelays. L1 28 Pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Hold — optional S3 publish-path UI
+### 2026-08-01T10:38:28Z checkpoint
+- Summary: S3: Relays UI DM publish path badge/copy from open scoped remotes. L1 11 Pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Hold — optional S4 CM scoped URL
+### 2026-08-01T10:40:48Z checkpoint
+- Summary: S4: CM scoped publish fail-closed (no publishToAll); resolve + Relays community hint. L1 7 Pass. No COM-RUN.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Hold — soft L3 two-profile or optional S5 NIP-65 charter
+### 2026-08-01T10:51:48Z checkpoint
+- Summary: Soft L3 two-profile delivery: recipe+script landed. Row A Pass (writable=3 on localhost:7000). Row B Blocked (Tester2 unlock). Delivery not fixed.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Hold — unblock Tester2 second window, re-run verify:s-pool-delivery-l3
+### 2026-08-04T07:41:51Z checkpoint
+- Summary: W66 standalone legacy deletion executed; pins migrated; verify:transport-engine-w67/w68 Pass
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: B5 exit / maintainer next from W67 post-subtraction exit
+### 2026-08-04T08:12:41Z checkpoint
+- Summary: W67 B5 exit Pass: verify:engine-lab green after headless target path, engine-b4 --lib, listen catch
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer choose next band (W66/W67 closed)
+### 2026-08-04T08:25:53Z checkpoint
+- Summary: Core+relay band: Soft L3 Blocked on unlock hang; lab relay up; openPeer profile route kept
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer Soft L3 unlock OR pivot (P14 / VPS assessment)
+### 2026-08-04T09:21:23Z checkpoint
+- Summary: Soft L3 credential path: unlock recovered then CDP wedged; desktop relaunched; manual Sign in then Soft L3
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Manual Tester1 Sign in then pnpm verify:s-pool-delivery-l3
+### 2026-08-04T10:03:40Z checkpoint
+- Summary: Maintainer pivot: manual core verify + production relay stability; Soft L3 Docker lab parked; localhost:7000 active is lab leftover
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer names production-like relay endpoint (VPS/trusted clearnet) then soak
+### 2026-08-04T10:07:50Z checkpoint
+- Summary: Design: Single-node auto-correct vs Multi-node maps to basic/redundancy + mesh failover; no code until D0 accept
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer accept D0 design or name production soak endpoint
+### 2026-08-04T10:11:21Z checkpoint
+- Summary: Design update: default pool is public Default Stable (nos/primal/damus); Multi by boot; VPS optional; no SLA
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer accept D0 design (public default + Single/Multi)
+### 2026-08-04T10:13:09Z checkpoint
+- Summary: D0 Pass: UX copy map basic↔Single multi↔redundancy + public Default Stable boot; next D1 Settings labels
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: D1 Settings Single/Multi i18n + toggle copy from D0 map
+### 2026-08-04T10:16:19Z checkpoint
+- Summary: D1 Pass L1: EN Multi-node/Single-node Settings copy + d1-copy contract; wire enum unchanged
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: D2 Single-node auto-correct failover (mesh-owned path)
+### 2026-08-04T10:21:22Z checkpoint
+- Summary: D2 Pass L1: Single-node basic allows failover probe when standby writable; mesh-owns still suppresses TS
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: D3 Multi-node soak on default public pool (or L1 prep)
+### 2026-08-04T10:24:23Z checkpoint
+- Summary: D3 Pass L1 multi-node Default Stable + P14 degraded; L2 NIP probe timed out this host; L3 dual-DM deferred
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: D4 operator notes (public default first-class; VPS optional)
+### 2026-08-04T10:25:49Z checkpoint
+- Summary: D4 Pass: operator notes — public Default Stable first-class Multi-node; VPS optional; Single/Multi map; D0-D4 band closed
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Optional clearnet L2/L3 soak or manual core verify
+### 2026-08-04T11:13:21Z checkpoint
+- Summary: M1 Pass L1: kind-0 metadata auto-retry on empty fetch + open-count recovery
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: M2 peer display fallback (connection/short preview vs Unknown sender/hex)
+### 2026-08-04T11:20:12Z checkpoint
+- Summary: M2 Pass L1: resolvePeerDisplayName — metadata/fallback/short preview; wired header row SenderName chat-view
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Optional R1 relay toast dedupe or maintainer desktop verify labels
+### 2026-08-04T11:22:34Z checkpoint
+- Summary: R1 Pass L1: soft relay toast coalesce connect+init + 8s UI notify throttle
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify labels/toasts or optional R2 dial-order measure
+### 2026-08-04T12:04:27Z checkpoint
+- Summary: Adaptive demote: dead/high-RTT localhost leaves active pool when public remotes enabled (L1 33/33).
+- Evidence: pnpm -C apps/pwa exec vitest run app/features/relays/services/relay-local-lab-adapt.test.ts app/features/relays/services/relay-primary-selector.test.ts → 33/33; specs/backend/relay-local-lab-adaptive-demote-design-2026-08.md
+- Uncertainty: not provided
+- Next: Maintainer: refresh desktop online; Relays UI — confirm public Nos relays ACTIVE when Docker :7000 down
+### 2026-08-04T12:34:47Z checkpoint
+- Summary: Nostr-first lab silo: always exclude localhost from active pool when public remotes enabled (L1).
+- Evidence: vitest adapt+selector+bootstrap Pass; specs/backend/relay-local-lab-adaptive-demote-design-2026-08.md; operator notes §3
+- Uncertainty: not provided
+- Next: Maintainer: refresh desktop online; Relays — publics ACTIVE, localhost not ACTIVE beside remotes (or Apply Default Stable)
+### 2026-08-04T14:36:08Z checkpoint
+- Summary: Relays UI: align card signal/status with mesh publish-ready (Ready vs n/a); honest open-socket footer count.
+- Evidence: vitest relay-runtime-status + format-relay-latency-label Pass; specs/backend/relay-ui-publish-ready-signal-investigation-2026-08.md
+- Uncertainty: not provided
+- Next: Maintainer: refresh Relays metrics — publish-ready remotes show Ready/Active transport while DMs work
+### 2026-08-04T14:40:38Z checkpoint
+- Summary: R1.1: soft relay toast less intrusive — 45s UI throttle; host flaps no longer force re-paint.
+- Evidence: native-error-store.test.ts 8/8; RELAY_UI_NOTIFY_THROTTLE_MS=45000
+- Uncertainty: not provided
+- Next: Maintainer: confirm fewer relay connection toast flashes on multi-node reconnect
+### 2026-08-04T14:51:32Z checkpoint
+- Summary: R1.2 soft relay dismiss snooze 15m; notification content-kind emoji+SVG icons for image/audio/video/voice/file/call/text.
+- Evidence: native-error-store + notification-presentation L1 13/13
+- Uncertainty: not provided
+- Next: Maintainer: dismiss relay toast and confirm snooze; send image DM and check OS notification glyph
+### 2026-08-04T14:59:18Z checkpoint
+- Summary: System notification peer avatar: resolve https picture/group avatar; Windows show_notification image_path via cached download. L1 9/9; cargo check obscur_desktop_lib Pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify: background DM with peer https avatar shows face on OS toast
+### 2026-08-04T15:09:37Z checkpoint
+- Summary: Vault Save unlock: add writeUnlock i18n to en.json; ensureNativeVaultEncryptionSessionForWrites pushes PDK to LES; context-menu unlock dialog. L1 8/8.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify: Save to Vault shows English unlock dialog; password unlock then saves
+### 2026-08-04T15:15:01Z checkpoint
+- Summary: Vault write-unlock dialog: English defaultValue fallbacks; merge locale bundles on i18n reload; writeUnlock keys in zh/es/fr/de. L1 5/5.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer: hard-refresh desktop, open Save to Vault unlock dialog — expect Unlock vault writes (not raw keys)
+### 2026-08-04T15:30:48Z checkpoint
+- Summary: Inline chat Save-to-Vault opens VaultWriteUnlockDialog via useChatVaultSaveWithUnlock (no red toast alone). Wired message-list + chat-view. L1 hook test Pass.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer: click image Save-to-Vault overlay — expect unlock dialog, not red toast
+### 2026-08-05T03:13:27Z checkpoint
+- Summary: Voice call OS toast: circular avatar + Accept/Reject (L1+L2)
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify circular call toast Accept/Reject
+### 2026-08-05T03:38:02Z checkpoint
+- Summary: Relay warm-up + notification single-icon + suppress when viewing chat (L1)
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify cold-start send + OS toast hygiene
+### 2026-08-05T03:52:15Z checkpoint
+- Summary: Fix warm-up open-socket honesty + ghost CALL COMPLETED mapping (L1)
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify open sockets + no ghost completed call
+### 2026-08-05T03:54:46Z checkpoint
+- Summary: Fix open=0 warm false-ready + ghost CALL COMPLETED from sqlite ended (L1)
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer desktop verify open sockets + no ghost call
+### 2026-08-05T04:05:20Z checkpoint
+- Summary: Mesh reconnectAll now force-redials WS; warm dials before wait when open=0
+- Evidence: L1 38/38 warmup+ws-client+call-record+dm-send
+- Uncertainty: not provided
+- Next: Maintainer desktop verify: Open sockets > 0 + send OK; no ghost CALL COMPLETED 0:30
+### 2026-08-05T04:21:34Z checkpoint
+- Summary: Feasibility gate: stop warm/reconnect patches; HEAD restore still available for DM send
+- Evidence: specs/backend/dm-comm-recovery-feasibility-2026-08.md; NativeRelay dial storm in desktop log
+- Uncertainty: not provided
+- Next: Maintainer choose A restore / B thin rewrite / C infeasible
+### 2026-08-05T04:27:30Z checkpoint
+- Summary: CodaCtrl DM error chain: MRI remediate, RWR refactor; thin Phase-1 subtract warm/forceReconnect
+- Evidence: specs/backend/dm-send-thin-refactor-*; neural-trail pin; truth parity-desktop
+- Uncertainty: not provided
+- Next: Implement Phase 1: remove warm/forceReconnect from send; L3 A↔B
+### 2026-08-05T04:36:39Z checkpoint
+- Summary: Phase 1: subtracted warm/forceReconnect from DM send; reconnectAll=setRelayUrls only
+- Evidence: L1 40/40 dm-send+transport+ws-client+call-record
+- Uncertainty: not provided
+- Next: Maintainer desktop rebuild + A↔B send verify (L3)
+### 2026-08-05T04:50:46Z checkpoint
+- Summary: Maintainer L3: DM+media restored; handoff → v1.9.15 release prep; community/Vault next after tag
+- Evidence: Maintainer confirm 2026-08-05; docs/releases/v1.9.15-release.md
+- Uncertainty: not provided
+- Next: Commit/bump/tag v1.9.15 when maintainer says go; then community un-pause charter + Vault soak
 <!-- CONTEXT_CHECKPOINTS_END -->

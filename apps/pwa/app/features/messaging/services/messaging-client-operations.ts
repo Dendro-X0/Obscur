@@ -19,7 +19,6 @@ import type { RunDmConversationHydrateReadModelPipelineParams } from "./thread-h
 import type { PrepareDmThreadSuppressionParams } from "./dm-thread-suppression-prepare";
 import type {
   BuildProjectionEvidenceMessagesParams,
-  DmConversationMaterializationPort,
   ThreadHistoryPort,
 } from "./thread-history/port";
 import type { LocalDmVisibilityScope, MessageLikeWithIdentity } from "../local-dm-visibility";
@@ -27,7 +26,7 @@ import type { MessageDeleteTombstoneEntry } from "@dweb/storage-contracts/messag
 
 const gateway = () => getResolvedClientGateway();
 
-const materialization = (): DmConversationMaterializationPort => (
+const materialization = (): ThreadHistoryPort => (
   gateway().dmConversationMaterialization
 );
 

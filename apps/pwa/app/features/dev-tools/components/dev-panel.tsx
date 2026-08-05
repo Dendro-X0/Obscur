@@ -2,10 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Ghost, Bot, Zap, Settings, ChevronUp, ChevronDown, Trash2, Play, MessageSquare, UserPlus } from "lucide-react";
-import { Button, Card, SelectField, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
+import { SelectField } from "@dweb/ui-kit/select";
+import { toast } from "@dweb/ui-kit/toast";
 import { useDevMode } from "../hooks/use-dev-mode";
 import { SCENARIOS } from "../scenarios";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";

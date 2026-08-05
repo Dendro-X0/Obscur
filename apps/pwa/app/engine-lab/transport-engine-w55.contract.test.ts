@@ -44,17 +44,17 @@ describe("transport-engine w55 — standalone legacy deletion charter", () => {
     expect(template).toContain("Decision");
   });
 
-  it("keeps legacy module and facade on disk", () => {
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(true);
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(true);
+  it("reads archived legacy semantics after W66 deletion", () => {
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(false);
 
     const legacy = readFromPwa(resolveTransportEngineStandaloneLegacyReadPath(PWA_ROOT));
     expect(legacy).toContain("publishTransportKernelToRelayUrls");
   });
 
-  it("keeps port fallback importing legacy module", () => {
+  it("production port is thin subtracted re-export after W66", () => {
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
-    expect(port).toContain("shouldRouteHostTransportPublish");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
   });
 });

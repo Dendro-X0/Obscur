@@ -81,4 +81,22 @@ describe("TransportPresetCatalogPanel", () => {
     expect(screen.getByText("settings.conduits.torNotReadyBadge")).toBeTruthy();
     expect(screen.getByText("settings.relays.torGateSecurityLink")).toBeTruthy();
   });
+
+  it("shows Tor off on Tor packs when Tor is disabled by default", () => {
+    const props = defaultProps();
+    render(
+      <TransportPresetCatalogPanel
+        onApplyPreset={vi.fn()}
+        translatePresetLabel={(id) => id}
+        presetMatches={props.presetMatches}
+        activeMix={props.activeMix}
+        torState={{ configured: false, ready: false }}
+        onNavigateToSecurity={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("settings.conduits.torOffBadge")).toBeTruthy();
+    expect(screen.queryByText("settings.conduits.torNotReadyBadge")).toBeNull();
+    expect(screen.getByText("settings.relays.torGateSecurityLink")).toBeTruthy();
+  });
 });

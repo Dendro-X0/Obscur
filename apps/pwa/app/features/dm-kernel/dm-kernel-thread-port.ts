@@ -1,4 +1,3 @@
-import { dbGetMessages } from "@dweb/db";
 import type { MessageRecord } from "@dweb/db";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { fetchDmThreadRows } from "@obscur/dm-engine";
@@ -6,7 +5,6 @@ import { createTauriEngineHost } from "@obscur/engine-host/tauri";
 import type { HostEnginePort } from "@obscur/engine-contracts";
 import type { Message } from "@/app/features/messaging/types";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
-import { isEngineLabStrictMode } from "@/app/engine-lab/engine-lab-policy";
 import { normalizeDmConversationMessageRow } from "@/app/features/messaging/services/dm-conversation-normalize-message";
 import { recordDmKernelInvoke } from "./dm-kernel-invoke-audit";
 import {
@@ -51,20 +49,17 @@ const fetchThreadRowsForProfileSlot = async (
   profileSlotId: string,
   queryId: string,
   limit: number,
-): Promise<ReadonlyArray<MessageRecord>> => {
-  if (isEngineLabStrictMode()) {
-    return fetchDmThreadRows({
-      host: getDmKernelEngineHost(),
-      profileId: profileSlotId,
-      payload: {
-        conversationId: queryId,
-        limit,
-        beforeReceivedAt: params.beforeReceivedAt,
-      },
-    });
-  }
-  return dbGetMessages(profileSlotId, queryId, limit, params.beforeReceivedAt);
-};
+): Promise<ReadonlyArray<MessageRecord>> => (
+  fetchDmThreadRows({
+    host: getDmKernelEngineHost(),
+    profileId: profileSlotId,
+    payload: {
+      conversationId: queryId,
+      limit,
+      beforeReceivedAt: params.beforeReceivedAt,
+    },
+  })
+);
 
 const fetchThreadRowsForQueryId = async (
   params: LoadDmKernelThreadParams,

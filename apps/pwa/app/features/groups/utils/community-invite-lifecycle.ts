@@ -121,6 +121,7 @@ export const resolveCommunityInviteCardStatus = (
     }
 
     const thisInviteId = parseInvitePayloadFromMessageContent(message.content)?.inviteId;
+    const thisSender = message.senderPubkey?.trim().toLowerCase() ?? "";
 
     let hasNewerSameGroupInvite = false;
 
@@ -132,7 +133,18 @@ export const resolveCommunityInviteCardStatus = (
         const entryParsed = parseJsonPayload(entry.content);
         const entryInviteGroupId = readInviteGroupId(entryParsed);
 
-        if (entryInviteGroupId !== groupId || entry.isOutgoing !== message.isOutgoing || entryAtMs <= inviteSentAtMs) {
+        if (entryInviteGroupId !== groupId || entryAtMs <= inviteSentAtMs) {
+            return;
+        }
+
+        // U6 Wave A: supersede is viewer-independent — same inviter wire sender, not isOutgoing.
+        const entrySender = entry.senderPubkey?.trim().toLowerCase() ?? "";
+        if (thisSender && entrySender) {
+            if (thisSender !== entrySender) {
+                return;
+            }
+        } else if (entry.isOutgoing !== message.isOutgoing) {
+            // Last-resort hydrate when sender pubkeys are missing.
             return;
         }
 

@@ -4,4 +4,4 @@ export {
   removeToast,
   useToasts,
   toast,
-} from "@dweb/ui-kit";
+} from "@dweb/ui-kit/toast";

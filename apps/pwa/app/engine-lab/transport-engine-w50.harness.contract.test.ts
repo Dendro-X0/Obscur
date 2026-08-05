@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
     results: urls.map((relayUrl) => ({ relayUrl, success: true })),
     failures: [],
   })),
-  publishTransportKernelToRelayUrls: vi.fn(async (urls: ReadonlyArray<string>) => ({
+  publishStandaloneLegacyBlockedToRelayUrls: vi.fn(async (urls: ReadonlyArray<string>) => ({
     success: false,
     successCount: 0,
     totalRelays: urls.length,
@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => ({
     metQuorum: false,
     results: [],
     failures: [],
-    overallError: "standalone path",
+    overallError: "standalone path blocked",
   })),
   setPendingOutbound: vi.fn(),
   clearPendingOutbound: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock("@/app/features/transport-kernel/transport-kernel-publish-port", () => (
   shouldRouteSubtractedStandalonePublishPort: mocks.shouldRouteSubtractedStandalonePublishPort,
 }));
 
-vi.mock("@/app/features/relays/hooks/enhanced-relay-pool-legacy", () => ({
+vi.mock("@/app/features/relays/hooks/relay-browser-pool-runtime", () => ({
   publishToRelayStandalone: vi.fn(),
   publishToUrlsStandalone: vi.fn(),
 }));
@@ -45,19 +45,9 @@ vi.mock("@/app/features/transport-kernel/transport-kernel-host-publish-shim", ()
   publishHostTransportShimToRelayUrls: mocks.publishHostTransportShimToRelayUrls,
 }));
 
-vi.mock("@/app/features/transport-kernel/transport-kernel-standalone-publish-legacy", () => ({
-  publishTransportKernelToRelay: vi.fn(),
-  publishTransportKernelToRelayUrls: mocks.publishTransportKernelToRelayUrls,
-}));
-
 vi.mock("@/app/features/transport-kernel/transport-kernel-standalone-publish-blocked", () => ({
   publishStandaloneLegacyBlockedToRelay: vi.fn(),
-  publishStandaloneLegacyBlockedToRelayUrls: vi.fn(),
-}));
-
-vi.mock("@/app/features/relays/hooks/relay-standalone-publish-port-subtracted", () => ({
-  publishToRelayStandaloneSubtracted: vi.fn(),
-  publishToUrlsStandaloneSubtracted: vi.fn(),
+  publishStandaloneLegacyBlockedToRelayUrls: mocks.publishStandaloneLegacyBlockedToRelayUrls,
 }));
 
 vi.mock("@/app/features/relays/services/relay-transport-journal", () => ({
@@ -87,18 +77,18 @@ describe("transport-engine w50 — authority-gated port routing harness", () => 
       ["wss://relay.one"],
       "payload",
     );
-    expect(mocks.publishTransportKernelToRelayUrls).not.toHaveBeenCalled();
+    expect(mocks.publishStandaloneLegacyBlockedToRelayUrls).not.toHaveBeenCalled();
     expect(result.success).toBe(true);
   });
 
-  it("routes through standalone owner when authority and shim gates are off", async () => {
+  it("routes through fail-closed blocked path when authority and shim gates are off", async () => {
     const result = await publishToUrlsStandalone(["wss://relay.one"], "payload");
 
-    expect(mocks.publishTransportKernelToRelayUrls).toHaveBeenCalledWith(
+    expect(mocks.publishStandaloneLegacyBlockedToRelayUrls).toHaveBeenCalledWith(
       ["wss://relay.one"],
       "payload",
     );
     expect(mocks.publishHostTransportShimToRelayUrls).not.toHaveBeenCalled();
-    expect(result.overallError).toBe("standalone path");
+    expect(result.overallError).toBe("standalone path blocked");
   });
 });

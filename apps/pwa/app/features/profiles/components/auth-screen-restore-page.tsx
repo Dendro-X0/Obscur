@@ -3,7 +3,7 @@
 import type React from "react";
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { Loader2, Upload } from "lucide-react";
 import { useUnifiedImportFlow } from "@/app/features/profiles/hooks/use-unified-import-flow";
 import { pickPortabilityImportFile } from "@/app/features/profiles/services/portability-file-picker";

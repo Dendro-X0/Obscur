@@ -1,16 +1,27 @@
 import {
-  dbDeleteAllVaultMediaIndexForProfile,
-  dbDeleteVaultMediaIndex,
-  dbGetVaultMediaIndexForProfile,
-  dbUpsertVaultMediaIndex,
   isTauri,
   type VaultMediaIndexRecord,
 } from "@dweb/db";
+import {
+  deleteAllVaultMediaIndex,
+  deleteVaultMediaIndex,
+  listVaultMediaIndex,
+  upsertVaultMediaIndex,
+} from "@obscur/persistence-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { LocalMediaIndexEntry } from "./vault-media-index-contract";
 
 export const usesSqliteVaultMediaIndex = (): boolean =>
   requiresSqlitePersistence() && isTauri();
+
+let vaultPersistenceEngineHost: HostEnginePort | null = null;
+
+const getVaultPersistenceEngineHost = (): HostEnginePort => {
+  vaultPersistenceEngineHost ??= createTauriEngineHost();
+  return vaultPersistenceEngineHost;
+};
 
 export const mapVaultMediaIndexRecordToEntry = (
   record: VaultMediaIndexRecord,
@@ -49,7 +60,10 @@ export const loadVaultMediaIndexMapFromSqlite = async (
   if (!usesSqliteVaultMediaIndex() || !profileId.trim()) {
     return {};
   }
-  const records = await dbGetVaultMediaIndexForProfile(profileId.trim());
+  const records = await listVaultMediaIndex({
+    host: getVaultPersistenceEngineHost(),
+    profileId: profileId.trim(),
+  });
   const index: Record<string, LocalMediaIndexEntry> = {};
   records.forEach((record) => {
     const entry = mapVaultMediaIndexRecordToEntry(record);
@@ -66,7 +80,11 @@ export const upsertVaultMediaIndexEntryToSqlite = async (
   if (!usesSqliteVaultMediaIndex()) {
     return;
   }
-  await dbUpsertVaultMediaIndex(mapLocalMediaIndexEntryToRecord(remoteUrl, entry, profileId));
+  await upsertVaultMediaIndex({
+    host: getVaultPersistenceEngineHost(),
+    profileId,
+    record: mapLocalMediaIndexEntryToRecord(remoteUrl, entry, profileId),
+  });
 };
 
 export const deleteVaultMediaIndexEntryFromSqlite = async (
@@ -76,7 +94,11 @@ export const deleteVaultMediaIndexEntryFromSqlite = async (
   if (!usesSqliteVaultMediaIndex()) {
     return;
   }
-  await dbDeleteVaultMediaIndex(profileId, remoteUrl);
+  await deleteVaultMediaIndex({
+    host: getVaultPersistenceEngineHost(),
+    profileId,
+    remoteUrl,
+  });
 };
 
 export const deleteAllVaultMediaIndexEntriesFromSqlite = async (
@@ -85,7 +107,10 @@ export const deleteAllVaultMediaIndexEntriesFromSqlite = async (
   if (!usesSqliteVaultMediaIndex()) {
     return;
   }
-  await dbDeleteAllVaultMediaIndexForProfile(profileId);
+  await deleteAllVaultMediaIndex({
+    host: getVaultPersistenceEngineHost(),
+    profileId,
+  });
 };
 
 export const persistVaultMediaIndexSnapshotToSqlite = async (

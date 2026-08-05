@@ -71,4 +71,19 @@ describe("relay-readiness-copy", () => {
     expect(detail).toMatch(/offline/i);
     expect(detail).toMatch(/0 writable/);
   });
+
+  it("does not claim zero writable in queue hint when local mesh is counted", () => {
+    expect(getRelayTransportQueueHint(createSnapshot({
+      readiness: "offline",
+      writableRelayCount: 1,
+      subscribableRelayCount: 1,
+    }))).toBeNull();
+    const detail = getRelayReadinessDetailCopy(createSnapshot({
+      readiness: "degraded",
+      writableRelayCount: 1,
+      subscribableRelayCount: 1,
+    }));
+    expect(detail).toMatch(/1 writable/);
+    expect(detail).not.toMatch(/0 writable/);
+  });
 });

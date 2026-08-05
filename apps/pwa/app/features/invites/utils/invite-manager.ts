@@ -49,7 +49,6 @@ import {
   canProcessInvite
 } from './security-enhancements';
 import { logAppEvent } from '@/app/shared/log-app-event';
-import { publishToUrlsStandalone } from "@/app/features/relays/hooks/enhanced-relay-pool-port";
 import { loadEnabledRelayUrlsForIdentity } from '../../relays/services/relay-list-enabled-urls';
 
 type CoordinationInviteCreateResponse = Readonly<{
@@ -754,28 +753,11 @@ class InviteManagerImpl implements InviteManager {
         return;
       }
 
-      // 5) Send the connection request via legacy relay publish path
-      const event = await NostrCompatibilityService.createInviteRequestEvent(
-        identity.privateKey,
-        request.recipientPublicKey,
-        shareableProfile,
-        request.message
+      // Mesh transport bridge is required (main-shell wires requestTransport → pool.publishToUrls).
+      // Do not fall back to browser-pool / standalone EVENT publish.
+      throw new Error(
+        "Invite relay publish unavailable — configureInviteRequestTransportBridge required (mesh)",
       );
-
-      const targetRelays = loadEnabledRelayUrlsForIdentity(identity.publicKey);
-      if (targetRelays.length === 0) {
-        throw new Error("No active relays available for connection request");
-      }
-
-      logAppEvent({
-        name: "invites.send_request.publishing",
-        level: "info",
-        scope: { feature: "invites", action: "send" },
-        context: { relaysCount: targetRelays.length, eventId: event.id }
-      });
-
-      await publishToUrlsStandalone(targetRelays, JSON.stringify(["EVENT", event]));
-      await this.storeConnectionRequest(connectionRequest);
     } catch (error) {
       throw new Error(`Connection request sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

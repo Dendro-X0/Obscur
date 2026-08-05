@@ -1,9 +1,8 @@
-import { isObscurAllowLegacy } from "@/app/engine-lab/engine-lab-policy";
-import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
+/**
+ * R1-delete — legacy UI hydrate port tombstone.
+ * Thick conversation-messages legacy hook deleted; product uses
+ * useThreadMessages → dm-kernel | inert only.
+ */
 
-export { useLegacyConversationMessages } from "./use-conversation-messages-legacy";
-
-/** Legacy DM thread hydrate hook — opt-in only when dm-kernel is not authority. */
-export const shouldUseLegacyConversationMessagesHydrate = (): boolean => (
-  isObscurAllowLegacy() && !isDmKernelAuthority()
-);
+/** Always false — legacy UI hydrate tree removed. */
+export const shouldUseLegacyConversationMessagesHydrate = (): boolean => false;

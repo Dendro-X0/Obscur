@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { TextScale } from "@/app/features/settings/hooks/use-accessibility-preferences";
-import { Card, Button, ConfirmDialog, Input, Label, Textarea, toast } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Button } from "@dweb/ui-kit/button";
+import { ConfirmDialog } from "@dweb/ui-kit/confirm-dialog";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
+import { Textarea } from "@dweb/ui-kit/textarea";
+import { toast } from "@dweb/ui-kit/toast";
 import { cn } from "@/app/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { RelayDashboard } from "@/app/components/relay-dashboard";
@@ -27,9 +33,18 @@ import { SettingsActionStatus } from "@/app/features/settings/components/setting
 import { ProfileSwitcherCard } from "@/app/features/profiles/components/profile-switcher-card";
 import { SettingsToggle, SettingsToggleCard, toSettingsActionPhase, validateProfileInput, formatBytes, formatRatioPercent, } from "../settings-tab-panel-shared";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
-import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
-import { getActiveTransportScopeCopy } from "@/app/features/relays/services/relay-transport-scope-copy";
+import { deriveRelayNodeStatus, deriveRelayRuntimeStatus, isRelayUrlPublishReady } from "@/app/features/relays/lib/relay-runtime-status";
+import { resolveOpenDmPublishPathRelayUrls } from "@/app/features/relays/services/relay-publish-scope";
+import {
+  formatRelayHostname,
+  getActivePoolScopeSummaryCopy,
+  getActiveTransportScopeCopy,
+  getDmPublishPathCopy,
+  resolveActivePoolScopeSummaryCounts,
+} from "@/app/features/relays/services/relay-transport-scope-copy";
 import { TransportPresetCatalogPanel } from "@/app/features/transport-kernel/transport-preset-catalog-panel";
+import { OfflinePackHelperPanel } from "@/app/features/transport-kernel/offline-pack-helper-panel";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
   classifyRelayEndpointAdapter,
   relayEndpointAdapterI18nKey,
@@ -44,7 +59,9 @@ import { useConduitMeshTorSettingsState } from "@/app/features/transport-kernel/
 import type { TransportPresetId } from "@/app/features/transport-kernel/transport-preset-catalog";
 import { dispatchSettingsSearchPrepare } from "@/app/features/settings/services/settings-search-navigate";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { partitionRelayListByTransportScope } from "@/app/features/relays/services/relay-transport-scope";
+import { getCommunityScopedRelayCopy } from "@/app/features/groups/services/sealed-community-relay-scope";
+import { partitionRelayListByTransportScope, resolveDmAdapterListEntries, isLoopbackOnlyRelayList } from "@/app/features/relays/services/relay-transport-scope";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";
 import { Loader2, Activity, ShieldAlert, Shield, Lock, Database, Copy, ChevronDown, Plus, ArrowUp, ArrowDown, Eye, EyeOff, Building2, Wifi, RefreshCcw, Check, X } from "lucide-react";
 import { useSettingsTabPanelModel } from "../settings-tab-panel-model-context";
@@ -58,7 +75,6 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
     const [relayMetricsAvailableOnly, setRelayMetricsAvailableOnly] = useState(false);
     const [showApiHealthSection, setShowApiHealthSection] = useState(false);
     const [showCommunitySection, setShowCommunitySection] = useState(false);
-    const [showPerformanceMetrics, setShowPerformanceMetrics] = useState(false);
     const { activePoolRelayUrls, communityCandidateRelayUrls, relayTransportMode, setRelayTransportMode, } = useRelay();
     const { APP_VERSION, DEFAULT_APP_LANGUAGE, DEFAULT_STABLE_PRESET, DEFAULT_THEME_PREFERENCE, DELETE_ACCOUNT_CONFIRM_TEXT, ENABLE_API_HEALTH_PROBE, INVITE_CODE_PREFIX, INVITE_CODE_SUFFIX_LENGTH, TEXT_SCALE_OPTIONS, accessibility, accountSyncSnapshot, activeTab, apiHealth, appearanceActionMessage, appearanceActionPhase, applyRelayPreset, blocklist, blocklistInput, blocklistQuery, cancelApplyRelayPreset, challangePassword, checkStorageHealth, clearIndexedDbDatabases, clearRuntimeCaches, confirmApplyRelayPreset, copyPrivateKey, deleteAccountConfirmInput, deleteAccountCountdown, deriveRelayNodeStatus, deriveRelayRuntimeStatus, derivedPublicKeyHex, displayPublicKeyHex, exportPrivateKey, filteredBlockedKeys, getProfilePublishReportSnapshot, handleAddBlockedKey, handleAddRelay, handleArmDeleteAccount, handleCheckApi, handleCheckProviderReachability, handleClearData, handleDeleteAccount, handleDisableNotifications, handleEnableNotifications, handleExportPortableBundle, handleLockNow, handlePortableBundleFileSelected, handleProfileSwitchLock, handleRandomInviteCode, handleRefreshRelayStatus, handleRelayBulkCopyList, handleRelayBulkDisableAllConfirm, handleRelayBulkDisableAllRequest, handleRelayBulkEnableAll, handleRelayBulkRemoveDisabled, handleResetAccessibility, handleResetLanguage, handleResetLocalHistory, handleResetRelaySection, handleResetStorageSection, handleResetTheme, handleRevealToggle, handleSavePrivacy, handleSaveProfile, handleSendTestNotification, handleToggleNotificationChannel, handleUnblockAll, handleVerifyChallenge, handleVerifyNip05, i18n, identity, identityDiagnostics, identityIntegrityState, identityStorageMode, inviteCodeAvailabilityMessage, inviteCodeAvailabilityStatus, inviteCodeDraft, inviteCodeDraftSuffix, isChallenging, isCheckingProviderReachability, isCheckingStorageHealth, isClearDataDialogOpen, isDeleteAccountDialogOpen, isDisableAllRelaysDialogOpen, isInviteCodeDraftDirty, isPortableBundleExporting, isPortableBundleImporting, isPresetApplyConfirmOpen, isPrivateKeyVisible, isPublishing, isResetLocalHistoryDialogOpen, isResolvingLocalPath, isVerifyingNip05, lastSyncLabel, leaveJoinedCommunitiesBeforeAccountDeletion, localMediaAbsolutePath, localMediaConfig, managedWorkspaceDefinition, moderationActionMessage, moderationActionPhase, newRelayUrl, nip96Config, notificationActionMessage, notificationActionPhase, notificationPreference, npubValue, nsecKey, pendingPresetApplyId, persistedInviteCodeSuffix, pool, portableBundleFileInputRef, privacySettings, profile, profilePreflightError, profilePublishError, profilePublishPhase, profilePublishReport, profileSaveActionMessage, profileSaveActionPhase, profileValidation, providerReachabilityNote, providerValidation, publicKeyHex, publishProfile, publishScopedGroupEvent, refreshLocalMediaAbsolutePath, relayActionMessage, relayActionPhase, relayCapabilityAssessment, relayConnectionMap, relayHealthMetricsMap, relayList, relayQuickHealth, relayResilienceBetaGate, relayResiliencePerformanceGate, relayResilienceSnapshot, relayRuntime, relayRuntimeStatus, relaySelection, reliabilityMetrics, reliabilityRuntime, reliabilityTick, requestApplyRelayPreset, resolveActivePrivateKeyHex, revealExpiresAtMs, revealSecondsLeft, rolloutPolicy, runStorageRecovery, saveLocalMediaConfig, saveNip96Config, securityActionMessage, securityActionPhase, securityCapabilityStates, securityPosture, setApiHealth, setAppearanceActionMessage, setAppearanceActionPhase, setBlocklistInput, setBlocklistQuery, setChallengePassword, setDeleteAccountConfirmInput, setDeleteAccountCountdown, setInviteCodeAvailabilityMessage, setInviteCodeAvailabilityStatus, setInviteCodeDraftSuffix, setInviteCodeFromSuffix, setIsChallenging, setIsCheckingProviderReachability, setIsCheckingStorageHealth, setIsClearDataDialogOpen, setIsDeleteAccountDialogOpen, setIsDisableAllRelaysDialogOpen, setIsInviteCodeDraftDirty, setIsPortableBundleExporting, setIsPortableBundleImporting, setIsPrivateKeyVisible, setIsResetLocalHistoryDialogOpen, setIsResolvingLocalPath, setIsVerifyingNip05, setLocalMediaAbsolutePath, setLocalMediaConfig, setModerationActionMessage, setModerationActionPhase, setNewRelayUrl, setNip96Config, setNotificationActionMessage, setNotificationActionPhase, setNsecKey, setPrivacySettings, setProfilePreflightError, setProfileSaveActionMessage, setProfileSaveActionPhase, setProviderReachabilityNote, setRelayActionMessage, setRelayActionPhase, setReliabilityTick, setRevealExpiresAtMs, setRevealSecondsLeft, setSecurityActionMessage, setSecurityActionPhase, setShowAdvancedRelays, setStorageActionMessage, setStorageActionPhase, setStorageHealthState, setStorageStatsTick, showAdvancedRelays, sovereignRoomDefinition, startupState, storageActionMessage, storageActionPhase, storageHealthState, storageMode, storageStats, storageStatsTick, t, theme, translatePermissionState, translateRelayConfidenceLabel, translateRelayNodeBadge, translateRelayNodeDetail, translateRelayNodeRole, translateRelayPresetLabel, translateRelayRuntimeText, translateStorageMode, triggerRelayRecovery, userInviteCode, verifyInviteCodeAvailability, wipeLocalRuntimeData } = useSettingsTabPanelModel() as Record<string, any>;
     useEffect(() => {
@@ -77,6 +93,18 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
         };
     }, [setShowAdvancedRelays]);
     const relayScopePartition = useMemo(() => partitionRelayListByTransportScope(relayList.state.relays), [relayList.state.relays]);
+    const dmAdapterListEntries = useMemo(
+      () => resolveDmAdapterListEntries(relayList.state.relays),
+      [relayList.state.relays],
+    );
+    const isLoopbackOnlyConfigured = useMemo(
+      () => isLoopbackOnlyRelayList(relayList.state.relays),
+      [relayList.state.relays],
+    );
+    const activePoolScopeCounts = useMemo(
+      () => resolveActivePoolScopeSummaryCounts(relayList.state.relays),
+      [relayList.state.relays],
+    );
     const scrollToCustomEndpoint = useCallback((): void => {
         document.getElementById("relay-custom-endpoint")?.scrollIntoView({ behavior: "smooth", block: "start" });
         setShowAdvancedRelays(true);
@@ -125,6 +153,23 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
         () => resolveActiveTransportMix(relayList.state.relays, relayTransportMode, classifyRelayEndpointAdapter),
         [relayList.state.relays, relayTransportMode],
     );
+    // S3: live DM publish targets (open remotes preferred; not primary chip alone).
+    const dmPublishPathRelayUrls = useMemo(() => {
+        const candidates = activePoolRelayUrls.length > 0
+            ? activePoolRelayUrls
+            : relayScopePartition.dm.filter((relay) => relay.enabled).map((relay) => relay.url);
+        return resolveOpenDmPublishPathRelayUrls({
+            relayUrls: candidates,
+            pool,
+        });
+    }, [activePoolRelayUrls, pool, pool.connections, relayScopePartition.dm]);
+    const dmPublishPathBadgeLabel = useMemo(() => {
+        if (dmPublishPathRelayUrls.length === 0) {
+            return "Publish: none";
+        }
+        const hosts = dmPublishPathRelayUrls.map((url) => formatRelayHostname(url)).join(", ");
+        return `Publish: ${hosts}`;
+    }, [dmPublishPathRelayUrls]);
     const renderRelayListSection = (sectionRelays: ReadonlyArray<{
         url: string;
         enabled: boolean;
@@ -134,12 +179,41 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
         url: string;
         enabled: boolean;
     }, index: number) => {
-        const health = relayHealthMetricsMap.get(relay.url);
-        const inActivePool = options.dmTransport && activePoolRelayUrls.includes(relay.url);
-        const connection = relayConnectionMap.get(relay.url);
+        const health = (() => {
+            const exact = relayHealthMetricsMap.get(relay.url);
+            if (exact) {
+                return exact;
+            }
+            for (const [key, value] of relayHealthMetricsMap.entries()) {
+                if (workspaceRelayUrlsMatch(key, relay.url)) {
+                    return value;
+                }
+            }
+            return undefined;
+        })();
+        const inActivePool = options.dmTransport && activePoolRelayUrls.some(
+            (url) => url === relay.url || workspaceRelayUrlsMatch(url, relay.url),
+        );
+        const connection = (() => {
+            const exact = relayConnectionMap.get(relay.url);
+            if (exact) {
+                return exact;
+            }
+            for (const [key, value] of relayConnectionMap.entries()) {
+                if (workspaceRelayUrlsMatch(key, relay.url)) {
+                    return value;
+                }
+            }
+            return undefined;
+        })();
+        const isPrimary = Boolean(
+            relaySelection.primaryUrl
+            && (relaySelection.primaryUrl === relay.url || workspaceRelayUrlsMatch(relaySelection.primaryUrl, relay.url)),
+        );
         const relayRole = options.dmTransport && relay.enabled && !relayRuntime.fallbackRelayUrls.includes(relay.url)
-            ? (relaySelection.primaryUrl === relay.url ? "primary" : "standby")
+            ? (isPrimary ? "primary" : "standby")
             : (relay.enabled ? "standby" : undefined);
+        const publishReadyUrls = pool.getTransportActivitySnapshot()?.publishReadyRelayUrls ?? [];
         const derivedStatus = deriveRelayNodeStatus({
             url: relay.url,
             enabled: relay.enabled,
@@ -147,8 +221,9 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             metrics: health,
             isConfigured: true,
             role: relayRole,
-            isActivePoolMember: inActivePool && relay.url !== relaySelection.primaryUrl,
+            isActivePoolMember: inActivePool && !isPrimary,
             isFallback: relayRuntime.fallbackRelayUrls.includes(relay.url),
+            isPublishReady: isRelayUrlPublishReady(relay.url, publishReadyUrls),
             runtimePhase: relayRuntime.phase,
             lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
         });
@@ -228,6 +303,8 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               torState={torState}
               onNavigateToSecurity={navigateToSecuritySettings}
             />
+
+            <OfflinePackHelperPanel profileId={getResolvedProfileId()} />
 
             <div id="relay-custom-endpoint" className="space-y-3 rounded-2xl border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-black/20">
               <div className="space-y-1">
@@ -320,10 +397,10 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                   </p>
                   <p className="text-xs text-zinc-500">
                     {t("settings.relays.scopeSummary", {
-            defaultValue: "DM transport: {{dmEnabled}} enabled · Workspace candidates: {{communityEnabled}} enabled ({{communityConfigured}} configured). Unreachable intranet relays stay out of the DM pool until you enable them here.",
-            dmEnabled: relayScopePartition.dm.filter((relay) => relay.enabled).length,
-            communityEnabled: communityCandidateRelayUrls.length,
-            communityConfigured: relayScopePartition.community.length,
+            defaultValue: getActivePoolScopeSummaryCopy(activePoolScopeCounts),
+            dmEnabled: activePoolScopeCounts.dmPoolEnabledCount,
+            communityEnabled: activePoolScopeCounts.communityEnabledCount,
+            communityConfigured: activePoolScopeCounts.communityConfiguredCount,
         })}
                   </p>
                   <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
@@ -336,7 +413,11 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             enabledRelayCount: relayList.state.relays.filter((relay: {
                 enabled: boolean;
             }) => relay.enabled).length,
+            publishPathRelayUrls: dmPublishPathRelayUrls,
         })}
+                  </p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {getDmPublishPathCopy({ publishPathRelayUrls: dmPublishPathRelayUrls })}
                   </p>
                 </div>
                 <Button type="button" size="sm" variant={showAdvancedRelays ? "secondary" : "outline"} onClick={() => setShowAdvancedRelays((prev: boolean) => !prev)}>
@@ -378,11 +459,27 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             return relaySelection.primaryUrl;
         } })()}
                     </span>)}
+                  <span
+                    className="rounded-full bg-sky-100 px-2 py-1 font-mono font-semibold text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 truncate max-w-[280px]"
+                    title={getDmPublishPathCopy({ publishPathRelayUrls: dmPublishPathRelayUrls })}
+                  >
+                    {dmPublishPathBadgeLabel}
+                  </span>
                   <span className="rounded-full bg-zinc-100 px-2 py-1 font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                    {t("settings.relays.avgLatencyBadge", {
-            defaultValue: "Avg Latency {{latency}}",
-            latency: typeof relayQuickHealth.averageLatencyMs === "number" ? `${relayQuickHealth.averageLatencyMs}ms` : "n/a",
-        })}
+                    {relayQuickHealth.averageLatencyKind === "rtt"
+            ? t("settings.relays.avgRttBadge", {
+                defaultValue: "Avg RTT {{latency}}",
+                latency: typeof relayQuickHealth.averageLatencyMs === "number" ? `${relayQuickHealth.averageLatencyMs}ms` : "n/a",
+            })
+            : relayQuickHealth.averageLatencyKind === "connect"
+                ? t("settings.relays.avgConnectBadge", {
+                    defaultValue: "Avg Connect {{latency}}",
+                    latency: typeof relayQuickHealth.averageLatencyMs === "number" ? `${relayQuickHealth.averageLatencyMs}ms` : "n/a",
+                })
+                : t("settings.relays.avgLatencyBadge", {
+                    defaultValue: "Avg Latency {{latency}}",
+                    latency: "n/a",
+                })}
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">{translateRelayRuntimeText(relayQuickHealth.recommendation)}</p>
@@ -462,6 +559,19 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                 <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                   {relayCapabilityAssessment.settingsHint}
                 </p>
+                <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  {t("settings.relays.communityScopedStoreHint", {
+                    defaultValue: "Community messages use each workspace’s bound relay URL (plus optional operator broadcast backups). The DM Quiet / public pool is never auto-selected as the community store.",
+                  })}
+                </p>
+                <p className="mt-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  {communityCandidateRelayUrls.length > 0
+            ? t("settings.relays.communityScopedCandidates", {
+                defaultValue: "Workspace candidates (bind per community, not DM Quiet): {{hosts}}",
+                hosts: communityCandidateRelayUrls.map((url: string) => formatRelayHostname(url)).join(", "),
+            })
+            : getCommunityScopedRelayCopy({})}
+                </p>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -509,6 +619,67 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               <CommunityMembershipSyncSettingsPanel />
               </CollapsibleContent>
               </Collapsible>
+            </div>
+
+            <div id="relay-performance-metrics" className="space-y-4 rounded-2xl border border-black/5 p-4 dark:border-white/5">
+              {isLoopbackOnlyConfigured ? (
+                <div
+                  className="space-y-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-amber-900 dark:text-amber-100"
+                  role="status"
+                >
+                  <p className="text-sm font-semibold leading-snug">
+                    {t("settings.relays.loopbackOnlyTitle", {
+                      defaultValue: "Only a local loopback relay is configured",
+                    })}
+                  </p>
+                  <p className="text-xs leading-relaxed opacity-90">
+                    {t("settings.relays.loopbackOnlyDesc", {
+                      defaultValue:
+                        "Public Nostr pools stay invisible until production defaults are restored. Local Docker is optional — not the product path.",
+                    })}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        handleResetRelaySection();
+                      }}
+                    >
+                      {t("settings.relays.resetSection", { defaultValue: "Reset Relay Section" })}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        handleApplyTransportPreset("default_stable");
+                      }}
+                    >
+                      {t("settings.relays.applyDefaultStable", {
+                        defaultValue: "Apply Default Stable",
+                      })}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-2 px-1">
+                <Wifi className="h-3.5 w-3.5 text-zinc-400"/>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+                  {t("settings.relays.collapse.performanceMetrics", {
+                    defaultValue: "Network performance metrics",
+                  })}
+                </h3>
+              </div>
+              <RelaySettingsMetricsToolbar
+                category={relayMetricsCategory}
+                onCategoryChange={setRelayMetricsCategory}
+                availableOnly={relayMetricsAvailableOnly}
+                onAvailableOnlyChange={setRelayMetricsAvailableOnly}
+              />
+              <div className="rounded-2xl border border-black/5 bg-zinc-50/30 p-2 dark:border-white/5 dark:bg-black/10">
+                <RelayDashboard category={relayMetricsCategory} availableOnly={relayMetricsAvailableOnly}/>
+              </div>
             </div>
 
             {/* Advanced Configuration */}
@@ -559,8 +730,8 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                           {t("settings.relays.dmSectionDesc")}
                         </p>
                         <div className="space-y-3">
-                          {relayScopePartition.dm.length > 0
-                ? renderRelayListSection(relayScopePartition.dm, { dmTransport: true })
+                          {dmAdapterListEntries.length > 0
+                ? renderRelayListSection(dmAdapterListEntries, { dmTransport: true })
                 : (<p className="text-xs text-zinc-500">
                                 {t("settings.relays.dmSectionEmpty")}
                               </p>)}
@@ -583,31 +754,11 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                       </div>
                     </div>
                   </div>
-
-                  <Collapsible
-                    open={showPerformanceMetrics}
-                    onOpenChange={() => setShowPerformanceMetrics((prev) => !prev)}
-                    className="rounded-2xl border border-black/5 dark:border-white/5"
-                  >
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
-                      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400">
-                        <Wifi className="h-3.5 w-3.5"/>
-                        {t("settings.relays.collapse.performanceMetrics")}
-                      </div>
-                      <ChevronDown className={cn("h-4 w-4 shrink-0 text-zinc-400 transition-transform", showPerformanceMetrics && "rotate-180")}/>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-4 border-t border-black/5 px-2 pb-2 pt-3 dark:border-white/10">
-                    <RelaySettingsMetricsToolbar category={relayMetricsCategory} onCategoryChange={setRelayMetricsCategory} availableOnly={relayMetricsAvailableOnly} onAvailableOnlyChange={setRelayMetricsAvailableOnly}/>
-                    <div className="rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/30 dark:bg-black/10 p-2">
-                      <RelayDashboard category={relayMetricsCategory} availableOnly={relayMetricsAvailableOnly}/>
-                    </div>
-                    </CollapsibleContent>
-                  </Collapsible>
                 </motion.div>)}
             </AnimatePresence>
             <SettingsActionStatus title={t("settings.relays.actionsTitle")} phase={relayActionPhase} message={relayActionMessage || undefined} summary={t("settings.relays.actionsSummary", {
             defaultValue: "Publish-ready {{writable}} of {{enabled}} · Open sockets {{open}} of {{enabled}}",
-            writable: relayRuntime.writableRelayCount,
+            writable: Math.max(relayRuntime.writableRelayCount, relayQuickHealth.openCount),
             open: relayQuickHealth.openCount,
             enabled: relayQuickHealth.enabledCount,
         })}/>

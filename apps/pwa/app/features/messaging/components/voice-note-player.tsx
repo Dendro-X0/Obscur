@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import type { VoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { useVoiceNotePlayback } from "@/app/features/messaging/hooks/use-voice-note-playback";
 import { VoiceNotePlayerBody } from "./voice-note-player-body";
@@ -27,7 +27,7 @@ export function VoiceNotePlayer({
       className={cn(
         "flex min-w-[220px] max-w-[min(100%,340px)] items-center gap-2.5 rounded-2xl px-1 py-1",
         isOutgoing
-          ? "text-white"
+          ? "text-white dark:text-zinc-900"
           : "text-zinc-900 dark:text-zinc-100",
         className,
       )}

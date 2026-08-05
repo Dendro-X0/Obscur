@@ -136,6 +136,30 @@ describe("normalizeDmConversationMessageRow", () => {
         expect(out.attachments?.[0]?.url).toBe("https://image.nostr.build/abc123.jpg");
     });
 
+    it("drops blob: stored attachments and infers https from content", () => {
+        const out = normalizeDmConversationMessageRow({
+            id: "m1",
+            kind: "user",
+            content: "[photo.jpg](https://image.nostr.build/abc123.jpg)",
+            attachments: [{
+                kind: "image",
+                url: "blob:http://localhost/dead",
+                contentType: "image/jpeg",
+                fileName: "photo.jpg",
+            }],
+            isOutgoing: true,
+            status: "delivered",
+            timestamp: new Date(1),
+        });
+        expect(out.attachments).toEqual([
+            expect.objectContaining({
+                kind: "image",
+                url: "https://image.nostr.build/abc123.jpg",
+                fileName: "photo.jpg",
+            }),
+        ]);
+    });
+
     it("recomputes isOutgoing from wire sender when sqlite flag is stale (IRA-2)", () => {
         const legacyId = `${myHex}:${peerHex}`;
         const inviteContent = JSON.stringify({

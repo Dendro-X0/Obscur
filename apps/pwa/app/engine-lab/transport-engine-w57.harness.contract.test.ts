@@ -21,7 +21,7 @@ describe("transport-engine w57 — deletion subtraction harness", () => {
     expect(w57).toContain("shouldBlockStandaloneLegacyPublishFallback");
     expect(parseSmokeSignOffDecision(
       readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-recorded.md"),
-    )).toBe("BLOCKED");
+    )).toBe("PASS");
   });
 
   it("documents file deletion in W58+ maintainer commit", () => {

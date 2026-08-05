@@ -5,8 +5,8 @@ import { useTranslation } from "react-i18next";
 import type { ProfileSearchResult } from "../../search/services/profile-search-service";
 import { useDebouncedProfileSearch } from "../../search/hooks/use-debounced-profile-search";
 import { useRelay } from "../../relays/providers/relay-provider";
-import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
+import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit/avatar";
+import { Button } from "@dweb/ui-kit/button";
 import { Search, UserPlus, Loader2, Info } from "lucide-react";
 import { useIdentity } from "../../auth/hooks/use-identity";
 type SidebarUserSearchProps = Readonly<{

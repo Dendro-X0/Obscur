@@ -2,15 +2,8 @@
 
 import type React from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@dweb/ui-kit/dialog";
 import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
 import { ProfileArchiveResultBanner } from "./profile-archive-result-banner";
 

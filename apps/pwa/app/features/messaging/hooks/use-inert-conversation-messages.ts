@@ -16,8 +16,8 @@ export interface UseInertConversationMessagesResult {
 }
 
 /**
- * Strict engine-lab stub — no hydrate loops. Web DM threads stay empty unless
- * `NEXT_PUBLIC_OBSCUR_ALLOW_LEGACY=1` routes through legacy hook.
+ * Strict engine-lab stub — no hydrate loops. Web DM threads stay empty;
+ * desktop product reads via dm-kernel (`useThreadMessages`).
  */
 export function useInertConversationMessages(
     conversationId: string | undefined,

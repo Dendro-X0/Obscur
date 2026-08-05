@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Attachment } from "../types";
 import { AttachmentContextMenu } from "./attachment-context-menu";
@@ -10,10 +10,14 @@ vi.mock("react-i18next", () => ({
     }),
 }));
 
+vi.mock("@/app/features/security/components/vault-write-unlock-dialog", () => ({
+    VaultWriteUnlockDialog: () => null,
+}));
+
 vi.mock("@/app/features/vault/services/save-chat-attachment-to-vault", () => ({
     canSaveChatAttachmentsToLocalVault: vi.fn(() => false),
     isChatAttachmentSavedToLocalVault: vi.fn(async () => false),
-    saveChatAttachmentToLocalVault: vi.fn(async () => true),
+    saveChatAttachmentWithOutcome: vi.fn(async () => ({ status: "saved" as const })),
 }));
 
 const attachment: Attachment = {
@@ -33,14 +37,21 @@ describe("AttachmentContextMenu", () => {
     });
 
     it("surfaces save-to-vault as the first action when enabled", async () => {
-        const { canSaveChatAttachmentsToLocalVault } = await import("@/app/features/vault/services/save-chat-attachment-to-vault");
+        const { canSaveChatAttachmentsToLocalVault, saveChatAttachmentWithOutcome } = await import(
+            "@/app/features/vault/services/save-chat-attachment-to-vault"
+        );
         vi.mocked(canSaveChatAttachmentsToLocalVault).mockReturnValue(true);
 
         render(<AttachmentContextMenu state={{ attachment, x: 120, y: 80 }} onClose={vi.fn()}/>);
         const saveButton = await screen.findByRole("button", { name: "vault.saveFromChat" });
         expect(saveButton).toBeEnabled();
         fireEvent.click(saveButton);
-        const { saveChatAttachmentToLocalVault } = await import("@/app/features/vault/services/save-chat-attachment-to-vault");
-        expect(saveChatAttachmentToLocalVault).toHaveBeenCalledWith(attachment, expect.any(Function));
+        await waitFor(() => {
+            expect(saveChatAttachmentWithOutcome).toHaveBeenCalledWith(
+                attachment,
+                expect.any(Function),
+                { suppressUnlockToast: true },
+            );
+        });
     });
 });

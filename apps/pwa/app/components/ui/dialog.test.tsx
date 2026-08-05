@@ -1,13 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@dweb/ui-kit";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@dweb/ui-kit/dialog";
 
 describe("Dialog", () => {
   it("renders centered content with a higher stack layer than the overlay", () => {

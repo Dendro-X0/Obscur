@@ -53,7 +53,10 @@ export const readDesktopWindowBootPayload = (): DesktopWindowBootPayload | null 
   return { windowLabel, profileId, launchMode };
 };
 
-/** Mirrors init payload into sync scope read by {@link getProfileScopeOverride}. */
+/** Mirrors init payload into sync scope read by {@link getProfileScopeOverride}.
+ * R-SCOPE: only boot inject may assign `__OBSCUR_SYNC_PROFILE_SCOPE__` (with layout.tsx).
+ * Ongoing bind writes go through {@link setProfileScopeOverride} in desktop-profile-runtime.
+ */
 export const mirrorDesktopWindowBootPayloadToSyncScope = (): boolean => {
   const payload = readDesktopWindowBootPayload();
   if (!payload) {

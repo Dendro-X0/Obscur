@@ -6,4 +6,4 @@ export {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@dweb/ui-kit";
+} from "@dweb/ui-kit/pagination";

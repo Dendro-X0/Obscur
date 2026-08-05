@@ -488,6 +488,8 @@ const parseAttachment = (value: unknown): Attachment | null => {
     if (!isRecord(value)) return null;
     const url = isString(value.url) ? value.url.trim() : "";
     if (url.length === 0) return null;
+    // blob: object URLs die on process restart — never hydrate them as durable attachments.
+    if (url.toLowerCase().startsWith("blob:")) return null;
 
     const contentType = isString(value.contentType) ? value.contentType.trim().toLowerCase() : "";
     const explicitFileName = isString(value.fileName) ? value.fileName.trim() : "";
@@ -922,7 +924,11 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
     Object.entries(messagesByConversationId).forEach(([conversationId, messages]) => {
         const sorted = [...messages].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         const limited = sorted.slice(-MAX_PERSISTED_MESSAGES_PER_CONVERSATION);
-        result[conversationId] = limited.map((m): PersistedMessage => ({
+        result[conversationId] = limited.map((m): PersistedMessage => {
+            const durableAttachments = Array.isArray(m.attachments)
+                ? m.attachments.filter((attachment) => !attachment.url.trim().toLowerCase().startsWith("blob:"))
+                : undefined;
+            return {
             id: m.id,
             ...(typeof m.eventId === "string" && m.eventId.trim().length > 0 ? { eventId: m.eventId.trim() } : {}),
             ...(m.kind !== "user" ? { kind: m.kind } : {}),
@@ -931,11 +937,12 @@ export const toPersistedMessagesByConversationId = (messagesByConversationId: Me
             timestampMs: m.timestamp.getTime(),
             isOutgoing: m.isOutgoing,
             status: m.status,
-            ...(m.attachments ? { attachments: m.attachments } : {}),
+            ...(durableAttachments && durableAttachments.length > 0 ? { attachments: durableAttachments } : {}),
             ...(m.replyTo ? { replyTo: m.replyTo } : {}),
             ...(m.reactions ? { reactions: m.reactions } : {}),
             ...(m.deletedAt ? { deletedAtMs: m.deletedAt.getTime() } : {}),
-        }));
+            };
+        });
     });
     return result;
 };

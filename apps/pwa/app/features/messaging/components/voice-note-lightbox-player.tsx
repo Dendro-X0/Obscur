@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ExternalLink, Volume2 } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
 import {
   formatVoiceNoteRecordedAtLabel,

@@ -13,9 +13,12 @@ const notificationPreferenceMocks = vi.hoisted(() => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (_key: string, fallbackOrOptions?: string | { count?: number }) => {
+    t: (_key: string, fallbackOrOptions?: string | Record<string, unknown>) => {
       if (_key === "messaging.membersCount" && typeof fallbackOrOptions === "object") {
         return `${fallbackOrOptions.count ?? 0} members`;
+      }
+      if (_key === "messaging.groupOnlineHereCount" && typeof fallbackOrOptions === "object") {
+        return `${fallbackOrOptions.count ?? 0} online here`;
       }
       if (_key === "messaging.groupOnlineCount" && typeof fallbackOrOptions === "object") {
         return `${fallbackOrOptions.count ?? 0} online`;
@@ -23,6 +26,12 @@ vi.mock("react-i18next", () => ({
       if (_key === "messaging.groupLastActivity" && typeof fallbackOrOptions === "object") {
         const time = (fallbackOrOptions as { time?: string }).time ?? "";
         return `Last activity ${time}`;
+      }
+      if (_key === "messaging.noRecentActivity") {
+        return "No recent activity";
+      }
+      if (typeof fallbackOrOptions === "object" && fallbackOrOptions && typeof fallbackOrOptions.defaultValue === "string") {
+        return fallbackOrOptions.defaultValue;
       }
       return typeof fallbackOrOptions === "string" ? fallbackOrOptions : _key;
     },
@@ -146,13 +155,18 @@ describe("ChatHeader", () => {
         {...createProps()}
         conversation={groupConversation}
         groupMemberCount={2}
+        groupMemberCountSource="known_here"
         groupOnlineMemberCount={1}
         groupLastActivityAtMs={Date.now() - 30_000}
         nowMs={Date.now()}
       />,
     );
     expect(screen.getByText("2 members")).toBeInTheDocument();
-    expect(screen.getByText("1 online")).toBeInTheDocument();
+    expect(screen.getByText("1 online here")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-header-member-count")).toHaveAttribute(
+      "title",
+      expect.stringMatching(/Known on this device|membership directory/i),
+    );
     expect(screen.getByText(/Last activity/i)).toBeInTheDocument();
   });
 });

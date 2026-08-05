@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listDmConversations } from "@obscur/dm-engine";
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbGetConversations: vi.fn(),
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+  listDmConversations: vi.fn(),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
@@ -23,7 +31,6 @@ vi.mock("./native-dm-sqlite-integrity", async (importOriginal) => {
   };
 });
 
-import { dbGetConversations } from "@dweb/db";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import {
   isOneSidedNativeDmSqliteDirections,
@@ -41,7 +48,7 @@ const peerPk = "bb".repeat(32);
 
 describe("native-dm-sqlite-repair", () => {
   beforeEach(() => {
-    vi.mocked(dbGetConversations).mockReset();
+    vi.mocked(listDmConversations).mockReset();
     countDirectionsMock.mockReset();
     resetNativeDmRelayBackfillRepairCooldownForTests();
   });
@@ -74,7 +81,7 @@ describe("native-dm-sqlite-repair", () => {
 
   it("scans conversations and returns one-sided threads only", async () => {
     const peerPk2 = "cc".repeat(32);
-    vi.mocked(dbGetConversations).mockResolvedValue([
+    vi.mocked(listDmConversations).mockResolvedValue([
       {
         id: [myPk, peerPk].sort().join(":"),
         profile_id: "profile-a",
@@ -128,7 +135,7 @@ describe("native-dm-sqlite-repair", () => {
   });
 
   it("runs profile repair scan and requests backfill when one-sided threads exist", async () => {
-    vi.mocked(dbGetConversations).mockResolvedValue([
+    vi.mocked(listDmConversations).mockResolvedValue([
       {
         id: `${myPk}:${peerPk}`,
         profile_id: "profile-a",

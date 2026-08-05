@@ -19,10 +19,12 @@ import { applyRustMeshConfigureFromPreset } from "@/app/features/transport-kerne
 import {
   isTorPresetApplyBlocked,
   resolveTemplatePrefillUrl,
-  shouldConfirmPresetReplace,
+  shouldConfirmTransportPresetApply,
 } from "@/app/features/transport-kernel/transport-preset-apply-policy";
 import { useConduitMeshTorSettingsState } from "@/app/features/transport-kernel/use-conduit-mesh-tor-settings-state";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
+import { computeRelayQuickAverageLatency } from "@/app/features/relays/lib/format-relay-latency-label";
 import { DEFAULT_STABLE_PRESET, ENABLE_API_HEALTH_PROBE, RELAY_PRESETS, TRANSPORT_PRESET_GROUPS, type ApiHealthState, type RelayPresetId, } from "../settings-tab-panel-shared";
 import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
 import { useSettingsRelayRuntimeStatus } from "./use-settings-relay-runtime-status";
@@ -112,6 +114,12 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
             case "Fallback": return t("settings.relays.node.role.fallback");
             case "Transient": return t("settings.relays.node.role.transient");
             case "Configured": return t("settings.relays.node.role.configured");
+            case "Primary": return t("settings.relays.node.role.primary", { defaultValue: "Primary" });
+            case "Primary (offline)": return t("settings.relays.node.role.primaryOffline", { defaultValue: "Primary (offline)" });
+            case "Active transport": return t("settings.relays.node.role.activeTransport", { defaultValue: "Active transport" });
+            case "Pool member": return t("settings.relays.node.role.poolMember", { defaultValue: "Pool member" });
+            case "Standby": return t("settings.relays.node.role.standby", { defaultValue: "Standby" });
+            case "Standby (probed)": return t("settings.relays.node.role.standbyProbed", { defaultValue: "Standby (probed)" });
             default: return value;
         }
     }, [t]);
@@ -131,9 +139,25 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
                 return t("settings.relays.node.detail.degraded");
             case "The socket is open, but observed latency is high enough to reduce delivery quality.":
                 return t("settings.relays.node.detail.highLatency");
+            case "Socket open — window idle, not high latency.":
+                return t("settings.relays.node.detail.quiet", {
+                    defaultValue: "Socket open — window idle, not high latency.",
+                });
             case "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.":
                 return t("settings.relays.node.detail.quiet", {
-                    defaultValue: "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.",
+                    defaultValue: "Socket open — window idle, not high latency.",
+                });
+            case "Selected primary — no open socket yet.":
+                return t("settings.relays.node.detail.primaryDisconnected", {
+                    defaultValue: "Selected primary — no open socket yet.",
+                });
+            case "Not in the active transport pool.":
+                return t("settings.relays.node.detail.standbyDisconnected", {
+                    defaultValue: "Not in the active transport pool.",
+                });
+            case "No active socket.":
+                return t("settings.relays.node.detail.disconnected", {
+                    defaultValue: "No active socket.",
                 });
             default:
                 if (value.startsWith("Repeated failures triggered backoff. Next retry is scheduled automatically.")) {
@@ -163,23 +187,25 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     const relayQuickHealth = useMemo(() => {
         const enabledRelays = relayList.state.relays.filter((relay) => relay.enabled);
         const enabledSet = new Set(enabledRelays.map((relay) => relay.url));
-        const openCount = Math.max(
-            pool.connections.filter((connection) => connection.status === "open" && enabledSet.has(connection.url)).length,
-            relayRuntime.writableRelayCount,
-        );
-        const latencyValues = enabledRelays
-            .map((relay) => relayHealthMetricsMap.get(relay.url)?.latency ?? 0)
-            .filter((value) => Number.isFinite(value) && value > 0);
-        const averageLatencyMs = latencyValues.length > 0
-            ? Math.round(latencyValues.reduce((sum, value) => sum + value, 0) / latencyValues.length)
-            : undefined;
+        const openEnabledUrls = pool.connections
+            .filter((connection) => connection.status === "open" && (
+                enabledSet.has(connection.url)
+                || enabledRelays.some((relay) => workspaceRelayUrlsMatch(relay.url, connection.url))
+            ))
+            .map((connection) => connection.url);
+        const openCount = openEnabledUrls.length;
+        const average = computeRelayQuickAverageLatency({
+            openEnabledUrls,
+            metricsByUrl: relayHealthMetricsMap,
+        });
         return {
             openCount,
             enabledCount: enabledRelays.length,
-            averageLatencyMs,
+            averageLatencyMs: average.averageLatencyMs,
+            averageLatencyKind: average.kind,
             recommendation: relayRuntimeStatus.actionText,
         };
-    }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntime.writableRelayCount, relayRuntimeStatus]);
+    }, [pool.connections, relayHealthMetricsMap, relayList.state.relays, relayRuntimeStatus]);
     const relayCapabilityAssessment = useMemo(() => assessRelayCapability({
         enabledRelayUrls: relayList.state.relays.filter((relay) => relay.enabled).map((relay) => relay.url),
     }), [relayList.state.relays]);
@@ -331,7 +357,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
         if (preset && isTorPresetApplyBlocked(preset, torState)) {
             return applyRelayPreset(presetId);
         }
-        if (shouldConfirmPresetReplace(relayList.state.relays)) {
+        if (preset && shouldConfirmTransportPresetApply(preset, relayList.state.relays)) {
             setPendingPresetApplyId(presetId);
             setIsPresetApplyConfirmOpen(true);
             return undefined;

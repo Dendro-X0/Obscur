@@ -77,4 +77,9 @@ export type TransportSnapshot = Readonly<{
   pendingOutboundCount: number;
   updatedAtUnixMs: number;
   recovery: TransportRecoverySnapshot;
+  /**
+   * RUST-4a — when true, Rust mesh owns pad/failover; TS must not dual-own.
+   * Absent/false = legacy TS failover may still run (web / unconfigured mesh).
+   */
+  meshSchedulerOwnsFailover?: boolean;
 }>;

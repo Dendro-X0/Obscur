@@ -12,7 +12,7 @@ import { relayTransportJournal } from "@/app/features/relays/services/relay-tran
 
 type SendConnectionRequestResult = Readonly<{
   success: boolean;
-  deliveryStatus?: "sent_quorum" | "sent_partial" | "queued_retrying" | "failed";
+  deliveryStatus?: "sent_quorum" | "sent_partial" | "queued_retrying" | "pending_ack" | "failed";
   retryAtUnixMs?: number;
   relayResults: ReadonlyArray<Readonly<{
     relayUrl: string;

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useAuthKernelSurfaceActions } from "@/app/features/auth-kernel/hooks/use-auth-kernel-surface-actions";
 

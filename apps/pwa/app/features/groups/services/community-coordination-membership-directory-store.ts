@@ -45,11 +45,13 @@ export type CoordinationDirectoryRoomKeyMaterializationContext = Readonly<{
   groupId?: string;
 }>;
 
-type StoredDirectoryRecord = Readonly<{
+export type CoordinationMembershipDirectoryRecord = Readonly<{
   communityId: string;
   materialization: CoordinationMembershipMaterialization;
   updatedAtUnixMs: number;
 }>;
+
+type StoredDirectoryRecord = CoordinationMembershipDirectoryRecord;
 
 const toProfileStorageKey = (profileId?: string): string => (
   getScopedStorageKey(STORAGE_PREFIX, profileId ?? getResolvedProfileId())
@@ -114,7 +116,21 @@ export const loadCoordinationMembershipDirectory = (
 
 export const listCoordinationMembershipDirectoryRecords = (
   profileId?: string,
-): ReadonlyArray<StoredDirectoryRecord> => loadAllDirectoryRecords(profileId);
+): ReadonlyArray<CoordinationMembershipDirectoryRecord> => loadAllDirectoryRecords(profileId);
+
+/** Directory row with fetch timestamp — header metrics (§2.3 / U5 Wave B). */
+export const loadCoordinationMembershipDirectoryRecord = (
+  communityId: string,
+  profileId?: string,
+): CoordinationMembershipDirectoryRecord | null => {
+  const normalizedCommunityId = communityId.trim();
+  if (!normalizedCommunityId) {
+    return null;
+  }
+  return loadAllDirectoryRecords(profileId).find((entry) => (
+    entry.communityId === normalizedCommunityId
+  )) ?? null;
+};
 
 export const saveCoordinationMembershipDirectory = (params: Readonly<{
   communityId: string;

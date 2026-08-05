@@ -263,8 +263,25 @@ describe("DesktopNotificationHandler", () => {
     messagingMocks.selectedConversation = { id: "conv-1" };
     routingMocks.pathname = "/";
     render(<DesktopNotificationHandler />);
-    messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-2"));
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-same"));
+    });
     expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+  });
+
+  it("suppresses notifications when the chat is visible even if document.hasFocus is false", () => {
+    messagingMocks.selectedConversation = { id: "conv-1" };
+    routingMocks.pathname = "/";
+    Object.defineProperty(document, "hasFocus", {
+      configurable: true,
+      value: vi.fn(() => false),
+    });
+    render(<DesktopNotificationHandler />);
+    act(() => {
+      messageBus.emitNewMessage("conv-1", createIncomingMessage("evt-nofocus"));
+    });
+    expect(notificationMocks.showNotification).not.toHaveBeenCalled();
+    expect(screen.queryByText("Alice")).not.toBeInTheDocument();
   });
 
   it("suppresses notifications when selected dm conversation matches sender by pubkey despite conversation id alias drift", () => {
@@ -314,7 +331,7 @@ describe("DesktopNotificationHandler", () => {
       expect(notificationMocks.showNotification).toHaveBeenCalledTimes(1);
     }, { timeout: BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS + 500 });
     expect(notificationMocks.showNotification).toHaveBeenCalledWith(
-      "10 new messages from Alice",
+      expect.stringContaining("10 new messages from Alice"),
       expect.stringContaining("test"),
       "dmMessages",
       expect.objectContaining({
@@ -423,8 +440,8 @@ describe("DesktopNotificationHandler", () => {
     });
 
     expect(notificationMocks.showNotification).toHaveBeenCalledWith(
-      "Incoming voice call from Alice",
-      "Open chat in Obscur to respond.",
+      "Alice",
+      "Incoming voice call",
       "invitesSystem",
       expect.objectContaining({
         data: expect.objectContaining({
@@ -432,7 +449,8 @@ describe("DesktopNotificationHandler", () => {
           overlayAction: "open_chat",
         }),
         actions: expect.arrayContaining([
-          expect.objectContaining({ action: "open_chat", title: "Open chat" }),
+          expect.objectContaining({ action: "accept", title: "Accept" }),
+          expect.objectContaining({ action: "decline", title: "Reject" }),
         ]),
       }),
     );
@@ -461,8 +479,8 @@ describe("DesktopNotificationHandler", () => {
     rerender(<DesktopNotificationHandler />);
 
     expect(notificationMocks.showNotification).toHaveBeenCalledWith(
-      "Incoming voice call from Tester2",
-      "Open chat in Obscur to respond.",
+      "Tester2",
+      "Incoming voice call",
       "invitesSystem",
       expect.objectContaining({
         onClick: expect.any(Function),
@@ -472,7 +490,8 @@ describe("DesktopNotificationHandler", () => {
         }),
         requireInteraction: true,
         actions: expect.arrayContaining([
-          expect.objectContaining({ action: "open_chat", title: "Open chat" }),
+          expect.objectContaining({ action: "accept", title: "Accept" }),
+          expect.objectContaining({ action: "decline", title: "Reject" }),
         ]),
       }),
     );
@@ -517,8 +536,8 @@ describe("DesktopNotificationHandler", () => {
     }, { timeout: BACKGROUND_MESSAGE_NOTIFICATION_COALESCE_MS + 500 });
 
     expect(notificationMocks.showNotification).toHaveBeenCalledWith(
-      "New message from Alice",
-      expect.stringMatching(/^Direct message • .+\nhello from peer$/),
+      expect.stringContaining("New message from Alice"),
+      expect.stringMatching(/Direct message • .+\nhello from peer$/),
       "dmMessages",
       expect.objectContaining({
         onClick: expect.any(Function),

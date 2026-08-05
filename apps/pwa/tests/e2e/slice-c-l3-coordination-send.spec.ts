@@ -29,7 +29,7 @@ const CDP_URL = process.env.OBSCUR_CDP_URL?.trim() || "http://127.0.0.1:9230";
 const REPO_ROOT = path.resolve(__dirname, "../../../..");
 
 const test = base.extend({
-  page: async ({ page, baseURL }, use) => {
+  page: async ({ baseURL }, use) => {
     const browser = await chromium.connectOverCDP(CDP_URL);
     const cdpPage = await waitForAppPageFromCdpBrowserAsync(browser, baseURL, { timeoutMs: 120_000 });
     if (!cdpPage) {
@@ -61,19 +61,10 @@ test.describe("Slice C L3 — coordination room-key send", () => {
     const messageText = `phase1b-slice-c-l3-${Date.now()}`;
 
     await applyOperatorDevBundle(page);
+    // Phase 3: obscurDevLab deleted — password unlock via ensureUnlockedForRuntimeCapture only.
     await ensureUnlockedForRuntimeCapture(page, TESTER1, resolveAppBaseUrl(baseURL), {
       cdpNative: true,
     });
-    await page.evaluate(async () => {
-      const lab = window.obscurDevLab;
-      if (lab?.unlock) {
-        try {
-          await lab.unlock("tester1");
-        } catch {
-          // Manual unlock fallback handled by ensureUnlockedForRuntimeCapture.
-        }
-      }
-    }).catch(() => undefined);
     await expectMessengerShell(page);
     await assertSliceCL3Tester1Identity(page);
 
@@ -122,13 +113,6 @@ test.describe("Slice C L3 — coordination room-key send", () => {
       cleared = await clearSliceCL3LocalRoomKey(page);
       await page.reload({ waitUntil: "domcontentloaded" });
       await applyOperatorDevBundle(page);
-      await page.evaluate(async () => {
-        try {
-          await window.obscurDevLab?.unlock?.("tester1");
-        } catch {
-          // ignore
-        }
-      }).catch(() => undefined);
       await ensureUnlockedForRuntimeCapture(page, TESTER1, resolveAppBaseUrl(baseURL), {
         cdpNative: true,
       });

@@ -104,9 +104,7 @@ pub fn quiesce_sqlite_for_data_root_change(db_state: &DbState) -> Result<(), Str
 
 use tauri::State;
 use libobscur::db::repositories::{
-    MessageRecord, TombstoneRecord, ConversationRecord,
-    GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord,
-    RelayCheckpointRecord, VaultMediaIndexRecord, MessageSearchResult, WipeProfileLocalDataReport,
+    MessageRecord, ConversationRecord,
 };
 
 #[tauri::command]
@@ -117,72 +115,12 @@ pub fn db_insert_message(
     state.with_db(|db| db.insert_message(&msg).map_err(|e| e.to_string()))
 }
 
-#[tauri::command]
-pub fn db_get_messages(
-    state: State<'_, DbState>,
-    profile_id: String,
-    conversation_id: String,
-    limit: u32,
-    before_received_at: Option<i64>,
-) -> Result<Vec<MessageRecord>, String> {
-    state.with_db(|db| {
-        db.get_messages_by_conversation(&profile_id, &conversation_id, limit, before_received_at)
-            .map_err(|e| e.to_string())
-    })
-}
+// Slice 15 — DM read IPC tombstoned. Use engine_invoke dm.getThread / dm.listConversations.
+// @see specs/backend/r-dm-read-tombstone-slice15-design-2026-07.md
 
-#[tauri::command]
-pub fn db_delete_message(
-    state: State<'_, DbState>,
-    event_id: String,
-    profile_id: String,
-) -> Result<(), String> {
-    state.with_db(|db| db.delete_message(&event_id, &profile_id).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_delete_messages(
-    state: State<'_, DbState>,
-    event_ids: Vec<String>,
-    profile_id: String,
-) -> Result<(), String> {
-    state.with_db(|db| db.delete_messages(&event_ids, &profile_id).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_insert_tombstone(
-    state: State<'_, DbState>,
-    tombstone: TombstoneRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.insert_tombstone(&tombstone).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_insert_tombstones(
-    state: State<'_, DbState>,
-    tombstones: Vec<TombstoneRecord>,
-) -> Result<(), String> {
-    state.with_db(|db| db.insert_tombstones(&tombstones).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_get_tombstones(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<Vec<TombstoneRecord>, String> {
-    state.with_db(|db| db.get_tombstones(&profile_id).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_delete_all_tombstones_for_profile(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<(), String> {
-    state.with_db(|db| {
-        db.delete_all_tombstones_for_profile(&profile_id)
-            .map_err(|e| e.to_string())
-    })
-}
+// Slice 21 — DM delete/tombstone IPC tombstoned; use engine_invoke dm.deleteMessages /
+// deleteMessage / insertTombstone / listTombstones / deleteAllTombstones.
+// @see specs/backend/r-dm-delete-tombstone-ipc-slice21-design-2026-07.md
 
 #[tauri::command]
 pub fn db_upsert_conversation(
@@ -192,175 +130,19 @@ pub fn db_upsert_conversation(
     state.with_db(|db| db.upsert_conversation(&conversation).map_err(|e| e.to_string()))
 }
 
-#[tauri::command]
-pub fn db_get_conversations(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<Vec<ConversationRecord>, String> {
-    state.with_db(|db| db.get_conversations(&profile_id).map_err(|e| e.to_string()))
-}
+// Group list/message/tombstone IPC tombstoned. Use engine_invoke workspace.listGroups /
+// upsertGroup / listGroupMessages / insertGroupMessage / insertGroupTombstone.
+// @see specs/backend/community-group-db-ipc-tombstone-design-2026-07.md
 
-#[tauri::command]
-pub fn db_upsert_group(
-    state: State<'_, DbState>,
-    group: GroupRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.upsert_group(&group).map_err(|e| e.to_string()))
-}
+// Slice 19 — call-record IPC tombstoned; use engine_invoke persistence.listCallRecords /
+// upsertCallRecord. @see specs/backend/r-call-ipc-tombstone-slice19-design-2026-07.md
 
-#[tauri::command]
-pub fn db_get_groups(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<Vec<GroupRecord>, String> {
-    state.with_db(|db| db.get_groups(&profile_id).map_err(|e| e.to_string()))
-}
+// Slice 11 — checkpoint IPC tombstoned; use engine_invoke transport.listRelayCheckpoints /
+// upsertRelayCheckpoint. @see specs/backend/r-transport-checkpoint-tombstone-slice11-design-2026-07.md
 
-#[tauri::command]
-pub fn db_insert_group_message(
-    state: State<'_, DbState>,
-    msg: GroupMessageRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.insert_group_message(&msg).map_err(|e| e.to_string()))
-}
+// Slice 17 — vault media index IPC tombstoned; use engine_invoke persistence.listVaultMediaIndex /
+// upsertVaultMediaIndex / deleteVaultMediaIndex / deleteAllVaultMediaIndex.
+// @see specs/backend/r-vault-ipc-tombstone-slice17-design-2026-07.md
 
-#[tauri::command]
-pub fn db_get_group_messages(
-    state: State<'_, DbState>,
-    profile_id: String,
-    group_id: String,
-    limit: u32,
-    before_received_at: Option<i64>,
-) -> Result<Vec<GroupMessageRecord>, String> {
-    state.with_db(|db| {
-        db.get_group_messages(&profile_id, &group_id, limit, before_received_at)
-            .map_err(|e| e.to_string())
-    })
-}
-
-#[tauri::command]
-pub fn db_insert_group_tombstone(
-    state: State<'_, DbState>,
-    tombstone: GroupTombstoneRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.insert_group_tombstone(&tombstone).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_insert_call_record(
-    state: State<'_, DbState>,
-    record: CallRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.insert_call_record(&record).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_update_call_record(
-    state: State<'_, DbState>,
-    record: CallRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.update_call_record(&record).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_get_call_records(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<Vec<CallRecord>, String> {
-    state.with_db(|db| db.get_call_records(&profile_id).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_upsert_relay_checkpoint(
-    state: State<'_, DbState>,
-    checkpoint: RelayCheckpointRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.upsert_relay_checkpoint(&checkpoint).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_get_relay_checkpoint(
-    state: State<'_, DbState>,
-    profile_id: String,
-    relay_url: String,
-) -> Result<Option<RelayCheckpointRecord>, String> {
-    state.with_db(|db| {
-        db.get_relay_checkpoint(&profile_id, &relay_url)
-            .map_err(|e| e.to_string())
-    })
-}
-
-#[tauri::command]
-pub fn db_get_relay_checkpoints(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<Vec<RelayCheckpointRecord>, String> {
-    state.with_db(|db| db.get_relay_checkpoints(&profile_id).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_upsert_vault_media_index(
-    state: State<'_, DbState>,
-    record: VaultMediaIndexRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.upsert_vault_media_index(&record).map_err(|e| e.to_string()))
-}
-
-#[tauri::command]
-pub fn db_get_vault_media_index_for_profile(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<Vec<VaultMediaIndexRecord>, String> {
-    state.with_db(|db| {
-        db.get_vault_media_index_for_profile(&profile_id)
-            .map_err(|e| e.to_string())
-    })
-}
-
-#[tauri::command]
-pub fn db_delete_vault_media_index(
-    state: State<'_, DbState>,
-    profile_id: String,
-    remote_url: String,
-) -> Result<(), String> {
-    state.with_db(|db| {
-        db.delete_vault_media_index(&profile_id, &remote_url)
-            .map_err(|e| e.to_string())
-    })
-}
-
-#[tauri::command]
-pub fn db_delete_all_vault_media_index_for_profile(
-    state: State<'_, DbState>,
-    profile_id: String,
-) -> Result<u64, String> {
-    state.with_db(|db| {
-        db.delete_all_vault_media_index_for_profile(&profile_id)
-            .map_err(|e| e.to_string())
-    })
-}
-
-#[tauri::command]
-pub fn db_search_messages(
-    state: State<'_, DbState>,
-    profile_id: String,
-    query: String,
-    limit: Option<u32>,
-) -> Result<Vec<MessageSearchResult>, String> {
-    state.with_db(|db| {
-        db.search_messages(&profile_id, &query, limit.unwrap_or(50))
-            .map_err(|e| e.to_string())
-    })
-}
-
-#[tauri::command]
-pub fn db_wipe_profile_local_data(
-    state: State<'_, DbState>,
-    profile_id: String,
-    remove_profile_row: bool,
-) -> Result<WipeProfileLocalDataReport, String> {
-    state.with_db(|db| {
-        db.wipe_profile_local_data(&profile_id, remove_profile_row)
-            .map_err(|e| e.to_string())
-    })
-}
+// Slice 23 — search/wipe IPC tombstoned; use engine_invoke persistence.searchMessages /
+// wipeProfileLocalData. @see specs/backend/r-search-wipe-ipc-tombstone-slice23-design-2026-07.md

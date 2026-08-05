@@ -6,13 +6,21 @@ import type {
 } from "@obscur/conduit-mesh";
 import type { NostrWsWirePort } from "@obscur/conduit-mesh";
 import { parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { createRelayWebSocket } from "@/app/features/relays/hooks/create-relay-websocket";
 import { relayHealthMonitor } from "@/app/features/relays/hooks/relay-health-monitor";
 
 export type ConduitMeshNostrWsClient = NostrWsWirePort & ConduitMeshNostrSubscriptionPort & Readonly<{
   setRelayUrls: (urls: ReadonlyArray<string>) => void;
+  /**
+   * Tear down every socket and dial `urls` (or previously tracked URLs when omitted).
+   * Use on cold-start / open=0 recovery — `setRelayUrls` alone skips sockets stuck in `connecting`.
+   */
+  forceReconnectAll: (urls?: ReadonlyArray<string>) => void;
   subscribeConnections: (listener: () => void) => () => void;
   deliverInboundMessage: (relayUrl: string, message: string) => void;
+  /** Re-arm REQ for all active filters on every open socket (F-RECV-LIVE). */
+  resubscribeAll: () => void;
 }>;
 
 export type CreateConduitMeshNostrWsClientParams = Readonly<{
@@ -102,14 +110,26 @@ export const createConduitMeshNostrWsClient = (
         return;
       }
 
-      const event = parsed[1] as ConduitMeshNostrEvent;
+      // NIP-01 relay→client: ["EVENT", <subscription_id>, <event>]
+      // Client publish echo / some adapters: ["EVENT", <event>]
+      const eventCandidate = (
+        typeof parsed[1] === "object" && parsed[1] !== null
+          ? parsed[1]
+          : typeof parsed[2] === "object" && parsed[2] !== null
+            ? parsed[2]
+            : null
+      ) as ConduitMeshNostrEvent | null;
+      if (!eventCandidate) {
+        return;
+      }
+
       for (const [subId, filters] of activeSubscriptions) {
         const handler = eventHandlers.get(subId);
         if (!handler) {
           continue;
         }
-        if (matchesFilters(event, filters)) {
-          handler(event, relayUrl);
+        if (matchesFilters(eventCandidate, filters)) {
+          handler(eventCandidate, relayUrl);
         }
       }
     } catch {
@@ -186,6 +206,8 @@ export const createConduitMeshNostrWsClient = (
       entry.status = "open";
       entry.errorMessage = undefined;
       recordOpenSuccess();
+      // Re-arm live DM/community REQs that were registered while this socket was cold.
+      sendActiveSubscriptionsToRelay(url);
       notifyConnectionListeners();
     };
 
@@ -220,6 +242,11 @@ export const createConduitMeshNostrWsClient = (
   };
 
   const setRelayUrls = (urls: ReadonlyArray<string>): void => {
+    // Strict Mode / HMR may have disposed a useState-owned client; allow
+    // setRelayUrls (effect remount) to resurrect before publish runs.
+    if (disposed) {
+      disposed = false;
+    }
     const normalized = dedupeUrls(urls).filter(isWebSocketRelayUrl);
     const nextSet = new Set(normalized);
 
@@ -240,8 +267,38 @@ export const createConduitMeshNostrWsClient = (
     notifyConnectionListeners();
   };
 
+  const forceReconnectAll = (urls?: ReadonlyArray<string>): void => {
+    if (disposed) {
+      disposed = false;
+    }
+    const priorKeys = Array.from(sockets.keys());
+    for (const url of priorKeys) {
+      closeSocket(url);
+      sockets.delete(url);
+    }
+    const nextUrls = urls !== undefined ? urls : priorKeys;
+    if (nextUrls.length === 0) {
+      notifyConnectionListeners();
+      return;
+    }
+    setRelayUrls(nextUrls);
+  };
+
+  const resolveSocketEntry = (relayUrl: string): RelaySocketState | undefined => {
+    const exact = sockets.get(relayUrl);
+    if (exact) {
+      return exact;
+    }
+    for (const entry of sockets.values()) {
+      if (workspaceRelayUrlsMatch(entry.url, relayUrl)) {
+        return entry;
+      }
+    }
+    return undefined;
+  };
+
   const sendToRelay = (relayUrl: string, payload: string): boolean => {
-    const entry = sockets.get(relayUrl);
+    const entry = resolveSocketEntry(relayUrl);
     if (!entry?.socket || entry.status !== "open") {
       return false;
     }
@@ -253,8 +310,24 @@ export const createConduitMeshNostrWsClient = (
     }
   };
 
+  /** DELIVERY-1 F-RECV-LIVE: REQ must follow socket open, not only subscribe-time open set. */
+  const sendActiveSubscriptionsToRelay = (relayUrl: string): void => {
+    for (const [subId, filters] of activeSubscriptions) {
+      const reqPayload = JSON.stringify(["REQ", subId, ...filters]);
+      sendToRelay(relayUrl, reqPayload);
+    }
+  };
+
+  const resubscribeAll = (): void => {
+    for (const entry of sockets.values()) {
+      if (entry.status === "open") {
+        sendActiveSubscriptionsToRelay(entry.url);
+      }
+    }
+  };
+
   const waitForOk = (relayUrl: string, eventId: string): Promise<string | undefined> => new Promise((resolve) => {
-    const entry = sockets.get(relayUrl);
+    const entry = resolveSocketEntry(relayUrl);
     if (!entry) {
       resolve(undefined);
       return;
@@ -277,6 +350,7 @@ export const createConduitMeshNostrWsClient = (
 
   return {
     setRelayUrls,
+    forceReconnectAll,
     subscribeConnections: (listener) => {
       connectionListeners.add(listener);
       return () => {
@@ -295,14 +369,6 @@ export const createConduitMeshNostrWsClient = (
         };
       }
 
-      if (!sendToRelay(relayUrl, wirePayload)) {
-        return {
-          accepted: false,
-          errorMessage: "relay_not_connected",
-          okMessage: JSON.stringify(["OK", "offline", false, "relay_not_connected"]),
-        };
-      }
-
       let eventId = "unknown-event";
       try {
         const parsed = JSON.parse(wirePayload) as unknown;
@@ -316,7 +382,20 @@ export const createConduitMeshNostrWsClient = (
         // ignore parse errors
       }
 
-      const okMessage = await waitForOk(relayUrl, eventId);
+      // Register OK waiter before send — local relays often ACK in the same turn.
+      const okMessagePromise = waitForOk(relayUrl, eventId);
+      if (!sendToRelay(relayUrl, wirePayload)) {
+        const entry = resolveSocketEntry(relayUrl);
+        entry?.pendingOkResolvers.delete(eventId);
+        return {
+          accepted: false,
+          eventId,
+          errorMessage: "relay_not_connected",
+          okMessage: JSON.stringify(["OK", eventId, false, "relay_not_connected"]),
+        };
+      }
+
+      const okMessage = await okMessagePromise;
       if (!okMessage) {
         return {
           accepted: false,
@@ -361,6 +440,8 @@ export const createConduitMeshNostrWsClient = (
 
       return subId;
     },
+
+    resubscribeAll,
 
     unsubscribe: (subscriptionId) => {
       activeSubscriptions.delete(subscriptionId);

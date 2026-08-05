@@ -17,4 +17,11 @@ describe("filterSettingsSearchEntries", () => {
         expect(results.some((entry) => entry.id === "relay-advanced")).toBe(true);
         expect(results.some((entry) => entry.id === "tab-relays")).toBe(false);
     });
+
+    it("finds network performance metrics on Relays without Advanced", () => {
+        const results = filterSettingsSearchEntries("latency rtt");
+        expect(results.some((entry) => entry.id === "relay-performance")).toBe(true);
+        const performance = results.find((entry) => entry.id === "relay-performance");
+        expect(performance?.elementId).toBe("relay-performance-metrics");
+    });
 });

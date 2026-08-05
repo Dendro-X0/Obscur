@@ -3,8 +3,8 @@ import {
   applyOperatorDevBundle,
   ensureUnlockedForRuntimeCapture,
   TESTER1,
+  TESTER2,
 } from "./helpers/dev-test-accounts";
-import { DEV_LAB_ACCOUNTS } from "../../app/features/dev-lab/dev-lab-accounts";
 import {
   assertDmKernelBidirectionalGate,
   assertDmKernelRuntimeGate,
@@ -62,7 +62,7 @@ test.describe("dm-kernel CDP gate", () => {
     const shellHealth = await probeShellHealth(page);
     expect(shellHealth.healthy, shellHealth.issues.join(", ")).toBe(true);
 
-    const tester2Peer = DEV_LAB_ACCOUNTS.tester2.publicKeyHex!;
+    const tester2Peer = TESTER2.publicKeyHex;
     const dmKernelGate = await captureDmKernelRuntimeGate(page, {
       peerPublicKeyHex: tester2Peer,
     });
@@ -88,22 +88,15 @@ test.describe("dm-kernel CDP gate", () => {
     });
   });
 
-  test("transport repair listener dispatches missed-message sync", async ({ page, baseURL }) => {
+  test("transport repair listener is wired on runtime messaging owner (lab API deleted)", async ({ page, baseURL }) => {
     test.setTimeout(120_000);
     const appBaseUrl = resolveAppBaseUrl(baseURL);
     await applyOperatorDevBundle(page);
     await ensureUnlockedForRuntimeCapture(page, TESTER1, appBaseUrl, { cdpNative: true });
 
-    const repairSmoke = await page.evaluate(async () => {
-      const lab = window.obscurDevLab;
-      if (!lab?.forceNativeDmRelayBackfillSync || !lab.triggerMissedMessageSync) {
-        return { ok: false, reason: "dev_lab_repair_api_missing" };
-      }
-      const dispatched = await lab.forceNativeDmRelayBackfillSync();
-      await lab.triggerMissedMessageSync();
-      return { ok: dispatched, reason: dispatched ? "repair_dispatched" : "repair_not_dispatched" };
-    });
-
-    expect(repairSmoke.ok, repairSmoke.reason).toBe(true);
+    // Phase 3: window.obscurDevLab removed with features/dev-lab.
+    // Product wiring is asserted by L1 contracts on RuntimeMessagingTransportOwner.
+    const labGone = await page.evaluate(() => typeof window.obscurDevLab === "undefined");
+    expect(labGone).toBe(true);
   });
 });

@@ -43,7 +43,7 @@ describe("workspace-kernel W0 legacy routing quarantine", () => {
 
   it("leave page routes network leave through workspace-kernel leave-port", () => {
     const leavePage = read("app/groups/leave/page.tsx");
-    expect(leavePage).toContain("publishWorkspaceKernelLeave");
+    expect(leavePage).toContain("leaveManagedWorkspaceMembership");
     expect(leavePage).toContain("isWorkspaceKernelAuthority");
   });
 

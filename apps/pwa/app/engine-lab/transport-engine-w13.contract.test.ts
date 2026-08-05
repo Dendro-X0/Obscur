@@ -10,8 +10,8 @@ const read = (relFromPwa: string): string => (
 );
 
 describe("transport-engine w13 — journal-backed standalone publish", () => {
-  it("relay standalone publish port journals native standalone publish", () => {
-    const port = read("app/features/relays/hooks/relay-standalone-publish-port.ts");
+  it("subtracted port journals host-shim standalone publish after W66", () => {
+    const port = read("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("relayTransportJournal");
     expect(port).toContain("setPendingOutbound");
     expect(port).toContain("clearPendingOutbound");
@@ -19,10 +19,14 @@ describe("transport-engine w13 — journal-backed standalone publish", () => {
     expect(port).toContain("publishLegacyToRelayStandalone");
   });
 
-  it("native standalone publish no longer calls relayNativeAdapter directly", () => {
-    const port = read("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).not.toContain("relayNativeAdapter");
-    expect(port).toContain("shouldUseLegacyStandaloneRelayPublish");
+  it("production port is thin re-export; subtracted owns legacy gate token", () => {
+    const thin = read("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    expect(thin).toContain("relay-standalone-publish-port-subtracted");
+    expect(thin).not.toContain("relayNativeAdapter");
+
+    const subtracted = read("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
+    expect(subtracted).toContain("shouldUseLegacyStandaloneRelayPublish");
+    expect(subtracted).not.toContain("relayNativeAdapter");
   });
 
   it("enhanced relay pool port still surfaces canonical standalone publish facade", () => {
@@ -31,4 +35,3 @@ describe("transport-engine w13 — journal-backed standalone publish", () => {
     expect(poolPort).toContain("publishToUrlsStandalone");
   });
 });
-

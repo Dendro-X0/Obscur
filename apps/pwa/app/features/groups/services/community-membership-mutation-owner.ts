@@ -39,12 +39,12 @@ export const persistCommunityMembershipLedgerMutation = (
   options?: Readonly<{ profileId?: string }>,
 ): void => {
   if (mutation.reason === "explicit_rejoin") {
-    const ledgerKey = toCommunityMembershipLedgerKey(mutation.entry);
     const current = loadCommunityMembershipLedger(publicKeyHex, options);
-    const withoutKey = ledgerKey
-      ? current.filter((entry) => toCommunityMembershipLedgerKey(entry) !== ledgerKey)
-      : current;
-    replaceCommunityMembershipLedger(publicKeyHex, [...withoutKey, mutation.entry], options);
+    // Remove every row for this groupId (relay URL may differ between leave and rejoin
+    // canonicalization). REL-001 left-beats-joined merge must not keep a stale left twin.
+    const groupId = mutation.entry.groupId.trim();
+    const withoutGroup = current.filter((entry) => entry.groupId.trim() !== groupId);
+    replaceCommunityMembershipLedger(publicKeyHex, [...withoutGroup, mutation.entry], options);
   } else {
     upsertCommunityMembershipLedgerEntry(publicKeyHex, mutation.entry, options);
   }

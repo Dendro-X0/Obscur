@@ -46,16 +46,16 @@ describe("transport-engine w67 — standalone legacy B5 exit verification", () =
     expect(STANDALONE_LEGACY_B5_EXIT_POST_DELETION_OWNERS).toHaveLength(3);
   });
 
-  it("reports pre-exit baseline ready while gate is closed", () => {
+  it("reports B5 exit verification ready after W66 post-subtraction", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacyB5ExitReadiness(recorded, createPwaFilesystem());
-    expect(report.preExitBaselineReady).toBe(true);
+    expect(report.preExitBaselineReady).toBe(false);
     expect(report.postDeletionOwnersPresent).toBe(true);
     expect(report.semanticsOwnerPresent).toBe(true);
-    expect(report.postSubtractionExitComplete).toBe(false);
-    expect(report.readyForB5ExitVerification).toBe(false);
+    expect(report.postSubtractionExitComplete).toBe(true);
+    expect(report.readyForB5ExitVerification).toBe(true);
   });
 
   it("keeps semantics owner and post-deletion port owners on disk", () => {
@@ -65,9 +65,9 @@ describe("transport-engine w67 — standalone legacy B5 exit verification", () =
     }
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

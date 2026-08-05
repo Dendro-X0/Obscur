@@ -90,12 +90,13 @@ description = "Native Relay Transport commands"
 commands.allow = [
     "connect_relay",
     "disconnect_relay",
-    "publish_event",
     "subscribe_relay",
     "unsubscribe_relay",
     "send_relay_message",
     "probe_relay"
 ]
+# R3 — raw publish_event IPC command removed; product uses send_relay_message / transport-kernel.
+# @see specs/backend/relay-publish-r3-tombstone-design-2026-07.md
 
 [[permission]]
 identifier = "allow-les-commands"
@@ -142,30 +143,33 @@ identifier = "allow-db-commands"
 description = "Native SQLite persistence commands"
 commands.allow = [
     "db_insert_message",
-    "db_get_messages",
-    "db_delete_message",
-    "db_delete_messages",
-    "db_insert_tombstone",
-    "db_insert_tombstones",
-    "db_get_tombstones",
-    "db_delete_all_tombstones_for_profile",
+    # Slice 15 — DM read IPC tombstoned; product uses engine_invoke
+    # dm.getThread / dm.listConversations (Slices 6–14).
+    # @see specs/backend/r-dm-read-tombstone-slice15-design-2026-07.md
+    # Slice 21 — DM delete/tombstone IPC tombstoned; product uses engine_invoke
+    # dm.deleteMessages / insertTombstone / listTombstones / deleteAllTombstones (Slice 20).
+    # @see specs/backend/r-dm-delete-tombstone-ipc-slice21-design-2026-07.md
     "db_upsert_conversation",
-    "db_get_conversations",
-    "db_upsert_group",
-    "db_get_groups",
-    "db_insert_group_message",
-    "db_get_group_messages",
-    "db_insert_group_tombstone",
-    "db_insert_call_record",
-    "db_update_call_record",
-    "db_get_call_records",
-    "db_upsert_relay_checkpoint",
-    "db_get_relay_checkpoint",
-    "db_get_relay_checkpoints",
-    "db_search_messages",
-    "db_wipe_profile_local_data",
+    # Group list/message/tombstone IPC tombstoned; product uses engine_invoke
+    # workspace.listGroups / upsertGroup / listGroupMessages / insertGroupMessage /
+    # insertGroupTombstone (U2 + community-group-db-ipc-tombstone).
+    # @see specs/backend/community-group-db-ipc-tombstone-design-2026-07.md
+    # Slice 19 — call-record IPC tombstoned; product uses engine_invoke
+    # persistence.listCallRecords / upsertCallRecord (Slice 18).
+    # @see specs/backend/r-call-ipc-tombstone-slice19-design-2026-07.md
+    # Slice 10 — ACC-03 checkpoint IPC quarantined; product uses engine_invoke
+    # transport.listRelayCheckpoints / upsertRelayCheckpoint (Slices 8–9).
+    # @see specs/backend/r-transport-checkpoint-acl-slice10-design-2026-07.md
+    # Slice 23 — search/wipe IPC tombstoned; product uses engine_invoke
+    # persistence.searchMessages / wipeProfileLocalData (Slice 22).
+    # @see specs/backend/r-search-wipe-ipc-tombstone-slice23-design-2026-07.md
     "engine_invoke",
-    "engine_invoke_transport_publish_relay_event"
+    "engine_invoke_transport_publish_relay_event",
+    "engine_invoke_transport_configure_mesh_conduits",
+    "engine_invoke_transport_get_mesh_snapshot",
+    "engine_invoke_transport_publish_mesh_envelope",
+    "engine_invoke_transport_export_offline_pack",
+    "engine_invoke_transport_import_offline_pack"
 ]
 
 [[permission]]

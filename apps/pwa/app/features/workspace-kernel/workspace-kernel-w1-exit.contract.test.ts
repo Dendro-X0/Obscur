@@ -29,7 +29,7 @@ describe("workspace-kernel W1 exit contract", () => {
 
   it("leave page routes network leave through workspace-kernel leave-port", () => {
     const leavePage = read("app/groups/leave/page.tsx");
-    expect(leavePage).toContain("publishWorkspaceKernelLeave");
+    expect(leavePage).toContain("leaveManagedWorkspaceMembership");
     expect(leavePage).toContain("isWorkspaceKernelAuthority");
   });
 
@@ -37,7 +37,13 @@ describe("workspace-kernel W1 exit contract", () => {
     const membershipPort = read("app/features/workspace-kernel/workspace-kernel-membership-port.ts");
     expect(membershipPort).toContain("refreshCoordinationMembershipDirectory");
     expect(membershipPort).toContain("publishWorkspaceCoordinationJoinEvidence");
-    expect(membershipPort).toContain("publishSelfCoordinationRoomKeyWrapAfterJoin");
+    expect(membershipPort).toContain("roomKeyWrap");
     expect(membershipPort).not.toContain("use-sealed-community");
+  });
+
+  it("activation join evidence owns Slice C self-wrap publish", () => {
+    const activation = read("app/features/groups/services/community-workspace-activation.ts");
+    expect(activation).toContain("publishSelfCoordinationRoomKeyWrapAfterJoin");
+    expect(activation).toContain("roomKeyWrap");
   });
 });

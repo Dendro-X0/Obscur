@@ -3,10 +3,10 @@
  */
 import {
   getIdentitySnapshot,
-  rehydrateAuthKernelIdentityForActiveProfile,
+  readStoredIdentitySnapshot,
   retryAuthKernelNativeSessionUnlock,
+  seedAuthKernelLockedIdentity,
 } from "@/app/features/auth/services/auth-kernel-legacy-delegates";
-import { isPageReloadNavigation } from "@/app/features/profiles/services/auth-public-routes";
 import { desktopProfileRuntime } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { resolveIdentityScopeProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
 import {
@@ -29,13 +29,10 @@ export const AUTH_KERNEL_BOOT_RESTORE_RETRY_DELAY_MS = 350;
 
 let bootRestoreAttemptsUsed = 0;
 let bootRestoreInFlight: Promise<boolean> | null = null;
-let bootRestoreSettled = (
-  typeof window === "undefined"
-  || !hasNativeRuntime()
-  || !isPageReloadNavigation()
-);
+/** False on native until boot restore finishes — cold + F5 (AUTH-KERN cold hydrate). */
+let bootRestoreSettled = typeof window === "undefined" || !hasNativeRuntime();
 
-/** False on desktop F5 until auth-kernel boot restore finishes — gates auth shell. */
+/** False on desktop until auth-kernel boot restore finishes — gates auth shell. */
 export const isAuthKernelBootRestoreSettled = (): boolean => bootRestoreSettled;
 
 export const markAuthKernelBootRestoreSettled = (): void => {
@@ -94,6 +91,8 @@ export const runAuthKernelBootRestore = async (
   }
 
   bootRestoreInFlight = (async (): Promise<boolean> => {
+    bootRestoreAttemptsUsed = 0;
+
     if (getIdentitySnapshot().status === "unlocked") {
       return true;
     }
@@ -119,9 +118,30 @@ export const runAuthKernelBootRestore = async (
         // Best-effort bind/refresh before restore probes.
       }
 
-      await rehydrateAuthKernelIdentityForActiveProfile();
-      const storedPublicKeyHex = getIdentitySnapshot().stored?.publicKeyHex;
+      // Read durable/local identity directly — do not wait for ensureInitialized rehydrate race.
+      let storedPublicKeyHex = getIdentitySnapshot().stored?.publicKeyHex;
       if (!storedPublicKeyHex) {
+        try {
+          const storedSnapshot = await readStoredIdentitySnapshot(activeProfileId);
+          if (storedSnapshot.record && storedSnapshot.publicKeyHex) {
+            seedAuthKernelLockedIdentity(storedSnapshot.record);
+            storedPublicKeyHex = storedSnapshot.publicKeyHex;
+          }
+        } catch {
+          // Profile scope may still be settling; retry.
+        }
+      }
+      if (!storedPublicKeyHex) {
+        logAppEvent({
+          name: "auth.kernel_boot_restore_attempt",
+          level: "info",
+          scope: { feature: "auth", action: "auth_kernel_boot" },
+          context: {
+            profileId: activeProfileId,
+            attempt: bootRestoreAttemptsUsed,
+            outcome: "missing_stored_identity",
+          },
+        });
         if (bootRestoreAttemptsUsed < AUTH_KERNEL_BOOT_RESTORE_MAX_ATTEMPTS) {
           await sleep(AUTH_KERNEL_BOOT_RESTORE_RETRY_DELAY_MS);
         }
@@ -136,6 +156,18 @@ export const runAuthKernelBootRestore = async (
         restoreEligible,
       });
       if (bootSnapshot.status === "failed") {
+        logAppEvent({
+          name: "auth.kernel_boot_restore_attempt",
+          level: "warn",
+          scope: { feature: "auth", action: "auth_kernel_boot" },
+          context: {
+            profileId: activeProfileId,
+            attempt: bootRestoreAttemptsUsed,
+            outcome: "boot_snapshot_failed",
+            reasonCode: bootSnapshot.reasonCode ?? null,
+            message: bootSnapshot.message ?? null,
+          },
+        });
         if (bootRestoreAttemptsUsed < AUTH_KERNEL_BOOT_RESTORE_MAX_ATTEMPTS) {
           await sleep(AUTH_KERNEL_BOOT_RESTORE_RETRY_DELAY_MS);
         }
@@ -203,6 +235,20 @@ export const runAuthKernelBootRestore = async (
         return true;
       }
 
+      logAppEvent({
+        name: "auth.kernel_boot_restore_attempt",
+        level: "warn",
+        scope: { feature: "auth", action: "auth_kernel_boot" },
+        context: {
+          profileId: activeProfileId,
+          attempt: bootRestoreAttemptsUsed,
+          outcome: "native_unlock_failed",
+          bootPhase: bootSnapshot.value?.phase ?? null,
+          keychainPresent: bootSnapshot.value?.keychainPresent ?? false,
+          sessionPublicKeyHex: bootSnapshot.value?.sessionPublicKeyHex ?? null,
+        },
+      });
+
       if (bootRestoreAttemptsUsed < AUTH_KERNEL_BOOT_RESTORE_MAX_ATTEMPTS) {
         await sleep(AUTH_KERNEL_BOOT_RESTORE_RETRY_DELAY_MS);
       }
@@ -229,7 +275,7 @@ export const runAuthKernelBootRestore = async (
 export const resetAuthKernelBootRestoreStateForTests = (): void => {
   bootRestoreAttemptsUsed = 0;
   bootRestoreInFlight = null;
-  bootRestoreSettled = true;
+  bootRestoreSettled = typeof window === "undefined" || !hasNativeRuntime();
 };
 
 export const waitForAuthKernelBootRestore = async (timeoutMs = 8_000): Promise<boolean> => {
@@ -243,6 +289,12 @@ export const waitForAuthKernelBootRestore = async (timeoutMs = 8_000): Promise<b
   await waitForProfileBootReconcile(timeoutMs);
   if (bootRestoreInFlight) {
     await bootRestoreInFlight;
+    return getIdentitySnapshot().status === "unlocked";
+  }
+  // Reconcile ended with no owner. Always drive restore on native — boot owner
+  // reads durable identity; do not require in-memory stored (cold race).
+  if (!bootRestoreSettled) {
+    await runAuthKernelBootRestore({ skipBootWait: true });
   }
   return getIdentitySnapshot().status === "unlocked";
 };

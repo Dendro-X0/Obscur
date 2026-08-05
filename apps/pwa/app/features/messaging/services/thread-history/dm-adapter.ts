@@ -1,22 +1,11 @@
-import { buildLegacyProjectionEvidenceMessagesForConversation, loadLegacyEarlierDmConversationMessages, mergeLegacyProjectionFirstWithLiveOverlayForDisplay, applyLegacyRealtimeBufferedEvents, runLegacyDmConversationHydrateReadModelPipeline, } from "./dm-thread-history-legacy-port";
-import { prepareDmThreadSuppressionIds } from "../dm-thread-suppression-prepare";
-import {
-  filterMessagesBySuppressedIds,
-  mergeHydratedBaseWithLiveOverlayMessages,
-} from "../conversation-message-materialization";
+/**
+ * R1 Wave 2 — DM thread-history adapter is the dm-kernel stub.
+ * Thick hydrate pipeline deleted; product reads via loadDmKernelThread.
+ */
+import { dmKernelThreadHistoryStub } from "@/app/features/dm-kernel/dm-kernel-thread-history-stub";
 import type { ThreadHistoryPort } from "./port";
 
-/** Live DM adapter for the thread history kernel. */
-export const dmThreadHistoryAdapter: ThreadHistoryPort = {
-  prepareThreadSuppressionIds: prepareDmThreadSuppressionIds,
-  hydrateThreadReadModel: runLegacyDmConversationHydrateReadModelPipeline,
-  buildProjectionEvidenceMessages: buildLegacyProjectionEvidenceMessagesForConversation,
-  mergeProjectionWithLiveOverlay: mergeLegacyProjectionFirstWithLiveOverlayForDisplay,
-  loadEarlierMessages: loadLegacyEarlierDmConversationMessages,
-  applyRealtimeBufferedEvents: applyLegacyRealtimeBufferedEvents,
-  filterThreadMessagesBySuppression: filterMessagesBySuppressedIds,
-  mergeHydratedBaseWithLiveOverlay: mergeHydratedBaseWithLiveOverlayMessages,
-};
+export const dmThreadHistoryAdapter: ThreadHistoryPort = dmKernelThreadHistoryStub;
 
 /** @deprecated Use dmThreadHistoryAdapter */
 export const dmConversationMaterializationOwner: ThreadHistoryPort = dmThreadHistoryAdapter;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { publishHostTransportShimToRelayUrls } from "@/app/features/transport-kernel/transport-kernel-host-publish-shim";
-import { publishTransportKernelToRelayUrls } from "@/app/features/transport-kernel/transport-kernel-standalone-publish";
+import { publishTransportKernelToRelayUrls } from "@/app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive";
 import { resetTransportEngineHostForTests } from "@/app/features/transport-kernel/transport-engine-host-port";
 import {
   assertNetworkPublishParity,

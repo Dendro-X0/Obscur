@@ -15,9 +15,9 @@ describe("transport-engine w56 — deletion execution harness", () => {
     const w55 = readFromRepo(
       "docs/program/transport-engine-w55-standalone-legacy-deletion-charter.md",
     );
-    expect(recorded).toContain("transport-engine-smoke-sign-off-template.md");
+    expect(recorded).toContain("**Decision:** PASS");
     expect(w55).toContain("transport-engine-smoke-sign-off-template.md");
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
   });
 
   it("documents W57 subtraction steps in execution charter", () => {

@@ -25,7 +25,20 @@ export const STATIC_SHELL_SOURCE_ROOTS = [
 ];
 
 const SOURCE_FILE_PATTERN = /\.(ts|tsx|mjs|json|css)$/;
+/** Test/spec files are never shipped in out/ — must not force a shell rebuild. */
+const SOURCE_TEST_FILE_PATTERN = /\.(test|spec)(\.|$)/i;
 const IGNORED_DIR_NAMES = new Set(["node_modules", ".next", "__tests__"]);
+
+export const isStaticShellSourceFile = (filePathOrName) => {
+  const base = path.basename(filePathOrName);
+  if (!SOURCE_FILE_PATTERN.test(base)) {
+    return false;
+  }
+  if (SOURCE_TEST_FILE_PATTERN.test(base)) {
+    return false;
+  }
+  return true;
+};
 
 export const buildStaticShellManifest = (env = process.env, sourceRevision = null) => ({
   experimentOnline: env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1",
@@ -86,7 +99,7 @@ const collectNewestSource = (root, maxDepth = 12, depth = 0) => {
 
   const stat = statSync(root);
   if (!stat.isDirectory()) {
-    return SOURCE_FILE_PATTERN.test(root)
+    return isStaticShellSourceFile(root)
       ? { mtimeMs: stat.mtimeMs, newestPath: root }
       : { mtimeMs: 0, newestPath: null };
   }
@@ -108,7 +121,7 @@ const collectNewestSource = (root, maxDepth = 12, depth = 0) => {
       }
       continue;
     }
-    if (!SOURCE_FILE_PATTERN.test(entry.name)) {
+    if (!isStaticShellSourceFile(entry.name)) {
       continue;
     }
     const fileMtime = statSync(fullPath).mtimeMs;
@@ -174,3 +187,44 @@ export const formatStaticShellStaleHelp = (staleReason) => [
   "  Or:  pnpm dev:desktop:online:live  (webpack HMR — UI iteration only)",
   "  Override (not recommended): OBSCUR_ALLOW_STALE_SHELL=1",
 ].join("\n");
+
+/**
+ * Production / release-exe gate: refuse baking a stale or offline experiment shell.
+ * Default `pnpm dev:desktop` builds offline stubs — those must never ship as “prod”.
+ *
+ * @returns {{ ok: true, manifest: object } | { ok: false, reason: string }}
+ */
+export const assertProductionStaticShellReady = (repoRoot, options = {}) => {
+  const allowStale = options.allowStale === true || process.env.OBSCUR_ALLOW_STALE_SHELL === "1";
+  const requireNoDevLab = options.requireNoDevLab !== false;
+  const manifest = readStaticShellManifest(repoRoot);
+
+  if (!manifest) {
+    return { ok: false, reason: "missing apps/pwa/out/obscur-shell-manifest.json — rebuild with node scripts/build-pwa-shell.mjs desktop" };
+  }
+  if (manifest.desktopShell !== true) {
+    return { ok: false, reason: "shell manifest desktopShell≠true — rebuild desktop shell" };
+  }
+  if (manifest.experimentOnline !== true) {
+    return {
+      ok: false,
+      reason: "shell was built with EXPERIMENT_ONLINE=0 (offline stub). Production requires live relays — rebuild: node scripts/build-pwa-shell.mjs desktop",
+    };
+  }
+  if (requireNoDevLab && manifest.devLabEnabled === true) {
+    return {
+      ok: false,
+      reason: "shell was built with DEV_LAB=1. Production shell must omit DEV_LAB — rebuild via build-pwa-shell.mjs (not default pnpm dev:desktop)",
+    };
+  }
+
+  const stale = isStaticShellStale(repoRoot);
+  if (stale.stale && !allowStale) {
+    return {
+      ok: false,
+      reason: `static shell is STALE (${stale.reason}). Rebuild before --skip-shell, or set OBSCUR_ALLOW_STALE_SHELL=1 (not recommended)`,
+    };
+  }
+
+  return { ok: true, manifest, staleWarning: stale.stale ? stale.reason : null };
+};

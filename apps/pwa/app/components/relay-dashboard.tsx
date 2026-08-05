@@ -7,7 +7,7 @@ import { cn } from '@/app/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRelay } from '@/app/features/relays/providers/relay-provider';
 import type { EnhancedRelayPoolResult } from '@/app/features/relays/hooks/enhanced-relay-pool-types';
-import { deriveRelayNodeStatus } from '@/app/features/relays/lib/relay-runtime-status';
+import { deriveRelayNodeStatus, isRelayUrlPublishReady } from '@/app/features/relays/lib/relay-runtime-status';
 import {
   formatRelayLatencyHistoryCaption,
   formatRelayLatencyLabel,
@@ -18,6 +18,55 @@ import {
   isRelayNodeCurrentlyAvailable,
   relayMatchesSettingsCategory,
 } from '@/app/features/relays/services/relay-settings-node-filter';
+import { workspaceRelayIdentityKey, workspaceRelayUrlsMatch } from '@/app/features/groups/services/workspace-relay-url';
+import { isPrivateOrIntranetRelayUrl } from '@/app/features/relays/services/relay-transport-scope';
+
+const relayUrlsMatch = (left: string | null | undefined, right: string): boolean => (
+    typeof left === "string"
+    && left.length > 0
+    && (left === right || workspaceRelayUrlsMatch(left, right))
+);
+
+const findPoolConnectionForUrl = <T extends { url: string }>(
+    connections: ReadonlyArray<T>,
+    url: string,
+): T | undefined => (
+    connections.find((entry) => entry.url === url || workspaceRelayUrlsMatch(entry.url, url))
+);
+
+const findMetricsForUrl = (
+    metrics: ReadonlyMap<string, RelayHealthMetrics>,
+    url: string,
+): RelayHealthMetrics | undefined => {
+    const exact = metrics.get(url);
+    if (exact) {
+        return exact;
+    }
+    for (const [key, value] of metrics.entries()) {
+        if (workspaceRelayUrlsMatch(key, url)) {
+            return value;
+        }
+    }
+    return undefined;
+};
+
+const urlInRelaySet = (urls: ReadonlySet<string>, url: string): boolean => (
+    urls.has(url) || Array.from(urls).some((entry) => workspaceRelayUrlsMatch(entry, url))
+);
+
+const dedupeRelayUrlsByIdentity = (urls: ReadonlyArray<string>): string[] => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const url of urls) {
+        const key = workspaceRelayIdentityKey(url);
+        if (seen.has(key)) {
+            continue;
+        }
+        seen.add(key);
+        out.push(url);
+    }
+    return out;
+};
 
 /** Primary first, then enabled list order, then remaining URLs (sorted) for predictable triage. */
 export const buildOrderedRelayDashboardUrls = (params: Readonly<{
@@ -27,14 +76,17 @@ export const buildOrderedRelayDashboardUrls = (params: Readonly<{
     fallbackRelayUrls: ReadonlyArray<string>;
     primaryUrl: string | null | undefined;
 }>): string[] => {
-    const unique = Array.from(new Set([
-        ...params.metricsKeys,
+    const unique = dedupeRelayUrlsByIdentity([
+        ...(typeof params.primaryUrl === "string" && params.primaryUrl.length > 0
+            ? [params.primaryUrl]
+            : []),
         ...params.enabledRelayUrls,
+        ...params.metricsKeys,
         ...params.connectionUrls,
         ...params.fallbackRelayUrls,
-    ]));
-    const primary = typeof params.primaryUrl === "string" && params.primaryUrl.length > 0 && unique.includes(params.primaryUrl)
-        ? params.primaryUrl
+    ]);
+    const primary = typeof params.primaryUrl === "string" && params.primaryUrl.length > 0
+        ? (unique.find((url) => relayUrlsMatch(params.primaryUrl, url)) ?? null)
         : null;
     const out: string[] = [];
     const remaining = new Set(unique);
@@ -46,6 +98,12 @@ export const buildOrderedRelayDashboardUrls = (params: Readonly<{
         if (remaining.has(url)) {
             out.push(url);
             remaining.delete(url);
+            continue;
+        }
+        const alias = Array.from(remaining).find((entry) => workspaceRelayUrlsMatch(entry, url));
+        if (alias) {
+            out.push(alias);
+            remaining.delete(alias);
         }
     }
     const tail = Array.from(remaining).sort((a, b) => a.localeCompare(b));
@@ -71,6 +129,7 @@ export function RelayDashboard(params?: RelayDashboardFilterProps): React.JSX.El
         relayRuntime,
         relaySelection,
         activePoolRelayUrls,
+        relayList,
     } = useRelay();
     const activePoolSet = useMemo(
         () => new Set(activePoolRelayUrls),
@@ -80,6 +139,21 @@ export function RelayDashboard(params?: RelayDashboardFilterProps): React.JSX.El
         () => new Set(communityCandidateRelayUrls ?? []),
         [communityCandidateRelayUrls],
     );
+    const configuredRelays = relayList?.state?.relays ?? [];
+    const configuredRelayUrls = useMemo(
+        () => {
+            const fromList = configuredRelays.map((relay) => relay.url);
+            return fromList.length > 0 ? fromList : [...enabledRelayUrls, ...(communityCandidateRelayUrls ?? [])];
+        },
+        [configuredRelays, enabledRelayUrls, communityCandidateRelayUrls],
+    );
+    const configuredEnabledByUrl = useMemo(() => {
+        const map = new Map<string, boolean>();
+        for (const relay of configuredRelays) {
+            map.set(relay.url, relay.enabled);
+        }
+        return map;
+    }, [configuredRelays]);
     const metrics = useMemo(
         () => new Map<string, RelayHealthMetrics>(relayPool.healthMetrics.map((entry) => [entry.url, entry])),
         [relayPool.healthMetrics],
@@ -87,35 +161,68 @@ export function RelayDashboard(params?: RelayDashboardFilterProps): React.JSX.El
 
     const relayUrls = useMemo(() => buildOrderedRelayDashboardUrls({
         metricsKeys: Array.from(metrics.keys()),
-        enabledRelayUrls: [...enabledRelayUrls, ...(communityCandidateRelayUrls ?? [])],
+        // Full Settings list first so public standbys stay visible even when undialed.
+        enabledRelayUrls: [
+            ...configuredRelayUrls,
+            ...enabledRelayUrls,
+            ...(communityCandidateRelayUrls ?? []),
+            ...(relayRuntime.engineConfiguredRelayUrls ?? []),
+        ],
         connectionUrls: relayPool.connections.map((connection) => connection.url),
         fallbackRelayUrls: relayRuntime.fallbackRelayUrls,
         primaryUrl: relaySelection.primaryUrl,
-    }), [metrics, enabledRelayUrls, communityCandidateRelayUrls, relayPool.connections, relayRuntime.fallbackRelayUrls, relaySelection.primaryUrl]);
+    }), [
+        metrics,
+        configuredRelayUrls,
+        enabledRelayUrls,
+        communityCandidateRelayUrls,
+        relayPool.connections,
+        relayRuntime.fallbackRelayUrls,
+        relayRuntime.engineConfiguredRelayUrls,
+        relaySelection.primaryUrl,
+    ]);
 
     const buildNodeStatusParams = (
         relayUrl: string,
         poolConnection: ReturnType<EnhancedRelayPoolResult["connections"]["find"]>,
     ) => {
-        const isNostrTransport = enabledRelayUrls.includes(relayUrl);
-        const isWorkspaceNode = workspaceRelaySet.has(relayUrl);
-        const inActivePool = activePoolSet.has(relayUrl);
-        const isEnabled = isNostrTransport
+        const isNostrTransport = enabledRelayUrls.some((url) => (
+            url === relayUrl || workspaceRelayUrlsMatch(url, relayUrl)
+        )) || (
+            !isPrivateOrIntranetRelayUrl(relayUrl)
+            && configuredRelayUrls.some((url) => url === relayUrl || workspaceRelayUrlsMatch(url, relayUrl))
+        );
+        const isWorkspaceNode = workspaceRelaySet.has(relayUrl)
+            || Array.from(workspaceRelaySet).some((entry) => workspaceRelayUrlsMatch(entry, relayUrl));
+        const listEnabled = configuredEnabledByUrl.get(relayUrl)
+            ?? Array.from(configuredEnabledByUrl.entries()).find(([url]) => (
+                workspaceRelayUrlsMatch(url, relayUrl)
+            ))?.[1];
+        const inActivePool = urlInRelaySet(activePoolSet, relayUrl);
+        const isEnabled = listEnabled !== false && (
+            listEnabled === true
+            || isNostrTransport
             || isWorkspaceNode
-            || relayRuntime.fallbackRelayUrls.includes(relayUrl);
+            || relayRuntime.fallbackRelayUrls.includes(relayUrl)
+        );
+        const isPrimary = relayUrlsMatch(relaySelection.primaryUrl, relayUrl);
+        const publishReadyUrls = relayPool.getTransportActivitySnapshot()?.publishReadyRelayUrls ?? [];
         return {
             url: relayUrl,
             enabled: isEnabled,
             connection: poolConnection,
-            role: relaySelection.primaryUrl === relayUrl
+            role: isPrimary
                 ? "primary" as const
                 : isNostrTransport
                     ? "standby" as const
                     : undefined,
-            metrics: metrics.get(relayUrl),
-            isConfigured: isNostrTransport || isWorkspaceNode,
-            isActivePoolMember: inActivePool && relaySelection.primaryUrl !== relayUrl,
+            metrics: findMetricsForUrl(metrics, relayUrl),
+            isConfigured: isNostrTransport || isWorkspaceNode || configuredRelayUrls.some((url) => (
+                url === relayUrl || workspaceRelayUrlsMatch(url, relayUrl)
+            )),
+            isActivePoolMember: inActivePool && !isPrimary,
             isFallback: relayRuntime.fallbackRelayUrls.includes(relayUrl),
+            isPublishReady: isRelayUrlPublishReady(relayUrl, publishReadyUrls),
             runtimePhase: relayRuntime.phase,
             lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
         };
@@ -128,7 +235,7 @@ export function RelayDashboard(params?: RelayDashboardFilterProps): React.JSX.El
         if (!availableOnly) {
             return true;
         }
-        const poolConnection = relayPool.connections.find((entry) => entry.url === relayUrl);
+        const poolConnection = findPoolConnectionForUrl(relayPool.connections, relayUrl);
         const derivedStatus = deriveRelayNodeStatus(buildNodeStatusParams(relayUrl, poolConnection));
         return isRelayNodeCurrentlyAvailable({ nodeStatus: derivedStatus, connection: poolConnection });
     }), [
@@ -173,7 +280,7 @@ export function RelayDashboard(params?: RelayDashboardFilterProps): React.JSX.El
                     <RelayMetricCard
                         key={relayUrl}
                         url={relayUrl}
-                        metrics={metrics.get(relayUrl)}
+                        metrics={findMetricsForUrl(metrics, relayUrl)}
                         enabledRelayUrls={enabledRelayUrls}
                         workspaceRelayUrls={communityCandidateRelayUrls ?? []}
                         activePoolSet={activePoolSet}
@@ -197,42 +304,59 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
     relayRuntime: RelayRuntimeSnapshot;
     relaySelection: { primaryUrl: string | null };
 }) {
-    const poolConnection = relayPool.connections.find((entry) => entry.url === url);
+    const poolConnection = findPoolConnectionForUrl(relayPool.connections, url);
     const isNostrTransport = enabledRelayUrls.includes(url);
-    const isWorkspaceNode = workspaceRelayUrls.includes(url);
+    const isWorkspaceNode = workspaceRelayUrls.includes(url)
+        || workspaceRelayUrls.some((entry) => workspaceRelayUrlsMatch(entry, url));
     const isEnabled = isNostrTransport
         || isWorkspaceNode
-        || relayRuntime.fallbackRelayUrls.includes(url);
-    const inActivePool = activePoolSet.has(url);
+        || relayRuntime.fallbackRelayUrls.some((entry) => entry === url || workspaceRelayUrlsMatch(entry, url));
+    const inActivePool = urlInRelaySet(activePoolSet, url);
+    const isPrimary = relayUrlsMatch(relaySelection.primaryUrl, url);
+    const publishReadyUrls = relayPool.getTransportActivitySnapshot()?.publishReadyRelayUrls ?? [];
+    const isPublishReady = isRelayUrlPublishReady(url, publishReadyUrls);
     const derivedStatus = deriveRelayNodeStatus({
         url,
         enabled: isEnabled,
         connection: poolConnection,
-        role: relaySelection.primaryUrl === url
+        role: isPrimary
             ? "primary"
             : isNostrTransport
                 ? "standby"
                 : undefined,
         metrics,
         isConfigured: isNostrTransport || isWorkspaceNode,
-        isActivePoolMember: inActivePool && relaySelection.primaryUrl !== url,
-        isFallback: relayRuntime.fallbackRelayUrls.includes(url),
+        isActivePoolMember: inActivePool && !isPrimary,
+        isFallback: relayRuntime.fallbackRelayUrls.some((entry) => entry === url || workspaceRelayUrlsMatch(entry, url)),
+        isPublishReady,
         runtimePhase: relayRuntime.phase,
         lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
     });
-    const latencyLabel = formatRelayLatencyLabel(metrics);
+    const socketOpen = poolConnection?.status === "open" || isPublishReady;
+    const latencyLabelOptions = { socketOpen, publishReady: isPublishReady };
+    const latencyLabel = formatRelayLatencyLabel(metrics, latencyLabelOptions);
     const sampleCount = metrics ? metrics.successfulConnections + metrics.failedConnections : 0;
     const latencyHistory = metrics?.latencyHistory ?? [];
     const hasLatencySamples = latencyHistory.length > 0;
     const latencyHistoryCaption = hasLatencySamples
-        ? formatRelayLatencyHistoryCaption(metrics)
+        ? formatRelayLatencyHistoryCaption(metrics, latencyLabelOptions)
         : `No samples (${sampleCount})`;
+    const isCompactOffline = derivedStatus.status === "unavailable";
+    const isSlimOpenCard = socketOpen && (
+        derivedStatus.badge === "Quiet"
+        || derivedStatus.successLabel === "n/a"
+    );
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition-all hover:shadow-md dark:border-white/5 dark:bg-zinc-900/40"
+            className={cn(
+                "relative overflow-hidden rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-zinc-900/40",
+                isCompactOffline
+                    ? "border-dashed border-black/10 opacity-90 dark:border-white/10"
+                    : "border-black/5 dark:border-white/5",
+            )}
         >
             {/* Background Pulse for active connections */}
             {poolConnection?.status === 'open' && derivedStatus.status === 'healthy' && (
@@ -245,14 +369,15 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                 </div>
             )}
 
-            <div className="flex items-start justify-between mb-4">
+            <div className={cn("flex items-start justify-between", isCompactOffline ? "mb-2" : "mb-3")}>
                 <div className="min-w-0">
                     <h4 className="truncate font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100">
                         {url.replace('wss://', '')}
                     </h4>
                     <div className="flex items-center gap-2 mt-1">
                         <span className={cn(
-                            "h-1.5 w-1.5 rounded-full animate-pulse",
+                            "h-1.5 w-1.5 rounded-full",
+                            isCompactOffline ? "" : "animate-pulse",
                             derivedStatus.status === 'healthy' ? "bg-emerald-500" :
                                 derivedStatus.status === 'recovering' ? "bg-sky-500" :
                                     derivedStatus.status === 'degraded' ? "bg-amber-500" : "bg-red-500"
@@ -267,14 +392,44 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                 </div>
 
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                    <Zap className={cn("h-3 w-3", metrics && metrics.latency < 200 ? "text-emerald-500" : "text-amber-500")} />
+                    <Zap className={cn(
+                        "h-3 w-3",
+                        !socketOpen || (!(metrics && metrics.latency > 0) && !isPublishReady)
+                            ? "text-zinc-400"
+                            : (metrics?.latency ?? 0) > 0 && metrics!.latency < 200
+                                ? "text-emerald-500"
+                                : isPublishReady && !(metrics && metrics.latency > 0)
+                                    ? "text-emerald-500"
+                                    : "text-amber-500",
+                    )} />
                     <span className="text-[10px] font-mono font-bold">
                         {latencyLabel}
                     </span>
                 </div>
             </div>
 
-            <div className="space-y-4">
+            {isCompactOffline ? (
+                <div className="space-y-2">
+                    <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                        {derivedStatus.detail}
+                    </p>
+                    <AnimatePresence>
+                        {metrics?.lastError && metrics.status === 'error' && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="rounded-lg bg-red-50 p-2 dark:bg-red-900/10 overflow-hidden"
+                            >
+                                <p className="text-[9px] text-red-600 dark:text-red-400 font-medium leading-tight line-clamp-2">
+                                    {metrics.lastError}
+                                </p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            ) : (
+            <div className={cn(isSlimOpenCard ? "space-y-2" : "space-y-4")}>
                 {/* Latency History Sparkline */}
                 <div className="space-y-1">
                     <div className="flex justify-between items-center text-[9px] uppercase tracking-tighter font-bold opacity-40">
@@ -307,7 +462,7 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                     </div>
                 </div>
 
-                {/* Stats Grid */}
+                {!isSlimOpenCard && (
                 <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-xl border border-black/5 bg-zinc-50/50 p-2 dark:border-white/5 dark:bg-zinc-950/30">
                         <div className="text-[9px] uppercase opacity-40 font-bold mb-1">Success Rate</div>
@@ -338,12 +493,18 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                         </div>
                     </div>
                 </div>
+                )}
 
+                {isSlimOpenCard ? (
+                    <p className="text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+                        {derivedStatus.detail}
+                    </p>
+                ) : (
                 <div className="rounded-xl border border-black/5 bg-zinc-50/50 p-2 text-[10px] leading-relaxed text-zinc-500 dark:border-white/5 dark:bg-zinc-950/30 dark:text-zinc-400">
                     {derivedStatus.detail}
                 </div>
+                )}
 
-                {/* Error Message if any */}
                 <AnimatePresence>
                     {metrics?.lastError && metrics.status === 'error' && (
                         <motion.div
@@ -359,6 +520,7 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                     )}
                 </AnimatePresence>
             </div>
+            )}
         </motion.div>
     );
 }

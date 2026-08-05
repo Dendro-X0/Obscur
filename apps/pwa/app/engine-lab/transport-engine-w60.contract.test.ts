@@ -55,30 +55,30 @@ describe("transport-engine w60 — standalone legacy mechanical deletion prepara
     expect(resolveStandaloneLegacyContractReadPath(false)).toBe(STANDALONE_LEGACY_ARCHIVE_PATH);
   });
 
-  it("requires archive in dry-run baseline while gate is closed", () => {
+  it("requires archive in dry-run baseline after W66 (legacy production absent)", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacySubtractionDryRun(recorded, createPwaFilesystem());
     expect(report.legacyArchivePresent).toBe(true);
-    expect(report.legacyFilesPresent).toBe(true);
+    expect(report.legacyFilesPresent).toBe(false);
     expect(report.readyForPhysicalDeletion).toBe(false);
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });
 
 describe("transport-engine w60 — archive dry-run gate semantics", () => {
-  it("requires archive present for physical deletion readiness when gate opens", () => {
+  it("physical deletion readiness is false after W66 (legacy already absent)", () => {
     const passSignOff = "**Decision:** PASS\n";
     const fs = createPwaFilesystem();
 
     vi.stubEnv("NEXT_PUBLIC_OBSCUR_TRANSPORT_STANDALONE_LEGACY_DELETION_APPROVED", "1");
-    expect(evaluateStandaloneLegacySubtractionDryRun(passSignOff, fs).readyForPhysicalDeletion).toBe(true);
+    expect(evaluateStandaloneLegacySubtractionDryRun(passSignOff, fs).readyForPhysicalDeletion).toBe(false);
     vi.unstubAllEnvs();
   });
 });

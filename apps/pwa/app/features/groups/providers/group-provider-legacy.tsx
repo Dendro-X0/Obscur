@@ -31,13 +31,11 @@ import { COORDINATION_MEMBERSHIP_DIRECTORY_CHANGED_EVENT, refreshCoordinationMem
 import {
   loadCommunityMembershipLedger,
   removeCommunityMembershipLedgerScopes,
-  toCommunityMembershipLedgerEntryFromGroup,
   toGroupConversationFromMembershipLedgerEntry,
 } from "@/app/features/groups/services/community-membership-ledger";
 import {
   listArchivedCommunityMembershipLedgerRows,
 } from "@/app/features/groups/services/community-membership-ledger-archive";
-import { persistCommunityMembershipLedgerMutation } from "@/app/features/groups/services/community-membership-mutation-owner";
 import { deriveCommunityId } from "@/app/features/groups/utils/community-identity";
 import { resolveGroupConversationIdAliases, toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { readCommunityLeaveOutbox } from "@/app/features/groups/services/community-leave-outbox";
@@ -310,24 +308,8 @@ export const LegacyGroupProvider: React.FC<{ children: React.ReactNode }> = ({ c
         relayUrl,
       });
     }
-    if (isWorkspaceKernelAuthority() && options?.relayConfirmed === true) {
-      const ledger = loadCommunityMembershipLedger(publicKeyHex, { profileId: resolvedProfileId });
-      const hadTerminalLedger = hasTerminalLedgerScopeEvidence(ledger, { groupId, relayUrl });
-      const isExplicitRejoin = options?.allowRevive === true
-        || tombstoned
-        || hadTerminalLedger;
-      persistCommunityMembershipLedgerMutation(
-        publicKeyHex,
-        {
-          reason: isExplicitRejoin ? "explicit_rejoin" : "runtime_join_confirmed",
-          entry: toCommunityMembershipLedgerEntryFromGroup(group, {
-            status: options?.provisionalJoin ? "pending" : "joined",
-            updatedAtUnixMs: Date.now(),
-          }),
-        },
-        { profileId: resolvedProfileId },
-      );
-    }
+    // U4 Wave B: join/rejoin ledger writes are membership-port / runtime-evidence only.
+    // Provider addGroup refreshes sidebar metadata after those owners succeed.
     const metadataCache = upsertGroupMetadata(group);
     setCreatedGroups(deriveDisplayGroupList(metadataCache));
   }, [deriveDisplayGroupList, publicKeyHex, resolvedProfileId, upsertGroupMetadata]);
@@ -447,11 +429,17 @@ export const LegacyGroupProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!group) {
       return;
     }
+    // U4: under kernel authority, ledger/tombstone commit is owned by leaveManagedWorkspaceMembership.
+    // Provider leaveGroup only refreshes sidebar after confirmed leave.
+    if (isWorkspaceKernelAuthority()) {
+      removeGroupConversation(group.id);
+      return;
+    }
     commitCommunityLeaveAfterRelayConfirmation({
       publicKeyHex,
       group,
       profileId: resolvedProfileId,
-      tombstone: isWorkspaceKernelAuthority(),
+      tombstone: false,
     });
     removeGroupConversation(group.id);
   }, [publicKeyHex, removeGroupConversation, resolveGroupForScope, resolvedProfileId]);

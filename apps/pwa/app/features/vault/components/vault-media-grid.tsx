@@ -2,7 +2,8 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Button, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { toast } from "@dweb/ui-kit/toast";
 import { LoaderIcon, ImageIcon, VideoIcon, Music2, Mic, ExternalLink, RefreshCw, Trash2, HardDrive, X, MoreVertical, Star, CheckSquare, Square, FileIcon, FileText, Download, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Search, ZoomIn, ZoomOut, RotateCcw, Maximize2, Smartphone, FolderOpen } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, } from "@/app/components/ui/dropdown-menu";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";

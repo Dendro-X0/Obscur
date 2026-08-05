@@ -1,5 +1,5 @@
-import type { AuthAssistantPort } from "@dweb/auth";
-import { authFailed, authOk } from "@dweb/auth";
+import type { AuthAssistantPort } from "@dweb/auth/ports/auth-assistant-port";
+import { authFailed, authOk } from "@dweb/auth/contracts/auth-result";
 import { AuthKernelProfileScopeError } from "@/app/features/auth/services/auth-kernel-legacy-delegates";
 import { readDeviceSessionConsent } from "@/app/features/auth/services/device-session-consent";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";

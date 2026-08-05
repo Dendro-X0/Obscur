@@ -24,7 +24,8 @@ import { toast } from "@dweb/ui-kit";
 describe("native-session-persist-feedback", () => {
   beforeEach(() => {
     sessionStorage.clear();
-    vi.clearAllMocks();
+    vi.mocked(logAppEvent).mockClear();
+    vi.mocked(toast.error).mockClear();
   });
 
   it("records and logs persist failures", async () => {
@@ -43,7 +44,7 @@ describe("native-session-persist-feedback", () => {
       level: "error",
     }));
     await vi.waitFor(() => {
-      expect(toast.error).toHaveBeenCalled();
+      expect(vi.mocked(toast.error)).toHaveBeenCalled();
     });
   });
 

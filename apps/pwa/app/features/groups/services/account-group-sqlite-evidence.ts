@@ -1,5 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbGetGroupMessages } from "@dweb/db";
+import { listWorkspaceGroupMessageRecords } from "@/app/features/messaging/services/thread-history/workspace-group-message-persist-port";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 const normalizePublicKeyHex = (value: string): string => value.trim().toLowerCase();
@@ -21,11 +21,11 @@ export const accountHasSqliteGroupMessageEvidence = async (params: Readonly<{
     return false;
   }
   try {
-    const rows = await dbGetGroupMessages(
+    const rows = await listWorkspaceGroupMessageRecords({
       profileId,
       groupId,
-      params.sampleSize ?? 20,
-    );
+      limit: params.sampleSize ?? 20,
+    });
     return rows.some((row) => normalizePublicKeyHex(row.sender_pubkey) === account);
   } catch {
     return false;

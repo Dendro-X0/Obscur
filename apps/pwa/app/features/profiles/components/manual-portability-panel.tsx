@@ -2,7 +2,8 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Button, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { toast } from "@dweb/ui-kit/toast";
 import { Loader2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";

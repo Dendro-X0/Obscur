@@ -14,8 +14,15 @@ describe("path B B4 exit contract", () => {
     const backup = read("app/features/account-sync/services/encrypted-account-backup-service.ts");
     const evidence = read("app/features/account-sync/services/native-sqlite-backup-evidence.ts");
     expect(evidence).toContain("collectNativeSqliteBackupEvidence");
-    expect(evidence).toContain("dbGetMessages");
-    expect(evidence).toContain("dbGetGroupMessages");
+    expect(evidence).toContain("listDmConversations");
+    expect(evidence).toContain("fetchDmThreadRows");
+    expect(evidence).not.toContain("dbGetMessages");
+    expect(evidence).not.toContain("dbGetConversations");
+    expect(evidence).toContain("listWorkspaceGroupMessages");
+    expect(evidence).not.toContain("dbGetGroupMessages");
+    expect(evidence).not.toContain("dbGetGroups");
+    expect(evidence).not.toContain("dbUpsertGroup");
+    expect(evidence).not.toContain("dbInsertGroupMessage");
     expect(backup).toContain("collectNativeSqliteBackupEvidence");
     expect(backup).toContain("nativeSqliteEvidence");
   });

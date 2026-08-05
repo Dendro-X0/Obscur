@@ -3,9 +3,9 @@
  *
  * Owns direction coverage, initial paint policy, post-hydrate reconciliation,
  * and projection-merge gating. Storage authority selection stays in
- * `dm-read-authority-port.ts`; I/O orchestration stays in
- * `dm-thread-history-legacy-port.ts`. This module is pure: given layer outputs,
- * it decides what the thread should show and whether to reconcile.
+ * `dm-read-authority-port.ts`. Thick hydrate I/O assemblers deleted (R1 Wave 3).
+ * This module is pure: given layer outputs, it decides what the thread should
+ * show and whether to reconcile.
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";

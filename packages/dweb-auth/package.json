@@ -1,8 +1,9 @@
 {
   "name": "@dweb/auth",
-  "version": "1.9.14",
+  "version": "1.9.15",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "dependencies": {
     "@dweb/core": "workspace:*",
     "@dweb/crypto": "workspace:*"
@@ -14,10 +15,14 @@
     "./contracts/auth-sybil-policy": "./src/contracts/auth-sybil-policy.ts",
     "./contracts/auth-diagnostic": "./src/contracts/auth-diagnostic.ts",
     "./contracts/auth-result": "./src/contracts/auth-result.ts",
+    "./contracts/auth-assistant-entry": "./src/contracts/auth-assistant-entry.ts",
     "./ports/identity-root-port": "./src/ports/identity-root-port.ts",
     "./ports/registration-policy-port": "./src/ports/registration-policy-port.ts",
     "./ports/device-unlock-port": "./src/ports/device-unlock-port.ts",
     "./ports/runtime-session-port": "./src/ports/runtime-session-port.ts",
-    "./policy/session-credential-policy-contract": "./src/policy/session-credential-policy-contract.ts"
+    "./ports/auth-assistant-port": "./src/ports/auth-assistant-port.ts",
+    "./policy/session-credential-policy-contract": "./src/policy/session-credential-policy-contract.ts",
+    "./policy/registration-policy-engine": "./src/policy/registration-policy-engine.ts",
+    "./policy/auth-assistant-vault-codec": "./src/policy/auth-assistant-vault-codec.ts"
   }
 }

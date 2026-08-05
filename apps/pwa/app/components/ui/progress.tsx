@@ -1,1 +1,1 @@
-export { Progress, Spinner, LoadingState } from "@dweb/ui-kit";
+export { Progress, Spinner, LoadingState } from "@dweb/ui-kit/progress";

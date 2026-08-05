@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
+import { resolvePeerDisplayName } from "../../profile/utils/resolve-peer-display-name";
 import { DmKernelTrustBanner, DmKernelTrustInfoStrip } from "@/app/features/dm-kernel/components/dm-kernel-trust-banner";
 import { useDmKernelTrustBanner } from "@/app/features/dm-kernel/use-dm-kernel-trust-banner";
 import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
@@ -26,12 +27,12 @@ import { formatTime, highlightText } from "../utils/formatting";
 import Image from "next/image";
 import { cn } from "@/app/lib/utils";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import {
     canSaveChatAttachmentsToLocalVault,
-    saveChatAttachmentsToLocalVault,
 } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { useChatVaultSaveWithUnlock } from "../hooks/use-chat-vault-save-with-unlock";
 import { useMessaging } from "../providers/messaging-provider";
 import { useMediaPreviewScope } from "../services/media-preview-scope";
 import { SEARCH_TARGET_FLASH_CLASS, SEARCH_TARGET_FLASH_MS } from "@/app/shared/search-target-highlight";
@@ -65,6 +66,8 @@ const MESSAGE_MENU_HOVER_DISMISS_DELAY_MS = 320;
 export interface ChatViewProps {
     conversation: Conversation;
     groupMemberCount?: number;
+    groupMemberCountSource?: "directory" | "known_here";
+    groupMemberCountFetchedAtMs?: number | null;
     groupOnlineMemberCount?: number;
     groupLastActivityAtMs?: number;
     isPeerOnline?: boolean;
@@ -203,6 +206,7 @@ export interface ChatViewProps {
 }
 export function ChatView(props: ChatViewProps) {
     const { t } = useTranslation();
+    const { saveMany, unlockDialog: vaultUnlockDialog } = useChatVaultSaveWithUnlock();
     const {
         isMediaGalleryOpen,
         setIsMediaGalleryOpen,
@@ -241,7 +245,13 @@ export function ChatView(props: ChatViewProps) {
         myPublicKeyHex: props.accountPublicKeyHex ?? null,
     });
     const metadata = useResolvedProfileMetadata(props.conversation.kind === "dm" ? props.conversation.pubkey : null);
-    const resolvedName = metadata?.displayName || props.conversation.displayName;
+    const resolvedName = props.conversation.kind === "dm"
+        ? resolvePeerDisplayName({
+            pubkey: props.conversation.pubkey,
+            metadataDisplayName: metadata?.displayName,
+            fallbackDisplayName: props.conversation.displayName,
+        })
+        : (metadata?.displayName || props.conversation.displayName);
     const dmPeerPublicKeyHex = props.conversation.kind === "dm" ? props.conversation.pubkey : null;
     const contactTrustSensitivity = useContactTrustSensitivity(dmPeerPublicKeyHex);
     const connectionRequestPreview = React.useMemo(() => {
@@ -675,7 +685,7 @@ export function ChatView(props: ChatViewProps) {
     const activeMessage = messageMenu && getMessageById(messageMenu.messageId);
     const activeReactionMessage = reactionPicker && getMessageById(reactionPicker.messageId);
     return (<div className="group/chat-root flex flex-col flex-1 min-h-0 relative overflow-hidden" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-            {!hideDesktopChatHeader ? (<ChatHeader conversation={props.conversation} groupMemberCount={props.groupMemberCount} groupOnlineMemberCount={props.groupOnlineMemberCount} groupLastActivityAtMs={props.groupLastActivityAtMs} isOnline={props.isPeerOnline} interactionStatus={props.interactionStatus} nowMs={props.nowMs} onCopyPubkey={props.onCopyPubkey} onOpenMedia={props.onOpenMedia} onToggleConversationNotifications={props.onToggleConversationNotifications} onOpenInfo={props.onOpenInfo} onOpenProfile={props.onOpenProfile} onSendVoiceCallInvite={props.onSendVoiceCallInvite} canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite} isSendingVoiceCallInvite={props.isSendingVoiceCallInvite} activeVoiceCallState={props.activeVoiceCallState} voiceCallStatus={props.voiceCallStatus} onLeaveVoiceCall={props.onLeaveVoiceCall} onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall} onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall} contactTrustSensitivity={dmTrustSensitivityForHeader}/>) : null}
+            {!hideDesktopChatHeader ? (<ChatHeader conversation={props.conversation} groupMemberCount={props.groupMemberCount} groupMemberCountSource={props.groupMemberCountSource} groupMemberCountFetchedAtMs={props.groupMemberCountFetchedAtMs} groupOnlineMemberCount={props.groupOnlineMemberCount} groupLastActivityAtMs={props.groupLastActivityAtMs} isOnline={props.isPeerOnline} interactionStatus={props.interactionStatus} nowMs={props.nowMs} onCopyPubkey={props.onCopyPubkey} onOpenMedia={props.onOpenMedia} onToggleConversationNotifications={props.onToggleConversationNotifications} onOpenInfo={props.onOpenInfo} onOpenProfile={props.onOpenProfile} onSendVoiceCallInvite={props.onSendVoiceCallInvite} canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite} isSendingVoiceCallInvite={props.isSendingVoiceCallInvite} activeVoiceCallState={props.activeVoiceCallState} voiceCallStatus={props.voiceCallStatus} onLeaveVoiceCall={props.onLeaveVoiceCall} onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall} onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall} contactTrustSensitivity={dmTrustSensitivityForHeader}/>) : null}
 
             {props.conversation.kind === "dm"
             && dmPeerPublicKeyHex
@@ -894,6 +904,7 @@ export function ChatView(props: ChatViewProps) {
 
             <Composer messageInput={props.messageInput} setMessageInput={props.setMessageInput} handleSendMessage={props.handleSendMessage} isUploadingAttachment={props.isUploadingAttachment} uploadStage={props.uploadStage} pendingAttachments={props.pendingAttachments} pendingAttachmentPreviewUrls={props.pendingAttachmentPreviewUrls} attachmentError={props.attachmentError} replyTo={props.replyTo} setReplyTo={props.setReplyTo} onPickAttachments={props.onPickAttachments} onSelectFiles={props.onSelectFiles} removePendingAttachment={props.removePendingAttachment} clearPendingAttachment={props.clearPendingAttachment} relayStatus={props.relayStatus} textareaRef={props.composerTextareaRef} recipientStatus={props.recipientStatus} isPeerAccepted={props.isPeerAccepted} isInitiator={props.isInitiator} contactRequestComposeMode={props.contactRequestComposeMode} recipientRemoved={isDeletedRecipient} onSendVoiceNote={props.onSendVoiceNote} isProcessingMedia={props.isProcessingMedia} mediaProcessingProgress={props.mediaProcessingProgress} deliveryRisk={props.deliveryRisk}/>
 
+            {vaultUnlockDialog}
             {!isBatchDeleteMode && props.messageMenu && activeMessage && (<MessageMenu x={props.messageMenu.x} y={props.messageMenu.y} activeMessage={activeMessage} onCopyText={() => {
                 props.onCopyText(activeMessage.content);
                 props.setMessageMenu(null);
@@ -906,7 +917,7 @@ export function ChatView(props: ChatViewProps) {
             }} onSaveToVault={canSaveChatAttachmentsToLocalVault() ? () => {
                 void (async () => {
                     const attachments = activeMessage.attachments ?? [];
-                    await saveChatAttachmentsToLocalVault(attachments, t);
+                    await saveMany(attachments);
                     props.setMessageMenu(null);
                 })();
             } : undefined} onReply={() => {

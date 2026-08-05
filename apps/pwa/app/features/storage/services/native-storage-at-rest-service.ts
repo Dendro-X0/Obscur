@@ -2,8 +2,6 @@ import type { Passphrase } from "@dweb/crypto/passphrase";
 import { fromBase64 } from "@dweb/crypto/from-base64";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
-import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { resolveIdentityScopeProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
 import { profileDataKeyMaterialToBase64 } from "./profile-data-key";
 import {
   clearProfileStorageKeySession,
@@ -11,14 +9,14 @@ import {
   establishProfileStorageKeySessionFromMaterial,
   getProfileStorageKeyMaterial,
 } from "./profile-storage-key-session";
-import { isVaultWriteEncryptionReady } from "./vault-at-rest";
+import { isVaultWriteEncryptionReady, resolveVaultProfileId } from "./vault-at-rest";
 
 const resolveStorageProfileId = (profileId?: string): string => {
   const explicit = profileId?.trim();
   if (explicit) {
     return explicit;
   }
-  return hasNativeRuntime() ? resolveIdentityScopeProfileId() : getResolvedProfileId();
+  return resolveVaultProfileId();
 };
 
 /** R5: vault catalog SQLite / layout migrations retired — LES owns catalog. */
@@ -98,6 +96,44 @@ export const restoreNativeVaultEncryptionSessionIfNeeded = async (
   }
 
   return false;
+};
+
+/**
+ * Ensure JS + native PDK are both present for LES / vault writes.
+ * Stay-signed-in can leave chat unlocked while LES still lacks StorageAtRestState.
+ */
+export const ensureNativeVaultEncryptionSessionForWrites = async (
+  params?: Readonly<{ profileId?: string }>,
+): Promise<boolean> => {
+  const profileId = resolveStorageProfileId(params?.profileId);
+  if (!profileId) {
+    return false;
+  }
+
+  if (!isVaultWriteEncryptionReady(profileId)) {
+    const restored = await restoreNativeVaultEncryptionSessionIfNeeded({ profileId });
+    if (!restored) {
+      return false;
+    }
+  }
+
+  if (!hasNativeRuntime()) {
+    return isVaultWriteEncryptionReady(profileId);
+  }
+
+  const keyMaterial = getProfileStorageKeyMaterial(profileId);
+  if (!keyMaterial || keyMaterial.byteLength !== 32) {
+    return false;
+  }
+
+  const unlockResult = await invokeNativeCommand("desktop_storage_at_rest_unlock", {
+    profileId,
+    keyMaterialB64: profileDataKeyMaterialToBase64(keyMaterial),
+  });
+  if (!unlockResult.ok) {
+    return false;
+  }
+  return true;
 };
 
 /** Passphrase unlock establishes keys; keychain unlock restores persisted profile data key. */

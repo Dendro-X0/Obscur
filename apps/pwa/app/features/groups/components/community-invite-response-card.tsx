@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { CommunityInviteStatusBanner } from "./community-invite-status-banner";
 import type { CommunityInviteResolutionStatus } from "./community-invite-status-banner";
 import {

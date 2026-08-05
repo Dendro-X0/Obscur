@@ -287,10 +287,19 @@ const applyLegacyInviteResponseLinking = (
       }
     }
 
-    const counterpartInvites = invites.filter((invite) => (
-      invite.groupId === groupId
-      && invite.isOutgoing !== message.isOutgoing
-    ));
+    const counterpartInvites = invites.filter((invite) => {
+      if (invite.groupId !== groupId) {
+        return false;
+      }
+      const inviteMessage = messages.find((entry) => entry.id === invite.messageId);
+      const inviteSender = inviteMessage?.senderPubkey?.trim();
+      const responseSender = message.senderPubkey?.trim();
+      // U6 Wave A: counterpart = other wire party, not isOutgoing flip.
+      if (inviteSender && responseSender) {
+        return inviteSender !== responseSender;
+      }
+      return invite.isOutgoing !== message.isOutgoing;
+    });
     if (counterpartInvites.length !== 1) {
       return;
     }

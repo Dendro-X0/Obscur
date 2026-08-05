@@ -18,7 +18,8 @@ export type SealedCommunityNostrPool = Readonly<{
     payload: string,
   ) => Promise<SealedCommunityMultiRelayPublishResult>;
   publishToRelay?: (url: string, payload: string) => Promise<SealedCommunityPublishResult>;
-  publishToAll: (payload: string) => Promise<SealedCommunityMultiRelayPublishResult>;
+  /** Present on DM pools; sealed CM publish must never fall through to this. */
+  publishToAll?: (payload: string) => Promise<SealedCommunityMultiRelayPublishResult>;
 }>;
 
 export type SealedCommunityMultiRelayPublishResult = Readonly<{
@@ -79,6 +80,58 @@ export const hasCommunityBindingTag = (params: Readonly<{
   });
 };
 
+/**
+ * S4: CM publish targets = bound community relay + explicit broadcast URLs only.
+ * Never merges DM pool / Quiet public relays into the sealed store.
+ */
+export const resolveCommunityScopedPublishRelayUrls = (params: Readonly<{
+  relayUrl: string;
+  communityRelayBroadcastUrls?: ReadonlyArray<string>;
+}>): ReadonlyArray<string> => {
+  const primary = toScopedRelayUrl(params.relayUrl);
+  const extras = (params.communityRelayBroadcastUrls ?? [])
+    .map((url) => toScopedRelayUrl(url))
+    .filter((url): url is string => Boolean(url));
+  return Array.from(new Set([
+    ...(primary ? [primary] : []),
+    ...extras,
+  ]));
+};
+
+/** Settings / diagnostics copy for the sealed CM store (not DM publish path). */
+export const getCommunityScopedRelayCopy = (params: Readonly<{
+  relayUrl?: string | null;
+  communityRelayBroadcastUrls?: ReadonlyArray<string>;
+}>): string => {
+  const targets = resolveCommunityScopedPublishRelayUrls({
+    relayUrl: params.relayUrl?.trim() ?? "",
+    communityRelayBroadcastUrls: params.communityRelayBroadcastUrls,
+  });
+  if (targets.length === 0) {
+    return "CM store: no scoped relay bound — community messages stay on the workspace relay URL, not the DM Quiet pool.";
+  }
+  const [primary, ...broadcasts] = targets;
+  if (broadcasts.length === 0) {
+    return `CM store: ${primary} (bound only; DM pool is not used)`;
+  }
+  return `CM store: ${primary} · broadcast backups: ${broadcasts.join(", ")}`;
+};
+
+const failClosedScopedPublish = (params: Readonly<{
+  overallError: string;
+  targetUrls?: ReadonlyArray<string>;
+}>): SealedCommunityMultiRelayPublishResult => ({
+  success: false,
+  successCount: 0,
+  totalRelays: params.targetUrls?.length ?? 0,
+  results: (params.targetUrls ?? []).map((relayUrl) => ({
+    success: false,
+    relayUrl,
+    error: params.overallError,
+  })),
+  overallError: params.overallError,
+});
+
 /** Canonical scoped publish for sealed community control events (primary + optional broadcast relays). */
 export const publishSealedEventToCommunityScope = async (params: Readonly<{
   pool: SealedCommunityNostrPool;
@@ -87,22 +140,12 @@ export const publishSealedEventToCommunityScope = async (params: Readonly<{
   event: NostrEvent;
 }>): Promise<SealedCommunityMultiRelayPublishResult> => {
   const payload = JSON.stringify(["EVENT", params.event]);
-  const primary = toScopedRelayUrl(params.relayUrl);
-  const extras = (params.communityRelayBroadcastUrls ?? [])
-    .map((url) => toScopedRelayUrl(url))
-    .filter((url): url is string => Boolean(url));
-  const targetUrls = Array.from(new Set([
-    ...(primary ? [primary] : []),
-    ...extras,
-  ]));
+  const targetUrls = resolveCommunityScopedPublishRelayUrls({
+    relayUrl: params.relayUrl,
+    communityRelayBroadcastUrls: params.communityRelayBroadcastUrls,
+  });
   if (targetUrls.length === 0) {
-    return {
-      success: false,
-      successCount: 0,
-      totalRelays: 0,
-      results: [],
-      overallError: "no_scoped_relay_configured",
-    };
+    return failClosedScopedPublish({ overallError: "no_scoped_relay_configured" });
   }
 
   if (typeof params.pool.publishToUrls === "function") {
@@ -128,5 +171,11 @@ export const publishSealedEventToCommunityScope = async (params: Readonly<{
       overallError: result.success ? undefined : (result.error ?? "Scoped publish failed"),
     };
   }
-  return params.pool.publishToAll(payload);
+
+  // S4: never fall through to publishToAll — that would fan out to the DM pool and
+  // break the sealed shared-store invariant (C1/C2).
+  return failClosedScopedPublish({
+    overallError: "scoped_publish_api_unavailable",
+    targetUrls,
+  });
 };

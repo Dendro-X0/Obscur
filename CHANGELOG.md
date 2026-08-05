@@ -4,8 +4,29 @@ All notable changes to Obscur are documented here.
 
 **Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
 
-**Current tree version:** **1.9.14** ([release notes](docs/releases/v1.9.14-release.md)).  
-**Tagged:** **v1.9.13** (Vault LES). **Next:** tag/package **v1.9.14** (pool + transport presets).
+**Current tree version:** **1.9.15** ([release notes](docs/releases/v1.9.15-release.md)).  
+**Tagged:** **v1.9.14** and earlier. **Next after this tag:** community verify charter · Vault soak.
+
+---
+
+## [1.9.15] — 2026-08-05 (Path honesty + DM delivery restore)
+
+**Release notes:** [v1.9.15-release.md](docs/releases/v1.9.15-release.md). **Scope:** [v1.9.15-scope.md](docs/program/v1.9.15-scope.md).
+
+### Fixed
+
+- **DM send / media** — removed warm/`forceReconnectAll` from the publish path (NativeRelay dial storm cancelled Rust OK waiters); mesh `reconnectAll` re-dials closed sockets via `setRelayUrls` only
+- Voice OS notification layout (circular avatar, Accept/Reject); message toast hygiene when chat is visible
+- Call-card honesty: sqlite `ended` no longer paints CALL COMPLETED with a synthetic duration
+
+### Verification
+
+```bash
+pnpm -C apps/pwa exec vitest run app/features/messaging/controllers/v2/dm-send-pipeline.test.ts
+# Maintainer L3: dual-profile DM text + media A→B (parity-desktop) — Pass 2026-08-05
+```
+
+**Honesty:** Community (`groups/**`) remains **PAUSED** · not claimed in this tag. Soft L3 Docker / public Nostr SLA out of scope.
 
 ---
 

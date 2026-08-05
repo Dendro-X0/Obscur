@@ -1,9 +1,8 @@
+import { AUTH_ASSISTANT_PAYLOAD_VERSION, type AuthAssistantVaultPayload } from "@dweb/auth/contracts/auth-assistant-entry";
 import {
-  AUTH_ASSISTANT_PAYLOAD_VERSION,
   decodeAuthAssistantVaultPayload,
   encodeAuthAssistantVaultPayload,
-  type AuthAssistantVaultPayload,
-} from "@dweb/auth";
+} from "@dweb/auth/policy/auth-assistant-vault-codec";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import {

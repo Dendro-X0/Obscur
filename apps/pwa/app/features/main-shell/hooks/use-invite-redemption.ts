@@ -6,7 +6,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useRelayList } from "@/app/features/relays/hooks/use-relay-list";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";

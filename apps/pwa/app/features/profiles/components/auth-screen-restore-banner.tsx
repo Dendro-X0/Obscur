@@ -3,7 +3,7 @@
 import type React from "react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { Loader2, Upload, X } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";

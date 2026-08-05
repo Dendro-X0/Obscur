@@ -60,22 +60,22 @@ describe("transport-engine w58 — standalone legacy file deletion execution", (
     );
   });
 
-  it("blocks physical deletion while recorded sign-off is BLOCKED", () => {
+  it("sign-off is PASS; deletion env still required for approval", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
     expect(isStandaloneLegacyDeletionApproved(recorded)).toBe(false);
   });
 
-  it("keeps legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent; port omits legacy import after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
 
     const port = readFileSync(
       join(PWA_ROOT, STANDALONE_LEGACY_PORT_PATHS_TO_UPDATE[0]!),
       "utf8",
     );
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
   });
 });
 

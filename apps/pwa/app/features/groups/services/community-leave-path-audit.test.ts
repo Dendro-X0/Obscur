@@ -7,12 +7,13 @@ const readSource = (relativePath: string): string => (
 );
 
 describe("REL-004 leave path audit", () => {
-  it("GroupProvider.leaveGroup commits only after relayConfirmed in authoritative mode", () => {
+  it("GroupProvider.leaveGroup gates relayConfirmed and refreshes sidebar; ledger commit is leave-port under kernel (U4)", () => {
     const source = readSource("app/features/groups/providers/group-provider-legacy.tsx");
     const leaveGroupBlock = source.slice(source.indexOf("const leaveGroup = useCallback"));
-    expect(leaveGroupBlock).toContain("commitCommunityLeaveAfterRelayConfirmation");
     expect(leaveGroupBlock).toContain("relayConfirmed !== true");
     expect(leaveGroupBlock).toContain("removeGroupConversation");
+    expect(leaveGroupBlock).toContain("isWorkspaceKernelAuthority");
+    expect(source).toContain("commitCommunityLeaveAfterRelayConfirmation");
   });
 
   it("relay-confirmed leave service publishes before any local commit helper exists", () => {
@@ -31,9 +32,10 @@ describe("REL-004 leave path audit", () => {
     expect(source).not.toContain("noopAsyncFalse");
   });
 
-  it("leave page blocks local exit until relay confirms in authoritative mode", () => {
+  it("leave page blocks local exit until leave confirms in authoritative mode", () => {
     const source = readSource("app/groups/leave/page.tsx");
     expect(source).toContain("isRelayAuthoritativeMembershipEnforced");
+    expect(source).toContain("leaveManagedWorkspaceMembership");
     expect(source).toMatch(/leaveNip29Group\(\)[\s\S]*applyLocalLeave\(true\)/);
     expect(source).toContain("Relay rejected leave. You remain a member of this community.");
   });

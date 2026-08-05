@@ -8,8 +8,9 @@ import type { Attachment } from "../types";
 import { cn } from "@/app/lib/utils";
 import {
     canSaveChatAttachmentsToLocalVault,
-    saveChatAttachmentToLocalVault,
+    saveChatAttachmentWithOutcome,
 } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { VaultWriteUnlockDialog } from "@/app/features/security/components/vault-write-unlock-dialog";
 
 export type AttachmentContextMenuState = Readonly<{
     attachment: Attachment;
@@ -34,6 +35,8 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
     const [position, setPosition] = React.useState<Readonly<{ left: number; top: number }>>({ left: 0, top: 0 });
     const [isSavedToVault, setIsSavedToVault] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [showVaultUnlock, setShowVaultUnlock] = React.useState(false);
+    const [pendingUnlockAttachment, setPendingUnlockAttachment] = React.useState<Attachment | null>(null);
     const canSaveToVault = canSaveChatAttachmentsToLocalVault();
 
     React.useEffect(() => {
@@ -64,11 +67,14 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
             if (menuRef.current?.contains(event.target as Node)) {
                 return;
             }
+            if (showVaultUnlock) {
+                return;
+            }
             onClose();
         };
         window.addEventListener("pointerdown", onPointerDown, true);
         return () => window.removeEventListener("pointerdown", onPointerDown, true);
-    }, [onClose, state]);
+    }, [onClose, showVaultUnlock, state]);
 
     React.useEffect(() => {
         if (!state) {
@@ -76,12 +82,36 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
         }
         const onKeyDown = (event: KeyboardEvent): void => {
             if (event.key === "Escape") {
+                if (showVaultUnlock) {
+                    setShowVaultUnlock(false);
+                    setPendingUnlockAttachment(null);
+                    return;
+                }
                 onClose();
             }
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [onClose, state]);
+    }, [onClose, showVaultUnlock, state]);
+
+    const retrySaveAfterUnlock = async (): Promise<void> => {
+        const attachment = pendingUnlockAttachment;
+        setShowVaultUnlock(false);
+        setPendingUnlockAttachment(null);
+        if (!attachment) {
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const outcome = await saveChatAttachmentWithOutcome(attachment, t);
+            if (outcome.status === "saved") {
+                setIsSavedToVault(true);
+            }
+        } finally {
+            setIsSaving(false);
+            onClose();
+        }
+    };
 
     if (!portalRoot || !state) {
         return null;
@@ -90,76 +120,94 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
     const itemClass = "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5";
 
     return createPortal(
-        <div
-            ref={menuRef}
-            data-escape-layer="open"
-            data-testid="attachment-context-menu"
-            className="fixed z-[1300] w-60 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-950"
-            style={{ left: position.left, top: position.top }}
-            onPointerDown={(event) => event.stopPropagation()}
-        >
-            <div className="border-b border-black/5 px-3 py-2 dark:border-white/10">
-                <p className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                    {state.attachment.fileName || t("common.file")}
-                </p>
-            </div>
-            {canSaveToVault ? (<button
-                    type="button"
-                    className={cn(itemClass, isSaving && "opacity-50")}
-                    disabled={isSaving}
-                    onClick={() => {
-                        if (isSaving) {
-                            return;
-                        }
-                        setIsSaving(true);
-                        void (async () => {
-                            try {
-                                const saved = await saveChatAttachmentToLocalVault(state.attachment, t);
-                                if (saved) {
-                                    setIsSavedToVault(true);
-                                }
-                            } finally {
-                                setIsSaving(false);
-                                onClose();
+        <>
+            <VaultWriteUnlockDialog
+                isOpen={showVaultUnlock}
+                onClose={() => {
+                    setShowVaultUnlock(false);
+                    setPendingUnlockAttachment(null);
+                    onClose();
+                }}
+                onUnlocked={() => { void retrySaveAfterUnlock(); }}
+            />
+            <div
+                ref={menuRef}
+                data-escape-layer="open"
+                data-testid="attachment-context-menu"
+                className="fixed z-[1300] w-60 overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-950"
+                style={{ left: position.left, top: position.top }}
+                onPointerDown={(event) => event.stopPropagation()}
+            >
+                <div className="border-b border-black/5 px-3 py-2 dark:border-white/10">
+                    <p className="truncate text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                        {state.attachment.fileName || t("common.file")}
+                    </p>
+                </div>
+                {canSaveToVault ? (<button
+                        type="button"
+                        className={cn(itemClass, isSaving && "opacity-50")}
+                        disabled={isSaving}
+                        onClick={() => {
+                            if (isSaving) {
+                                return;
                             }
-                        })();
+                            setIsSaving(true);
+                            void (async () => {
+                                try {
+                                    const outcome = await saveChatAttachmentWithOutcome(state.attachment, t, {
+                                        suppressUnlockToast: true,
+                                    });
+                                    if (outcome.status === "saved") {
+                                        setIsSavedToVault(true);
+                                        onClose();
+                                    } else if (outcome.status === "unlock_required") {
+                                        setPendingUnlockAttachment(state.attachment);
+                                        setShowVaultUnlock(true);
+                                    } else {
+                                        onClose();
+                                    }
+                                } finally {
+                                    setIsSaving(false);
+                                }
+                            })();
+                        }}
+                    >
+                        <HardDrive className="h-3.5 w-3.5"/>
+                        {isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}
+                    </button>
+                ) : null}
+                <button
+                    type="button"
+                    className={itemClass}
+                    onClick={async () => {
+                        if (onCopyUrl) {
+                            onCopyUrl(state.attachment.url);
+                        } else if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(state.attachment.url);
+                        }
+                        onClose();
                     }}
                 >
-                    <HardDrive className="h-3.5 w-3.5"/>
-                    {isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}
+                    <Copy className="h-3.5 w-3.5"/>
+                    {t("common.copyAttachmentUrl")}
                 </button>
-            ) : null}
-            <button
-                type="button"
-                className={itemClass}
-                onClick={async () => {
-                    if (onCopyUrl) {
-                        onCopyUrl(state.attachment.url);
-                    } else if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-                        await navigator.clipboard.writeText(state.attachment.url);
-                    }
-                    onClose();
-                }}
-            >
-                <Copy className="h-3.5 w-3.5"/>
-                {t("common.copyAttachmentUrl")}
-            </button>
-            <button
-                type="button"
-                className={itemClass}
-                onClick={() => {
-                    if (onOpenInNewTab) {
-                        onOpenInNewTab(state.attachment.url);
-                    } else {
-                        window.open(state.attachment.url, "_blank", "noopener,noreferrer");
-                    }
-                    onClose();
-                }}
-            >
-                <ExternalLink className="h-3.5 w-3.5"/>
-                {t("common.openInNewTab")}
-            </button>
-        </div>,
+                <button
+                    type="button"
+                    className={itemClass}
+                    onClick={() => {
+                        if (onOpenInNewTab) {
+                            onOpenInNewTab(state.attachment.url);
+                        } else {
+                            window.open(state.attachment.url, "_blank", "noopener,noreferrer");
+                        }
+                        onClose();
+                    }}
+                >
+                    <ExternalLink className="h-3.5 w-3.5"/>
+                    {t("common.openInNewTab")}
+                </button>
+            </div>
+        </>,
         portalRoot,
     );
 }

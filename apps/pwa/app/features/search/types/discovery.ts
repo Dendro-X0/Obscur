@@ -197,7 +197,7 @@ export type RelaySendSnapshot = Readonly<{
 }>;
 
 export type DeliveryStatusToastPayload = Readonly<{
-  status: "sent_quorum" | "sent_partial" | "queued_retrying" | "failed";
+  status: "sent_quorum" | "sent_partial" | "queued_retrying" | "pending_ack" | "failed";
   message: string;
   relaySuccessCount?: number;
   relayTotal?: number;

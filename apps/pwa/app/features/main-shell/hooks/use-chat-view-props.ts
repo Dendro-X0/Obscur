@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useThreadMessages } from "../../messaging/hooks/use-thread-messages";
 import { usePinnedDmForMessageHook } from "./use-pinned-dm-for-message-hook";
 import { isPreviewableMediaAttachment } from "../../messaging/utils/logic";

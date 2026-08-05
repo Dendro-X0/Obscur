@@ -9,11 +9,12 @@
 
 | # | Check | Command / link | Done |
 |---|-------|----------------|------|
+| 0 | Demo ladder (preflight → release exe smoke → **one** package) | [demo-recording-prod-preflight-design-2026-07.md](../../../specs/backend/demo-recording-prod-preflight-design-2026-07.md) · `pnpm desktop:demo-preflight` · `pnpm desktop:build:exe` | ☐ |
 | 1 | Read limitations sheet | [obscur-v2-known-limitations.md](../../../program/obscur-v2-known-limitations.md) | ☐ |
-| 2 | Installer artifact present | `release-assets/windows/Obscur_1.9.10_x64-setup.exe` or fresh `pnpm desktop:package` | ☐ |
-| 3 | SHA-256 matches manifest | `d814ab21c9b927644ec567c9e305bde482a53c1b1b9069b357aa10bdc990813f` | ☐ |
-| 4 | Demo script reviewed | [README.md](./README.md) — **live install path** (GIF segments optional until re-capture) | ☐ |
-| 5 | GIF inventory reviewed | [gif-inventory.md](./gif-inventory.md) — **v1.3.15-era assets; skip GIF path until maintainer re-capture** | ☐ |
+| 2 | Installer artifact present | `release-assets/windows/Obscur_*_x64-setup.exe` after smoke-green `pnpm desktop:package` | ☐ |
+| 3 | SHA-256 matches manifest | Verify against current `release-assets` / site manifest | ☐ |
+| 4 | Demo script reviewed | [README.md](./README.md) · [phase-1-recording-script.md](./phase-1-recording-script.md) | ☐ |
+| 5 | GIF inventory reviewed | [gif-inventory.md](./gif-inventory.md) — skip GIF path until maintainer re-capture | ☐ |
 
 ---
 

@@ -83,4 +83,29 @@ describe("persistence attachment parsing compatibility", () => {
       contentType: "video/mp4",
     }));
   });
+
+  it("drops blob: attachment urls so restart hydrate can infer from content", () => {
+    localStorage.setItem(storageKey, JSON.stringify({
+      ...createBasePersistedState(),
+      messagesByConversationId: {
+        [peerPublicKeyHex]: [{
+          id: "blob-image-msg",
+          content: "[photo.jpg](https://cdn.example.com/photo.jpg)",
+          timestampMs: 3_000,
+          isOutgoing: false,
+          status: "delivered",
+          attachments: [{
+            kind: "image",
+            url: "blob:https://asset.localhost/dead-session",
+            contentType: "image/jpeg",
+            fileName: "photo.jpg",
+          }],
+        }],
+      },
+    }));
+
+    const parsed = loadPersistedChatState(myPublicKeyHex);
+    const message = parsed?.messagesByConversationId[peerPublicKeyHex]?.[0];
+    expect(message?.attachments).toBeUndefined();
+  });
 });

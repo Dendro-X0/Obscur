@@ -10,8 +10,11 @@ const readFromPwa = (relFromPwa: string): string => (
 );
 
 describe("transport-engine w35 — gated host publish port shim wiring", () => {
-  it("wires opt-in host shim behind shouldUseHostTransportPublishShim", () => {
-    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+  it("wires opt-in host shim in subtracted port after W66", () => {
+    const thin = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    expect(thin).toContain("relay-standalone-publish-port-subtracted");
+
+    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("shouldRouteHostTransportPublish");
     expect(port).toContain("publishHostTransportShimToRelayUrls");
     expect(port).toContain("transport_kernel_host_publish_shim");

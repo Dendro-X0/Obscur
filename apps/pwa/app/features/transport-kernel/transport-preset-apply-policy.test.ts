@@ -7,7 +7,10 @@ import {
 import {
   isTorPresetApplyBlocked,
   resolveTemplatePrefillUrl,
+  resolveTorPresetBadgeKind,
   shouldConfirmPresetReplace,
+  shouldConfirmTorPresetApply,
+  shouldConfirmTransportPresetApply,
 } from "./transport-preset-apply-policy";
 
 describe("transport-preset-apply-policy", () => {
@@ -16,10 +19,25 @@ describe("transport-preset-apply-policy", () => {
     expect(shouldConfirmPresetReplace([{ url: "wss://nos.lol", enabled: true }])).toBe(true);
   });
 
+  it("always confirms Tor pack apply even on empty list", () => {
+    expect(shouldConfirmTorPresetApply(TOR_ONION_MESH_PRESET)).toBe(true);
+    expect(shouldConfirmTorPresetApply(PRIVATE_LAN_WS_PRESET)).toBe(false);
+    expect(shouldConfirmTransportPresetApply(TOR_ONION_MESH_PRESET, [])).toBe(true);
+    expect(shouldConfirmTransportPresetApply(PRIVATE_LAN_WS_PRESET, [])).toBe(false);
+  });
+
   it("blocks Tor packs until Tor is ready", () => {
     expect(isTorPresetApplyBlocked(TOR_ONION_MESH_PRESET, { configured: true, ready: false })).toBe(true);
+    expect(isTorPresetApplyBlocked(TOR_ONION_MESH_PRESET, { configured: false, ready: false })).toBe(true);
     expect(isTorPresetApplyBlocked(TOR_ONION_MESH_PRESET, { configured: true, ready: true })).toBe(false);
     expect(isTorPresetApplyBlocked(PRIVATE_LAN_WS_PRESET, { configured: false, ready: false })).toBe(false);
+  });
+
+  it("shows Tor off when disabled and Tor not ready only while bootstrapping", () => {
+    expect(resolveTorPresetBadgeKind(TOR_ONION_MESH_PRESET, { configured: false, ready: false })).toBe("off");
+    expect(resolveTorPresetBadgeKind(TOR_ONION_MESH_PRESET, { configured: true, ready: false })).toBe("not_ready");
+    expect(resolveTorPresetBadgeKind(TOR_ONION_MESH_PRESET, { configured: true, ready: true })).toBe("ready");
+    expect(resolveTorPresetBadgeKind(PRIVATE_LAN_WS_PRESET, { configured: false, ready: false })).toBeNull();
   });
 
   it("returns template placeholder URL for template packs", () => {

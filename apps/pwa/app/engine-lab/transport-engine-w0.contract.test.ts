@@ -80,19 +80,20 @@ describe("transport-engine w0 — relay recovery delegates to package", () => {
     )).toBe(false);
   });
 
-  it("enhanced relay pool types live in features; runtime in features legacy module", () => {
+  it("enhanced relay pool types live in features; browser runtime is non-product (RUST-4c)", () => {
     const typesSource = readFileSync(
       join(REPO_ROOT, "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts"),
       "utf8",
     );
     const poolSource = readFileSync(
-      join(REPO_ROOT, "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-legacy.ts"),
+      join(REPO_ROOT, "apps/pwa/app/features/relays/hooks/relay-browser-pool-runtime.ts"),
       "utf8",
     );
     expect(typesSource).toContain("EnhancedRelayPoolResult");
     expect(typesSource).not.toMatch(/from\s+["']react["']/);
-    expect(poolSource).toContain("useLegacyEnhancedRelayPool");
+    expect(poolSource).toContain("createEnhancedRelayPoolRuntime");
     expect(poolSource).toContain("enhanced-relay-pool-types");
+    expect(poolSource).toContain("RUST-4c");
     expect(poolSource).not.toMatch(/@\/app\/legacy\//);
   });
 

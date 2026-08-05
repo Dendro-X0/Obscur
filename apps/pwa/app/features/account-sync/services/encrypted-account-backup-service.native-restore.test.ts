@@ -18,8 +18,15 @@ const tauriMocks = vi.hoisted(() => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: tauriMocks.isTauri,
-  dbDeleteMessage: vi.fn(async () => undefined),
-  dbDeleteMessages: vi.fn(async () => undefined),
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+  deleteDmMessage: vi.fn(async () => undefined),
+  deleteDmMessages: vi.fn(async () => undefined),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter", () => {

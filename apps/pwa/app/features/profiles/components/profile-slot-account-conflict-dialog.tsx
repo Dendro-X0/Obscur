@@ -2,15 +2,8 @@
 
 import type React from "react";
 import { ExternalLink, FolderOutput, Trash2 } from "lucide-react";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@dweb/ui-kit/dialog";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
 type Props = Readonly<{

@@ -45,7 +45,7 @@ describe("transport-engine w53 — live desktop publish smoke charter", () => {
     const host = readFromRepo("packages/obscur-engine-host/src/tauri-engine-host.ts");
     expect(host).toContain("engine_invoke_transport_publish_relay_event");
 
-    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("shouldRouteHostTransportPublish");
     expect(port).toContain("transport_kernel_host_publish_shim");
   });

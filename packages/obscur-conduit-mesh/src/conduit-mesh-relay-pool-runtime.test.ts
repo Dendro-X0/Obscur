@@ -33,4 +33,29 @@ describe("conduit-mesh relay pool runtime", () => {
     const activity = await runtime.getTransportActivitySnapshot();
     expect(activity.writableRelayCount).toBeGreaterThanOrEqual(0);
   });
+
+  it("rejects publish URLs outside the configured mesh-active set", async () => {
+    const fetch = createInMemoryConduitFetchRouter({
+      coordinationBaseUrl: "http://127.0.0.1:8787",
+      teamRelayBaseUrl: "http://127.0.0.1:8788",
+    });
+
+    const runtime = createConduitMeshRelayPoolRuntime({
+      profileId: "pool-escape",
+      fetch,
+      now: () => 1_700_000_300_000,
+    });
+
+    await runtime.configureUrls(["http://127.0.0.1:8788"]);
+
+    const escape = await runtime.publishToUrls(
+      ["wss://relay.damus.io"],
+      JSON.stringify(["EVENT", { id: "escape-1", kind: 1 }]),
+      { quorumRequired: 1 },
+    );
+
+    expect(escape.metQuorum).toBe(false);
+    expect(escape.successCount).toBe(0);
+    expect(escape.results[0]?.error).toContain("relay_url_not_in_mesh_active_set");
+  });
 });

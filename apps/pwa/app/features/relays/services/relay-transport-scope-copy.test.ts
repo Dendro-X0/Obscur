@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { getActiveTransportScopeCopy } from "./relay-transport-scope-copy";
+import {
+  getActivePoolScopeSummaryCopy,
+  getActiveTransportScopeCopy,
+  getDmPublishPathCopy,
+  resolveActivePoolScopeSummaryCounts,
+} from "./relay-transport-scope-copy";
 
 describe("relay transport scope copy", () => {
   it("summarizes active transport scope for settings", () => {
@@ -41,5 +46,42 @@ describe("relay transport scope copy", () => {
       subscribableRelayCount: 2,
       enabledRelayCount: 3,
     })).toContain("Nostr redundancy pool");
+  });
+
+  it("S3: publish path copy lists open hosts and none-open", () => {
+    expect(getDmPublishPathCopy({
+      publishPathRelayUrls: ["wss://relay.primal.net", "wss://nos.lol"],
+    })).toBe("DM publish path: relay.primal.net, nos.lol");
+    expect(getDmPublishPathCopy({
+      publishPathRelayUrls: [],
+    })).toBe("DM publish path: none open");
+  });
+
+  it("S3: active transport copy appends publish path when provided", () => {
+    const copy = getActiveTransportScopeCopy({
+      selection: {
+        primaryUrl: "wss://nos.lol",
+        standbyUrls: ["wss://relay.primal.net"],
+        entries: [],
+      },
+      transportMode: "basic",
+      activePoolRelayUrls: ["wss://nos.lol", "ws://localhost:7000"],
+      writableRelayCount: 2,
+      subscribableRelayCount: 2,
+      enabledRelayCount: 3,
+      publishPathRelayUrls: ["wss://relay.primal.net"],
+    });
+    expect(copy).toContain("Nostr active transport");
+    expect(copy).toContain("DM publish path: relay.primal.net");
+  });
+
+  it("counts Local Dev Mesh in DM transport pool summary (not partition dm=0)", () => {
+    const counts = resolveActivePoolScopeSummaryCounts([
+      { url: "ws://localhost:7000", enabled: true },
+    ]);
+    expect(counts.dmPoolEnabledCount).toBe(1);
+    expect(counts.communityEnabledCount).toBe(1);
+    expect(getActivePoolScopeSummaryCopy(counts)).toContain("DM transport pool: 1");
+    expect(getActivePoolScopeSummaryCopy(counts)).toContain("Workspace candidates: 1 enabled");
   });
 });

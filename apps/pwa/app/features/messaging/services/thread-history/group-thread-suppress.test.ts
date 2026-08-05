@@ -7,7 +7,10 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbInsertGroupTombstone: vi.fn(async () => undefined),
+}));
+
+vi.mock("./workspace-group-message-persist-port", () => ({
+  insertWorkspaceGroupTombstoneRecord: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/app/features/profiles/services/account-shared-sqlite-profile-ids", () => ({
@@ -31,13 +34,14 @@ vi.mock("@/app/features/messaging/services/message-bus", () => ({
 }));
 
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { dbInsertGroupTombstone, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { insertWorkspaceGroupTombstoneRecord } from "./workspace-group-message-persist-port";
 
 describe("suppressGroupThreadMessage", () => {
   beforeEach(() => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
     vi.mocked(isTauri).mockReturnValue(true);
-    vi.mocked(dbInsertGroupTombstone).mockClear();
+    vi.mocked(insertWorkspaceGroupTombstoneRecord).mockClear();
     dispatchMock.mockClear();
     emitDeletedMock.mockClear();
   });
@@ -55,7 +59,7 @@ describe("suppressGroupThreadMessage", () => {
     });
 
     expect(result).toEqual({ status: "suppressed", eventIds: [eventId] });
-    expect(dbInsertGroupTombstone).toHaveBeenCalledWith(expect.objectContaining({
+    expect(insertWorkspaceGroupTombstoneRecord).toHaveBeenCalledWith(expect.objectContaining({
       event_id: eventId,
       profile_id: "profile-1",
       deleted_by: deletedBy,
@@ -80,6 +84,6 @@ describe("suppressGroupThreadMessage", () => {
       deletedByPublicKeyHex: "b".repeat(64) as never,
     });
     expect(result).toEqual({ status: "suspended" });
-    expect(dbInsertGroupTombstone).not.toHaveBeenCalled();
+    expect(insertWorkspaceGroupTombstoneRecord).not.toHaveBeenCalled();
   });
 });

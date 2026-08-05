@@ -117,6 +117,14 @@ export const probeLocalDevWorkspaceRelay = (
   });
 };
 
+/** True when any enabled relay is not the Soft L3 localhost lab node. */
+export const hasEnabledNonLocalRelay = (
+  relays: ReadonlyArray<RelayListEntry>,
+  localRelayUrl: string = LOCAL_DEV_RELAY_URL,
+): boolean => relays.some((relay) => (
+  relay.enabled && !relayUrlsMatch(relay.url, localRelayUrl)
+));
+
 export const reconcileLocalDevWorkspaceRelay = async (params: Readonly<{
   relays: ReadonlyArray<RelayListEntry>;
   localRelayUrl?: string;
@@ -124,6 +132,10 @@ export const reconcileLocalDevWorkspaceRelay = async (params: Readonly<{
   const localRelayUrl = params.localRelayUrl ?? LOCAL_DEV_RELAY_URL;
   const reachable = await probeLocalDevWorkspaceRelay(localRelayUrl);
   if (reachable) {
+    // Nostr-first: never auto-enable Docker lab beside public/VPS remotes.
+    if (hasEnabledNonLocalRelay(params.relays, localRelayUrl)) {
+      return null;
+    }
     const result = applyWorkspaceDevRelayBootstrap(params.relays, localRelayUrl);
     if (result.changed) {
       writeOperatorWorkspaceRelayUrl(result.workspaceRelayUrl);

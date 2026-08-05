@@ -1,11 +1,15 @@
 import type { GroupRecord } from "@dweb/db";
-import { dbGetGroups, dbUpsertGroup, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { PersistedGroupConversation } from "@/app/features/messaging/types";
 import { deriveCommunityId } from "../utils/community-identity";
 import { toGroupConversationId } from "../utils/group-conversation-id";
+import {
+  listWorkspaceGroupRecords,
+  upsertWorkspaceGroupRecord,
+} from "./workspace-group-persist-port";
 
 const groupRowKey = (group: Readonly<{ groupId: string; relayUrl?: string }>): string => (
   `${group.groupId}@@${group.relayUrl ?? ""}`
@@ -80,7 +84,7 @@ export const loadSqliteGroupPersistedRows = async (
     return [];
   }
   try {
-    const records = await dbGetGroups(profileId);
+    const records = await listWorkspaceGroupRecords(profileId);
     return records.map((record) => sqliteGroupRecordToPersistedGroup(record, localPublicKeyHex));
   } catch {
     return [];
@@ -95,7 +99,9 @@ export const syncGroupConversationsToSqlite = async (
     return;
   }
   await Promise.all(
-    groups.map((group) => dbUpsertGroup(groupConversationToSqliteRecord(group, profileId)).catch(() => undefined)),
+    groups.map((group) => (
+      upsertWorkspaceGroupRecord(groupConversationToSqliteRecord(group, profileId)).catch(() => undefined)
+    )),
   );
 };
 

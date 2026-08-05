@@ -28,11 +28,15 @@ describe("transport-engine w50 — authority-gated port host routing", () => {
     expect(charter).toContain("NEXT_PUBLIC_OBSCUR_TRANSPORT_HOST_PUBLISH_AUTHORITY");
   });
 
-  it("wires shouldRouteHostTransportPublish into relay-standalone-publish-port", () => {
-    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+  it("wires shouldRouteHostTransportPublish into subtracted port after W66", () => {
+    const thin = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
+    expect(thin).toContain("relay-standalone-publish-port-subtracted");
+    expect(thin).not.toContain("publishTransportKernelToRelayUrls");
+
+    const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
     expect(port).toContain("shouldRouteHostTransportPublish");
     expect(port).toContain("publishHostTransportShimToRelayUrls");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
+    expect(port).toContain("publishStandaloneLegacyBlockedToRelayUrls");
   });
 
   it("keeps host routing off by default", () => {

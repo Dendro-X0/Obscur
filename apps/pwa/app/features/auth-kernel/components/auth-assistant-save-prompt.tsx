@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { useTranslation } from "react-i18next";
 
 type AuthAssistantSavePromptProps = Readonly<{

@@ -76,7 +76,10 @@ export const getRelayStatusBadgePresentation = (
   const activityLabel = formatRelativeTime(snapshot.lastInboundEventAtUnixMs ?? snapshot.lastSuccessfulPublishAtUnixMs);
   const reason = describeRecoveryReason(snapshot) ?? snapshot.lastFailureReason ?? "relay activity unavailable";
   const primaryHost = formatPrimaryHostname(primaryUrl);
-  const isSwitching = snapshot.recoveryReasonCode === "no_writable_relays" && snapshot.readiness !== "healthy";
+  // Do not claim "Switching relay" when an open/writable path already exists (mesh lag).
+  const isSwitching = snapshot.recoveryReasonCode === "no_writable_relays"
+    && snapshot.readiness !== "healthy"
+    && snapshot.writableRelayCount === 0;
 
   switch (snapshot.readiness) {
     case "healthy":

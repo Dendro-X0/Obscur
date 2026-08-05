@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
-import { Button, Input, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { toast } from "@dweb/ui-kit/toast";
 import { ArrowLeft, Plus, Settings2, SquareArrowOutUpRight, Trash2 } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";

@@ -44,8 +44,11 @@ describe("transport-engine w19 — host publish parity verification charter", ()
     expect(owner).toContain("mapLegacyPublishResultToRelayPublishResult");
 
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
-    expect(port).toContain("shouldUseLegacyStandaloneRelayPublish");
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
+    expect(port).not.toContain("publishTransportKernelToRelayUrls");
+
+    const subtracted = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port-subtracted.ts");
+    expect(subtracted).toContain("shouldUseLegacyStandaloneRelayPublish");
   });
 
   it("pins libobscur publishRelayEvent as explicit not-wired stub", () => {

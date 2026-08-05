@@ -20,7 +20,7 @@ describe("transport-engine w61 — production deletion execution harness", () =>
     );
     expect(w60).toContain("transport-kernel-standalone-publish-legacy.archive.ts");
     expect(w61).toContain("transport-engine-standalone-legacy-contract-read.ts");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents W62+ mechanical subtraction in execution charter", () => {

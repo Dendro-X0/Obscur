@@ -3,6 +3,7 @@ import type { HostEnginePort } from "@obscur/engine-contracts";
 import {
   buildTransportListConfiguredRelayUrlsRequest,
   buildTransportListRelayCheckpointsRequest,
+  buildTransportUpsertRelayCheckpointRequest,
 } from "@obscur/engine-contracts";
 
 export type TransportPersistenceParams = Readonly<{
@@ -40,6 +41,23 @@ export const listConfiguredRelayUrls = async (
     throw new Error(result.errorMessage ?? result.errorCode ?? "transport.listConfiguredRelayUrls failed");
   }
   return (result.data ?? []) as string[];
+};
+
+export const upsertRelayCheckpoint = async (
+  params: TransportPersistenceParams & Readonly<{
+    checkpoint: RelayCheckpointRecord;
+  }>,
+): Promise<void> => {
+  const result = await params.host.invoke(
+    buildTransportUpsertRelayCheckpointRequest({
+      profileId: params.profileId,
+      windowLabel: params.windowLabel,
+      payload: params.checkpoint,
+    }),
+  );
+  if (!result.ok) {
+    throw new Error(result.errorMessage ?? result.errorCode ?? "transport.upsertRelayCheckpoint failed");
+  }
 };
 
 export const buildCheckpointRelayUrlSet = (

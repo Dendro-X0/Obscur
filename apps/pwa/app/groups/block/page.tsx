@@ -3,14 +3,15 @@
 import React, { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Ban, Loader2 } from "lucide-react";
-import { Button, Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
 import { PageShell } from "@/app/components/page-shell";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import { buildGroupViewHref } from "@/app/features/groups/utils/group-action-route";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 
 export default function BlockCommunityPage() {
     const router = useRouter();

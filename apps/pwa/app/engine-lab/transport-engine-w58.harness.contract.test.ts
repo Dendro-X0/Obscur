@@ -22,7 +22,7 @@ describe("transport-engine w58 — file deletion execution harness", () => {
     );
     expect(w57).toContain("shouldBlockStandaloneLegacyPublishFallback");
     expect(w58).toContain("transport-kernel-standalone-deletion-subtraction-manifest.ts");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents W59+ physical deletion in execution charter", () => {

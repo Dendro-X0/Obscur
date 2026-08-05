@@ -3,6 +3,7 @@ import type { EngineInvokeRequest } from "./host-engine-port";
 export const TRANSPORT_ENGINE_METHODS = {
   listRelayCheckpoints: "listRelayCheckpoints",
   listConfiguredRelayUrls: "listConfiguredRelayUrls",
+  upsertRelayCheckpoint: "upsertRelayCheckpoint",
   publishRelayEvent: "publishRelayEvent",
 } as const;
 
@@ -11,6 +12,12 @@ export type TransportEngineMethod = (typeof TRANSPORT_ENGINE_METHODS)[keyof type
 export type TransportListRelayCheckpointsPayload = Readonly<Record<string, never>>;
 
 export type TransportListConfiguredRelayUrlsPayload = Readonly<Record<string, never>>;
+
+export type TransportUpsertRelayCheckpointPayload = Readonly<{
+  profile_id: string;
+  relay_url: string;
+  last_event_at: number;
+}>;
 
 export type TransportPublishRelayEventPayload = Readonly<{
   relayUrls: ReadonlyArray<string>;
@@ -40,6 +47,7 @@ export type TransportPublishRelayEventResult = Readonly<{
 export const isTransportEngineMethod = (method: string): method is TransportEngineMethod => (
   method === TRANSPORT_ENGINE_METHODS.listRelayCheckpoints
   || method === TRANSPORT_ENGINE_METHODS.listConfiguredRelayUrls
+  || method === TRANSPORT_ENGINE_METHODS.upsertRelayCheckpoint
   || method === TRANSPORT_ENGINE_METHODS.publishRelayEvent
 );
 
@@ -83,6 +91,20 @@ export const buildTransportListConfiguredRelayUrlsRequest = (params: Readonly<{
     ...(params.windowLabel ? { windowLabel: params.windowLabel } : {}),
   },
   payload: {},
+});
+
+export const buildTransportUpsertRelayCheckpointRequest = (params: Readonly<{
+  profileId: string;
+  windowLabel?: string;
+  payload: TransportUpsertRelayCheckpointPayload;
+}>): EngineInvokeRequest => ({
+  engine: "transport",
+  method: TRANSPORT_ENGINE_METHODS.upsertRelayCheckpoint,
+  scope: {
+    profileId: params.profileId,
+    ...(params.windowLabel ? { windowLabel: params.windowLabel } : {}),
+  },
+  payload: params.payload,
 });
 
 export const buildTransportPublishRelayEventRequest = (params: Readonly<{

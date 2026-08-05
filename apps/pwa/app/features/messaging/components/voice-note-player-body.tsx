@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Pause, Play, RefreshCw } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import type { VoiceNotePlaybackState } from "@/app/features/messaging/hooks/use-voice-note-playback";
 import { VoicePlaybackWaveform } from "./voice-playback-waveform";
 
@@ -49,7 +49,7 @@ export function VoiceNotePlayerBody(props: Readonly<{
         className={cn(
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
           props.isOutgoing
-            ? "bg-white/18 text-white hover:bg-white/28 backdrop-blur-sm"
+            ? "bg-white/18 text-white hover:bg-white/28 backdrop-blur-sm dark:bg-gradient-to-br dark:from-purple-600 dark:to-indigo-500 dark:text-white dark:hover:from-purple-500 dark:hover:to-indigo-400 dark:shadow-[0_0_16px_rgba(168,85,247,0.25)]"
             : "bg-gradient-to-br from-purple-600 to-indigo-500 text-white hover:from-purple-500 hover:to-indigo-400 shadow-[0_0_16px_rgba(168,85,247,0.25)]",
           props.playButtonClassName,
         )}
@@ -74,7 +74,9 @@ export function VoiceNotePlayerBody(props: Readonly<{
 
       <span className={cn(
         "min-w-[2.5rem] shrink-0 text-right text-xs font-semibold tabular-nums",
-        props.isOutgoing ? "text-white/90" : "text-zinc-600 dark:text-zinc-300",
+        props.isOutgoing
+          ? "text-white/90 dark:text-zinc-800"
+          : "text-zinc-600 dark:text-zinc-300",
         props.timeClassName,
       )}>
         {props.playback.timeLabel}

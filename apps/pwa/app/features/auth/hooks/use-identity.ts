@@ -698,7 +698,8 @@ const ensureInitialized = async (): Promise<void> => {
   hasInitialized = true;
   let stored: IdentityRecord | undefined;
   try {
-    if (isPageReloadNavigation() && hasNativeRuntime()) {
+    if (hasNativeRuntime()) {
+      // Cold + F5: drop stale local leases so native unlocked session can hydrate JS.
       clearActiveSessionLeasesForPageReload();
     }
 
@@ -746,12 +747,18 @@ const ensureInitialized = async (): Promise<void> => {
       stored = normalizedStored;
     }
 
-    // Native: auth-kernel boot owner restores session on desktop reload — no duplicate probe here.
+    // Native: auth-kernel boot owner restores session on cold + F5 — no duplicate probe here.
     const activeProfileId = resolveIdentityScopeProfileId();
     const manualLockActive = isAuthKernelManualLockActive(activeProfileId);
     const bootRestoreEnabled = isAuthKernelBootRestoreEnabled(activeProfileId);
+    if (stored && canUseNativeSession() && bootRestoreEnabled && !manualLockActive) {
+      // Seed locked identity before wait so cold waiters see durable pubkey immediately.
+      if (getIdentitySnapshot().status !== "unlocked") {
+        setLockedAwaitingNativeRestore(stored);
+      }
+    }
     if (stored && canUseNativeSession() && manualLockActive) {
-      if (isPageReloadNavigation() && bootRestoreEnabled) {
+      if (bootRestoreEnabled) {
         await waitForAuthKernelBootRestore(8_000);
       }
       const keychainPresent = await readAuthKernelKeychainPresent({
@@ -766,9 +773,7 @@ const ensureInitialized = async (): Promise<void> => {
       return;
     }
     if (stored && canUseNativeSession() && bootRestoreEnabled) {
-      if (isPageReloadNavigation()) {
-        await waitForAuthKernelBootRestore(8_000);
-      }
+      await waitForAuthKernelBootRestore(8_000);
       if (getIdentitySnapshot().status === "unlocked") {
         return;
       }

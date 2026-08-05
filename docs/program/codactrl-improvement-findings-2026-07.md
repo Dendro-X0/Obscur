@@ -10,6 +10,111 @@ This document compiles capture-session findings into **actionable CodaCtrl impro
 
 ---
 
+## Round 2026-08-04 — Studio update re-dogfood + MRI remediate
+
+**Subject band:** Re-prove Track B gaps after Studio update · MRI/RWR/MTX for Obscur repair  
+**Chain:** `chain-codactrl-dogfood-r0-r4-2026-08-02` · node `n2-capture` (sessionless append)  
+**MRI:** `studio_maintenance_intake` → verdict **`remediate`** (not rewrite_candidate)  
+**RWR:** mode **`refactor`** · dualOwnerCount=3 · claimExportAllowed=false  
+**Desktop:** CDP **down** this pass (`cdpTargetCount=0`) — live ladder incomplete at interact
+
+| Prior gap | 2026-08-02b | 2026-08-04 | Notes |
+|-----------|-------------|------------|-------|
+| Sessionless chain append | Fail | **Works** | Append without `sessionId` succeeded |
+| Handoff-bound pathway | Fail | **Partial** | `subjectNextAtomicStep` from `current-session.md` (DFH2); repair slice still templates R-AUTH |
+| `subject_shape_classify` + symptom | Fail | **Partial** | Notes “runtime/delivery”; shape still `monorepo-workspace` / pack `orient-cold-oss` |
+| `client_stack_preflight` `:1430` | Fail | **Fail** | Still blocks connect; copy mentions primary shell not webpack — still not ready when CDP up |
+| Soft L3 sandbox fault-step | Partial | **Partial** | Still “stress scenarios require a fault step” |
+| ACK signal in register | Fail | **Partial** | OFP5 shows `symptom:dm-relay-publish-ack-missing` · DELIVERY-1 issue row present |
+| New: MRI / RWR / MTX / ladder | — | **Works** | Maintenance ramp usable; `clientSatisfied=false` until desktop up |
+
+**Obscur repair direction (MRI + RWR, PAUSED-aware):**
+
+| Lifecycle | Dual-owner? | Allowed next? |
+|-----------|-------------|----------------|
+| `dm-persist` | Yes (messaging + groups ports) | **Yes** — subtractive owner study (messaging canonical for DM) |
+| `profile-scope` | Yes | **No** — AUTH-SESSION CANCELLED risk |
+| `relay-publish` | Yes (groups + relays) | **No product COM-RUN** — groups writers stay freeze/stop-writing only |
+| O-2 / COM-RUN | — | **PAUSED** |
+
+**Next Obscur atomic:** dm-persist dual-owner subtraction investigation → design (specs-first). Prove later with desktop + Soft L3 / R4.
+
+---
+
+## Round 2026-08-02b — Track B dogfood post R0–R4 (prod-parity)
+
+**Subject band:** Recovery Track B · coverage goals after Obscur R0–R4 Pass  
+**Chain:** `chain-codactrl-dogfood-r0-r4-2026-08-02`  
+**Investigation:** [codactrl-track-b-dogfood-investigation-2026-08.md](../../specs/backend/codactrl-track-b-dogfood-investigation-2026-08.md)  
+**Recovery charter:** [production-truth-release-recovery-2026-08.md](./production-truth-release-recovery-2026-08.md)  
+**Obscur evidence:** Soft L3 / R2 / R3 / R4 reports under `test-results/*-2026-08-02.json`
+
+| # | Coverage goal | Result | Evidence / ask |
+|---|---------------|--------|----------------|
+| 1 | No-CDP / static `:1430` ready | **Partial** | `client_session_plan` + `client_multiwindow_status`: dualWindowReady, main+profile-2 **ready** on `:1430`. `client_stack_preflight` still **Fails** (“Start subject stack”) while `:3340` closed — **same ask:** treat static shell + CDP as ready when `session_plan.windows[].ready` |
+| 2 | Fail-class taxonomy | **Partial (subject-side)** | Obscur reports expose `fAck` / `failClass` (F-DIAL wired in R2). Studio Studio labels still not first-class in rollup for DELIVERY-1 / F-* |
+| 3 | Hypothesis nodes without session | **Fail** | `client_investigation_chain_append` → `sessionId is required`. Create works; append needs live session. **Ask:** disk-only hypothesis when `blocked_on_harness` |
+| 4 | Handoff-bound pathway | **Fail** | `studio_pathway` currentStep=`prove`, suggestedSlice=`R-AUTH` while handoff Next Atomic was CodaCtrl dogfood / R0–R4 residual. **Ask:** bind pathway to `docs/handoffs/current-session.md` Next Atomic Step |
+| 5 | Soft L3 scenario pack | **Partial** | Catalog id `stress.obscur.soft_l3.public_dm@1` present (`symptomClasses: F-ACK, F-RECV`). `sandbox_catalog_list` returns “stress scenarios require a fault step” — run path not agent-green without fault injection |
+| 6 | Signal extract ACK gap | **Fail (register)** | Issue-report rollup still has **no** `lastSuccessfulPublishAtUnixMs` / `[dm-send] confirmed` extract. Obscur L1 ledger stamp landed separately — Studio extract still owed |
+
+| Primitive | Result | Notes |
+|-----------|--------|-------|
+| `verify_dogfood_preflight@0.2.0` | **Works** | All checks ok · `readyForAgent: true` · dual CDP in scope |
+| `studio_workspace_binding` | **Works** | aligned |
+| `client_dev_environment_get` | **Works** | `:9230` + `:9231` live · `:1430` open · `:3340` closed |
+| `client_session_plan` | **Works** | dualWindowReady · both windows ready |
+| `client_stack_preflight` | **Fail** | over-requires webpack stack |
+| `client_multiwindow_status` | **Works** | dualWindowReady (registry stale sessions noisy) |
+| `subject_shape_classify` | **Fail vs intent** | Ignores symptom text → `monorepo-workspace` / `orient-cold-oss` |
+| `verify_truth_surface_evaluate` | **Works (weak)** | Pass on `parity-desktop` without requiring Soft L3 JSON path — still “claim present” only |
+| `verify_false_green_scan` | **Works (empty)** | `findingCount: 0` — no false-green hits this pass |
+| `verify_agent_boot_status` | **Works** | boot ready |
+| `client_investigation_chain_create` | **Works** | chain created |
+| `client_investigation_chain_append` (no session) | **Fail** | sessionId required |
+
+**Obscur product status (context only):** R0–R4 Pass on production-parity; Soft L3 `fAck`; R4 persist smoke via Soft L3 marker corroboration. Track B does **not** substitute for Track A.
+
+**Top CodaCtrl backlog (unchanged + reconfirmed):**
+
+1. Static `:1430` + CDP ready overrides `client_stack_preflight` `:3340` require.  
+2. Hypothesis chain append without session.  
+3. Pathway bound to handoff Next Atomic Step (not stale R-AUTH).  
+4. `subject_shape_classify` returns investigation band from symptom.  
+5. Soft L3 sandbox runnable without mandatory fault step (or document fault template).  
+6. Register extract for publish-ACK honesty signals.
+
+---
+
+## Round 2026-08-02 — DELIVERY-1 agent dogfood (prod-parity desktop)
+
+**Subject band:** Public-path two-profile DM · publish ACK / receive  
+**Obscur issue:** `verify:issue:agent:9e5bbc9aa9d4a242` · chain `chain-delivery-1-public-dm-2026-08-02`  
+**Recovery charter:** [production-truth-release-recovery-2026-08.md](./production-truth-release-recovery-2026-08.md)  
+**Investigation:** [dm-delivery-1-public-path-investigation-2026-08.md](../../specs/backend/dm-delivery-1-public-path-investigation-2026-08.md)
+
+| Primitive | Result | Improvement ask |
+|-----------|--------|-----------------|
+| `studio_workspace_binding` / dogfood | **Works** — aligned | Keep |
+| `client_dev_environment_get` | Shows CDP `:9230` ready on `:1430/profiles` after `dev:desktop:online` | Keep |
+| `client_session_plan` | Marks main window `ready: true` | Keep |
+| `client_stack_preflight` / `client_session_connect` | **Fails** “start subject stack” while CDP page exists — over-requires webpack `:3340` | Treat **static shell `:1430` + CDP** as ready when `session_plan.windows[].ready`; do not require `:3340` for production-parity desktop |
+| Dual-window | `:9231` not listening | Automate profile-2 CDP args in `dev:desktop:online` |
+| `client_investigation_chain_append` | Requires `sessionId` even for hypothesis nodes | Allow disk-only append when `blocked_on_harness` |
+| `subject_shape_classify` | Ignores symptom → monorepo shape | Return investigation band (`runtime-delivery`, `relay-ack`) |
+| `studio_pathway` / salvage | Stuck on **R-AUTH prove** while handoff is DELIVERY-1 | Bind pathway to handoff Next Atomic Step |
+| Parallel MCP (map_hop, issues_list) | Daemon RPC timeout 15s | Raise timeout / partial results |
+| `pursue_upsert` | Aperio chaseboard / wrong semantics | Split product pursue from opportunity chase |
+| Sandbox catalog | No Soft L3 public DM scenario | Add `stress.obscur.soft_l3.public_dm@1` |
+| Truth surface eval | Pass without evidence | Warn when claim has no digest/chain |
+| Issue register / rollup | Stale — no DELIVERY-1 signals | Extract `lastSuccessfulPublishAtUnixMs:null` + `[dm-send] confirmed` fail |
+
+**Obscur Track A landed (2026-08-02):** subject-side Soft L3 automation — `pnpm verify:s-pool-delivery-l3:preflight` · Pass requires `fAck` · app base prefers `:1430` · catalog scenario `stress.obscur.soft_l3.public_dm@1`. Design: [soft-l3-automation-track-a-design-2026-08.md](../../specs/backend/soft-l3-automation-track-a-design-2026-08.md). Studio preflight `:3340` over-require remains a **CodaCtrl** product fix.
+
+**Agent unblock recipe:** When CDP target exists but connect fails preflight, return: “override: static desktop ready — connect with session_plan.recommended” instead of “start webpack stack.”
+
+---
+
 ## Validated in round 2 (2026-07-02 — boot-artifacts pass)
 
 Round label: `2026-07-02-codactrl-boot-artifacts-round-r2` · Session `csess-510a62aba320` / `csess-6b9fe53b4ded`

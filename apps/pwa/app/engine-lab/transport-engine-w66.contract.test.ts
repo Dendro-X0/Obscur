@@ -45,18 +45,16 @@ describe("transport-engine w66 — standalone legacy mechanical subtraction comm
     expect(module).toContain("STANDALONE_LEGACY_GATE_CLOSED_EXISTENCE_PIN_CONTRACTS");
   });
 
-  it("reports pre-commit baseline ready while gate is closed", () => {
+  it("reports post-subtraction complete after W66 mechanical commit", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacyMechanicalSubtractionCommitReadiness(
       recorded,
       createPwaFilesystem(),
     );
-    expect(report.gateApproved).toBe(false);
-    expect(report.preCommitBaselineReady).toBe(true);
-    expect(report.existencePinMigrationReady).toBe(true);
-    expect(report.postSubtractionComplete).toBe(false);
+    expect(report.preCommitBaselineReady).toBe(false);
+    expect(report.postSubtractionComplete).toBe(true);
     expect(report.readyForMechanicalSubtractionCommit).toBe(false);
   });
 
@@ -66,9 +64,9 @@ describe("transport-engine w66 — standalone legacy mechanical subtraction comm
     expect(script).toContain("relay-standalone-publish-port-thin.ts");
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

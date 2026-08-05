@@ -1,7 +1,9 @@
-import type { AuthBootPhase, AuthBootSnapshot, AuthSessionDiagnosticSnapshot } from "@dweb/auth";
+import type { AuthBootPhase, AuthBootSnapshot } from "@dweb/auth/contracts/auth-boot-snapshot";
+import type { AuthSessionDiagnosticSnapshot } from "@dweb/auth/contracts/auth-diagnostic";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { authFailed, authOk } from "@dweb/auth";
-import type { AuthResult, RuntimeSessionPort, RuntimeSessionStatus } from "@dweb/auth";
+import { authFailed, authOk } from "@dweb/auth/contracts/auth-result";
+import type { AuthResult } from "@dweb/auth/contracts/auth-result";
+import type { RuntimeSessionPort, RuntimeSessionStatus } from "@dweb/auth/ports/runtime-session-port";
 import { resolveDeviceSessionDiagnostic } from "@/app/features/auth/services/device-session-diagnostic-service";
 import {
   clearInMemoryNativeSessionBestEffort,

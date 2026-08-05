@@ -18,7 +18,7 @@ const authScreenMocks = vi.hoisted(() => ({
     status: "locked" as const,
     stored: {
       publicKeyHex: "a".repeat(64),
-    },
+    } as { publicKeyHex: string; username?: string },
   },
   identityDiagnostics: {
     status: "locked" as const,
@@ -94,37 +94,47 @@ vi.mock("framer-motion", () => ({
   }),
 }));
 
-vi.mock("@dweb/ui-kit", () => {
-  const MockInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function MockInput(props, ref) {
-    return <input ref={ref} {...props} />;
-  });
+vi.mock("@dweb/ui-kit/button", () => ({
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
+}));
 
-  return {
-    Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-      <button {...props}>{children}</button>
-    ),
-    Input: MockInput,
-    Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
-    Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => <label {...props}>{children}</label>,
-    Checkbox: ({ checked, onCheckedChange, ...props }: {
-      checked?: boolean;
-      onCheckedChange?: (checked: boolean) => void;
-    } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange">) => (
-      <input
-        {...props}
-        type="checkbox"
-        checked={Boolean(checked)}
-        onChange={(event) => onCheckedChange?.(event.target.checked)}
-      />
-    ),
-    toast: {
-      success: vi.fn(),
-      info: vi.fn(),
-      error: vi.fn(),
-    },
-    cn: (...parts: Array<string | null | undefined | false>) => parts.filter(Boolean).join(" "),
-  };
-});
+vi.mock("@dweb/ui-kit/input", () => ({
+  Input: React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function MockInput(props, ref) {
+    return <input ref={ref} {...props} />;
+  }),
+}));
+
+vi.mock("@dweb/ui-kit/card", () => ({
+  Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+}));
+
+vi.mock("@dweb/ui-kit/label", () => ({
+  Label: ({ children, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) => <label {...props}>{children}</label>,
+}));
+
+vi.mock("@dweb/ui-kit/checkbox", () => ({
+  Checkbox: ({ checked, onCheckedChange, ...props }: {
+    checked?: boolean;
+    onCheckedChange?: (checked: boolean) => void;
+  } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange">) => (
+    <input
+      {...props}
+      type="checkbox"
+      checked={Boolean(checked)}
+      onChange={(event) => onCheckedChange?.(event.target.checked)}
+    />
+  ),
+}));
+
+vi.mock("@dweb/ui-kit/toast", () => ({
+  toast: {
+    success: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 vi.mock("@/app/features/profiles/services/identity-passphrase-unlock", () => ({
   hasPasswordProtectedUnlockOnDevice: vi.fn(async () => true),
@@ -202,6 +212,14 @@ vi.mock("@/app/features/profiles/services/profile-slot-account-switch", () => ({
   clearProfileSlotForDifferentAccount: vi.fn(async () => null),
 }));
 
+vi.mock("@/app/features/profiles/services/profile-window-account-binding", () => ({
+  getLastBoundAccountPublicKeyHex: vi.fn(() => null),
+  clearLastBoundAccountPublicKeyHex: vi.fn(),
+  setLastBoundAccountPublicKeyHex: vi.fn(),
+}));
+
+import { getLastBoundAccountPublicKeyHex } from "@/app/features/profiles/services/profile-window-account-binding";
+
 describe("AuthScreen mismatch recovery UX", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -233,6 +251,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.authKernel.importIdentityForBoundProfile.mockClear();
     vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(false);
     vi.mocked(openFreshProfileWindowForSignIn).mockClear();
+    vi.mocked(getLastBoundAccountPublicKeyHex).mockReturnValue(null);
   });
 
   it("renders native secure storage mismatch recovery card", async () => {
@@ -393,6 +412,39 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.queryByText("Skip Password")).not.toBeInTheDocument();
   });
 
+  it("shows occupied-window warning when Import Key is a different account", async () => {
+    const occupant = "a".repeat(64);
+    const differentPrivateKey = "c09832d637eb265d90b29c12eb8dfcfffe165b8fb34094af75236d5be4d97884" as PrivateKeyHex;
+    expect(derivePublicKeyHex(differentPrivateKey)).not.toBe(occupant);
+    vi.mocked(getLastBoundAccountPublicKeyHex).mockReturnValue(occupant as never);
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex: occupant,
+        username: "DemoUser",
+      },
+    };
+
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: differentPrivateKey },
+    });
+
+    expect(await screen.findByRole("region", { name: /profile account conflict/i })).toBeInTheDocument();
+    expect(screen.getByText(/This window already has an account/i)).toBeInTheDocument();
+    expect(screen.getByText(/already holds local data for DemoUser/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Clear this window and continue/i })).toBeInTheDocument();
+    expect(authScreenMocks.authKernel.importIdentityForBoundProfile).not.toHaveBeenCalled();
+  });
+
+  it("shows the protect-your-identity note once on Import Key (no duplicate banner)", async () => {
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    expect(await screen.findByPlaceholderText("nsec1...")).toBeInTheDocument();
+    expect(screen.getAllByText("Protect your identity")).toHaveLength(1);
+  });
+
   it("surfaces retired-key warning before import continues", async () => {
     const privateKeyHex = "a".repeat(64) as PrivateKeyHex;
     const publicKeyHex = derivePublicKeyHex(privateKeyHex);
@@ -511,4 +563,124 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(openFreshProfileWindowForSignIn).not.toHaveBeenCalled();
   });
 
+  it("allows create after generate, manual password change, and confirm re-entry", async () => {
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByText("Create New Identity"));
+    fireEvent.change(screen.getByPlaceholderText("e.g. Satoshi"), {
+      target: { value: "tester" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Generate Code" }));
+
+    const passwordInput = screen.getByPlaceholderText("Create a strong password") as HTMLInputElement;
+    const confirmInput = screen.getByPlaceholderText("Repeat your password") as HTMLInputElement;
+
+    expect(passwordInput.value).not.toBe("");
+    expect(confirmInput.value).toBe(passwordInput.value);
+
+    fireEvent.change(passwordInput, {
+      target: { value: "ManualPassphrase#2026" },
+    });
+
+    await waitFor(() => {
+      expect((screen.getByPlaceholderText("Repeat your password") as HTMLInputElement).value).toBe("");
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Repeat your password"), {
+      target: { value: "ManualPassphrase#2026" },
+    });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /i understand i am responsible for my keys/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate Safe Identity" }));
+
+    await waitFor(() => {
+      expect(authScreenMocks.authKernel.createIdentityForBoundProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(authScreenMocks.authKernel.createIdentityForBoundProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "tester",
+        passphrase: "ManualPassphrase#2026",
+      }),
+    );
+  });
+
+  it("blocks manual create passwords shorter than the identity policy and explains why", async () => {
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByText("Create New Identity"));
+    fireEvent.change(screen.getByPlaceholderText("e.g. Satoshi"), {
+      target: { value: "tester" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    fireEvent.change(screen.getByPlaceholderText("Create a strong password"), {
+      target: { value: "sue76#s1B" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Repeat your password"), {
+      target: { value: "sue76#s1B" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /i understand i am responsible for my keys/i }));
+
+    const submitButton = screen.getByRole("button", { name: "Generate Safe Identity" });
+    expect(submitButton).toBeDisabled();
+    expect(screen.getAllByText(/Use at least 12 characters, or a passphrase of four or more words/i).length).toBeGreaterThan(0);
+    expect(authScreenMocks.authKernel.createIdentityForBoundProfile).not.toHaveBeenCalled();
+  });
+
+  it("allows create with a manual password that meets the identity policy", async () => {
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
+
+    render(<AuthScreen />);
+
+    fireEvent.click(await screen.findByText("Create New Identity"));
+    fireEvent.change(screen.getByPlaceholderText("e.g. Satoshi"), {
+      target: { value: "tester" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    fireEvent.change(screen.getByPlaceholderText("Create a strong password"), {
+      target: { value: "MyManualPass#2026" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Repeat your password"), {
+      target: { value: "MyManualPass#2026" },
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /i understand i am responsible for my keys/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate Safe Identity" }));
+
+    await waitFor(() => {
+      expect(authScreenMocks.authKernel.createIdentityForBoundProfile).toHaveBeenCalledTimes(1);
+    });
+    expect(authScreenMocks.authKernel.createIdentityForBoundProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "tester",
+        passphrase: "MyManualPass#2026",
+      }),
+    );
+  });
+
 });
+

@@ -37,15 +37,17 @@ vi.mock("@/app/features/account-sync/services/direct-relay-query", () => ({
   fetchLatestEventFromRelayUrls: mocks.fetchLatestEventFromRelayUrls,
 }));
 
-import { seedProfileMetadataCache, useProfileMetadata } from "./use-profile-metadata";
+import { seedProfileMetadataCache, clearProfileMetadataCache, useProfileMetadata } from "./use-profile-metadata";
 
 describe("useProfileMetadata", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearProfileMetadataCache();
     mocks.useRelay.mockReturnValue({
       relayPool: {
         subscribe: mocks.subscribe.mockImplementation(() => "sub-1"),
         unsubscribe: mocks.unsubscribe,
+        connections: [{ url: "wss://relay.example", status: "open" }],
       },
       enabledRelayUrls: ["wss://relay.example"],
     });
@@ -164,5 +166,85 @@ describe("useProfileMetadata", () => {
     rerender();
 
     expect(mocks.upsertProfile).not.toHaveBeenCalled();
+  });
+
+  it("M1: retries kind-0 hydrate after empty fetch (backoff)", async () => {
+    vi.useFakeTimers();
+    try {
+      const pubkey = "d".repeat(64);
+      const event: NostrEvent = {
+        id: "retry-event",
+        pubkey,
+        created_at: 20,
+        kind: 0,
+        tags: [],
+        content: JSON.stringify({ name: "Retried User" }),
+        sig: "sig",
+      };
+      mocks.fetchLatestEventFromRelayUrls
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(event);
+
+      const { result } = renderHook(() => useProfileMetadata(pubkey));
+
+      await vi.waitFor(() => {
+        expect(mocks.fetchLatestEventFromRelayUrls).toHaveBeenCalledTimes(1);
+      });
+
+      await vi.advanceTimersByTimeAsync(2_000);
+
+      await vi.waitFor(() => {
+        expect(mocks.fetchLatestEventFromRelayUrls).toHaveBeenCalledTimes(2);
+        expect(result.current?.displayName).toBe("Retried User");
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("M1: retries immediately when open relay count recovers", async () => {
+    const pubkey = "e".repeat(64);
+    const event: NostrEvent = {
+      id: "recovery-event",
+      pubkey,
+      created_at: 30,
+      kind: 0,
+      tags: [],
+      content: JSON.stringify({ name: "Recovered User" }),
+      sig: "sig",
+    };
+    mocks.fetchLatestEventFromRelayUrls
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(event);
+
+    mocks.useRelay.mockReturnValue({
+      relayPool: {
+        subscribe: mocks.subscribe.mockImplementation(() => "sub-1"),
+        unsubscribe: mocks.unsubscribe,
+        connections: [{ url: "wss://relay.example", status: "connecting" }],
+      },
+      enabledRelayUrls: ["wss://relay.example"],
+    });
+
+    const { result, rerender } = renderHook(() => useProfileMetadata(pubkey));
+
+    await waitFor(() => {
+      expect(mocks.fetchLatestEventFromRelayUrls).toHaveBeenCalledTimes(1);
+    });
+
+    mocks.useRelay.mockReturnValue({
+      relayPool: {
+        subscribe: mocks.subscribe.mockImplementation(() => "sub-1"),
+        unsubscribe: mocks.unsubscribe,
+        connections: [{ url: "wss://relay.example", status: "open" }],
+      },
+      enabledRelayUrls: ["wss://relay.example"],
+    });
+    rerender();
+
+    await waitFor(() => {
+      expect(mocks.fetchLatestEventFromRelayUrls).toHaveBeenCalledTimes(2);
+      expect(result.current?.displayName).toBe("Recovered User");
+    });
   });
 });

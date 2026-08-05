@@ -1,7 +1,11 @@
 "use client";
 import type React from "react";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Button, ConfirmDialog, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { ConfirmDialog } from "@dweb/ui-kit/confirm-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@dweb/ui-kit/dialog";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
 import { HardDrive, FolderOpen, RefreshCw, Settings, Shield, FolderPlus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { buildObscurDataRootTargetPath, DEFAULT_OBSCUR_DATA_SUBFOLDER, getObscurDataRootConfig, pickObscurDataRootPath, planObscurDataRootChange, bindObscurDataRootForRecovery, resolveObscurDataRootPick, validateObscurDataSubfolderName, type ObscurDataRootChangePlan, type ObscurDataRootConfig, } from "@/app/features/profiles/services/obscur-data-root-service";

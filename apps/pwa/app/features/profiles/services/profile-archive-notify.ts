@@ -1,4 +1,4 @@
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import type { ProfileWorkspaceArchiveWriteResult } from "./profile-workspace-archive-contracts";
 
 /** Toast-only feedback; use ProfileArchiveResultDialog to show export paths. */

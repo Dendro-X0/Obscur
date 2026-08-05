@@ -18,7 +18,7 @@ const W14_W18_LEGACY_RELOCATIONS = [
   {
     subtracted: "app/features/relays/hooks/enhanced-relay-pool.ts",
     legacy: "app/legacy/enhanced-relay-pool-legacy.ts",
-    canonical: "app/features/relays/hooks/enhanced-relay-pool-legacy.ts",
+    canonical: "app/features/relays/hooks/relay-browser-pool-runtime.ts",
     types: "app/features/relays/hooks/enhanced-relay-pool-types.ts",
   },
   {

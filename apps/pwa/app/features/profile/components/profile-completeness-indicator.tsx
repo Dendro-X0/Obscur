@@ -2,7 +2,7 @@
 
 import React from "react";
 import { CheckCircle2, Circle } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 
 type ProfileCompletenessIndicatorProps = Readonly<{
   hasAvatar: boolean;

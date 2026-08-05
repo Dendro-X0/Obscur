@@ -26,9 +26,12 @@ export type {
   ConduitTrustTier,
   ConduitCapability,
   ConduitHealth,
+  ConduitUnderlay,
+  SshTunnelParams,
   ConduitDescriptor,
   ConduitRuntimeState,
 } from "./conduit";
+export { sshTunnelConfigureSkipReason } from "./conduit";
 
 export type {
   MeshReadiness,
@@ -89,6 +92,27 @@ export type {
 } from "./tor-policy";
 
 export { isNostrEventWirePayload } from "./nostr-wire-payload";
+
+export {
+  OBSCUR_OFFLINE_PACK_V1,
+  canonicalOfflinePackPayload,
+  encodeOfflinePack,
+  decodeOfflinePack,
+  parseOfflinePackJson,
+  verifyOfflinePackForImport,
+  envelopeToOfflineWire,
+  offlineWireToEnvelope,
+} from "./offline-pack";
+export type {
+  OfflinePackSchemaV1,
+  OfflinePackEnvelopeWireV1,
+  OfflinePackWireV1,
+  OfflinePackRejectReason,
+  OfflinePackDecodeResult,
+  OfflinePackVerifyResult,
+  EncodeOfflinePackParams,
+  VerifyOfflinePackParams,
+} from "./offline-pack";
 
 export {
   OBSCUR_MESH_DM_WIRE_V1,

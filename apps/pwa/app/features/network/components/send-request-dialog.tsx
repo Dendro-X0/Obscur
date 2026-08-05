@@ -1,7 +1,11 @@
 "use client";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Card, cn, Label, Textarea } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
+import { cn } from "@dweb/ui-kit/cn";
+import { Label } from "@dweb/ui-kit/label";
+import { Textarea } from "@dweb/ui-kit/textarea";
 import { AlertTriangle, Loader2, UserPlus, WifiOff } from "lucide-react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { getRelayReadinessBannerCopy, getRelayReadinessTone, getRelayTransportQueueHint, } from "@/app/features/relays/services/relay-readiness-copy";

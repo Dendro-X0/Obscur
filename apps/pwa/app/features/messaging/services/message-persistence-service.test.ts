@@ -548,21 +548,37 @@ describe("MessagePersistenceService batching", () => {
 
 const tauriDbMocks = vi.hoisted(() => ({
     dbInsertMessage: vi.fn(async (_message: MessageRecord) => undefined),
-    dbInsertTombstone: vi.fn(async () => undefined),
-    dbDeleteMessages: vi.fn(async () => undefined),
-    dbUpsertConversation: vi.fn(async () => undefined),
+    insertDmTombstone: vi.fn(async () => undefined),
+    deleteDmMessages: vi.fn(async () => undefined),
+    dbUpsertConversation: vi.fn(async (_record?: { profile_id: string }) => undefined),
     isTauri: vi.fn(() => false),
 }));
 
 vi.mock("@dweb/db", () => ({
     isTauri: tauriDbMocks.isTauri,
-    dbInsertMessage: tauriDbMocks.dbInsertMessage,
-    dbInsertTombstone: tauriDbMocks.dbInsertTombstone,
-    dbDeleteMessages: tauriDbMocks.dbDeleteMessages,
-    dbInsertTombstones: vi.fn(async () => undefined),
-    dbGetMessages: vi.fn(async () => []),
-    dbGetTombstones: vi.fn(async () => []),
-    dbUpsertConversation: tauriDbMocks.dbUpsertConversation,
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+    deleteDmMessages: tauriDbMocks.deleteDmMessages,
+    insertDmTombstone: tauriDbMocks.insertDmTombstone,
+    listDmTombstones: vi.fn(async () => []),
+    deleteAllDmTombstones: vi.fn(async () => undefined),
+    deleteDmMessage: vi.fn(async () => undefined),
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+    createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
+}));
+
+vi.mock("@/app/features/dm-kernel/dm-kernel-write-port", () => ({
+    writeDmKernelMessage: vi.fn(async (record: MessageRecord) => {
+        await tauriDbMocks.dbInsertMessage(record);
+        return { ok: true, reason: "insert_ok", errorMessage: null };
+    }),
+    writeDmKernelConversation: vi.fn(async (record: { profile_id: string }) => {
+        await tauriDbMocks.dbUpsertConversation(record);
+        return { ok: true, reason: "upsert_ok", errorMessage: null };
+    }),
 }));
 
 describe("MessagePersistenceService Tauri/SQLite path", () => {
@@ -579,8 +595,8 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         tauriDbMocks.isTauri.mockReturnValue(true);
         tauriDbMocks.dbInsertMessage.mockReset();
         tauriDbMocks.dbInsertMessage.mockResolvedValue(undefined);
-        tauriDbMocks.dbInsertTombstone.mockClear();
-        tauriDbMocks.dbDeleteMessages.mockClear();
+        tauriDbMocks.insertDmTombstone.mockClear();
+        tauriDbMocks.deleteDmMessages.mockClear();
         tauriDbMocks.dbUpsertConversation.mockReset();
         tauriDbMocks.dbUpsertConversation.mockResolvedValue(undefined);
         Object.keys(localStorage).filter(k => k.startsWith("obscur:msg_migration_done::")).forEach(k => localStorage.removeItem(k));
@@ -772,16 +788,16 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         await vi.runAllTimersAsync();
 
         const deletedIds = new Set(
-            (tauriDbMocks.dbDeleteMessages.mock.calls as unknown as Array<[string[], string]>).flatMap(
-                ([batch]) => batch,
+            (tauriDbMocks.deleteDmMessages.mock.calls as unknown as Array<[{ eventIds: string[] }]>).flatMap(
+                ([params]) => params.eventIds,
             ),
         );
         expect(deletedIds.has(uuid)).toBe(true);
         expect(deletedIds.has(nostrId)).toBe(true);
 
         // Belt-and-suspenders: tombstones are also written for receiver-side suppression
-        const tombstonedIds = (tauriDbMocks.dbInsertTombstone.mock.calls as unknown as Array<[{ event_id: string }]>).map(
-            (call) => call[0].event_id
+        const tombstonedIds = (tauriDbMocks.insertDmTombstone.mock.calls as unknown as Array<[{ record: { event_id: string } }]>).map(
+            (call) => call[0].record.event_id
         );
         expect(tombstonedIds).toContain(uuid);
         expect(tombstonedIds).toContain(nostrId);

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +18,7 @@ describe("Phase D — DM durability contract", () => {
   it("skips live chat-state message body mirror on native SQLite authority", () => {
     const source = readSource("features/messaging/services/message-persistence-service.ts");
     expect(source).toMatch(
-      /mirrorMessageToChatState[\s\S]*requiresSqlitePersistence\(\)[\s\S]*return;/,
+      /mirrorMessageToChatState[\s\S]*isDmKernelChatStateMessageIoSuppressed\(\)[\s\S]*return;/,
     );
   });
 
@@ -29,12 +29,11 @@ describe("Phase D — DM durability contract", () => {
     expect(mediaStore).toContain("messageEventId");
   });
 
-  it("uses checkpoint-driven relay repair separate from hydrate read path", () => {
+  it("uses checkpoint-driven relay repair separate from deleted hydrate scan path", () => {
     const orchestrator = readSource("features/messaging/controllers/dm-sync-orchestrator.ts");
-    const hydrate = readSource("features/messaging/services/thread-history/hydrate-indexed-scan.ts");
     expect(orchestrator).toContain("repairTimelineCheckpoint");
     expect(orchestrator).toContain("createBackfillRequest");
-    expect(hydrate).not.toContain("DM_SUBSCRIBE_HISTORY_LOOKBACK_SECONDS");
+    expect(existsSync(join(APP_ROOT, "features/messaging/services/thread-history/hydrate-indexed-scan.ts"))).toBe(false);
   });
 
   it("wires MessagePersistenceDurabilityOwner on app shell", () => {
@@ -45,14 +44,13 @@ describe("Phase D — DM durability contract", () => {
   it("uses sqlite-only native DM thread read owner (R1 subtraction)", () => {
     const policy = readSource("features/messaging/services/native-dm-read-policy.ts");
     const authority = readSource("features/messaging/services/dm-read-authority-contract.ts");
-    const hook = readSource("features/messaging/hooks/use-conversation-messages-legacy.ts");
-    const readModel = readSource("features/messaging/services/thread-history/hydrate-read-model.ts");
+    const threadMessages = readSource("features/messaging/hooks/use-thread-messages.ts");
     const messageQueue = readSource("features/messaging/lib/message-queue.ts");
     expect(policy).toContain("isNativeDmSqliteReadOwner");
     expect(policy).toContain("nativeDmSkipsIndexedDbMessageQueue");
     expect(authority).toContain("if (isNativeDmSqliteReadOwner())");
-    expect(hook).toContain("isNativeDmSqliteReadOwner()");
-    expect(readModel).toContain("!isNativeDmSqliteReadOwner()");
+    expect(threadMessages).toContain("useDmKernelThread");
+    expect(threadMessages).not.toContain("useLegacyConversationMessages");
     expect(messageQueue).toContain("nativeDmSkipsIndexedDbMessageQueue()");
   });
 
@@ -95,15 +93,18 @@ describe("Phase D — DM durability contract", () => {
     expect(repair).toContain("scanNativeDmOneSidedConversations");
     expect(repair).toContain("requestNativeDmRelayBackfillRepair");
     expect(repair).toContain("NATIVE_DM_SQLITE_RELAY_BACKFILL_REPAIR_EVENT");
+    expect(repair).toContain("listDmConversations");
+    expect(repair).not.toContain("dbGetConversations");
     expect(integrity).toContain("maybeScheduleNativeDmRelayBackfillRepair");
+    expect(integrity).toContain("fetchDmThreadRows");
+    expect(integrity).not.toContain("dbGetMessages");
     expect(provider).toContain("subscribeNativeDmRelayBackfillRepair");
     expect(provider).toContain("syncMissedMessagesRef.current");
   });
 
-  it("dev-lab exposes native relay backfill repair entrypoints", () => {
-    const install = readSource("features/dev-lab/dev-lab-install.ts");
-    const bridge = readSource("features/dev-lab/dev-lab-messaging-bridge.tsx");
-    expect(install).toContain("forceNativeDmRelayBackfillSync");
-    expect(bridge).toContain("skipCooldown: true");
+  it("runtime transport owner wires native relay backfill repair to syncMissedMessages", () => {
+    const provider = readSource("features/messaging/providers/runtime-messaging-transport-owner-provider.tsx");
+    expect(provider).toContain("subscribeNativeDmRelayBackfillRepair");
+    expect(provider).toContain("syncMissedMessagesRef.current");
   });
 });

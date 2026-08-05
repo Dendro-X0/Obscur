@@ -2,8 +2,11 @@ export { createTauriEngineHost, isTauriEngineHostAvailable } from "./tauri-engin
 export {
   isTransportHostPublishNetworkEnvEnabled,
   resolveTauriEngineInvokeCommand,
+  shouldRouteTransportExportOfflinePackToAsyncDesktopCommand,
+  shouldRouteTransportImportOfflinePackToAsyncDesktopCommand,
   shouldRouteTransportPublishToAsyncDesktopCommand,
 } from "./tauri-engine-host";
+export type { TauriEngineInvokeCommand } from "./tauri-engine-host";
 export { createTauriAuthBootHost } from "./tauri-auth-boot-host";
 export { createMemoryEngineHost } from "./memory-engine-host";
 export { createSubprocessEngineHost } from "./subprocess-engine-host";

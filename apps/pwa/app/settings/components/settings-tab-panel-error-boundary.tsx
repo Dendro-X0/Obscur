@@ -2,7 +2,7 @@
 
 import { Component, type ReactNode } from "react";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 
 type SettingsTabPanelErrorBoundaryProps = Readonly<{
   tabId: SettingsTabId;

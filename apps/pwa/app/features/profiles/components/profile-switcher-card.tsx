@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
-import { toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { toast } from "@dweb/ui-kit/toast";
 import { ProfileRegistryService, PROFILE_CHANGED_EVENT, type ActiveProfileState } from "@/app/features/profiles/services/profile-registry-service";
 import { finalizeProfileWindowRemoval } from "@/app/features/profiles/services/profile-session-lifecycle";
 import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";

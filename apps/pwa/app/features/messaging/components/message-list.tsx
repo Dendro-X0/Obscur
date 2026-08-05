@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { OptimizedImage } from "../../../components/optimized-image";
+import { ChatAttachmentImage } from "./chat-attachment-image";
 import { AlertTriangle, Check, CheckCheck, Clock, X, Reply, ChevronDown, RefreshCw, FileText, ExternalLink, Music2, ChevronLeft, ChevronRight, Smile, MoreHorizontal, HardDrive } from "lucide-react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "../../../components/ui/button";
@@ -18,12 +18,14 @@ import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
+import { resolvePeerDisplayName } from "../../profile/utils/resolve-peer-display-name";
 import { CommunityInviteCard } from "../../groups/components/community-invite-card";
 import { CommunityInviteResponseCard } from "../../groups/components/community-invite-response-card";
 import { resolveCommunityInviteDisplayViewerRoleFromMessage } from "../../groups/services/community-invite-display-boundary";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { getLocalMediaIndexSnapshot } from "@/app/features/vault/services/local-media-store";
-import { canSaveChatAttachmentsToLocalVault, saveChatAttachmentToLocalVault } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { canSaveChatAttachmentsToLocalVault } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { useChatVaultSaveWithUnlock } from "../hooks/use-chat-vault-save-with-unlock";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { detectSwipeDirection, nextMediaIndex, prevMediaIndex } from "./media-viewer-interactions";
 import { canMessageListAutoScrollToBottom, isMessageListAwayFromBottom, isMessageListFastScroll, type MessageListScrollMode, isMessageListUserAwayFromBottom, shouldMessageListLockToUserHistoryOnUpwardScroll, shouldAutoScrollOnNewMessage, shouldMessageListAutoLoadEarlier, shouldPinMessageListToLatestDuringInitialLanding, } from "./message-list-scroll";
@@ -1496,7 +1498,7 @@ const MemoizedMessageRow = React.memo(function MessageRow(props: MessageRowProps
                                     {message.attachments && message.attachments.length > 0 ? (<MessageAttachmentLayout attachments={message.attachments} isOutgoing={message.isOutgoing} localAttachmentUrlSet={localAttachmentUrlSet} localAttachmentFileNameByUrl={localAttachmentFileNameByUrl} onImageClick={onImageClick} chatUxV083Enabled={chatUxV083Enabled}/>) : null}
 
                                     <div className="min-w-0 max-w-full text-[15px] leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word]">
-                                        {parsedPayload?.type === "community-invite" ? (<CommunityInviteCard invite={parsedPayload as any} viewerRole={communityInviteViewerRole} message={message} messages={conversationMessages} responseStatus={inviteResponseStatus} onSendDirectMessage={onSendDirectMessage} compact={compactThreadCards}/>) : parsedPayload?.type === "community-invite-response" ? (<CommunityInviteResponseCard response={parsedPayload as any} viewerRole={communityInviteViewerRole} compact={compactThreadCards}/>) : parsedPayload?.type === "voice-call-invite" ? (voiceCallInvitePayload ? (<VoiceCallInviteCard invite={voiceCallInvitePayload} isOutgoing={message.isOutgoing} compact={compactThreadCards} isJoining={joiningVoiceCallInviteMessageId === message.id} onJoinCall={onJoinVoiceCallInvite
+                                        {parsedPayload?.type === "community-invite" ? (<CommunityInviteCard invite={parsedPayload as any} viewerRole={communityInviteViewerRole} message={message} messages={conversationMessages} responseStatus={inviteResponseStatus} onSendDirectMessage={onSendDirectMessage} compact={compactThreadCards}/>) : parsedPayload?.type === "community-invite-response" ? (<CommunityInviteResponseCard response={parsedPayload as any} viewerRole={communityInviteViewerRole} compact={compactThreadCards}/>) : parsedPayload?.type === "voice-call-invite" ? (voiceCallInvitePayload ? (<VoiceCallInviteCard invite={voiceCallInvitePayload} isOutgoing={message.isOutgoing} compact={compactThreadCards} deliveryStatus={message.status} isJoining={joiningVoiceCallInviteMessageId === message.id} onJoinCall={onJoinVoiceCallInvite
                     ? (invite) => {
                         onJoinVoiceCallInvite({
                             invite,
@@ -1618,10 +1620,10 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
     }), [attachments, fileLabel, localAttachmentFileNameByUrl]);
     const [activeVisualIndex, setActiveVisualIndex] = React.useState(0);
     const [attachmentContextMenu, setAttachmentContextMenu] = React.useState<AttachmentContextMenuState>(null);
-    const [savingAttachmentUrl, setSavingAttachmentUrl] = React.useState<string | null>(null);
     const touchStartXRef = React.useRef<number | null>(null);
     const skipNextVisualSwipeRef = React.useRef(false);
     const canSaveToVault = canSaveChatAttachmentsToLocalVault();
+    const { saveOne, isSavingUrl, unlockDialog } = useChatVaultSaveWithUnlock();
     const openAttachmentContextMenu = React.useCallback((params: NonNullable<AttachmentContextMenuState>): void => {
         skipNextVisualSwipeRef.current = true;
         setAttachmentContextMenu(params);
@@ -1678,27 +1680,23 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
         if (!canSaveToVault || localAttachmentUrlSet.has(attachment.url)) {
             return;
         }
-        if (savingAttachmentUrl === attachment.url) {
+        if (isSavingUrl(attachment.url)) {
             return;
         }
-        setSavingAttachmentUrl(attachment.url);
-        try {
-            await saveChatAttachmentToLocalVault(attachment, t);
-        } finally {
-            setSavingAttachmentUrl((current) => (current === attachment.url ? null : current));
-        }
-    }, [canSaveToVault, localAttachmentUrlSet, savingAttachmentUrl, t]);
+        await saveOne(attachment);
+    }, [canSaveToVault, isSavingUrl, localAttachmentUrlSet, saveOne]);
     return (<div className="mb-2 space-y-2 sm:mb-3 sm:space-y-3">
+            {unlockDialog}
             {!chatUxV083Enabled && (<>
                     {imageMedia.length > 0 ? (<div className={cn("grid gap-1.5", imageGridClass)}>
                             {imageMedia.map((attachment, index) => (<div key={`legacy-img-${attachment.url}-${index}`} className={cn("relative overflow-hidden rounded-xl bg-black/5 dark:bg-white/5", imageMedia.length === 1 ? "aspect-video max-h-[520px]" : "aspect-square")} {...attachmentMenuProps(attachment)}>
                                     {localAttachmentUrlSet.has(attachment.url) ? (<div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
                                             Vault
                                         </div>) : null}
-                                    {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={savingAttachmentUrl === attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
+                                    {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={isSavingUrl(attachment.url)} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
                                             <HardDrive className="h-3.5 w-3.5"/>
                                         </button>) : null}
-                                    <OptimizedImage src={attachment.url} alt={attachment.fileName} containerClassName="h-full w-full" className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500" onClick={() => onImageClick?.(attachment.url)} onRequestOpenExternalLink={requestOpenExternalLink}/>
+                                    <ChatAttachmentImage remoteUrl={attachment.url} alt={attachment.fileName} containerClassName="h-full w-full" className="h-full w-full object-cover cursor-zoom-in hover:scale-[1.02] transition-transform duration-500" onClick={() => onImageClick?.(attachment.url)} onRequestOpenExternalLink={requestOpenExternalLink}/>
                                 </div>))}
                         </div>) : null}
                     {videoMedia.length > 0 ? (<div className="space-y-2 sm:space-y-3">
@@ -1706,7 +1704,7 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                     {localAttachmentUrlSet.has(attachment.url) ? (<div className="absolute top-2 left-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/90 text-black">
                                             Vault
                                         </div>) : null}
-                                    {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={savingAttachmentUrl === attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
+                                    {canSaveToVault && !localAttachmentUrlSet.has(attachment.url) ? (<button type="button" className="absolute right-2 top-2 z-10 rounded-md border border-white/15 bg-black/55 p-1.5 text-white backdrop-blur-sm transition hover:bg-black/70 disabled:opacity-50" disabled={isSavingUrl(attachment.url)} onClick={(event) => { void handleQuickSaveToVault(event, attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
                                             <HardDrive className="h-3.5 w-3.5"/>
                                         </button>) : null}
                                     <VideoPlayer src={attachment.url} isOutgoing={isOutgoing} className="w-full rounded-xl aspect-[16/10] sm:aspect-video" onRequestOpenExternalLink={requestOpenExternalLinkPreferNative}/>
@@ -1741,7 +1739,7 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                     <AnimatePresence mode="wait">
                         <motion.div key={activeVisual.attachment.url} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2, ease: "easeInOut" }} className="w-full">
                             {activeVisual.kind === "image" ? (<div className="relative flex items-center justify-center bg-zinc-950 w-full" style={{ maxHeight: '480px' }}>
-                                    <OptimizedImage src={activeVisual.attachment.url} alt={activeVisual.attachment.fileName} fill={false} containerClassName="overflow-hidden w-auto max-w-full flex items-center justify-center" className="w-auto h-auto max-w-full object-contain cursor-zoom-in group-hover:scale-[1.03] transition-transform duration-[1.5s]" style={{ maxHeight: '480px', maxWidth: '100%' }} onClick={() => onImageClick?.(activeVisual.attachment.url)} onRequestOpenExternalLink={requestOpenExternalLink}/>
+                                    <ChatAttachmentImage remoteUrl={activeVisual.attachment.url} alt={activeVisual.attachment.fileName} fill={false} containerClassName="overflow-hidden w-auto max-w-full flex items-center justify-center" className="w-auto h-auto max-w-full object-contain cursor-zoom-in group-hover:scale-[1.03] transition-transform duration-[1.5s]" style={{ maxHeight: '480px', maxWidth: '100%' }} onClick={() => onImageClick?.(activeVisual.attachment.url)} onRequestOpenExternalLink={requestOpenExternalLink}/>
                                 </div>) : (<VideoPlayer src={activeVisual.attachment.url} isOutgoing={isOutgoing} className="w-full rounded-2xl aspect-[16/10] sm:aspect-video max-h-[62vh] sm:max-h-none" onRequestOpenExternalLink={requestOpenExternalLinkPreferNative}/>)}
                         </motion.div>
                     </AnimatePresence>
@@ -1755,7 +1753,7 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
                                 Vault
                             </span>)}
                     </div>
-                    {canSaveToVault && !localAttachmentUrlSet.has(activeVisual.attachment.url) ? (<button type="button" className="absolute right-3 top-3 z-20 rounded-lg border border-white/15 bg-black/45 p-2 text-white backdrop-blur-md transition hover:bg-black/65 disabled:opacity-50" disabled={savingAttachmentUrl === activeVisual.attachment.url} onClick={(event) => { void handleQuickSaveToVault(event, activeVisual.attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
+                    {canSaveToVault && !localAttachmentUrlSet.has(activeVisual.attachment.url) ? (<button type="button" className="absolute right-3 top-3 z-20 rounded-lg border border-white/15 bg-black/45 p-2 text-white backdrop-blur-md transition hover:bg-black/65 disabled:opacity-50" disabled={isSavingUrl(activeVisual.attachment.url)} onClick={(event) => { void handleQuickSaveToVault(event, activeVisual.attachment); }} title={t("vault.saveFromChat")} aria-label={t("vault.saveFromChat")}>
                             <HardDrive className="h-4 w-4"/>
                         </button>) : null}
 
@@ -1855,9 +1853,13 @@ function SenderName({ pubkey, admins }: {
     const rolesLower = admin?.roles.map(r => r.toLowerCase()) || [];
     const isOwner = rolesLower.includes("owner") || rolesLower.includes("admin");
     const isMod = rolesLower.includes("moderator") || rolesLower.includes("mod");
+    const senderLabel = resolvePeerDisplayName({
+        pubkey,
+        metadataDisplayName: metadata?.displayName,
+    });
     return (<div className="flex items-center gap-1.5 flex-1 min-w-0">
             <span className="text-[11px] font-black text-purple-600 dark:text-purple-400 truncate max-w-[120px]">
-                {metadata?.displayName || "Unknown sender"}
+                {senderLabel}
             </span>
             {(isOwner || isMod) && (<span className={cn("text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded-[4px]", isOwner
                 ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"

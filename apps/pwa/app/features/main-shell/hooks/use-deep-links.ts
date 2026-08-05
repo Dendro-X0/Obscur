@@ -22,7 +22,7 @@ import {
     formatInviteRelayRejectionSummary,
     partitionInviteRelayHints,
 } from "@/app/features/groups/services/community-invite-redemption-policy";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 
 const decodeRouteValue = (value: string): string => {
     const trimmed = value.trim();

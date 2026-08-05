@@ -48,7 +48,7 @@ describe("transport-engine w51 — quarantine phase harness matrix", () => {
     expect(charter).toContain("publish-outcome-mapper.ts");
 
     const standalone = readFromRepo(
-      "apps/pwa/app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts",
+      "apps/pwa/app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive.ts",
     );
     expect(standalone).toContain("mapLegacyPublishResultToRelayPublishResult");
   });

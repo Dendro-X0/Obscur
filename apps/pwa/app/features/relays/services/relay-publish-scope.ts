@@ -15,6 +15,9 @@ const relayUrlIsOpen = (
 /**
  * Scoped publish should not treat an offline local Docker dev relay as a required
  * peer when public relays are available. Production users never run localhost:7000.
+ *
+ * S1: when any non-local candidate is open, never sole-target localhost — prefer
+ * remotes (local is lab assist only). If no remotes are open, keep open local.
  */
 export const resolveScopedPublishRelayUrls = (params: Readonly<{
   relayUrls: ReadonlyArray<string>;
@@ -31,8 +34,30 @@ export const resolveScopedPublishRelayUrls = (params: Readonly<{
     return relayUrlIsOpen(url, params.pool);
   });
 
-  return withoutOfflineLocalDev.length > 0 ? withoutOfflineLocalDev : trimmed;
+  const candidates = withoutOfflineLocalDev.length > 0 ? withoutOfflineLocalDev : trimmed;
+
+  const hasOpenRemote = candidates.some((url) => (
+    !isLocalDevWorkspaceRelayUrl(url)
+    && relayUrlIsOpen(url, params.pool)
+  ));
+  if (!hasOpenRemote) {
+    return candidates;
+  }
+
+  const remotesOnly = candidates.filter((url) => !isLocalDevWorkspaceRelayUrl(url));
+  return remotesOnly.length > 0 ? remotesOnly : candidates;
 };
+
+/**
+ * S3: open sockets among the DM publish scope — what Relays UI should label as
+ * the live publish path (not the primary chip alone).
+ */
+export const resolveOpenDmPublishPathRelayUrls = (params: Readonly<{
+  relayUrls: ReadonlyArray<string>;
+  pool: RelayPoolLike;
+}>): ReadonlyArray<string> => (
+  resolveScopedPublishRelayUrls(params).filter((url) => relayUrlIsOpen(url, params.pool))
+);
 
 export const shouldWarnRelayPartialCoverage = (params: Readonly<{
   successCount?: number;

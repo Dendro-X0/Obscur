@@ -3,8 +3,8 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Shield, Network, MessageSquare, Settings as SettingsIcon } from "lucide-react";
-import { Card } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Button } from "@dweb/ui-kit/button";
 import { IdentityCard } from "@/app/components/identity-card";
 import { cn } from "@/app/lib/utils";
 

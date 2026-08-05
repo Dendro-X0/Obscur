@@ -28,7 +28,8 @@ describe("transport and gateway boundary SEC-V2 contract (checklist §3 V3-1–V
     const workspacePort = read("app/features/workspace-kernel/workspace-kernel-membership-port.ts");
     const messagingOps = read("app/features/messaging/services/messaging-client-operations.ts");
 
-    expect(groupProvider).toContain("persistCommunityMembershipLedgerMutation");
+    // U4 Wave B: provider no longer writes join ledger — membership-port owns live join.
+    expect(groupProvider).not.toContain("persistCommunityMembershipLedgerMutation");
     expect(groupProvider).not.toContain("upsertCommunityMembershipLedgerEntry");
     expect(workspacePort).toContain("persistCommunityMembershipLedgerMutation");
     expect(workspacePort).not.toContain("upsertCommunityMembershipLedgerEntry");

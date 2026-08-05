@@ -20,7 +20,7 @@ describe("transport-engine w64 — production deletion execution harness", () =>
     );
     expect(w63).toContain("relay-standalone-publish-port-subtracted");
     expect(w64).toContain("relay-standalone-publish-port-thin.ts");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents maintainer subtraction steps in execution charter", () => {

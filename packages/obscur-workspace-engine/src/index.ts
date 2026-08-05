@@ -10,5 +10,13 @@ export {
 } from "./workspace-roster";
 export {
   listWorkspaceGroups,
+  upsertWorkspaceGroup,
+  listWorkspaceGroupMessages,
+  insertWorkspaceGroupMessage,
+  insertWorkspaceGroupTombstone,
   type ListWorkspaceGroupsParams,
+  type UpsertWorkspaceGroupParams,
+  type ListWorkspaceGroupMessagesParams,
+  type InsertWorkspaceGroupMessageParams,
+  type InsertWorkspaceGroupTombstoneParams,
 } from "./workspace-engine";

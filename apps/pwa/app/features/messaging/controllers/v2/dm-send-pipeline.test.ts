@@ -144,7 +144,10 @@ describe("dm-send-pipeline", () => {
 
   it("returns failed when all relays reject", async () => {
     const pool = createMockPool({
-      connections: [],
+      connections: [
+        { url: "wss://relay1.example.com", status: "open" },
+        { url: "wss://relay2.example.com", status: "open" },
+      ],
       publishToUrls: vi.fn(async () => ({
         success: false,
         successCount: 0,
@@ -213,6 +216,12 @@ describe("dm-send-pipeline", () => {
     peerRelayEvidenceMocks.getRelayUrls.mockReturnValue(["wss://recipient-inbound.example"]);
 
     const pool = createMockPool({
+      connections: [
+        { url: "wss://relay1.example.com", status: "open" },
+        { url: "wss://relay2.example.com", status: "open" },
+        { url: "wss://recipient-write.example", status: "open" },
+        { url: "wss://recipient-inbound.example", status: "open" },
+      ],
       publishToUrls,
       getWritableRelaySnapshot: vi.fn((scopedRelayUrls?: ReadonlyArray<string>) => ({
         writableRelayUrls: scopedRelayUrls?.includes("wss://recipient-write.example")
@@ -256,10 +265,13 @@ describe("dm-send-pipeline", () => {
       results: urls.map(u => ({ relayUrl: u, success: true })),
     }));
 
-    // getWritableRelaySnapshot always returns empty — forces the final fallback
-    // branch in resolveTargetRelayUrls to include DM_DELIVERY_FALLBACK_RELAYS.
+    // Open pool includes fallbacks so intersectOpenTargets keeps them (S1 publish path).
     const pool = createMockPool({
-      connections: [{ url: "wss://my-relay.example.com", status: "open" }],
+      connections: [
+        { url: "wss://my-relay.example.com", status: "open" },
+        { url: "wss://nos.lol", status: "open" },
+        { url: "wss://relay.primal.net", status: "open" },
+      ],
       publishToUrls,
       getWritableRelaySnapshot: vi.fn(() => ({
         writableRelayUrls: [] as string[],
@@ -279,7 +291,7 @@ describe("dm-send-pipeline", () => {
     expect(publishToUrls).toHaveBeenCalled();
     const calledUrls: ReadonlyArray<string> = publishToUrls.mock.calls[0][0];
     // Must include at least one well-known fallback so the recipient can receive
-    const fallbackRelays = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
+    const fallbackRelays = ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.damus.io"];
     expect(fallbackRelays.some(r => calledUrls.includes(r))).toBe(true);
   });
 
@@ -354,6 +366,121 @@ describe("dm-send-pipeline", () => {
     expect(confirmation.reasonCode).toBe("no_writable_relays");
   });
 
+  it("D2: optimistic onConfirmed path does not claim success from open sockets alone", async () => {
+    const onConfirmed = vi.fn();
+    const pool = createMockPool({
+      publishToUrls: vi.fn(async () => {
+        await new Promise((r) => setTimeout(r, 30));
+        return {
+          success: true,
+          successCount: 1,
+          totalRelays: 2,
+          results: [
+            { relayUrl: "wss://relay1.example.com", success: true },
+            { relayUrl: "wss://relay2.example.com", success: false, error: "timeout" },
+          ],
+        };
+      }),
+    });
+
+    const immediate = await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "pending ack",
+      onConfirmed,
+    });
+
+    expect(immediate.success).toBe(false);
+    expect(immediate.deliveryStatus).toBe("pending_ack");
+    expect(immediate.relayResults.every((r) => r.success === false)).toBe(true);
+    expect(immediate.relayResults.every((r) => r.error === "awaiting_relay_ok_ack")).toBe(true);
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    await vi.waitFor(() => {
+      expect(onConfirmed).toHaveBeenCalled();
+    });
+    expect(onConfirmed.mock.calls[0]![0].success).toBe(true);
+    expect(onConfirmed.mock.calls[0]![0].deliveryStatus).toBe("sent_quorum");
+  });
+
+  it("D2: onConfirmed path skips Phase-1 sendToOpen (single EVENT + OK waiter)", async () => {
+    const onConfirmed = vi.fn();
+    const sendToOpen = vi.fn();
+    const pool = createMockPool({
+      sendToOpen,
+      publishToUrls: vi.fn(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+        return {
+          success: true,
+          successCount: 1,
+          totalRelays: 1,
+          results: [{ relayUrl: "wss://relay1.example.com", success: true }],
+        };
+      }),
+    });
+
+    await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "confirmed only",
+      onConfirmed,
+    });
+
+    expect(sendToOpen).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(onConfirmed).toHaveBeenCalled();
+    });
+    expect(onConfirmed.mock.calls[0]![0].success).toBe(true);
+  });
+
+  it("D2: wire fire without publish ACK is failed with partialWireDelivery", async () => {
+    const onConfirmed = vi.fn();
+    const pool = createMockPool({
+      publishToUrls: vi.fn(async () => ({
+        success: false,
+        successCount: 0,
+        totalRelays: 2,
+        results: [
+          { relayUrl: "wss://relay1.example.com", success: false, error: "timeout" },
+          { relayUrl: "wss://relay2.example.com", success: false, error: "timeout" },
+        ],
+        overallError: "timeout waiting for ok response",
+      })),
+      publishToAll: vi.fn(async () => ({
+        success: false,
+        successCount: 0,
+        totalRelays: 2,
+        results: [
+          { relayUrl: "wss://relay1.example.com", success: false, error: "timeout" },
+          { relayUrl: "wss://relay2.example.com", success: false, error: "timeout" },
+        ],
+        overallError: "timeout waiting for ok response",
+      })),
+    });
+
+    await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "wire only",
+      onConfirmed,
+    });
+
+    await vi.waitFor(() => {
+      expect(onConfirmed).toHaveBeenCalled();
+    });
+    const confirmation = onConfirmed.mock.calls[0]![0];
+    expect(confirmation.success).toBe(false);
+    expect(confirmation.deliveryStatus).toBe("failed");
+    // Phase-1 skipped when onConfirmed is set — no optimistic wire claim.
+    expect(confirmation.partialWireDelivery).toBe(false);
+  });
+
   it("clears inflight guard even on error", async () => {
     const pool = createMockPool({
       connections: [],
@@ -371,6 +498,41 @@ describe("dm-send-pipeline", () => {
     });
 
     expect(result.success).toBe(false);
+    expect(dmSendPipelineInternals.inflight.size).toBe(0);
+  });
+
+  it("publishes without a warm/forceReconnect gate when sockets are connecting", async () => {
+    const waitForConnection = vi.fn(async () => false);
+    const publishToUrls = vi.fn(async () => ({
+      success: true,
+      successCount: 1,
+      totalRelays: 1,
+      results: [{ relayUrl: "wss://relay1.example.com", success: true }],
+    }));
+    const pool = createMockPool({
+      connections: [{ url: "wss://relay1.example.com", status: "connecting" }],
+      waitForConnection,
+      publishToUrls,
+    });
+    const onConfirmed = vi.fn();
+
+    const result = await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "no warmup gate",
+      onConfirmed,
+    });
+
+    expect(waitForConnection).not.toHaveBeenCalled();
+    expect(publishToUrls).toHaveBeenCalled();
+    expect(result.deliveryStatus).toBe("pending_ack");
+    await vi.waitFor(() => {
+      expect(onConfirmed).toHaveBeenCalledWith(expect.objectContaining({
+        success: true,
+      }));
+    });
     expect(dmSendPipelineInternals.inflight.size).toBe(0);
   });
 });

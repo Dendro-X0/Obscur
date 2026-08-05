@@ -43,7 +43,7 @@ describe("transport-engine w48 — exit evidence harness matrix", () => {
     expect(review).toContain("not executed in W48");
 
     const standalone = readFromRepo(
-      "apps/pwa/app/features/transport-kernel/transport-kernel-standalone-publish.ts",
+      "apps/pwa/app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive.ts",
     );
     expect(standalone).toContain("publishTransportKernelToRelayUrls");
   });

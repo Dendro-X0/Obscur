@@ -25,26 +25,26 @@ describe("transport-preset-catalog", () => {
     expect(ids).toContain("tor_onion_mesh");
   });
 
-  it("groups presets by adapter category with private mesh first (RUST-2)", () => {
+  it("groups presets with public Nostr and Tor first (prod-first 2026-08)", () => {
     expect(TRANSPORT_PRESET_GROUPS.map((group) => group.category)).toEqual([
-      "private_mesh",
       "public_nostr",
-      "hybrid_adapters",
       "tor",
+      "private_mesh",
+      "hybrid_adapters",
     ]);
-    const privatePresets = getTransportPresetsForGroup(TRANSPORT_PRESET_GROUPS[0]!);
-    expect(privatePresets.map((preset) => preset.id)).toEqual([
-      "local_dev_mesh",
-      "local_http_mesh",
-      "private_lan_ws",
-      "ssh_bastion_forward",
+    const publicPresets = getTransportPresetsForGroup(TRANSPORT_PRESET_GROUPS[0]!);
+    expect(publicPresets.map((preset) => preset.id)).toEqual([
+      "default_stable",
+      "high_redundancy",
+      "low_latency",
     ]);
   });
 
-  it("product boot preset is local_dev_mesh not public Nostr", () => {
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET.id).toBe("local_dev_mesh");
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET.category).toBe("private_mesh");
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET.relays.every((url) => !url.includes("damus"))).toBe(true);
+  it("product boot preset is public Default Stable (not Local Dev Mesh)", () => {
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.id).toBe("default_stable");
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.category).toBe("public_nostr");
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.requiresTor).toBeFalsy();
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.relays.some((url) => url.includes("nos.lol"))).toBe(true);
   });
 
   it("local dev preset points at canonical localhost relay", () => {

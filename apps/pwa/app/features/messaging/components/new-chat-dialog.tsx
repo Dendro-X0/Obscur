@@ -4,7 +4,7 @@ import { Card } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { Camera, Loader2, Search, UserCheck, UserX, Check, MessageSquare, UserPlus } from "lucide-react";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { nip19 } from "nostr-tools";

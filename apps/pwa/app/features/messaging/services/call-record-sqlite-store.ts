@@ -6,17 +6,24 @@
  */
 
 import {
-  dbGetCallRecords,
-  dbInsertCallRecord,
-  dbUpdateCallRecord,
   isTauri,
   type CallRecord,
 } from "@dweb/db";
+import { listCallRecords, upsertCallRecord } from "@obscur/persistence-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import type { VoiceCallRoomRenderSummary } from "../components/message-list-render-meta";
 import type { CallStatus } from "./call-state-crdt";
 
 export type TerminalCallHint = "declined" | "ended" | "timeout";
+
+let callPersistenceEngineHost: HostEnginePort | null = null;
+
+const getCallPersistenceEngineHost = (): HostEnginePort => {
+  callPersistenceEngineHost ??= createTauriEngineHost();
+  return callPersistenceEngineHost;
+};
 
 const resolvePeerPubkey = (
   status: CallStatus,
@@ -87,8 +94,11 @@ export const upsertTerminalCallRecord = async (record: CallRecord): Promise<void
   if (!requiresSqlitePersistence() || !isTauri()) {
     return;
   }
-  await dbInsertCallRecord(record).catch(() => undefined);
-  await dbUpdateCallRecord(record).catch(() => undefined);
+  await upsertCallRecord({
+    host: getCallPersistenceEngineHost(),
+    profileId: record.profile_id,
+    record,
+  }).catch(() => undefined);
 };
 
 export const persistTerminalCallRecordFromStatus = async (params: Readonly<{
@@ -112,7 +122,10 @@ export const loadSqliteCallRecords = async (
     return [];
   }
   try {
-    return await dbGetCallRecords(profileId);
+    return await listCallRecords({
+      host: getCallPersistenceEngineHost(),
+      profileId,
+    });
   } catch {
     return [];
   }
@@ -121,14 +134,18 @@ export const loadSqliteCallRecords = async (
 export const mapCallRecordToVoiceCallRoomSummary = (
   record: CallRecord,
 ): VoiceCallRoomRenderSummary => {
-  const connectedAtUnixMs = record.status === "answered" || record.status === "ended"
+  // Only an answered call is a completed connection. Bare "ended" / timeout / missed
+  // must not paint CALL COMPLETED with a synthetic duration (startup ghost-call).
+  const connectedAtUnixMs = record.status === "answered"
     ? record.started_at
     : null;
   const endedAtUnixMs = record.ended_at;
-  const endedNormally = record.status === "answered" || record.status === "ended";
-  const durationSeconds = typeof record.duration_ms === "number"
+  const endedNormally = record.status === "answered"
+    && connectedAtUnixMs !== null
+    && endedAtUnixMs !== null;
+  const durationSeconds = endedNormally && typeof record.duration_ms === "number"
     ? Math.max(0, Math.floor(record.duration_ms / 1000))
-    : (connectedAtUnixMs !== null && endedAtUnixMs !== null
+    : (endedNormally && connectedAtUnixMs !== null && endedAtUnixMs !== null
       ? Math.max(0, Math.floor((endedAtUnixMs - connectedAtUnixMs) / 1000))
       : null);
 
@@ -163,8 +180,12 @@ export const mergeVoiceCallRoomSummaries = (
     expiresAtUnixMs: fromMessages.expiresAtUnixMs ?? fromSqlite.expiresAtUnixMs,
     connectedAtUnixMs: fromMessages.connectedAtUnixMs ?? fromSqlite.connectedAtUnixMs,
     endedAtUnixMs: fromSqlite.endedAtUnixMs ?? fromMessages.endedAtUnixMs,
-    endedNormally: fromMessages.endedNormally || fromSqlite.endedNormally,
-    durationSeconds: fromMessages.durationSeconds ?? fromSqlite.durationSeconds,
+    // Do not let a non-answered sqlite "ended" flip the card to CALL COMPLETED.
+    endedNormally: fromMessages.endedNormally
+      || (fromSqlite.endedNormally && fromSqlite.connectedAtUnixMs !== null),
+    durationSeconds: fromMessages.durationSeconds ?? (
+      fromSqlite.connectedAtUnixMs !== null ? fromSqlite.durationSeconds : null
+    ),
   };
 };
 

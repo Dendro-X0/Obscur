@@ -7,11 +7,11 @@ import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { resolveCommunityDisplayName, PLACEHOLDER_GROUP_DISPLAY_NAME } from "@/app/features/groups/services/community-display-name";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { UserAvatar } from "@/app/features/profile/components/user-avatar";
-import { Button } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
-import { Card } from "@dweb/ui-kit";
-import { Avatar, AvatarFallback } from "@dweb/ui-kit";
-import { cn } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { Card } from "@dweb/ui-kit/card";
+import { Avatar, AvatarFallback } from "@dweb/ui-kit/avatar";
+import { cn } from "@dweb/ui-kit/cn";
 import { useRouter } from "next/navigation";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RequestsInboxItem } from "@/app/features/messaging/types";
@@ -38,9 +38,9 @@ import { parseNip29GroupIdentifier } from "@/app/features/groups/utils/parse-nip
 import { getPublicGroupHref, getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@dweb/ui-kit";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@dweb/ui-kit/dialog";
 import { QRScanner } from "@/app/components/qr-scanner";
-import { useToasts } from "@dweb/ui-kit";
+import { useToasts } from "@dweb/ui-kit/toast";
 import { ConnectionImportExport } from "@/app/components/invites/connection-import-export";
 import { useNetworkRequestTransport } from "@/app/features/messaging/hooks/use-network-request-transport";
 type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manage";
@@ -210,6 +210,11 @@ export function NetworkDashboard() {
                         <Users className={cn("mr-2", compact ? "h-3.5 w-3.5" : "h-4 w-4")}/>
                         <span className="hidden sm:inline">{t("groups.createButton")}</span>
                         <span className="sm:hidden">Group</span>
+                    </Button>
+                    <Button onClick={() => setIsJoinInputOpen(true)} size="sm" variant="outline" className={cn("shrink-0 rounded-xl border border-border/70 bg-card font-bold text-foreground transition-all hover:bg-accent", compact ? "h-9 px-3 text-xs" : "h-10 px-4 text-sm")}>
+                        <Globe className={cn("mr-2", compact ? "h-3.5 w-3.5" : "h-4 w-4")}/>
+                        <span className="hidden sm:inline">{t("network.joinCommunity")}</span>
+                        <span className="sm:hidden">Join</span>
                     </Button>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle, Info, Loader2 } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import type { PortabilityImportPreflight } from "@/app/features/profiles/services/portability-import-preflight";
 
 type Props = Readonly<{

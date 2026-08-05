@@ -1,10 +1,10 @@
 "use client";
 
 import { useLegacySealedCommunity } from "@/app/features/groups/hooks/sealed-community-port";
-import { Button } from "@dweb/ui-kit";
-import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@dweb/ui-kit/avatar";
 import { Users, ShieldCheck, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useRelay } from "../../relays/providers/relay-provider";
 import { useRelayPoolRef } from "../../relays/hooks/use-relay-pool-ref";
@@ -24,6 +24,7 @@ import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/work
 import { joinManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-membership-port";
 import { useRelayList } from "../../relays/hooks/use-relay-list";
 import type { GroupConversation } from "@/app/features/messaging/types";
+import type { GroupMetadata } from "@/app/features/groups/types";
 
 /**
  * Props for GroupJoinDialog
@@ -68,6 +69,23 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
         enabled: open && !workspaceKernelJoin,
     });
 
+    // Kernel path disables legacy sealed-community fetch; preview still needs local metadata.
+    // Hook state is mount-once and stays empty when first rendered with blank groupId.
+    const kernelPreviewMetadata = useMemo((): GroupMetadata | undefined => {
+        const trimmed = groupId.trim();
+        if (!trimmed || !workspaceKernelJoin) {
+            return undefined;
+        }
+        return {
+            id: trimmed,
+            name: trimmed.length <= 16 ? trimmed : `Community ${trimmed.slice(0, 8)}`,
+            about: "",
+            access: "open",
+        };
+    }, [groupId, workspaceKernelJoin]);
+
+    const group = groupState.metadata ?? kernelPreviewMetadata;
+
     const [error, setError] = useState<string | null>(null);
     const [isJoining, setIsJoining] = useState(false);
 
@@ -92,7 +110,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                     communityId,
                     groupId,
                     relayUrl,
-                    displayName: groupState.metadata?.name || groupId,
+                    displayName: group?.name || groupId,
                     memberPubkey: identityState.publicKeyHex,
                     actorPubkey: identityState.publicKeyHex,
                     actorPrivateKeyHex: identityState.privateKeyHex,
@@ -132,7 +150,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
                 relayUrl: resolvedRelayUrl,
                 communityId: resolvedCommunityId,
                 communityMode: "managed_workspace" as const,
-                displayName: groupState.metadata?.name || groupId,
+                displayName: group?.name || groupId,
                 memberPubkeys: [], // Will be populated by live subscription
                 lastMessage: "Joining community...",
                 unreadCount: 0,
@@ -157,8 +175,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
         }
     };
 
-    if (!open || !groupState.metadata) return null;
-    const group = groupState.metadata;
+    if (!open || !group) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">

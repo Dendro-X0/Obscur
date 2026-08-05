@@ -1,9 +1,10 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbInsertGroupMessage, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { dispatchGroupThreadMessagesChanged } from "./group-thread-messages-changed";
 import { resolveGroupStorageId } from "./group-thread-sqlite-store";
+import { insertWorkspaceGroupMessageRecord } from "./workspace-group-message-persist-port";
 
 export type GroupThreadAppendParams = Readonly<{
   conversationId: string;
@@ -55,7 +56,7 @@ export const appendGroupThreadMessage = async (
   const createdAtUnixSeconds = params.createdAtUnixSeconds
     ?? Math.floor(receivedAtMs / 1000);
 
-  await dbInsertGroupMessage({
+  await insertWorkspaceGroupMessageRecord({
     event_id: eventId,
     group_id: storageGroupId,
     profile_id: profileId,

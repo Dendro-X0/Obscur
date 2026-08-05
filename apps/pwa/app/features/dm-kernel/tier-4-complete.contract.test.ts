@@ -9,13 +9,13 @@ describe("tier 4 complete contract", () => {
   const pwaRoot = path.resolve(__dirname, "../../..");
   const read = (relativePath: string) => readFileSync(path.join(pwaRoot, relativePath), "utf8");
 
-  it("client gateway routes dm-kernel to inert thread-history stub", () => {
+  it("client gateway routes dm materialization to inert thread-history stub", () => {
     const resolver = read("app/features/messaging/services/thread-history/resolve-dm-thread-history-adapter.ts");
-    expect(resolver).toContain("isDmKernelAuthority");
     expect(resolver).toContain("dmKernelThreadHistoryStub");
-    expect(resolver).toContain("return dmKernelThreadHistoryStub");
-    expect(resolver).toContain("isDesktopDmKernelShipBuild");
+    expect(resolver).toMatch(/=>\s*\(\s*dmKernelThreadHistoryStub\s*\)/);
     expect(resolver).not.toContain("nativeDmThreadHistoryAdapter");
+    expect(resolver).not.toContain("isDesktopDmKernelShipBuild");
+    expect(resolver).not.toContain("isObscurAllowLegacy");
   });
 
   it("runtime transport owner subscribes relay backfill repair to syncMissedMessages", () => {

@@ -4,7 +4,7 @@ import {
   createEnhancedRelayPoolRuntime,
   relayReliabilityInternals,
   shouldReuseRelaySocket,
-} from "@/app/features/relays/hooks/enhanced-relay-pool-legacy";
+} from "@/app/features/relays/hooks/relay-browser-pool-runtime";
 import type { PublishResult } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 
 describe("enhanced-relay-pool reliability internals", () => {

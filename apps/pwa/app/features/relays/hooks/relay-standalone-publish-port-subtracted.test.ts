@@ -37,7 +37,7 @@ vi.mock("@/app/features/transport-kernel/transport-kernel-publish-port", () => (
   shouldRouteHostTransportPublish: mocks.shouldRouteHostTransportPublish,
 }));
 
-vi.mock("./enhanced-relay-pool-legacy", () => ({
+vi.mock("./relay-browser-pool-runtime", () => ({
   publishToRelayStandalone: vi.fn(),
   publishToUrlsStandalone: vi.fn(),
 }));

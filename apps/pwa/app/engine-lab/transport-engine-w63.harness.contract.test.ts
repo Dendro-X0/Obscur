@@ -20,7 +20,7 @@ describe("transport-engine w63 — port swap rehearsal harness", () => {
     );
     expect(w62).toContain("relay-standalone-publish-port-subtracted.ts");
     expect(w63).toContain("shouldRouteSubtractedStandalonePublishPort");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents W64+ mechanical subtraction in rehearsal charter", () => {

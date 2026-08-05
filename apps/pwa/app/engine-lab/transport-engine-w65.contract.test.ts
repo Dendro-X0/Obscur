@@ -46,18 +46,16 @@ describe("transport-engine w65 — standalone legacy existence pin migration", (
     expect(STANDALONE_LEGACY_GATE_CLOSED_EXISTENCE_PIN_CONTRACTS).toHaveLength(10);
   });
 
-  it("reports pin migration readiness while gate is closed", () => {
+  it("reports pin inventory still present after W66 (historical markers retained)", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacyExistencePinMigrationReadiness(createPwaFilesystem());
     expect(report.pinContractsPresent).toBe(true);
-    expect(report.gateClosedPinsAssertLegacyPresent).toBe(true);
     expect(report.pinContractCount).toBe(10);
-    expect(report.readyForPinFlipAfterSubtraction).toBe(true);
   });
 
-  it("keeps gate-closed markers in every inventoried pin contract", () => {
+  it("keeps gate-closed inventory markers in inventoried pin contracts", () => {
     for (const relPath of STANDALONE_LEGACY_GATE_CLOSED_EXISTENCE_PIN_CONTRACTS) {
       const text = readFileSync(join(PWA_ROOT, relPath), "utf8");
       const hasMarker = STANDALONE_LEGACY_GATE_CLOSED_PIN_MARKERS.some((marker) => text.includes(marker));
@@ -65,9 +63,9 @@ describe("transport-engine w65 — standalone legacy existence pin migration", (
     }
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

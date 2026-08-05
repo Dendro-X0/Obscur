@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
-import { Label } from "@dweb/ui-kit";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@dweb/ui-kit/dialog";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
 import { useTranslation } from "react-i18next";
 import { Users, Globe, ArrowRight } from "lucide-react";
 

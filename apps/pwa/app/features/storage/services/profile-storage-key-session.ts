@@ -1,5 +1,6 @@
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { resolveIdentityScopeProfileId } from "@/app/features/profiles/services/read-active-desktop-profile-id";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import {
   deriveProfileDataKeyMaterial,
@@ -12,6 +13,15 @@ type ProfileStorageKeySession = Readonly<{
 }>;
 
 const sessions = new Map<string, ProfileStorageKeySession>();
+
+/** Same owner rule as resolveVaultProfileId — avoid circular import with vault-at-rest. */
+const resolveSessionProfileId = (profileId?: string): string => {
+  const explicit = profileId?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  return hasNativeRuntime() ? resolveIdentityScopeProfileId() : getResolvedProfileId();
+};
 
 const zeroizeKeyMaterial = (keyMaterial: Uint8Array): void => {
   keyMaterial.fill(0);
@@ -29,7 +39,7 @@ export const establishProfileStorageKeySession = async (params: Readonly<{
   if (!hasNativeRuntime()) {
     return;
   }
-  const profileId = (params.profileId ?? getResolvedProfileId()).trim();
+  const profileId = resolveSessionProfileId(params.profileId);
   if (!profileId) {
     return;
   }
@@ -60,7 +70,7 @@ export const establishProfileStorageKeySessionFromMaterial = (params: Readonly<{
   if (!hasNativeRuntime()) {
     return;
   }
-  const profileId = (params.profileId ?? getResolvedProfileId()).trim();
+  const profileId = resolveSessionProfileId(params.profileId);
   if (!profileId || params.writeKeyMaterial.byteLength !== 32) {
     return;
   }
@@ -79,7 +89,7 @@ export const establishProfileStorageKeySessionFromMaterial = (params: Readonly<{
 };
 
 export const getProfileStorageKeyMaterial = (profileId?: string): Uint8Array | null => {
-  const resolved = (profileId ?? getResolvedProfileId()).trim();
+  const resolved = resolveSessionProfileId(profileId);
   if (!resolved) {
     return null;
   }
@@ -88,7 +98,7 @@ export const getProfileStorageKeyMaterial = (profileId?: string): Uint8Array | n
 };
 
 export const getProfileStorageKeyReadCandidates = (profileId?: string): ReadonlyArray<Uint8Array> => {
-  const resolved = (profileId ?? getResolvedProfileId()).trim();
+  const resolved = resolveSessionProfileId(profileId);
   if (!resolved) {
     return [];
   }

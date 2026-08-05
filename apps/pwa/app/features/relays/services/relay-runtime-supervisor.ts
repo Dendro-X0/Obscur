@@ -22,6 +22,7 @@ import {
   shouldAutoRecoverRelays,
 } from "./sticky-relay-recovery";
 import { shouldAttemptPrimaryFailover } from "./relay-primary-failover-policy";
+import type { RelayTransportMode } from "./relay-transport-mode";
 import { relayTransportJournal } from "./relay-transport-journal";
 import { relayResilienceObservability } from "./relay-resilience-observability";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -57,6 +58,8 @@ type RelayRuntimeScope = Readonly<{
 
 type RelayRuntimeConfig = Readonly<{
   pool: RelayPoolRuntime;
+  /** Live pool accessor — prefer over `pool` so connection open/close is not frozen at configure time. */
+  getPool?: () => RelayPoolRuntime;
   /** URLs in the active relay pool (typically the current primary only). */
   enabledRelayUrls: ReadonlyArray<string>;
   /** Full enabled relay list from settings — used for primary failover candidates. */
@@ -69,6 +72,10 @@ type RelayRuntimeConfig = Readonly<{
   engineCheckpointRelayUrls: ReadonlyArray<string>;
   engineRelayCheckpointCount: number;
   attemptPrimaryFailover?: () => boolean;
+  /** RUST-4a — when true, TS primary failover is suppressed. */
+  meshSchedulerOwnsFailover?: boolean;
+  /** D2 — Single-node (`basic`) vs Multi-node (`redundancy`) auto-correct policy. */
+  transportMode?: RelayTransportMode;
   scope: RelayRuntimeScope;
 }>;
 
@@ -123,6 +130,24 @@ class RelayRuntimeSupervisor {
     return this.snapshot;
   };
 
+  private resolvePool(): RelayPoolRuntime {
+    if (!this.config) {
+      throw new Error("RelayRuntimeSupervisor: resolvePool called without config");
+    }
+    return this.config.getPool?.() ?? this.config.pool;
+  }
+
+  private bindRecoveryPool(): void {
+    if (!this.config) {
+      return;
+    }
+    this.recoveryController.configure({
+      pool: this.resolvePool(),
+      enabledRelayUrls: this.config.enabledRelayUrls,
+      beforeRecovery: (reason) => this.tryPrimaryFailover(reason),
+    });
+  }
+
   configure(config: RelayRuntimeConfig): void {
     const nextSignature = [
       config.scope.profileId,
@@ -135,6 +160,8 @@ class RelayRuntimeSupervisor {
       config.engineConfiguredRelayUrls.join("|"),
       config.engineCheckpointRelayUrls.join("|"),
       String(config.engineRelayCheckpointCount),
+      config.meshSchedulerOwnsFailover === true ? "mesh-failover" : "ts-failover",
+      config.transportMode ?? "redundancy",
     ].join("|");
     const configChanged = this.configSignature !== nextSignature;
     this.config = config;
@@ -149,16 +176,13 @@ class RelayRuntimeSupervisor {
         this.scheduleTransportJournalSnapshotRefresh();
       });
     }
-    this.recoveryController.configure({
-      pool: config.pool,
-      enabledRelayUrls: config.enabledRelayUrls,
-      beforeRecovery: (reason) => this.tryPrimaryFailover(reason),
-    });
+    this.bindRecoveryPool();
     if (configChanged) {
       if (shouldRunLegacyRelayRecoveryOrchestration()) {
         this.recoveryController.startWarmup();
       } else {
-        void this.config.pool.waitForConnection(3_500).finally(() => {
+        void this.resolvePool().waitForConnection(3_500).finally(() => {
+          this.bindRecoveryPool();
           this.updateSnapshot(this.recoveryController.refreshSnapshot());
         });
       }
@@ -168,12 +192,14 @@ class RelayRuntimeSupervisor {
   }
 
   refresh(): RelayRuntimeSnapshot {
+    this.bindRecoveryPool();
     const recovery = this.recoveryController.refreshSnapshot();
     this.updateSnapshot(recovery);
     return this.snapshot;
   }
 
   resetRecoveryAfterPrimaryFailover(): RelayRuntimeSnapshot {
+    this.bindRecoveryPool();
     const recovery = this.recoveryController.resetAfterPrimaryFailover();
     this.updateSnapshot(recovery);
     return this.snapshot;
@@ -188,9 +214,10 @@ class RelayRuntimeSupervisor {
         return this.snapshot;
       }
       await executeTransportKernelPoolRecovery({
-        pool: this.config.pool,
+        pool: this.resolvePool(),
         reason,
       });
+      this.bindRecoveryPool();
       const recovery = this.recoveryController.refreshSnapshot();
       this.updateSnapshot(recovery);
       return this.snapshot;
@@ -421,16 +448,15 @@ class RelayRuntimeSupervisor {
     if (!this.config || this.config.allEnabledRelayUrls.length <= 1) {
       return;
     }
-    const previousWritable = this.lastObservedWritableRelayCount;
     this.lastObservedWritableRelayCount = recovery.writableRelayCount;
-    if (recovery.writableRelayCount > 0) {
-      return;
-    }
     const nowMs = Date.now();
     if (nowMs - this.lastProactiveFailoverAtUnixMs < 5_000) {
       return;
     }
-    if (this.tryPrimaryFailover(recovery.recoveryReasonCode)) {
+    // S2: when local (or any standby) is writable, still probe reconcile — attemptPrimaryFailover
+    // no-ops unless primary is dead and a better open remote (or live standby) wins.
+    const allowWithWritableRelays = recovery.writableRelayCount > 0;
+    if (this.tryPrimaryFailover(recovery.recoveryReasonCode, { allowWithWritableRelays })) {
       this.lastProactiveFailoverAtUnixMs = nowMs;
     }
   }
@@ -626,7 +652,10 @@ class RelayRuntimeSupervisor {
     await this.triggerRecovery("no_writable_relays");
   }
 
-  private tryPrimaryFailover(recoveryReason?: RelayRecoveryReasonCode): boolean {
+  private tryPrimaryFailover(
+    recoveryReason?: RelayRecoveryReasonCode,
+    options?: Readonly<{ allowWithWritableRelays?: boolean }>,
+  ): boolean {
     if (!this.config?.attemptPrimaryFailover) {
       return false;
     }
@@ -635,6 +664,9 @@ class RelayRuntimeSupervisor {
       writableRelayCount: this.snapshot.writableRelayCount,
       recovery: this.snapshot.recovery,
       recoveryReason,
+      meshSchedulerOwnsFailover: this.config.meshSchedulerOwnsFailover === true,
+      allowWithWritableRelays: options?.allowWithWritableRelays === true,
+      transportMode: this.config.transportMode,
     })) {
       return false;
     }
@@ -671,7 +703,7 @@ class RelayRuntimeSupervisor {
           return;
         }
         void executeTransportKernelPoolRecovery({
-          pool: this.config.pool,
+          pool: this.resolvePool(),
           reason: "manual",
         }).finally(() => {
           this.refresh();

@@ -64,7 +64,7 @@ describe('Invite Manager Property Tests', () => {
       expect(storedRequest?.message).toBe('hello');
     });
 
-    it('does not store stale pending request when transport fails or relays are unavailable', async () => {
+    it('does not store stale pending request when mesh transport bridge is unset', async () => {
       vi.spyOn(cryptoService, 'normalizeKey').mockResolvedValue('d'.repeat(64) as any);
       vi.spyOn(cryptoService, 'isValidPubkey').mockResolvedValue(true as any);
       vi.spyOn(cryptoService, 'generateInviteId').mockResolvedValue('invite-request-2' as any);
@@ -75,7 +75,7 @@ describe('Invite Manager Property Tests', () => {
         recipientPublicKey: 'd'.repeat(64) as any,
         message: 'hello',
         includeProfile: false,
-      })).rejects.toThrow('No active relays available for connection request');
+      })).rejects.toThrow(/configureInviteRequestTransportBridge required \(mesh\)/);
 
       expect(storeSpy).not.toHaveBeenCalled();
     });

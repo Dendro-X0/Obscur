@@ -6,47 +6,7 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
 }));
 
 vi.mock("@dweb/db", () => ({
-  dbGetConversations: vi.fn(async () => [
-    {
-      id: "dm:aa:bb",
-      profile_id: "p1",
-      peer_pubkey: "b".repeat(64),
-      last_event_id: null,
-      last_message_at: 1000,
-      last_plaintext_preview: null,
-      unread_count: 0,
-    },
-  ]),
-  dbGetMessages: vi.fn(async () => [
-    {
-      event_id: "evt-alive",
-      profile_id: "p1",
-      conversation_id: "dm:aa:bb",
-      sender_pubkey: "b".repeat(64),
-      recipient_pubkey: "a".repeat(64),
-      plaintext: "hello sqlite",
-      kind: 0,
-      created_at: 1000,
-      received_at: 1000,
-      is_outgoing: false,
-      reply_to_event_id: null,
-      has_attachment: false,
-    },
-    {
-      event_id: "evt-deleted",
-      profile_id: "p1",
-      conversation_id: "dm:aa:bb",
-      sender_pubkey: "b".repeat(64),
-      recipient_pubkey: "a".repeat(64),
-      plaintext: "gone",
-      kind: 0,
-      created_at: 900,
-      received_at: 900,
-      is_outgoing: false,
-      reply_to_event_id: null,
-      has_attachment: false,
-    },
-  ]),
+  isTauri: vi.fn(() => true),
 }));
 
 vi.mock("@/app/features/messaging/services/chat-state-store-legacy", () => ({

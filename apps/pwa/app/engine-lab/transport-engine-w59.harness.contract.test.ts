@@ -20,7 +20,7 @@ describe("transport-engine w59 — physical deletion execution harness", () => {
     );
     expect(w58).toContain("transport-kernel-standalone-deletion-subtraction-manifest.ts");
     expect(w59).toContain("evaluateStandaloneLegacySubtractionDryRun");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents W60+ mechanical deletion in execution charter", () => {

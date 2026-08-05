@@ -92,7 +92,7 @@ const printDockerHelp = () => {
 };
 
 const fail = (code = 1) => {
-    process.exitCode = code;
+    process.exit(code);
 };
 
 const tryStart = async () => {

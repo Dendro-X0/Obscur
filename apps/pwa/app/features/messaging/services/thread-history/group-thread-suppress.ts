@@ -1,5 +1,5 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbInsertGroupTombstone, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import { listAccountSharedSqliteProfileIds } from "@/app/features/profiles/services/account-shared-sqlite-profile-ids";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
@@ -9,6 +9,7 @@ import {
   resolveGroupStorageId,
   resolveGroupThreadHydratePrimaryProfileId,
 } from "./group-thread-sqlite-store";
+import { insertWorkspaceGroupTombstoneRecord } from "./workspace-group-message-persist-port";
 
 export type SuppressGroupThreadMessageParams = Readonly<{
   conversationId: string;
@@ -71,7 +72,7 @@ export const suppressGroupThreadMessage = async (
     });
     await Promise.all(profileIds.flatMap((profileId) => (
       eventIds.map(async (eventId) => {
-        await dbInsertGroupTombstone({
+        await insertWorkspaceGroupTombstoneRecord({
           event_id: eventId,
           profile_id: profileId,
           deleted_at: deletedAtUnixMs,

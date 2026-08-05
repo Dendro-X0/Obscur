@@ -12,10 +12,14 @@ One page for **how to run**, **how to package**, and **what to expect** — no c
 
 | Goal | Command | Output / notes |
 |------|---------|----------------|
-| **Daily desktop dev** (relay + coordination) | `pnpm dev:desktop:online` | Tauri + static shell · CDP `:9230` |
+| **Daily desktop (production parity)** | `pnpm dev:desktop` | Online static shell, no offline stub · [production-dev-parity-recovery-2026-07.md](../../specs/backend/production-dev-parity-recovery-2026-07.md) |
+| **Daily desktop + coordination stack** | `pnpm dev:desktop:online` | Tauri + static shell · CDP `:9230` |
+| **Offline experiment stub only** | `pnpm dev:desktop:stub` | Not product truth — do not use to greenlight release |
+| **Dev Lab (`pnpm dev:lab:*`)** | **TOMBSTONED** | Exit 1 — use CodaCtrl + release exe · [production-rewrite-and-devlab-tombstone-2026-07.md](../../specs/backend/production-rewrite-and-devlab-tombstone-2026-07.md) |
 | **Dual-profile MCP verify** | Same + open Tester2 window | CDP `:9231` · [obscur-dev-test-accounts.md](./obscur-dev-test-accounts.md) |
 | **Relay only (external stack)** | Terminal 1: `pnpm dev:relay:docker` · Terminal 2: `pnpm dev:coordination` · Terminal 3: `pnpm dev:desktop:no-coord -- --skip-build` | Faster restarts; cold-kill does not take down relay |
 | **Desktop installer (local)** | `pnpm desktop:package` | `release-assets/{windows,macos,linux}/` |
+| **Demo / prod smoke (no NSIS)** | `pnpm desktop:demo-preflight` → `pnpm desktop:build:exe` | Release exe; smoke before packaging — [demo-recording-prod-preflight-design-2026-07.md](../../specs/backend/demo-recording-prod-preflight-design-2026-07.md) |
 | **Desktop/mobile installers (CI)** | Push `v*` tag **or** Actions → **Obscur Full Release** | Artifacts on workflow run; publish via dispatch + `publish_release=true` |
 | **Android debug APK (emulator)** | `pnpm build:android:debug:emulator` | Universal debug APK under `gen/android/.../debug/` |
 | **Android prereq check** | `pnpm verify:android-prerequisites` | Non-destructive SDK/JDK/Rust check |

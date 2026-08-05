@@ -14,7 +14,7 @@ describe("runInPoolAppRttCycle", () => {
     vi.useFakeTimers();
     let now = 1_000;
     const sent: string[] = [];
-    let handler: ((params: Readonly<{ url: string; message: string }>) => void) | null = null;
+    const handlers: Array<(params: Readonly<{ url: string; message: string }>) => void> = [];
 
     const promise = runInPoolAppRttCycle({
       openUrls: ["wss://nos.lol", "wss://relay.primal.net"],
@@ -22,9 +22,10 @@ describe("runInPoolAppRttCycle", () => {
         sent.push(payload);
       },
       subscribeToMessages: (next) => {
-        handler = next;
+        handlers.push(next);
         return () => {
-          handler = null;
+          const index = handlers.indexOf(next);
+          if (index >= 0) handlers.splice(index, 1);
         };
       },
       timeoutMs: 1_000,
@@ -38,11 +39,13 @@ describe("runInPoolAppRttCycle", () => {
     await Promise.resolve();
     expect(sent[0]).toContain("REQ");
     expect(sent[0]).toContain("obscur-rtt-test");
+    const handler = handlers[0];
+    expect(handler).toBeDefined();
 
     now = 1_042;
-    handler?.({ url: "wss://nos.lol", message: JSON.stringify(["EOSE", "obscur-rtt-test"]) });
+    handler!({ url: "wss://nos.lol", message: JSON.stringify(["EOSE", "obscur-rtt-test"]) });
     now = 1_055;
-    handler?.({ url: "wss://relay.primal.net", message: JSON.stringify(["EOSE", "obscur-rtt-test"]) });
+    handler!({ url: "wss://relay.primal.net", message: JSON.stringify(["EOSE", "obscur-rtt-test"]) });
 
     const results = await promise;
     expect(results).toEqual([

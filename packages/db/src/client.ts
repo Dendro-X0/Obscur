@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { MessageRecord, TombstoneRecord, ConversationRecord, GroupRecord, GroupMessageRecord, GroupTombstoneRecord, CallRecord, RelayCheckpointRecord, VaultMediaIndexRecord, MessageSearchResult } from "./types";
+import type { MessageRecord, ConversationRecord } from "./types";
 
 /**
  * Returns true when running inside Tauri (desktop).
@@ -29,47 +29,10 @@ export async function dbInsertMessage(msg: MessageRecord): Promise<void> {
   await invoke<void>("db_insert_message", { msg });
 }
 
-export async function dbGetMessages(
-  profileId: string,
-  conversationId: string,
-  limit = 200,
-  beforeReceivedAt?: number,
-): Promise<MessageRecord[]> {
-  return invoke<MessageRecord[]>("db_get_messages", {
-    profileId,
-    conversationId,
-    limit,
-    beforeReceivedAt: beforeReceivedAt ?? null,
-  });
-}
+// Slice 15 — DM read IPC tombstoned. Use @obscur/dm-engine fetchDmThreadRows / listDmConversations.
 
-export async function dbDeleteMessage(eventId: string, profileId: string): Promise<void> {
-  await invoke<void>("db_delete_message", { eventId, profileId });
-}
-
-export async function dbDeleteMessages(eventIds: string[], profileId: string): Promise<void> {
-  await invoke<void>("db_delete_messages", { eventIds, profileId });
-}
-
-// ---------------------------------------------------------------------------
-// Tombstones
-// ---------------------------------------------------------------------------
-
-export async function dbInsertTombstone(tombstone: TombstoneRecord): Promise<void> {
-  await invoke<void>("db_insert_tombstone", { tombstone });
-}
-
-export async function dbInsertTombstones(tombstones: TombstoneRecord[]): Promise<void> {
-  await invoke<void>("db_insert_tombstones", { tombstones });
-}
-
-export async function dbGetTombstones(profileId: string): Promise<TombstoneRecord[]> {
-  return invoke<TombstoneRecord[]>("db_get_tombstones", { profileId });
-}
-
-export async function dbDeleteAllTombstonesForProfile(profileId: string): Promise<void> {
-  await invoke<void>("db_delete_all_tombstones_for_profile", { profileId });
-}
+// Slice 21 — DM delete/tombstone IPC tombstoned. Use @obscur/dm-engine
+// deleteDmMessages / deleteDmMessage / insertDmTombstone / listDmTombstones / deleteAllDmTombstones.
 
 // ---------------------------------------------------------------------------
 // Conversations
@@ -79,113 +42,31 @@ export async function dbUpsertConversation(conversation: ConversationRecord): Pr
   await invoke<void>("db_upsert_conversation", { conversation });
 }
 
-export async function dbGetConversations(profileId: string): Promise<ConversationRecord[]> {
-  return invoke<ConversationRecord[]>("db_get_conversations", { profileId });
-}
-
 // ---------------------------------------------------------------------------
-// Groups
-// ---------------------------------------------------------------------------
-
-export async function dbUpsertGroup(group: GroupRecord): Promise<void> {
-  await invoke<void>("db_upsert_group", { group });
-}
-
-export async function dbGetGroups(profileId: string): Promise<GroupRecord[]> {
-  return invoke<GroupRecord[]>("db_get_groups", { profileId });
-}
-
-// ---------------------------------------------------------------------------
-// Group messages
+// Groups + group messages — IPC tombstoned.
+// Product + backup use @obscur/workspace-engine via engine_invoke
+// (listGroups / upsertGroup / listGroupMessages / insertGroupMessage / insertGroupTombstone).
+// @see specs/backend/community-group-db-ipc-tombstone-design-2026-07.md
 // ---------------------------------------------------------------------------
 
-export async function dbInsertGroupMessage(msg: GroupMessageRecord): Promise<void> {
-  await invoke<void>("db_insert_group_message", { msg });
-}
-
-export async function dbGetGroupMessages(
-  profileId: string,
-  groupId: string,
-  limit = 200,
-  beforeReceivedAt?: number,
-): Promise<GroupMessageRecord[]> {
-  return invoke<GroupMessageRecord[]>("db_get_group_messages", {
-    profileId,
-    groupId,
-    limit,
-    beforeReceivedAt: beforeReceivedAt ?? null,
-  });
-}
-
-export async function dbInsertGroupTombstone(tombstone: GroupTombstoneRecord): Promise<void> {
-  await invoke<void>("db_insert_group_tombstone", { tombstone });
-}
-
 // ---------------------------------------------------------------------------
-// Call records
+// Call records — IPC tombstoned (Slice 19). Use @obscur/persistence-engine
+// listCallRecords / upsertCallRecord via engine_invoke.
 // ---------------------------------------------------------------------------
 
-export async function dbInsertCallRecord(record: CallRecord): Promise<void> {
-  await invoke<void>("db_insert_call_record", { record });
-}
-
-export async function dbUpdateCallRecord(record: CallRecord): Promise<void> {
-  await invoke<void>("db_update_call_record", { record });
-}
-
-export async function dbGetCallRecords(profileId: string): Promise<CallRecord[]> {
-  return invoke<CallRecord[]>("db_get_call_records", { profileId });
-}
-
 // ---------------------------------------------------------------------------
-// Relay checkpoints
+// Relay checkpoints — IPC tombstoned (Slice 11). Use @obscur/transport-engine
+// listRelayCheckpoints / upsertRelayCheckpoint via engine_invoke.
 // ---------------------------------------------------------------------------
 
-export async function dbUpsertRelayCheckpoint(checkpoint: RelayCheckpointRecord): Promise<void> {
-  await invoke<void>("db_upsert_relay_checkpoint", { checkpoint });
-}
-
-export async function dbGetRelayCheckpoint(
-  profileId: string,
-  relayUrl: string,
-): Promise<RelayCheckpointRecord | null> {
-  return invoke<RelayCheckpointRecord | null>("db_get_relay_checkpoint", { profileId, relayUrl });
-}
-
-export async function dbGetRelayCheckpoints(profileId: string): Promise<RelayCheckpointRecord[]> {
-  return invoke<RelayCheckpointRecord[]>("db_get_relay_checkpoints", { profileId });
-}
-
-export async function dbUpsertVaultMediaIndex(record: VaultMediaIndexRecord): Promise<void> {
-  await invoke<void>("db_upsert_vault_media_index", { record });
-}
-
-export async function dbGetVaultMediaIndexForProfile(profileId: string): Promise<VaultMediaIndexRecord[]> {
-  return invoke<VaultMediaIndexRecord[]>("db_get_vault_media_index_for_profile", { profileId });
-}
-
-export async function dbDeleteVaultMediaIndex(profileId: string, remoteUrl: string): Promise<void> {
-  await invoke<void>("db_delete_vault_media_index", { profileId, remoteUrl });
-}
-
-export async function dbDeleteAllVaultMediaIndexForProfile(profileId: string): Promise<number> {
-  return invoke<number>("db_delete_all_vault_media_index_for_profile", { profileId });
-}
-
 // ---------------------------------------------------------------------------
-// Unified FTS5 search
+// Vault media index — IPC tombstoned (Slice 17). Use @obscur/persistence-engine
+// listVaultMediaIndex / upsertVaultMediaIndex / delete* via engine_invoke.
 // ---------------------------------------------------------------------------
 
-export async function dbSearchMessages(
-  profileId: string,
-  query: string,
-  limit?: number,
-): Promise<MessageSearchResult[]> {
-  return invoke<MessageSearchResult[]>("db_search_messages", { profileId, query, limit });
-}
-
 // ---------------------------------------------------------------------------
-// Profile local reset
+// Unified FTS5 search + profile wipe — IPC tombstoned (Slice 23).
+// Use @obscur/persistence-engine searchMessages / wipeProfileLocalData.
 // ---------------------------------------------------------------------------
 
 export type WipeProfileLocalDataReport = Readonly<{
@@ -193,20 +74,3 @@ export type WipeProfileLocalDataReport = Readonly<{
   rows_deleted: number;
   profile_row_deleted: boolean;
 }>;
-
-export async function dbWipeProfileLocalData(
-  profileId: string,
-  removeProfileRow: boolean,
-): Promise<WipeProfileLocalDataReport> {
-  if (!isTauri()) {
-    return {
-      profile_id: profileId,
-      rows_deleted: 0,
-      profile_row_deleted: false,
-    };
-  }
-  return invoke<WipeProfileLocalDataReport>("db_wipe_profile_local_data", {
-    profileId,
-    removeProfileRow,
-  });
-}

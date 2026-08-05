@@ -5,6 +5,7 @@ export type BackgroundMessageNotificationPresentation = Readonly<{
   body: string;
   href: string;
   icon?: string;
+  contentKind?: string;
 }>;
 
 export type BackgroundMessageNotificationPayload = Readonly<{

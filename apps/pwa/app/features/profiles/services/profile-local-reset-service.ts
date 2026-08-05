@@ -1,7 +1,9 @@
 "use client";
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbWipeProfileLocalData } from "@dweb/db";
+import { wipeProfileLocalData } from "@obscur/persistence-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { clearOperatorTrustConfig } from "@/app/features/groups/services/operator-trust-config";
 import { clearBlocklistStorage } from "@/app/features/messaging/lib/dms/use-blocklist";
 import {
@@ -28,6 +30,13 @@ export type ProfileLocalResetReport = Readonly<{
   warnings: ReadonlyArray<string>;
 }>;
 
+let profileWipeEngineHost: HostEnginePort | null = null;
+
+const getProfileWipeEngineHost = (): HostEnginePort => {
+  profileWipeEngineHost ??= createTauriEngineHost();
+  return profileWipeEngineHost;
+};
+
 const wipeNativeProfileSqlite = async (
   profileId: string,
   removeProfileRow: boolean,
@@ -37,7 +46,11 @@ const wipeNativeProfileSqlite = async (
     return { wiped: false, rowsDeleted: 0 };
   }
   try {
-    const report = await dbWipeProfileLocalData(profileId, removeProfileRow);
+    const report = await wipeProfileLocalData({
+      host: getProfileWipeEngineHost(),
+      profileId,
+      removeProfileRow,
+    });
     return { wiped: true, rowsDeleted: report.rows_deleted };
   } catch (error) {
     warnings.push(`Native SQLite wipe failed: ${error instanceof Error ? error.message : String(error)}`);

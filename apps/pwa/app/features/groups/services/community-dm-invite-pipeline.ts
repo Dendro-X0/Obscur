@@ -11,8 +11,12 @@ import { messagingChatStateMessagePort } from "@/app/features/messaging/services
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import type { Message, PersistedMessage } from "@/app/features/messaging/types";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { isTauri, dbInsertMessage, dbUpsertConversation } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import type { ConversationRecord, MessageRecord } from "@dweb/db";
+import {
+  writeDmKernelConversation,
+  writeDmKernelMessage,
+} from "@/app/features/dm-kernel/dm-kernel-write-port";
 import { appendCanonicalDmEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
 import { toAccountEventPlaintextPreview } from "@/app/features/account-sync/services/account-event-plaintext-preview";
 import { pinCommunityInviteMessageSnapshotForMessage } from "../utils/community-invite-message-snapshot";
@@ -102,6 +106,7 @@ const persistInviteToChatState = (
   });
 };
 
+/** Native invite/response row — dm-kernel only (U1; no bare db_insert_message). */
 const persistInviteToNativeSqlite = async (
   message: Message,
   profileId: string,
@@ -125,7 +130,7 @@ const persistInviteToNativeSqlite = async (
     reply_to_event_id: null,
     has_attachment: false,
   };
-  await dbInsertMessage(record).catch(() => undefined);
+  await writeDmKernelMessage(record);
   const peerPubkey = message.isOutgoing === true
     ? (typeof message.recipientPubkey === "string" ? message.recipientPubkey : "")
     : (typeof message.senderPubkey === "string" ? message.senderPubkey : "");
@@ -138,7 +143,7 @@ const persistInviteToNativeSqlite = async (
     last_plaintext_preview: toAccountEventPlaintextPreview(message.content),
     unread_count: 0,
   };
-  await dbUpsertConversation(convRec).catch(() => undefined);
+  await writeDmKernelConversation(convRec);
 };
 
 const notifyLedgerChanged = (conversationId: string, profileId: string): void => {

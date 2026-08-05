@@ -81,6 +81,76 @@ describe("resolveCommunityInviteCardStatus", () => {
         })).toBe("superseded");
     });
 
+    it("U6: supersedes by wire sender even when isOutgoing flags disagree", () => {
+        const sender = "a".repeat(64) as Message["senderPubkey"];
+        const recipient = "b".repeat(64) as Message["recipientPubkey"];
+        const oldInvite = baseMessage({
+            id: "invite-old",
+            isOutgoing: true,
+            senderPubkey: sender,
+            recipientPubkey: recipient,
+            timestamp: new Date(1_700_000_000_000),
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: "inv-old",
+                groupId: "g1",
+                roomKey: "rk",
+            }),
+        });
+        const newInvite = baseMessage({
+            id: "invite-new",
+            isOutgoing: false,
+            senderPubkey: sender,
+            recipientPubkey: recipient,
+            timestamp: new Date(1_700_000_200_000),
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: "inv-new",
+                groupId: "g1",
+                roomKey: "rk2",
+            }),
+        });
+        expect(resolveCommunityInviteCardStatus({
+            message: oldInvite,
+            messages: [oldInvite, newInvite],
+            nowMs: 1_700_000_300_000,
+        })).toBe("superseded");
+    });
+
+    it("U6: does not supersede across different wire senders", () => {
+        const oldInvite = baseMessage({
+            id: "invite-old",
+            isOutgoing: false,
+            senderPubkey: "a".repeat(64) as Message["senderPubkey"],
+            recipientPubkey: "b".repeat(64) as Message["recipientPubkey"],
+            timestamp: new Date(1_700_000_000_000),
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: "inv-a",
+                groupId: "g1",
+                roomKey: "rk",
+            }),
+        });
+        const newInvite = baseMessage({
+            id: "invite-new",
+            isOutgoing: false,
+            senderPubkey: "b".repeat(64) as Message["senderPubkey"],
+            recipientPubkey: "a".repeat(64) as Message["recipientPubkey"],
+            timestamp: new Date(1_700_000_200_000),
+            content: JSON.stringify({
+                type: "community-invite",
+                inviteId: "inv-b",
+                groupId: "g1",
+                roomKey: "rk2",
+            }),
+        });
+        expect(resolveCommunityInviteCardStatus({
+            message: oldInvite,
+            messages: [oldInvite, newInvite],
+            nowMs: 1_700_000_300_000,
+        })).toBe("pending");
+    });
+
     it("stays pending when cancel targets a different invite in the same group", () => {
         const oldInvite = baseMessage({
             id: "invite-old",

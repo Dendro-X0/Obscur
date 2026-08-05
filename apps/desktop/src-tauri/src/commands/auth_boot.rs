@@ -99,8 +99,8 @@ pub async fn auth_boot_snapshot(
     restore_eligible: bool,
 ) -> Result<AuthBootSnapshotWire, String> {
     let profile_id = resolve_profile_for_window(&app, &profiles, &window).await?;
-    let keychain_present = native_keychain::read_nsec_for_profile(&profile_id)?
-        .is_some();
+    // Boot presence is OS-store truth — process cache must not report keychainPresent after a failed persist.
+    let keychain_present = native_keychain::os_keychain_has_nsec_for_profile(&profile_id)?;
 
     let status = if restore_eligible {
         force_session_restore_for_window(

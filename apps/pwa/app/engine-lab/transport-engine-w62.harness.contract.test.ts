@@ -20,7 +20,7 @@ describe("transport-engine w62 — mechanical production subtraction harness", (
     );
     expect(w61).toContain("resolveTransportEngineStandaloneLegacyReadPath");
     expect(w62).toContain("relay-standalone-publish-port-subtracted.ts");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents W63+ port swap in subtraction charter", () => {

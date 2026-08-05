@@ -8,7 +8,7 @@ _Last updated: 2026-07-04_
 
 ## Read in this order
 
-1. **[CURRENT.md](./CURRENT.md)** — version **1.9.10**, Phases 1–3 **EXIT**, **runtime repair band** (R1 done · R2 next) (~5 minutes)
+1. **[CURRENT.md](./CURRENT.md)** — **DM/media L3 Pass** · release prep **v1.9.15** · community **PAUSED** (~5 minutes)
 2. **[handoffs/current-session.md](./handoffs/current-session.md)** — next atomic step for this repo
 3. **[program/obscur-v2-known-limitations.md](./program/obscur-v2-known-limitations.md)** — honest demo limits (when presenting or supporting)
 4. **[AGENTS.md](../AGENTS.md)** — if you are an agent (code policy only)

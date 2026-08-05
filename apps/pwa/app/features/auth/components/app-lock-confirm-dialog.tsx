@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { ConfirmDialog } from "@dweb/ui-kit";
+import { ConfirmDialog } from "@dweb/ui-kit/confirm-dialog";
 import { useTranslation } from "react-i18next";
 
 type AppLockConfirmDialogProps = Readonly<{

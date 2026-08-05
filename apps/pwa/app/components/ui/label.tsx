@@ -1,1 +1,1 @@
-export { Label } from "@dweb/ui-kit";
+export { Label } from "@dweb/ui-kit/label";

@@ -1,5 +1,8 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { dbDeleteMessage, dbDeleteMessages, isTauri } from "@dweb/db";
+import { isTauri } from "@dweb/db";
+import { deleteDmMessage, deleteDmMessages } from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
@@ -28,6 +31,13 @@ import { resolveRestoreMaterializationSuppressionContract } from "./restore-mate
 import { stripChatStateMessageBodiesForNativeMirror } from "./restore-merge-chat-state";
 import { applyNativeRestoreSqliteMaterialization } from "./native-sqlite-backup-evidence";
 
+let restoreDeleteEngineHost: HostEnginePort | null = null;
+
+const getRestoreDeleteEngineHost = (): HostEnginePort => {
+  restoreDeleteEngineHost ??= createTauriEngineHost();
+  return restoreDeleteEngineHost;
+};
+
 const purgeSuppressedMessageIdentitiesFromDurableStores = async (
   profileId: string,
   deleteIds: ReadonlyArray<string>,
@@ -42,13 +52,22 @@ const purgeSuppressedMessageIdentitiesFromDurableStores = async (
   if (!isTauri()) {
     return;
   }
+  const host = getRestoreDeleteEngineHost();
   try {
-    await dbDeleteMessages(normalizedIds, profileId);
+    await deleteDmMessages({
+      host,
+      profileId,
+      eventIds: normalizedIds,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("db_delete_messages")) {
+    if (message.includes("deleteMessages") || message.includes("db_delete_messages")) {
       await Promise.all(normalizedIds.map((deleteId) => (
-        dbDeleteMessage(deleteId, profileId).catch(() => undefined)
+        deleteDmMessage({
+          host,
+          profileId,
+          eventId: deleteId,
+        }).catch(() => undefined)
       )));
     }
   }

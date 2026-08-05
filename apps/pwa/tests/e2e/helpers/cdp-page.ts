@@ -100,10 +100,8 @@ export const pickAppPageFromCdpBrowserAsync = async (
   }
 
   for (const candidate of candidates) {
-    const hasDevLab = await candidate
-      .evaluate(() => typeof window.obscurDevLab?.runBenchmark === "function")
-      .catch(() => false);
-    if (hasDevLab) {
+    // Phase 3: do not prefer Dev Lab pages — first Obscur URL wins.
+    if (!candidate.url().includes("chrome-error")) {
       return candidate;
     }
   }

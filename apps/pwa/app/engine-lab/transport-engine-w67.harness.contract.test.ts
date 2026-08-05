@@ -21,7 +21,7 @@ describe("transport-engine w67 — B5 exit verification harness", () => {
     );
     expect(w66).toContain("postSubtractionComplete");
     expect(w67).toContain("readyForB5ExitVerification");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents verify gate in B5 exit criteria", () => {

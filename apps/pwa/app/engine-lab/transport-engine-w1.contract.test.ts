@@ -5,6 +5,7 @@ import {
   TRANSPORT_ENGINE_METHODS,
   buildTransportListConfiguredRelayUrlsRequest,
   buildTransportListRelayCheckpointsRequest,
+  buildTransportUpsertRelayCheckpointRequest,
   validateEngineInvokeRequest,
 } from "@obscur/engine-contracts";
 
@@ -25,6 +26,20 @@ describe("transport-engine w1 — rust persistence + TS SDK", () => {
     expect(validateEngineInvokeRequest(request)).toBeNull();
   });
 
+  it("defines transport upsertRelayCheckpoint invoke request", () => {
+    const request = buildTransportUpsertRelayCheckpointRequest({
+      profileId: "default",
+      payload: {
+        profile_id: "default",
+        relay_url: "wss://relay.example",
+        last_event_at: 1,
+      },
+    });
+    expect(request.engine).toBe("transport");
+    expect(request.method).toBe(TRANSPORT_ENGINE_METHODS.upsertRelayCheckpoint);
+    expect(validateEngineInvokeRequest(request)).toBeNull();
+  });
+
   it("libobscur engine_invoke dispatches transport persistence methods", () => {
     const source = readFileSync(
       join(REPO_ROOT, "packages/libobscur/src/engine_invoke.rs"),
@@ -33,6 +48,7 @@ describe("transport-engine w1 — rust persistence + TS SDK", () => {
     expect(source).toContain("dispatch_transport");
     expect(source).toContain("\"listRelayCheckpoints\"");
     expect(source).toContain("\"listConfiguredRelayUrls\"");
+    expect(source).toContain("\"upsertRelayCheckpoint\"");
   });
 
   it("transport-engine SDK exports persistence helpers", () => {
@@ -42,6 +58,7 @@ describe("transport-engine w1 — rust persistence + TS SDK", () => {
     );
     expect(source).toContain("listRelayCheckpoints");
     expect(source).toContain("listConfiguredRelayUrls");
+    expect(source).toContain("upsertRelayCheckpoint");
     expect(source).not.toMatch(/apps\/pwa/);
   });
 

@@ -1,7 +1,7 @@
 # Transport Engine W67 — Standalone Legacy B5 Exit Verification
 
-**Status:** B5 exit criteria pinned; exit **BLOCKED** (sign-off `BLOCKED`; W66 not executed)  
-**Last updated:** 2026-06-26  
+**Status:** B5 exit **complete** (`verify:transport-engine-w67` + `verify:engine-lab` Pass, 2026-08-04)  
+**Last updated:** 2026-08-04  
 **Band:** ENGINE-LAB / transport-engine post-B5
 
 ## Goal
@@ -29,9 +29,10 @@ Pin **B5 exit verification criteria** for the standalone legacy subtraction band
 
 ## Current state (W67)
 
-- Sign-off recorded file: `Decision: BLOCKED`.
-- Pre-exit baseline: **ready** (`preExitBaselineReady: true`).
-- B5 exit: **not complete** (`postSubtractionExitComplete: false`).
+- Sign-off recorded file: `Decision: PASS`.
+- W66 mechanical subtraction: **complete**.
+- B5 exit readiness: **complete** (`readyForB5ExitVerification: true` / `postSubtractionExitComplete: true`).
+- Proof: `pnpm verify:transport-engine-w67` Pass · `pnpm verify:engine-lab` Pass (2026-08-04).
 
 ## Maintainer B5 exit when gate opens
 

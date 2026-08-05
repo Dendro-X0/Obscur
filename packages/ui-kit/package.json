@@ -1,6 +1,6 @@
 {
   "name": "@dweb/ui-kit",
-  "version": "1.9.14",
+  "version": "1.9.15",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -30,8 +30,26 @@
   "exports": {
     ".": "./src/index.ts",
     "./cn": "./src/utils/cn.ts",
+    "./overlay-z-index": "./src/overlay-z-index.ts",
+    "./avatar": "./src/components/avatar.tsx",
     "./button": "./src/components/button.tsx",
+    "./card": "./src/components/card.tsx",
+    "./checkbox": "./src/components/checkbox.tsx",
+    "./dialog": "./src/components/dialog.tsx",
+    "./dropdown-menu": "./src/components/dropdown-menu.tsx",
+    "./input": "./src/components/input.tsx",
+    "./label": "./src/components/label.tsx",
+    "./select": "./src/components/select.tsx",
+    "./pagination": "./src/components/pagination.tsx",
+    "./progress": "./src/components/progress.tsx",
+    "./skeleton": "./src/components/skeleton.tsx",
+    "./textarea": "./src/components/textarea.tsx",
     "./toast": "./src/components/toast.tsx",
-    "./skeleton": "./src/components/skeleton.tsx"
+    "./confirm-dialog": "./src/components/confirm-dialog.tsx",
+    "./empty-state": "./src/components/empty-state.tsx",
+    "./connection-status": "./src/components/connection-status.tsx",
+    "./error-details": "./src/components/error-details.tsx",
+    "./message-status": "./src/components/message-status.tsx",
+    "./queue-status": "./src/components/queue-status.tsx"
   }
 }

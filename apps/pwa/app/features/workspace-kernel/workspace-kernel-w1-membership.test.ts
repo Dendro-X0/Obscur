@@ -5,7 +5,12 @@ import {
 } from "./workspace-kernel-com-mem-gate";
 import { isWorkspaceCommunityCreateAllowed } from "./workspace-kernel-sovereign-create-policy";
 import { isWorkspaceKernelMembershipPortReady } from "./workspace-kernel-membership-port";
-import { publishWorkspaceKernelLeave } from "./workspace-kernel-leave-port";
+import {
+  leaveManagedWorkspaceMembership,
+  publishWorkspaceKernelLeave,
+} from "./workspace-kernel-leave-port";
+import { commitCommunityLeaveAfterRelayConfirmation } from "@/app/features/groups/services/community-relay-confirmed-leave";
+import { removeWorkspaceGroupMetadata } from "./workspace-kernel-group-metadata-cache";
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
@@ -18,6 +23,11 @@ vi.mock("@/app/features/groups/services/community-membership-sync-mode", () => (
 
 vi.mock("@/app/features/groups/services/community-relay-confirmed-leave", () => ({
   publishRelayConfirmedCommunityLeave: vi.fn(async () => true),
+  commitCommunityLeaveAfterRelayConfirmation: vi.fn(),
+}));
+
+vi.mock("./workspace-kernel-group-metadata-cache", () => ({
+  removeWorkspaceGroupMetadata: vi.fn(),
 }));
 
 describe("workspace-kernel COM-MEM gate", () => {
@@ -48,28 +58,45 @@ describe("workspace-kernel membership port readiness", () => {
 });
 
 describe("workspace-kernel leave-port", () => {
+  const group = {
+    kind: "group" as const,
+    id: "g1",
+    groupId: "room",
+    relayUrl: "ws://localhost:7000",
+    communityId: "room:ws://localhost:7000",
+    communityMode: "managed_workspace" as const,
+    displayName: "Room",
+    memberPubkeys: [],
+    lastMessage: "",
+    unreadCount: 0,
+    lastMessageTime: new Date(),
+    access: "invite-only" as const,
+    memberCount: 1,
+    adminPubkeys: [],
+  };
+
   it("returns relay confirmation without local commit", async () => {
     const confirmed = await publishWorkspaceKernelLeave({
       pool: {} as never,
-      group: {
-        kind: "group",
-        id: "g1",
-        groupId: "room",
-        relayUrl: "ws://localhost:7000",
-        communityId: "room:ws://localhost:7000",
-        communityMode: "managed_workspace",
-        displayName: "Room",
-        memberPubkeys: [],
-        lastMessage: "",
-        unreadCount: 0,
-        lastMessageTime: new Date(),
-        access: "invite-only",
-        memberCount: 1,
-        adminPubkeys: [],
-      },
+      group,
       myPublicKeyHex: "aa".repeat(32) as `${string}`,
       myPrivateKeyHex: "cc".repeat(32) as `${string}`,
     });
     expect(confirmed).toBe(true);
+  });
+
+  it("leaveManagedWorkspaceMembership commits local leave after network confirm", async () => {
+    vi.mocked(commitCommunityLeaveAfterRelayConfirmation).mockClear();
+    vi.mocked(removeWorkspaceGroupMetadata).mockClear();
+    const result = await leaveManagedWorkspaceMembership({
+      pool: {} as never,
+      group,
+      myPublicKeyHex: "aa".repeat(32) as `${string}`,
+      myPrivateKeyHex: "cc".repeat(32) as `${string}`,
+      tombstone: true,
+    });
+    expect(result).toEqual({ ok: true, relayConfirmed: true });
+    expect(commitCommunityLeaveAfterRelayConfirmation).toHaveBeenCalledTimes(1);
+    expect(removeWorkspaceGroupMetadata).toHaveBeenCalledTimes(1);
   });
 });

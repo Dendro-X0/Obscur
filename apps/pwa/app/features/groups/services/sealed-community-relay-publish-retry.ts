@@ -44,6 +44,7 @@ export const publishSealedEventToCommunityScopeWithRetry = async (params: Readon
 
   if (
     params.allowGlobalFallback
+    && typeof params.pool.publishToAll === "function"
     && hasWritableCommunityRelayTransport(params.relayUrl)
     && toScopedRelayUrl(params.relayUrl)
   ) {

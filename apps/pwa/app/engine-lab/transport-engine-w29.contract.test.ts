@@ -41,7 +41,9 @@ describe("transport-engine w29 — publish parity harness exit charter", () => {
     const mapper = readFromPwa("app/features/relays/lib/publish-outcome-mapper.ts");
     expect(mapper).toContain("mapLegacyPublishResultToRelayPublishResult");
 
-    const standaloneOwner = readFromPwa("app/features/transport-kernel/transport-kernel-standalone-publish.ts");
+    const standaloneOwner = readFromPwa(
+      "app/engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive.ts",
+    );
     expect(standaloneOwner).toContain("publishTransportKernelToRelayUrls");
 
     const rust = readFromRepo("packages/libobscur/src/engine_invoke.rs");

@@ -1,0 +1,26 @@
+{
+  "shell": false,
+  "after": "OBSCUR Change Language Welcome Back Enter your device login password to unlock DemoUser. Protect your identity Obscur will never ask for your passphrase or private key in chat, email, or support messages. Only enter secrets on the lock screen or Import Key flow inside this app. L",
+  "boot": {
+    "ok": true,
+    "value": {
+      "profileId": "default",
+      "phase": "unlocked",
+      "storedPublicKeyHex": null,
+      "sessionPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "keychainPresent": true,
+      "restoreEligible": true,
+      "atUnixMs": 1785415294263
+    }
+  },
+  "session": {
+    "ok": true,
+    "value": {
+      "is_active": true,
+      "npub": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "is_native": true
+    }
+  },
+  "hasTester1": false,
+  "hasDemoUser": true
+}

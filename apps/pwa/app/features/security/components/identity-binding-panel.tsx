@@ -3,7 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, Fingerprint } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 import { Identicon } from "@/app/features/security/components/identicon";
 import { SecurityLiteracyNote } from "@/app/features/security/components/security-literacy-note";

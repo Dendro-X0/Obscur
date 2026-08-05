@@ -88,5 +88,3 @@ export type ThreadHistoryPort = Readonly<{
   ) => ReturnType<typeof mergeHydratedBaseWithLiveOverlayMessages>;
 }>;
 
-/** @deprecated Alias — gateway bind name retained for R1 migration */
-export type DmConversationMaterializationPort = ThreadHistoryPort;

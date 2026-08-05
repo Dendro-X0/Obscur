@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Loader2, Trash2 } from "lucide-react";
-import { Button, Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
 import { PageShell } from "@/app/components/page-shell";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -14,9 +15,9 @@ import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { buildGroupViewHref } from "@/app/features/groups/utils/group-action-route";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
-import { publishWorkspaceKernelLeave } from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
+import { leaveManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
 import {
     listManagedWorkspaceCommunityIdCandidates,
     resolveManagedWorkspaceCommunityId,
@@ -139,13 +140,14 @@ export default function PurgeCommunityPage() {
                 && identityState.privateKeyHex
                 && localMemberPubkey
             ) {
-                await publishWorkspaceKernelLeave({
+                await leaveManagedWorkspaceMembership({
                     pool: relayPool,
                     group: purgeGroupContext,
                     myPublicKeyHex: localMemberPubkey,
                     myPrivateKeyHex: identityState.privateKeyHex,
                     initialMembers: purgeGroupContext.memberPubkeys,
-                }).catch(() => false);
+                    tombstone: true,
+                }).catch(() => ({ ok: false, relayConfirmed: false }));
             }
             forcePurgeCommunity({
                 groupId: resolvedGroupId,

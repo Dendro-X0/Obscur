@@ -25,8 +25,6 @@ import { WindowRuntimeBindingOwner } from "@/app/features/runtime/components/win
 import { ChatStateDurabilityOwner } from "@/app/features/messaging/components/chat-state-durability-owner";
 import { MessagePersistenceDurabilityOwner } from "@/app/features/messaging/components/message-persistence-durability-owner";
 import { markExperimentShellBootFlag } from "@/app/features/runtime/experiment-shell-policy";
-import { markDevLabBootFlag } from "@/app/features/dev-lab/dev-lab-policy";
-import { installDevLab } from "@/app/features/dev-lab/dev-lab-install";
 import { ExperimentShellIndicator } from "@/app/features/runtime/components/experiment-shell-indicator";
 import { DevShellStampMismatchBanner } from "@/app/features/runtime/components/dev-shell-stamp-mismatch-banner";
 import { ClientSurfaceRevisionBadge } from "@/app/components/client-surface-revision-badge";
@@ -37,8 +35,7 @@ const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery
 export const AppProviders = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         markExperimentShellBootFlag();
-        markDevLabBootFlag();
-        installDevLab();
+        // Dev Lab tombstoned — CodaCtrl + release/parity exe are validation truth.
         installM0TriageCapture();
         installM4StabilizationCapture();
         installM6VoiceCapture();

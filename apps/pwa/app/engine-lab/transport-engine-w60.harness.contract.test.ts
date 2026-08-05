@@ -20,7 +20,7 @@ describe("transport-engine w60 — mechanical deletion preparation harness", () 
     );
     expect(w59).toContain("evaluateStandaloneLegacySubtractionDryRun");
     expect(w60).toContain(STANDALONE_LEGACY_ARCHIVE_PATH.split("/").pop()!);
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
   it("documents W61+ mechanical deletion in preparation charter", () => {

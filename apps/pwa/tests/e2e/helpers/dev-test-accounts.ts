@@ -9,6 +9,7 @@ export const TESTER1 = {
   privateKeyHex: "c09832d637eb265d90b29c12eb8dfcfffe165b8fb34094af75236d5be4d97884",
   npub: "npub1uplk0h9c5k848vfl69dw2jwrr7ecz736dncw30tfqwaw8sv3aftq3rtdrg",
   publicKeyHex: "c09832d637eb265d90b29c12eb8dfcfffe165b8fb34094af75236d5be4d97884",
+  friendCode: "OBSCUR-5KMPFN",
 } as const;
 
 export const TESTER2 = {
@@ -16,6 +17,8 @@ export const TESTER2 = {
   password: "HT512#scE8",
   nsec: "nsec1gkv6kg9gyfvrg7h7q60usvaqtjq096dxewaw4vpk9y6krrlcglpqat96ta",
   npub: "npub18kc9tdr7qk7lhyyralkqk7hv62sytklhmpju7nv4mxyp0k2xsv8ss7n67a",
+  publicKeyHex: "3db055b47e05bdfb9083efec0b7aecd2a045dbf7d865cf4d95d98817d946830f",
+  friendCode: "OBSCUR-GBKMBC",
 } as const;
 
 export const applyOperatorDevBundle = async (page: Page): Promise<void> => {

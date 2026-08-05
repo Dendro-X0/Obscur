@@ -5,7 +5,7 @@ const ensureReadyMock = vi.hoisted(() => vi.fn(async () => undefined));
 const hydrateSqliteMock = vi.hoisted(() => vi.fn(async () => undefined));
 const mergeIdbMock = vi.hoisted(() => vi.fn(async () => undefined));
 const loadSuppressedMock = vi.hoisted(() => vi.fn(() => new Set<string>(["durable-1"])));
-const dbGetTombstonesMock = vi.hoisted(() => vi.fn(async () => []));
+const listDmTombstonesMock = vi.hoisted(() => vi.fn(async () => []));
 const isTauriMock = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("@/app/features/profiles/services/resolve-client-gateway", () => ({
@@ -16,7 +16,14 @@ vi.mock("@/app/features/profiles/services/resolve-client-gateway", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: isTauriMock,
-  dbGetTombstones: dbGetTombstonesMock,
+}));
+
+vi.mock("@obscur/dm-engine", () => ({
+  listDmTombstones: listDmTombstonesMock,
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 import { prepareDmThreadSuppressionIds } from "./dm-thread-suppression-prepare";

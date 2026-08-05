@@ -119,7 +119,8 @@ export const startDesktopWindowBoot = (): void => {
 
     try {
       await desktopProfileRuntime.refresh();
-      await runAuthKernelBootRestore();
+      // skipBootWait: reconcile completes in this finally — waiting here self-deadlocks 8s.
+      await runAuthKernelBootRestore({ skipBootWait: true });
     } catch {
       // Background reconcile only.
     } finally {

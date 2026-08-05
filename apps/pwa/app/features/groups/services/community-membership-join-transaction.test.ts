@@ -24,7 +24,7 @@ const activationBase = (
 });
 
 describe("isManagedWorkspaceJoinSuccessful (R4)", () => {
-  it("requires relay publish evidence on full-stack writable URLs", () => {
+  it("requires relay publish when coordination does not confirm the actor", () => {
     const activation = activationBase({
       relay: {
         status: "failed",
@@ -40,10 +40,33 @@ describe("isManagedWorkspaceJoinSuccessful (R4)", () => {
     });
     expect(isManagedWorkspaceJoinSuccessful({
       roomKeyPresent: true,
-      coordinationSynced: true,
-      coordinationActorActive: true,
+      coordinationSynced: false,
+      coordinationActorActive: false,
       activation,
     })).toBe(false);
+  });
+
+  it("allows join when coordination confirms even if relay publish failed", () => {
+    const activation = activationBase({
+      relay: {
+        status: "failed",
+        canonicalUrl: "ws://localhost:7000",
+        publishTargets: [],
+        lastError: "relay_events_missing",
+      },
+      coordination: { status: "failed", lastError: "already_active" },
+      summary: {
+        severity: "partial",
+        title: "Join recorded locally; network sync incomplete",
+        recovery: ["configure_relays"],
+      },
+    });
+    expect(isManagedWorkspaceJoinSuccessful({
+      roomKeyPresent: true,
+      coordinationSynced: false,
+      coordinationActorActive: true,
+      activation,
+    })).toBe(true);
   });
 
   it("allows coordination-only dev profile without relay sync", async () => {

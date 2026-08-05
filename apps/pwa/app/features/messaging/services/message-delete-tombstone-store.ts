@@ -14,12 +14,14 @@ import {
   type MessageDeleteTombstoneState,
 } from "@dweb/storage-contracts/message-delete-tombstones";
 import type { TombstoneRecord } from "@dweb/db";
+import { isTauri } from "@dweb/db";
 import {
-  dbDeleteAllTombstonesForProfile,
-  dbGetTombstones,
-  dbInsertTombstone,
-  isTauri,
-} from "@dweb/db";
+  deleteAllDmTombstones,
+  insertDmTombstone,
+  listDmTombstones,
+} from "@obscur/dm-engine";
+import { createTauriEngineHost } from "@obscur/engine-host/tauri";
+import type { HostEnginePort } from "@obscur/engine-contracts";
 import {
   capacitorDbDeleteAllTombstonesForProfile,
   capacitorDbGetTombstones,
@@ -41,6 +43,13 @@ export {
 const STORAGE_KEY = MESSAGE_DELETE_TOMBSTONE_STORAGE_KEY;
 
 let indexedDbPort: MessageDeleteTombstonePersistencePort | null = null;
+
+let dmTombstoneEngineHost: HostEnginePort | null = null;
+
+const getDmTombstoneEngineHost = (): HostEnginePort => {
+  dmTombstoneEngineHost ??= createTauriEngineHost();
+  return dmTombstoneEngineHost;
+};
 
 const getIndexedDbPort = (): MessageDeleteTombstonePersistencePort | null => {
   if (typeof indexedDB === "undefined") {
@@ -92,12 +101,17 @@ const persistMergedStateToSqlite = async (
   profileId: string,
   merged: MessageDeleteTombstoneState,
 ): Promise<void> => {
+  const host = getDmTombstoneEngineHost();
   for (const entry of merged.entries) {
-    await dbInsertTombstone({
-      event_id: entry.id,
-      profile_id: profileId,
-      deleted_at: entry.deletedAtUnixMs,
-      deleted_by: "",
+    await insertDmTombstone({
+      host,
+      profileId,
+      record: {
+        event_id: entry.id,
+        profile_id: profileId,
+        deleted_at: entry.deletedAtUnixMs,
+        deleted_by: "",
+      },
     });
   }
 };
@@ -106,7 +120,10 @@ const getTombstonesFromNativeSqlite = async (
   profileId: string,
 ): Promise<ReadonlyArray<TombstoneRecord>> => {
   if (isTauri()) {
-    return dbGetTombstones(profileId);
+    return listDmTombstones({
+      host: getDmTombstoneEngineHost(),
+      profileId,
+    });
   }
   return capacitorDbGetTombstones(profileId);
 };
@@ -133,7 +150,10 @@ const deleteAllTombstonesForNativeSqlite = async (
   profileId: string,
 ): Promise<void> => {
   if (isTauri()) {
-    await dbDeleteAllTombstonesForProfile(profileId);
+    await deleteAllDmTombstones({
+      host: getDmTombstoneEngineHost(),
+      profileId,
+    });
     return;
   }
   await capacitorDbDeleteAllTombstonesForProfile(profileId);
@@ -459,7 +479,10 @@ export const hydrateMessageDeleteTombstonesFromSqlite = async (
   // Desktop (Tauri) path is always available when `isTauri()` is true.
   if (isTauri()) {
     await runTauriTombstoneWork(async () => {
-      const rows = await dbGetTombstones(pid);
+      const rows = await listDmTombstones({
+        host: getDmTombstoneEngineHost(),
+        profileId: pid,
+      });
       const fromDb = tombstoneRecordsToState(rows, Date.now());
       const prev = nativeTombstoneCache.get(pid) ?? emptyMessageDeleteTombstoneState();
       nativeTombstoneCache.set(pid, mergeMessageDeleteTombstoneStates(prev, fromDb, Date.now()));

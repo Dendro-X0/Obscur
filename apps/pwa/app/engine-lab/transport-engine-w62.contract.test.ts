@@ -44,27 +44,26 @@ describe("transport-engine w62 — standalone legacy mechanical production subtr
     expect(subtracted).not.toContain(STANDALONE_LEGACY_PORT_IMPORT_TOKEN);
   });
 
-  it("keeps current port importing legacy while gate is closed", () => {
+  it("production port is thin subtracted re-export after W66", () => {
     const port = readFileSync(join(PWA_ROOT, STANDALONE_LEGACY_PORT_PATHS_TO_UPDATE[0]!), "utf8");
-    expect(port).toContain(STANDALONE_LEGACY_PORT_IMPORT_TOKEN);
-    expect(port).toContain("shouldRouteSubtractedStandalonePublishPort");
+    expect(port).not.toContain(STANDALONE_LEGACY_PORT_IMPORT_TOKEN);
     expect(port).toContain("relay-standalone-publish-port-subtracted");
   });
 
-  it("includes subtracted port readiness in dry-run baseline", () => {
+  it("includes subtracted port readiness in dry-run baseline after W66", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacySubtractionDryRun(recorded, createPwaFilesystem());
     expect(report.subtractedPortPresent).toBe(true);
     expect(report.subtractedPortOmitsLegacyImport).toBe(true);
-    expect(report.portImportsLegacy).toBe(true);
+    expect(report.portImportsLegacy).toBe(false);
     expect(report.readyForPhysicalDeletion).toBe(false);
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

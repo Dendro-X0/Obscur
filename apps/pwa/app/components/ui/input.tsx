@@ -1,1 +1,1 @@
-export { Input } from "@dweb/ui-kit";
+export { Input } from "@dweb/ui-kit/input";

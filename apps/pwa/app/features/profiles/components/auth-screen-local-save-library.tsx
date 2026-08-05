@@ -3,7 +3,7 @@
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { FolderOpen, FolderPlus, FolderSearch, Loader2, RefreshCw } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";

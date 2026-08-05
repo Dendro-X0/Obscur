@@ -2,8 +2,8 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Users, Search, Check } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";

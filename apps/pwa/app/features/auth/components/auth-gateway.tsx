@@ -23,7 +23,6 @@ import { resolvePortabilityPrivateKeyHex } from "@/app/features/auth/services/re
 import { PendingProfileImportResume } from "@/app/features/profiles/components/pending-profile-import-resume";
 import { ProfileIdentityDraftSyncOwner } from "@/app/features/profiles/components/profile-identity-draft-sync-owner";
 import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
-import { DevLabAuthBridge } from "@/app/features/dev-lab/dev-lab-auth-bridge";
 import {
   isAuthPublicProfileRoute,
   isPageReloadNavigation,
@@ -50,7 +49,7 @@ interface AuthGatewayProps {
 const AUTO_UNLOCK_TRANSIENT_RETRY_DELAY_MS = 1500;
 const AUTO_UNLOCK_MAX_TRANSIENT_RETRIES = 8;
 const RELOAD_UNLOCKED_HINT_SESSION_KEY = "obscur.reload.was_unlocked.v1";
-const RELOAD_RESTORE_OVERLAY_MAX_MS = 12_000;
+const RELOAD_RESTORE_OVERLAY_MAX_MS = 2_500;
 type TransientRetryState = Readonly<{
   count: number;
   nextRetryAtUnixMs: number;
@@ -79,12 +78,24 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const runtime = useWindowRuntime();
   const desktopProfileSnapshot = useDesktopProfileIsolationSnapshot();
   const [reloadRestoreOverlayUntilUnixMs, setReloadRestoreOverlayUntilUnixMs] = useState<number>(0);
+  const [bootRestoreSettleEpoch, setBootRestoreSettleEpoch] = useState(0);
+  const [reloadRestoreHardCapped, setReloadRestoreHardCapped] = useState(false);
   const isUnlocked = isProfileWindowUnlockedForAppShell({
     identityStatus: identity.state.status,
     publicKeyHex: identity.state.publicKeyHex,
     runtimePhase: runtime.snapshot.phase,
   });
   const isPublicProfileRoute = isAuthPublicProfileRoute(pathname) && hasNativeRuntime();
+  const clearReloadUnlockedHint = (): void => {
+    if (typeof window === "undefined" || !hasNativeRuntime()) {
+      return;
+    }
+    try {
+      window.sessionStorage.removeItem(RELOAD_UNLOCKED_HINT_SESSION_KEY);
+    } catch {
+      // best effort only
+    }
+  };
 
   useEffect(() => {
     if (identity.state.status !== "unlocked" || !identity.state.publicKeyHex) {
@@ -122,11 +133,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     // Prefer the auth-kernel boot restore owner's settle signal over a fixed timer.
     // This handles slow disk/network devices while still ensuring we don't hang forever.
     if (isAuthKernelBootRestoreSettled() || identity.state.status === "unlocked") {
-      try {
-        window.sessionStorage.removeItem(RELOAD_UNLOCKED_HINT_SESSION_KEY);
-      } catch {
-        // best effort only
-      }
+      clearReloadUnlockedHint();
       setReloadRestoreOverlayUntilUnixMs(0);
       return;
     }
@@ -145,7 +152,55 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
       return;
     }
     setReloadRestoreOverlayUntilUnixMs(Date.now() + RELOAD_RESTORE_OVERLAY_MAX_MS);
-  }, [identity.state.status, reloadRestoreOverlayUntilUnixMs]);
+  }, [identity.state.status, reloadRestoreOverlayUntilUnixMs, bootRestoreSettleEpoch]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasNativeRuntime() || !isPageReloadNavigation()) {
+      return;
+    }
+    const startupKind = runtime.snapshot.session.startupState.kind;
+    if (
+      startupKind === "native_restorable"
+      || startupKind === "pending"
+      || identity.state.status === "unlocked"
+    ) {
+      return;
+    }
+    // Fail closed quickly: once startup is no longer restorable, stop restore overlay.
+    setReloadRestoreOverlayUntilUnixMs(0);
+    setReloadRestoreHardCapped(true);
+    clearReloadUnlockedHint();
+  }, [runtime.snapshot.session.startupState.kind, identity.state.status]);
+
+  // Poll boot-restore settle so AuthGateway exits "Restoring session…" even when
+  // startup stays native_restorable after a failed/exhausted restore (AUTH-SESSION-1 fail-closed).
+  // Do not depend on settle epoch — that would re-arm the hard-cap forever while in-flight stays true.
+  useEffect(() => {
+    if (typeof window === "undefined" || !hasNativeRuntime() || !isPageReloadNavigation()) {
+      return;
+    }
+    if (isAuthKernelBootRestoreSettled() || identity.state.status === "unlocked") {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      if (isAuthKernelBootRestoreSettled() || getIdentitySnapshot().status === "unlocked") {
+        setBootRestoreSettleEpoch((previous) => previous + 1);
+        window.clearInterval(intervalId);
+        window.clearTimeout(hardCapId);
+      }
+    }, 250);
+    const hardCapId = window.setTimeout(() => {
+      setReloadRestoreHardCapped(true);
+      setReloadRestoreOverlayUntilUnixMs(0);
+      setBootRestoreSettleEpoch((previous) => previous + 1);
+      window.clearInterval(intervalId);
+      clearReloadUnlockedHint();
+    }, RELOAD_RESTORE_OVERLAY_MAX_MS);
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(hardCapId);
+    };
+  }, [identity.state.status]);
   const attemptedAutoUnlockProfileIdsRef = useRef<Set<string>>(new Set());
   const transientRetryStateByProfileIdRef = useRef<Record<string, TransientRetryState>>({});
   const [attemptedAutoUnlockProfileIds, setAttemptedAutoUnlockProfileIds] = useState<ReadonlyArray<string>>([]);
@@ -209,12 +264,20 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     && (!hasAttemptedForActiveProfile || isTransientRetryDue)
   );
   const bootRestoreEnabled = isAuthKernelBootRestoreEnabled(activeProfileId);
+  const bootRestoreSettled = isAuthKernelBootRestoreSettled();
   const isNativeReloadRestoreInFlight = (
     hasNativeRuntime()
     && isPageReloadNavigation()
+    && !bootRestoreSettled
     && (startupState.kind === "native_restorable" || startupState.kind === "pending")
     && Boolean(identity.state.stored?.publicKeyHex)
     && identity.state.status !== "unlocked"
+  );
+  // Epoch advances when settle poll fires so this gate re-renders after settle flips.
+  void bootRestoreSettleEpoch;
+  const showReloadRestoreOverlay = (
+    !reloadRestoreHardCapped
+    && (isNativeReloadRestoreInFlight || reloadRestoreOverlayUntilUnixMs > Date.now())
   );
 
   useEffect(() => {
@@ -527,12 +590,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   ]);
 
   if (isPublicProfileRoute) {
-    return (
-      <>
-        <DevLabAuthBridge />
-        {children}
-      </>
-    );
+    return <>{children}</>;
   }
 
   if (isUnlocked) {
@@ -547,7 +605,6 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
 
     return (
       <>
-        <DevLabAuthBridge />
         <PendingProfileImportResume
           publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
           resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
@@ -562,32 +619,22 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
 
   if (runtime.snapshot.phase === "unlocking") {
     return (
-      <>
-        <DevLabAuthBridge />
-        <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Unlocking profile…</p>
-        </div>
-      </>
+      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Unlocking profile…</p>
+      </div>
     );
   }
 
   // Native reload restore: avoid flashing the locked login UI while the device/native
   // session is still being reconciled (typically completes within ~1-2s).
-  if (isNativeReloadRestoreInFlight || (reloadRestoreOverlayUntilUnixMs > Date.now())) {
+  // Fail closed after settle / hard timeout — do not hang forever (AUTH-SESSION-1 cancelled).
+  if (showReloadRestoreOverlay) {
     return (
-      <>
-        <DevLabAuthBridge />
-        <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Restoring session…</p>
-        </div>
-      </>
+      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Restoring session…</p>
+      </div>
     );
   }
 
-  return (
-    <>
-      <DevLabAuthBridge />
-      <ProfileBoundAuthShell />
-    </>
-  );
+  return <ProfileBoundAuthShell />;
 };

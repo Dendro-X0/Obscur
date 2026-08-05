@@ -38,10 +38,12 @@ describe("legacy subtraction w24 — transport relay ports", () => {
     expect(hook).not.toContain("@/app/legacy/enhanced-relay-pool-legacy");
   });
 
-  it("invite transport publish routes through enhanced-relay-pool-port", () => {
+  it("invite transport publish routes through mesh transport bridge", () => {
     const invite = read("app/features/invites/utils/invite-manager.ts");
-    expect(invite).toContain("enhanced-relay-pool-port");
-    expect(invite).toContain("publishToUrlsStandalone");
+    expect(invite).toContain("configureInviteRequestTransportBridge");
+    expect(invite).toContain("inviteRequestTransportBridge");
+    expect(invite).not.toContain("publishToUrlsStandalone");
+    expect(invite).not.toContain("enhanced-relay-pool-port");
     expect(invite).not.toContain("enhanced-relay-pool-legacy");
   });
 

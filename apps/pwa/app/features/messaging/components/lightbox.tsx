@@ -2,7 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { AudioPlayer } from "./audio-player";
 import { VoiceNoteLightboxPlayer } from "./voice-note-lightbox-player";
 import { VideoPlayer } from "./video-player";

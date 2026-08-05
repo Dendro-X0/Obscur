@@ -108,12 +108,13 @@ const probeTcpOpen = (host, port, timeoutMs = 2000) => new Promise((resolve) => 
 
 const formatDuration = (ms) => `${Math.round(ms / 1000)}s`;
 
-const waitForService = async (label, probe, maxMs) => {
+const waitForService = async (label, probe, maxMs, options = {}) => {
   log(`waiting for ${label} (timeout ${formatDuration(maxMs)})…`);
   const result = await waitForReady(label, probe, {
     maxMs,
     pollMs: 750,
     progressEveryMs: 15_000,
+    shouldAbort: options.shouldAbort,
     onProgress: ({ elapsedMs, maxMs: limitMs }) => {
       log(`${label} still starting (${formatDuration(elapsedMs)} / ${formatDuration(limitMs)})…`);
     },
@@ -121,6 +122,10 @@ const waitForService = async (label, probe, maxMs) => {
   if (result.ok) {
     log(`${label} ready in ${formatDuration(result.elapsedMs)}`);
     return true;
+  }
+  if (result.aborted) {
+    log(`${label} aborted after ${formatDuration(result.elapsedMs)} — ${options.abortReason ?? "dependency exited"}`);
+    return false;
   }
   log(`${label} not ready after ${formatDuration(result.maxMs ?? maxMs)}`);
   return false;
@@ -213,14 +218,30 @@ const ensureRelay = async () => {
     log("relay already listening on :7000");
     return true;
   }
-  spawnBackground("relay", process.execPath, [
+  const relayChild = spawnBackground("relay", process.execPath, [
     path.join(repoRoot, "scripts", "dev-relay-docker.mjs"),
   ], { OBSCUR_USE_DOCKER_RELAY: "1" }, { shell: false });
+
+  let relayExited = false;
+  let relayExitCode = null;
+  relayChild.once("exit", (code) => {
+    relayExited = true;
+    relayExitCode = code;
+  });
+  // Node may have already exited before we attached (Docker-down fail-fast).
+  if (relayChild.exitCode != null || relayChild.killed) {
+    relayExited = true;
+    relayExitCode = relayChild.exitCode;
+  }
 
   return waitForService(
     "relay",
     () => probeTcpOpen("127.0.0.1", 7000),
     relayReadyTimeoutMs,
+    {
+      shouldAbort: () => relayExited,
+      abortReason: `relay process exited (code ${relayExitCode ?? "unknown"}) before :7000 opened`,
+    },
   );
 };
 

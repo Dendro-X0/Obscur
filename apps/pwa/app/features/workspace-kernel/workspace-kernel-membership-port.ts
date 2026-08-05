@@ -32,13 +32,17 @@ import {
 } from "@/app/features/groups/services/community-coordination-membership-directory-store";
 import type { CoordinationMembershipMaterialization } from "@/app/features/groups/services/community-coordination-membership-materializer";
 import { publishCoordinationMembershipDelta } from "@/app/features/groups/services/community-coordination-membership-client";
-import { publishSelfCoordinationRoomKeyWrapAfterJoin } from "@/app/features/groups/services/community-coordination-room-key-owner";
 import { isCoordinationConfigured } from "@/app/features/groups/services/community-membership-sync-mode";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
+  loadCommunityMembershipLedger,
   toCommunityMembershipLedgerEntryFromGroup,
 } from "@/app/features/groups/services/community-membership-ledger";
 import { persistCommunityMembershipLedgerMutation } from "@/app/features/groups/services/community-membership-mutation-owner";
+import {
+  clearDurableCommunityLeaveIntentOnExplicitRejoin,
+  isTerminalCommunityMembershipLedgerStatus,
+} from "@/app/features/groups/services/community-membership-leave-intent";
 import {
   resolveCommunityMembershipHealth,
   type CommunityMembershipHealth,
@@ -283,6 +287,10 @@ export const createManagedWorkspaceMembership = async (
     memberPubkey: myPublicKeyHex,
     actorPubkey: myPublicKeyHex,
     actorPrivateKeyHex: myPrivateKeyHex,
+    roomKeyWrap: {
+      groupId: info.groupId,
+      roomKeyHex,
+    },
   });
 
   const activationSummary = summarizeWorkspaceActivation({
@@ -346,16 +354,6 @@ export const createManagedWorkspaceMembership = async (
       groupId: info.groupId,
     },
   });
-  if (coordinationCreateConfirmed) {
-    await publishSelfCoordinationRoomKeyWrapAfterJoin({
-      communityId,
-      groupId: info.groupId,
-      memberPubkey: myPublicKeyHex,
-      actorPubkey: myPublicKeyHex,
-      actorPrivateKeyHex: myPrivateKeyHex,
-      roomKeyHex,
-    });
-  }
   persistCommunityMembershipLedgerMutation(
     myPublicKeyHex,
     {
@@ -510,6 +508,7 @@ export const joinManagedWorkspaceMembership = async (
     nip29JoinJson: params.nip29JoinJson,
     sealedJoinJson: params.sealedJoinJson,
     requireHealthyCoordination: true,
+    roomKeyHex: (await roomKeyStore.getRoomKey(params.groupId))?.trim() || params.roomKeyHex,
   });
 
   let coordinationDirectory = await refreshCoordinationMembershipDirectory({
@@ -572,16 +571,22 @@ export const joinManagedWorkspaceMembership = async (
     },
   });
 
-  if (coordinationSynced) {
-    await publishSelfCoordinationRoomKeyWrapAfterJoin({
-      communityId: params.communityId,
-      groupId: params.groupId,
-      memberPubkey: params.memberPubkey,
-      actorPubkey: params.actorPubkey,
-      actorPrivateKeyHex: params.actorPrivateKeyHex,
-      roomKeyHex: params.roomKeyHex,
-    });
-  }
+  const priorLedgerEntry = loadCommunityMembershipLedger(params.memberPubkey, { profileId }).find((entry) => (
+    entry.groupId.trim() === params.groupId.trim()
+  ));
+  const isExplicitRejoin = isTerminalCommunityMembershipLedgerStatus(priorLedgerEntry?.status);
+  const requestedDisplayName = params.displayName?.trim() || "";
+  const isKernelPlaceholderName = (name: string): boolean => (
+    name.length === 0
+    || name === params.groupId
+    || new RegExp(`^Community\\s+${params.groupId.slice(0, 8)}$`, "i").test(name)
+  );
+  const resolvedDisplayName = (
+    (requestedDisplayName && !isKernelPlaceholderName(requestedDisplayName) ? requestedDisplayName : undefined)
+    ?? priorLedgerEntry?.displayName?.trim()
+    ?? requestedDisplayName
+    ?? params.groupId
+  );
 
   const joinedGroup: GroupConversation = {
     kind: "group",
@@ -593,7 +598,7 @@ export const joinManagedWorkspaceMembership = async (
     communityId: params.communityId,
     groupId: params.groupId,
     relayUrl: activation.relay.canonicalUrl || relayUrl,
-    displayName: params.displayName ?? params.groupId,
+    displayName: resolvedDisplayName,
     memberPubkeys: [params.memberPubkey],
     lastMessage: "Joined workspace community",
     unreadCount: 0,
@@ -604,14 +609,24 @@ export const joinManagedWorkspaceMembership = async (
     communityMode: "managed_workspace",
   };
 
+  // REL-001: upsert merge keeps terminal `left` over `joined`. Explicit rejoin replaces the row.
+  const joinedEntry = toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" });
   persistCommunityMembershipLedgerMutation(
     params.memberPubkey,
     {
-      reason: "runtime_join_confirmed",
-      entry: toCommunityMembershipLedgerEntryFromGroup(joinedGroup, { status: "joined" }),
+      reason: isExplicitRejoin ? "explicit_rejoin" : "runtime_join_confirmed",
+      entry: joinedEntry,
     },
     { profileId },
   );
+  if (isExplicitRejoin) {
+    clearDurableCommunityLeaveIntentOnExplicitRejoin({
+      publicKeyHex: params.memberPubkey,
+      groupId: params.groupId,
+      relayUrl: activation.relay.canonicalUrl || relayUrl,
+      profileId,
+    });
+  }
   upsertWorkspaceGroupMetadata(params.memberPubkey, profileId, joinedGroup);
 
   const finalHealth = buildJoinHealthSnapshot({

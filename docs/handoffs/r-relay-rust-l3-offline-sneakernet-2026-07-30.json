@@ -1,0 +1,19 @@
+{
+  "at": "2026-07-30T17:12:14.347Z",
+  "results": [
+    {
+      "name": "cargo_l3_offline_sneakernet",
+      "ok": true,
+      "detail": "export→copy→import→dm visible · wrong-profile reject"
+    }
+  ],
+  "pass": true,
+  "recipe": "node scripts/l3-mesh-offline-sneakernet.mjs",
+  "claim": {
+    "maySay": "Offline path fixed (lab sneakernet)",
+    "mustNotSay": [
+      "air-gap product complete",
+      "BLE ready"
+    ]
+  }
+}

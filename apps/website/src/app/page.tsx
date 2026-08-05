@@ -86,6 +86,9 @@ export default async function Home() {
           <div className="section-header theater-chapter-header">
             <p className="eyebrow">Chapter I · Release</p>
             <h2>What is actually shipping right now</h2>
+            <p className="section-lead">
+              Browse the full release history in the <a href="/changelog">changelog</a>.
+            </p>
           </div>
           <div className="release-grid">
             {releaseHighlights.map((release) => (

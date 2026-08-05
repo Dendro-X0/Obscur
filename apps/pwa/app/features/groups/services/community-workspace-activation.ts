@@ -7,6 +7,7 @@ import { publishCommunityInviteRelayJoin } from "./community-invite-relay-join";
 import { describeCoordinationFetchError } from "./community-coordination-fetch";
 import { probeCoordinationHealth } from "./community-coordination-health";
 import { publishCoordinationMembershipDelta } from "./community-coordination-membership-client";
+import { publishSelfCoordinationRoomKeyWrapAfterJoin } from "./community-coordination-room-key-owner";
 import { hasWritableCommunityRelayTransport } from "./community-relay-transport";
 import { publishViaEphemeralLocalWorkspaceSocket } from "./local-workspace-relay-publish";
 import { isLocalWorkspaceRelayHost } from "./workspace-relay-url";
@@ -341,6 +342,11 @@ export const publishWorkspaceCoordinationJoinEvidence = async (params: Readonly<
   actorPubkey: PublicKeyHex;
   actorPrivateKeyHex: PrivateKeyHex;
   requireHealthy?: boolean;
+  /** Slice C — publish self room-key wrap after join delta syncs. */
+  roomKeyWrap?: Readonly<{
+    groupId: string;
+    roomKeyHex: string;
+  }>;
 }>): Promise<WorkspaceActivationCoordinationEvidence> => {
   ensureWorkspaceMembershipSyncMode();
   const health = await probeCoordinationHealth({ force: true });
@@ -366,6 +372,17 @@ export const publishWorkspaceCoordinationJoinEvidence = async (params: Readonly<
   });
 
   if (result.success) {
+    const wrap = params.roomKeyWrap;
+    if (wrap?.groupId.trim() && wrap.roomKeyHex.trim()) {
+      await publishSelfCoordinationRoomKeyWrapAfterJoin({
+        communityId: params.communityId,
+        groupId: wrap.groupId.trim(),
+        memberPubkey: params.memberPubkey,
+        actorPubkey: params.actorPubkey,
+        actorPrivateKeyHex: params.actorPrivateKeyHex,
+        roomKeyHex: wrap.roomKeyHex.trim(),
+      });
+    }
     return { status: "synced" };
   }
 
@@ -476,9 +493,11 @@ export const runWorkspaceMembershipActivation = async (params: Readonly<{
   includeRelay?: boolean;
   includeCoordination?: boolean;
   requireHealthyCoordination?: boolean;
+  roomKeyHex?: string;
 }>): Promise<WorkspaceMembershipActivationResult> => {
   const includeRelay = params.includeRelay ?? hasWritableCommunityRelayTransport(params.relayUrl);
   const includeCoordination = params.includeCoordination ?? true;
+  const roomKeyHex = params.roomKeyHex?.trim() ?? "";
 
   const [relay, coordination] = await Promise.all([
     includeRelay && params.nip29JoinJson && params.sealedJoinJson
@@ -503,6 +522,9 @@ export const runWorkspaceMembershipActivation = async (params: Readonly<{
         actorPubkey: params.actorPubkey,
         actorPrivateKeyHex: params.actorPrivateKeyHex,
         requireHealthy: params.requireHealthyCoordination,
+        roomKeyWrap: roomKeyHex
+          ? { groupId: params.groupId, roomKeyHex }
+          : undefined,
       })
       : Promise.resolve({ status: "skipped" } as WorkspaceActivationCoordinationEvidence),
   ]);

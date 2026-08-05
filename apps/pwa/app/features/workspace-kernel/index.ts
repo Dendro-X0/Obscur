@@ -23,6 +23,7 @@ export {
 } from "./workspace-kernel-com-msg-gate";
 export {
   assertWorkspaceLeaveRequiresRelayConfirmation,
+  leaveManagedWorkspaceMembership,
   publishWorkspaceKernelLeave,
 } from "./workspace-kernel-leave-port";
 export {

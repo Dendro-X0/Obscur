@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import type { CommunityMemberEvidenceTier } from "../utils/community-member-evidence-tier";
 import {
     resolveMembershipEvidenceChipPresentation,

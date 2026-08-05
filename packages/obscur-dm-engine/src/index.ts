@@ -5,6 +5,14 @@ export {
   type ListDmConversationsParams,
 } from "./dm-engine";
 export {
+  listDmTombstones,
+  insertDmTombstone,
+  deleteAllDmTombstones,
+  deleteDmMessages,
+  deleteDmMessage,
+  type DmTombstoneParams,
+} from "./dm-engine-tombstones";
+export {
   countDmMessageDirections,
   isDmMessageThreadOneSided,
   type DmDirectionProbe,

@@ -1,7 +1,7 @@
 "use client";
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
@@ -322,6 +322,10 @@ export function GlobalDialogManager() {
                 memberPubkey: myPublicKeyHex as PublicKeyHex,
                 actorPubkey: myPublicKeyHex as PublicKeyHex,
                 actorPrivateKeyHex: myPrivateKeyHex,
+                roomKeyWrap: {
+                    groupId,
+                    roomKeyHex,
+                },
             });
             const activationSummary = summarizeWorkspaceActivation({
                 relay: relayEvidence,

@@ -10,9 +10,7 @@ import {
     Settings as SettingsIcon,
     X,
 } from "lucide-react";
-import {
-    Button,
-} from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 import { QRCodeGenerator } from "@/app/components/invites/qr-code-generator";
 import { InviteLinkCreator } from "@/app/components/invites/invite-link-creator";

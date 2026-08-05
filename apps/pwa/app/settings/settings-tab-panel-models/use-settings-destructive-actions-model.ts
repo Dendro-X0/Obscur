@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useTranslation } from "react-i18next";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
@@ -11,10 +11,12 @@ import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { loadCommunityMembershipLedger, selectJoinedCommunityMembershipLedgerEntries, } from "@/app/features/groups/services/community-membership-ledger";
-import { persistExplicitCommunityMembershipLeave } from "@/app/features/groups/services/community-membership-coordinator";
 import { enqueueCommunityLeaveOutboxItem, recordCommunityLeaveRelayPublishOutcome, } from "@/app/features/groups/services/community-leave-outbox";
 import { toGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import type { GroupConversation } from "@/app/features/messaging/types";
+import { leaveManagedWorkspaceMembership } from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
+import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
+import { persistExplicitCommunityMembershipLeave } from "@/app/features/groups/services/community-membership-coordinator";
 import { resetLocalHistoryKeepingIdentity } from "@/app/features/messaging/services/local-history-reset-service";
 import { markRetiredIdentityPublicKey } from "@/app/features/auth/utils/retired-identity-registry";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -129,6 +131,7 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
         const groupService = new GroupService(publicKeyHex, identity.state.privateKeyHex as PrivateKeyHex);
         let leftPublishedCount = 0;
         let leftPublishFailureCount = 0;
+        const kernelLeave = isWorkspaceKernelAuthority();
         for (const entry of joinedEntries) {
             const groupId = entry.groupId.trim();
             const relayUrl = entry.relayUrl?.trim() ?? "";
@@ -136,12 +139,6 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
                 leftPublishFailureCount += 1;
                 continue;
             }
-            enqueueCommunityLeaveOutboxItem({
-                publicKeyHex,
-                groupId,
-                relayUrl,
-                communityId: entry.communityId,
-            });
             const group: GroupConversation = {
                 kind: "group",
                 id: toGroupConversationId({ groupId, relayUrl, communityId: entry.communityId }),
@@ -157,7 +154,31 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
                 memberCount: Math.max(1, entry.memberPubkeys?.length ?? 1),
                 adminPubkeys: entry.adminPubkeys ?? [],
                 avatar: entry.avatar,
+                communityMode: "managed_workspace",
             };
+            if (kernelLeave) {
+                // U4: bulk account-delete leave goes through leave port (network + local commit).
+                const leaveResult = await leaveManagedWorkspaceMembership({
+                    pool: poolRef.current as never,
+                    group,
+                    myPublicKeyHex: publicKeyHex,
+                    myPrivateKeyHex: identity.state.privateKeyHex as PrivateKeyHex,
+                    initialMembers: group.memberPubkeys,
+                    tombstone: true,
+                });
+                if (leaveResult.ok) {
+                    leftPublishedCount += 1;
+                } else {
+                    leftPublishFailureCount += 1;
+                }
+                continue;
+            }
+            enqueueCommunityLeaveOutboxItem({
+                publicKeyHex,
+                groupId,
+                relayUrl,
+                communityId: entry.communityId,
+            });
             persistExplicitCommunityMembershipLeave({
                 publicKeyHex,
                 group,
@@ -198,7 +219,7 @@ export function useSettingsDestructiveActionsModel(): Record<string, unknown> {
             }
         }
         return { joinedCount: joinedEntries.length, leftPublishedCount, leftPublishFailureCount };
-    }, [identity.state.privateKeyHex, publicKeyHex, publishScopedGroupEvent]);
+    }, [identity.state.privateKeyHex, poolRef, publicKeyHex, publishScopedGroupEvent]);
     const openProfileArchiveResultDialog = (
         archiveResult: ProfileWorkspaceArchiveWriteResult | null,
         mode: "clear_data" | "delete_account" | "delete_profile_window",

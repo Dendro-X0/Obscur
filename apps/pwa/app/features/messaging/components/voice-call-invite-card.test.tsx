@@ -131,6 +131,27 @@ describe("VoiceCallInviteCard", () => {
     expect(onRequestCallback).toHaveBeenCalledTimes(1);
   });
 
+  it("renders outgoing delivery failure instead of invitation sent", () => {
+    render(
+      <VoiceCallInviteCard
+        isOutgoing
+        deliveryStatus="failed"
+        invite={{
+          type: "voice-call-invite",
+          version: 1,
+          roomId: "dm-voice-room-fail",
+          invitedAtUnixMs: 1_777_777_777_000,
+          expiresAtUnixMs: 1_777_778_077_000,
+        }}
+      />
+    );
+
+    expect(screen.getByText("Failed to send voice call invitation.")).toBeInTheDocument();
+    expect(screen.getByText("Call failed")).toBeInTheDocument();
+    expect(screen.queryByText("Voice call invitation sent.")).not.toBeInTheDocument();
+    expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-rose-500/40");
+  });
+
   it("renders failed state for interrupted calls with failure reason", () => {
     render(
       <VoiceCallInviteCard

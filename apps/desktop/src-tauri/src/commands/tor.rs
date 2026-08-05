@@ -4,6 +4,7 @@ use tauri_plugin_shell::process::CommandEvent;
 // use std::sync::Mutex;
 use crate::models::tor::{TorSettings, TorRuntimeStatus, TorState, TorStatusSnapshot};
 use crate::net;
+use std::path::PathBuf;
 
 const TOR_LOG_BUFFER_LIMIT: usize = 200;
 
@@ -15,6 +16,43 @@ fn append_tor_log(state: &TorState, line: impl Into<String>) -> Result<(), Strin
         logs.drain(0..overflow);
     }
     Ok(())
+}
+
+fn parse_socks_port(proxy_url: &str) -> u16 {
+    let addr = proxy_url
+        .trim_start_matches("socks5h://")
+        .trim_start_matches("socks5://");
+    addr
+        .rsplit_once(':')
+        .and_then(|(_, port)| port.parse::<u16>().ok())
+        .unwrap_or(9050)
+}
+
+/// Writes a minimal torrc under app data so the packaged sidecar can boot without
+/// relying on the Expert Bundle default DataDirectory layout.
+fn prepare_packaged_tor_runtime(app: &AppHandle, proxy_url: &str) -> Result<PathBuf, String> {
+    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let tor_dir = app_dir.join("tor");
+    let data_dir = tor_dir.join("data");
+    std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+
+    let socks_port = parse_socks_port(proxy_url);
+    let data_dir_display = data_dir
+        .to_str()
+        .ok_or_else(|| "Tor DataDirectory path is not valid UTF-8".to_string())?
+        .replace('\\', "/");
+    let torrc_path = tor_dir.join("torrc");
+    let torrc = format!(
+        "DataDirectory \"{data_dir}\"\n\
+SocksPort {socks_port}\n\
+CookieAuthentication 0\n\
+ClientOnly 1\n\
+AvoidDiskWrites 1\n",
+        data_dir = data_dir_display,
+        socks_port = socks_port,
+    );
+    std::fs::write(&torrc_path, torrc).map_err(|e| e.to_string())?;
+    Ok(torrc_path)
 }
 
 async fn probe_tor_proxy(proxy_url: &str) -> bool {
@@ -146,7 +184,21 @@ pub async fn start_tor(
         return Ok("Tor is already running".to_string());
     }
 
-    let sidecar = app.shell().sidecar("tor").map_err(|e| e.to_string())?;
+    let proxy_url = {
+        let settings = state.settings.lock().map_err(|e| e.to_string())?;
+        settings.proxy_url.clone()
+    };
+    let torrc_path = prepare_packaged_tor_runtime(&app, &proxy_url)?;
+    let torrc_arg = torrc_path
+        .to_str()
+        .ok_or_else(|| "Tor torrc path is not valid UTF-8".to_string())?
+        .to_string();
+
+    let sidecar = app
+        .shell()
+        .sidecar("tor")
+        .map_err(|e| e.to_string())?
+        .args(["-f", &torrc_arg]);
     let (mut rx, child) = sidecar.spawn().map_err(|e| e.to_string())?;
 
     let app_handle = app.clone();
@@ -219,13 +271,32 @@ pub async fn start_tor(
     let mut lock = state.child.lock().map_err(|e| e.to_string())?;
     *lock = Some(child);
     drop(lock);
-    append_tor_log(&state, "Tor sidecar started. Waiting for bootstrap confirmation...")?;
+    append_tor_log(
+        &state,
+        format!(
+            "Tor sidecar started with torrc={} SocksPort={}. Waiting for bootstrap confirmation...",
+            torrc_arg,
+            parse_socks_port(&proxy_url)
+        ),
+    )?;
     let _ = app.emit(
         "tor-log",
         "Tor sidecar started. Waiting for bootstrap confirmation...",
     );
     set_tor_runtime_status(&app, &state, TorRuntimeStatus::Starting, Some(false))?;
     Ok("Tor started".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_socks_port;
+
+    #[test]
+    fn parse_socks_port_from_socks5h_url() {
+        assert_eq!(parse_socks_port("socks5h://127.0.0.1:9050"), 9050);
+        assert_eq!(parse_socks_port("socks5://127.0.0.1:9150"), 9150);
+        assert_eq!(parse_socks_port("invalid"), 9050);
+    }
 }
 
 #[tauri::command]

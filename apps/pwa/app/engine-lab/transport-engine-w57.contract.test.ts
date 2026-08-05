@@ -36,23 +36,22 @@ describe("transport-engine w57 — standalone legacy deletion subtraction", () =
     expect(policy).toContain("isStandaloneLegacyDeletionEnvApprovedForPolicy");
   });
 
-  it("wires blocked fallback via subtracted port delegation (W63 rehearsal)", () => {
+  it("wires production port as thin subtracted re-export after W66", () => {
     const port = readFromPwa("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("shouldRouteSubtractedStandalonePublishPort");
     expect(port).toContain("relay-standalone-publish-port-subtracted");
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
   });
 
-  it("blocks subtraction while recorded sign-off is BLOCKED", () => {
+  it("sign-off is PASS; deletion env still required for gate approval", () => {
     const recorded = readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-recorded.md");
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
     expect(isStandaloneLegacyDeletionApproved(recorded)).toBe(false);
     expect(shouldBlockStandaloneLegacyPublishFallback()).toBe(false);
   });
 
-  it("keeps legacy module and facade on disk while gate is closed", () => {
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(true);
-    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(true);
+  it("production legacy module and facade are absent after W66", () => {
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish-legacy.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/transport-kernel/transport-kernel-standalone-publish.ts"))).toBe(false);
   });
 });
 

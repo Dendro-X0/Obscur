@@ -19,20 +19,19 @@ describe("transport-engine w14 — dedicated native standalone publish owner", (
     expect(owner).toContain("quorumRequired");
   });
 
-  it("relay standalone publish port uses transport-kernel owner for native path", () => {
+  it("relay standalone publish port is thin subtracted re-export after W66", () => {
     const port = read("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("transport-kernel-standalone-publish-legacy");
-    expect(port).toContain("publishTransportKernelToRelay");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
+    expect(port).not.toContain("transport-kernel-standalone-publish-legacy");
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
+    expect(port).toContain("publishToRelayStandaloneSubtracted as publishToRelayStandalone");
+    expect(port).toContain("publishToUrlsStandaloneSubtracted as publishToUrlsStandalone");
   });
 
-  it("native standalone publish no longer delegates to legacy runtime on authority path", () => {
+  it("native standalone publish no longer embeds legacy runtime in production port", () => {
     const port = read("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("shouldUseLegacyStandaloneRelayPublish");
-    expect(port).toContain("publishLegacyToUrlsStandalone");
-    expect(port).toContain("publishLegacyToRelayStandalone");
-    expect(port).not.toMatch(/return await publishLegacyToUrlsStandalone\(normalized, payload\)/);
-    expect(port).not.toMatch(/return await publishLegacyToRelayStandalone\(normalized, payload\)/);
+    expect(port).not.toContain("shouldUseLegacyStandaloneRelayPublish");
+    expect(port).not.toContain("publishLegacyToUrlsStandalone");
+    expect(port).not.toContain("publishLegacyToRelayStandalone");
   });
 });
 

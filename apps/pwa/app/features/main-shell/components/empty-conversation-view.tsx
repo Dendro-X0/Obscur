@@ -2,8 +2,8 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Share2, Copy, Link as LinkIcon, Sparkles, Loader2, Info } from "lucide-react";
-import { Card } from "@dweb/ui-kit";
-import { Button } from "@dweb/ui-kit";
+import { Card } from "@dweb/ui-kit/card";
+import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 interface EmptyConversationViewProps {
     showWelcome: boolean;

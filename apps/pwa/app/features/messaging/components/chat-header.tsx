@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/button";
 import { useTranslation } from "react-i18next";
 import type { Conversation } from "../types";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
+import { resolvePeerDisplayName } from "../../profile/utils/resolve-peer-display-name";
 import { formatTime } from "../utils/formatting";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { getNotificationTargetEnabled, setNotificationTargetEnabled, type NotificationTarget, } from "../../notifications/utils/notification-target-preference";
@@ -24,6 +25,9 @@ export type ChatHeaderContactTrustSensitivity = Readonly<{
 export interface ChatHeaderProps {
     conversation: Conversation;
     groupMemberCount?: number;
+    /** U5 Wave B — labeled source for member count (directory snapshot vs known-here). */
+    groupMemberCountSource?: "directory" | "known_here";
+    groupMemberCountFetchedAtMs?: number | null;
     groupOnlineMemberCount?: number;
     groupLastActivityAtMs?: number;
     isOnline?: boolean;
@@ -63,11 +67,17 @@ export interface ChatHeaderProps {
     /** DM-only defense sensitivity — rendered inside the header block above the chat. */
     contactTrustSensitivity?: ChatHeaderContactTrustSensitivity;
 }
-export function ChatHeader({ conversation, groupMemberCount, groupOnlineMemberCount, groupLastActivityAtMs, isOnline = false, interactionStatus, nowMs, onCopyPubkey, onOpenMedia, onToggleConversationNotifications, onOpenInfo, onOpenProfile, onSendVoiceCallInvite, canSendVoiceCallInvite = true, isSendingVoiceCallInvite = false, activeVoiceCallState, voiceCallStatus, onLeaveVoiceCall, onAcceptIncomingVoiceCall, onDeclineIncomingVoiceCall, contactTrustSensitivity, }: ChatHeaderProps) {
+export function ChatHeader({ conversation, groupMemberCount, groupMemberCountSource, groupMemberCountFetchedAtMs, groupOnlineMemberCount, groupLastActivityAtMs, isOnline = false, interactionStatus, nowMs, onCopyPubkey, onOpenMedia, onToggleConversationNotifications, onOpenInfo, onOpenProfile, onSendVoiceCallInvite, canSendVoiceCallInvite = true, isSendingVoiceCallInvite = false, activeVoiceCallState, voiceCallStatus, onLeaveVoiceCall, onAcceptIncomingVoiceCall, onDeclineIncomingVoiceCall, contactTrustSensitivity, }: ChatHeaderProps) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
     const optionalProfileBus = useOptionalProfileMessageBus();
-    const resolvedName = metadata?.displayName || conversation.displayName;
+    const resolvedName = conversation.kind === "dm"
+        ? resolvePeerDisplayName({
+            pubkey: conversation.pubkey,
+            metadataDisplayName: metadata?.displayName,
+            fallbackDisplayName: conversation.displayName,
+        })
+        : (metadata?.displayName || conversation.displayName);
     const isDeletedRecipient = conversation.kind === "dm" && metadata?.isDeleted === true;
     const effectiveIsOnline = isOnline && !isDeletedRecipient;
     const [showPublicKeyControlsInChat, setShowPublicKeyControlsInChat] = React.useState<boolean>(() => (PrivacySettingsService.getSettings().showPublicKeyControlsInChat === true));
@@ -126,6 +136,18 @@ export function ChatHeader({ conversation, groupMemberCount, groupOnlineMemberCo
     const resolvedGroupMemberCount = groupMemberCount ?? (conversation.kind === "group"
         ? Math.max(conversation.memberCount ?? 0, conversation.memberPubkeys.length, 1)
         : 0);
+    const memberCountSourceHint = groupMemberCountSource === "directory"
+        ? (groupMemberCountFetchedAtMs
+            ? t("messaging.membersCountDirectoryFetchedHint", {
+                time: formatTime(new Date(groupMemberCountFetchedAtMs), resolvedNowMs),
+                defaultValue: "From membership directory, fetched {{time}}",
+            })
+            : t("messaging.membersCountDirectoryHint", {
+                defaultValue: "From membership directory (local snapshot)",
+            }))
+        : t("messaging.membersCountKnownHereHint", {
+            defaultValue: "Known on this device (not a full list)",
+        });
     const groupLastActivityLabel = (groupLastActivityAtMs
         ? formatTime(new Date(groupLastActivityAtMs), resolvedNowMs)
         : "");
@@ -196,18 +218,18 @@ export function ChatHeader({ conversation, groupMemberCount, groupOnlineMemberCo
                 ? (lastActiveLabel ? t("messaging.lastActive", { time: lastActiveLabel }) : t("messaging.noRecentActivity"))
                 : t("messaging.deletedAccountNoActivity")}
                             {!isDeletedRecipient && lastViewedLabel ? ` | ${t("messaging.lastViewed", { time: lastViewedLabel })}` : ""}
-                        </p>) : conversation.kind === "group" ? (<p className="mt-0.5 truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                            <span>
+                        </p>                        ) : conversation.kind === "group" ? (<p className="mt-0.5 truncate text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                            <span title={memberCountSourceHint} data-testid="chat-header-member-count">
                                 {t("messaging.membersCount", { count: resolvedGroupMemberCount })}
                             </span>
                             {groupOnlineMemberCount !== undefined ? (<>
                                     <span className="mx-1.5 text-zinc-400 dark:text-zinc-500">·</span>
-                                    <span className="inline-flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1.5" data-testid="chat-header-online-count">
                                         <span className={`h-1.5 w-1.5 rounded-full ${groupOnlineMemberCount > 0 ? "bg-emerald-500" : "bg-zinc-400 dark:bg-zinc-600"}`}/>
                                         <span className={groupOnlineMemberCount > 0 ? "text-emerald-600 dark:text-emerald-400" : ""}>
-                                            {t("messaging.groupOnlineCount", {
+                                            {t("messaging.groupOnlineHereCount", {
                     count: groupOnlineMemberCount,
-                    defaultValue: "{{count}} online",
+                    defaultValue: "{{count}} online here",
                 })}
                                         </span>
                                     </span>

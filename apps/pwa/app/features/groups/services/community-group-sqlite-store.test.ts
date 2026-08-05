@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupRecord } from "@dweb/db";
 import {
@@ -16,12 +16,15 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
 
 vi.mock("@dweb/db", () => ({
   isTauri: vi.fn(() => true),
-  dbUpsertGroup: vi.fn(async () => undefined),
-  dbGetGroups: vi.fn(async () => []),
+}));
+
+vi.mock("./workspace-group-persist-port", () => ({
+  listWorkspaceGroupRecords: vi.fn(async () => []),
+  upsertWorkspaceGroupRecord: vi.fn(async () => undefined),
 }));
 
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
-import { dbUpsertGroup } from "@dweb/db";
+import { upsertWorkspaceGroupRecord } from "./workspace-group-persist-port";
 
 const LOCAL = "a".repeat(64) as PublicKeyHex;
 
@@ -41,7 +44,12 @@ const sampleGroup = (): GroupConversation => ({
   adminPubkeys: [],
 });
 
-describe("community-group-sqlite-store (P3d)", () => {
+describe("community-group-sqlite-store (U2 Wave A)", () => {
+  beforeEach(() => {
+    vi.mocked(upsertWorkspaceGroupRecord).mockClear();
+    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+  });
+
   it("maps group conversation to sqlite record", () => {
     const record = groupConversationToSqliteRecord(sampleGroup(), "profile-a");
     expect(record).toMatchObject({
@@ -89,16 +97,14 @@ describe("community-group-sqlite-store (P3d)", () => {
     expect(merged[0]?.memberPubkeys).toHaveLength(2);
   });
 
-  it("schedules sqlite upsert when native persistence is required", async () => {
-    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
+  it("schedules workspace upsert when native persistence is required", async () => {
     scheduleNativeGroupListSync([sampleGroup()], "profile-a");
     await vi.waitFor(() => {
-      expect(dbUpsertGroup).toHaveBeenCalledTimes(1);
+      expect(upsertWorkspaceGroupRecord).toHaveBeenCalledTimes(1);
     });
   });
 
   it("syncPersistedGroupsToSqliteFromChatState upserts restored group list (B4-2)", async () => {
-    vi.mocked(requiresSqlitePersistence).mockReturnValue(true);
     const count = await syncPersistedGroupsToSqliteFromChatState([{
       id: "community:g1:wss://relay.test",
       groupId: "g1",
@@ -110,7 +116,7 @@ describe("community-group-sqlite-store (P3d)", () => {
       lastMessageTimeMs: 1_000,
     }], "profile-a");
     expect(count).toBe(1);
-    expect(dbUpsertGroup).toHaveBeenCalledWith(expect.objectContaining({
+    expect(upsertWorkspaceGroupRecord).toHaveBeenCalledWith(expect.objectContaining({
       id: "g1",
       profile_id: "profile-a",
     }));
@@ -118,8 +124,7 @@ describe("community-group-sqlite-store (P3d)", () => {
 
   it("skips sqlite sync when native persistence is not required", async () => {
     vi.mocked(requiresSqlitePersistence).mockReturnValue(false);
-    vi.mocked(dbUpsertGroup).mockClear();
     scheduleNativeGroupListSync([sampleGroup()], "profile-a");
-    expect(dbUpsertGroup).not.toHaveBeenCalled();
+    expect(upsertWorkspaceGroupRecord).not.toHaveBeenCalled();
   });
 });

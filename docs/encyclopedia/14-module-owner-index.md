@@ -1,6 +1,6 @@
 # 14 Module Owner Index
 
-_Last reviewed: 2026-06-25 (AUTH-K-AUTHORITY — auth-kernel runtime owner)._
+_Last reviewed: 2026-07-31 (relay transport owner → conduit mesh; see truth map)._
 
 ## Purpose
 
@@ -35,7 +35,9 @@ For relay foundation execution order and phase gates:
 | Startup auth-shell recovery lifecycle | `apps/pwa/app/features/runtime/components/profile-bound-auth-shell.tsx` |
 | Runtime activation/degraded transition | `apps/pwa/app/features/runtime/components/runtime-activation-manager.tsx` |
 | Relay runtime and recovery projection | `apps/pwa/app/features/relays/services/relay-runtime-supervisor.ts` |
-| Relay transport | `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts` |
+| Relay transport (product UI pool) | `useConduitMeshRelayPool` via `relay-pool-hook-port.ts` → `@obscur/conduit-mesh` |
+| Relay publish policy (native) | `apps/pwa/app/features/transport-kernel/transport-kernel-publish-port.ts` |
+| Relay transport residue (non-product) | `relay-browser-pool-runtime.ts` — web/standalone only; not product owner |
 | Messaging transport ownership invariant | `apps/pwa/app/features/messaging/services/messaging-transport-runtime.ts` |
 | Account sync orchestration | `apps/pwa/app/features/account-sync/hooks/use-account-sync.ts` |
 | Account backup publish/restore | `apps/pwa/app/features/account-sync/services/encrypted-account-backup-service.ts` |

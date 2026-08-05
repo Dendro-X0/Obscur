@@ -3,6 +3,9 @@ import { createRelayRecoveryMetricsRefresher } from "./relay-recovery-metrics-re
 
 const createPool = () => ({
   healthMetrics: [],
+  connections: [
+    { url: "wss://relay.one", status: "open" as const },
+  ],
   getWritableRelaySnapshot: vi.fn(() => ({
     writableRelayUrls: ["wss://relay.one"],
   })),

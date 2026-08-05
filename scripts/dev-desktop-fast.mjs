@@ -15,8 +15,10 @@ import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
 import {
   buildPwaDevStackFingerprint,
   freePwaDevPort,
+  probePortOpen,
   probePwaDevReady,
   probePwaDevStackFingerprint,
+  PWA_DEV_PORT,
   PWA_DEV_URL,
   waitForPwaDevReady,
 } from "./lib/dev-stack-probes.mjs";
@@ -58,6 +60,11 @@ const run = async () => {
       await sleep(1_000);
       alreadyReady = false;
     }
+  } else if (await probePortOpen("127.0.0.1", PWA_DEV_PORT, 1500)) {
+    // Accepts TCP but never returns HTML — classic hung webpack/Next on Windows.
+    log(`:3340 is listening but not serving HTML — freeing hung Next…`);
+    freePwaDevPort(repoRoot);
+    await sleep(1_000);
   }
 
   if (!alreadyReady) {

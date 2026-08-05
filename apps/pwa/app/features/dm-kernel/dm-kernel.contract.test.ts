@@ -8,10 +8,6 @@ vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
   requiresSqlitePersistence: vi.fn(() => true),
 }));
 
-vi.mock("@dweb/db", () => ({
-  dbGetMessages: vi.fn(async () => []),
-}));
-
 describe("dm-kernel policy", () => {
   it("is active on native runtime by default", () => {
     expect(isDmKernelAuthority()).toBe(true);

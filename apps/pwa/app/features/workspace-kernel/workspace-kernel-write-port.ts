@@ -34,7 +34,7 @@ export type SendWorkspaceKernelGroupMessageParams = Readonly<{
 }>;
 
 export type SendWorkspaceKernelGroupMessageResult = Readonly<
-  | { ok: true; message: Message }
+  | { ok: true; message: Message; relayPublished: boolean }
   | { ok: false; errorMessage: string }
 >;
 
@@ -42,7 +42,7 @@ export const isWorkspaceKernelWritePortReady = (): boolean => (
   isWorkspaceKernelAuthority() && isTauri()
 );
 
-/** Sole outbound managed-workspace send — sealed event → relay → SQLite append. */
+/** Sole outbound managed-workspace send — sealed event → SQLite append → relay publish. */
 export const sendWorkspaceKernelGroupMessage = async (
   params: SendWorkspaceKernelGroupMessageParams,
 ): Promise<SendWorkspaceKernelGroupMessageResult> => {
@@ -58,23 +58,12 @@ export const sendWorkspaceKernelGroupMessage = async (
     replyTo: params.replyToMessageId,
   });
 
-  try {
-    await params.publishSealedEvent({ relayUrl: params.relayUrl, event });
-  } catch (error) {
-    logWorkspaceKernelDiagnostic("workspace.path_conflict", {
-      path: "write-port.publish",
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return {
-      ok: false,
-      errorMessage: error instanceof Error ? error.message : "relay_publish_failed",
-    };
-  }
-
   const createdAtUnixSeconds = typeof event.created_at === "number"
     ? event.created_at
     : Math.floor(Date.now() / 1000);
 
+  // Persist with signed nostr event id before relay publish so reload durability
+  // does not depend on writable relays (B — optimistic group-send durability).
   await commitSealedGroupMessages({
     conversationId: params.conversationId,
     groupId: params.groupId,
@@ -103,7 +92,21 @@ export const sendWorkspaceKernelGroupMessage = async (
       : undefined,
   };
 
-  return { ok: true, message };
+  try {
+    await params.publishSealedEvent({ relayUrl: params.relayUrl, event });
+  } catch (error) {
+    logWorkspaceKernelDiagnostic("workspace.path_conflict", {
+      path: "write-port.publish",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      ok: true,
+      message: { ...message, status: "sending" },
+      relayPublished: false,
+    };
+  }
+
+  return { ok: true, message, relayPublished: true };
 };
 
 export type RemoveWorkspaceKernelGroupMessageParams = Readonly<{

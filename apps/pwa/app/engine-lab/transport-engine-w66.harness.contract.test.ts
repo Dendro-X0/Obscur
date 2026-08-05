@@ -28,18 +28,19 @@ describe("transport-engine w66 — mechanical subtraction commit harness", () =>
     );
     expect(w65).toContain("STANDALONE_LEGACY_GATE_CLOSED_EXISTENCE_PIN_CONTRACTS");
     expect(w66).toContain("preCommitBaselineReady");
-    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF))).toBe("PASS");
   });
 
-  it("opens mechanical commit readiness only when sign-off PASS and env approval are both set", () => {
+  it("mechanical commit readiness is closed after W66 (legacy already subtracted)", () => {
     const passSignOff = "**Decision:** PASS\n";
     const fs = createPwaFilesystem();
 
     vi.stubEnv("NEXT_PUBLIC_OBSCUR_TRANSPORT_STANDALONE_LEGACY_DELETION_APPROVED", "1");
     const approved = evaluateStandaloneLegacyMechanicalSubtractionCommitReadiness(passSignOff, fs);
     expect(isStandaloneLegacyDeletionApproved(passSignOff)).toBe(true);
-    expect(approved.preCommitBaselineReady).toBe(true);
-    expect(approved.readyForMechanicalSubtractionCommit).toBe(true);
+    expect(approved.preCommitBaselineReady).toBe(false);
+    expect(approved.postSubtractionComplete).toBe(true);
+    expect(approved.readyForMechanicalSubtractionCommit).toBe(false);
     vi.unstubAllEnvs();
 
     const blocked = evaluateStandaloneLegacyMechanicalSubtractionCommitReadiness(passSignOff, fs);

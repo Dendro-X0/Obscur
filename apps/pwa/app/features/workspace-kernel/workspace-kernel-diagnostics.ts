@@ -3,6 +3,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 export type WorkspaceKernelDiagnosticEvent =
   | "workspace.membership.load"
   | "workspace.leave.rejected"
+  | "workspace.leave.committed"
   | "workspace.thread.hydrate"
   | "workspace.path_conflict"
   | "workspace.legacy_path_blocked"

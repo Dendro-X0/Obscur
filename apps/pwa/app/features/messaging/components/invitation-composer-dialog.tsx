@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import {
-  Button,
-} from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { AlertTriangle, Loader2, Send, Shield, WifiOff, X } from "lucide-react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import {
@@ -24,7 +22,7 @@ import {
   IdentityBindingPanel,
   type IdentityBindingResolverSource,
 } from "@/app/features/security";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 
 type InvitationComposerDialogProps = Readonly<{
   isOpen: boolean;

@@ -7,7 +7,7 @@ import {
   handleMeshHttpGatewayRequest,
   handleMeshHttpGatewayStreamRequest,
   type MeshHttpGatewayStore,
-} from "@obscur/conduit-mesh";
+} from "@obscur/conduit-mesh/gateway";
 import { CUSTOM_CONDUIT_HTTP_PATHS } from "@obscur/conduit-mesh-contracts";
 
 export type StartMeshHttpGatewayServerParams = Readonly<{

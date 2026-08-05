@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useId, useMemo } from "react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { buildRecordingWavePath } from "@/app/features/messaging/services/voice-recording-waveform-level";
 import type { VoiceRecordingWaveformState } from "@/app/features/messaging/hooks/use-voice-recording-waveform";
 

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { AuthScreen } from "@/app/features/auth/components/auth-screen";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { startupAuthStateHasStoredIdentity } from "@/app/features/auth/services/startup-auth-state-contracts";
-import { Button } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { resolveProfileBootStallTimeoutMs } from "@/app/features/runtime/services/profile-boot-stall-policy";

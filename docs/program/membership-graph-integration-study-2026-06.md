@@ -1,7 +1,7 @@
 # Membership graph — integration study (2026-06)
 
-**Status:** Active research — **no community reconcile/roster patches** until this study drives R6 or maintainer un-pauses  
-**Last updated:** 2026-07-03 (UTC)  
+**Status:** Superseded for un-pause decision by [community-unpause-integration-study-2026-07.md](../../specs/backend/community-unpause-integration-study-2026-07.md) (2026-07-31) — **band still PAUSED**. This 2026-06 graph study remains the Layer 0–2 model and cancelled roster-parity rationale.  
+**Last updated:** 2026-07-31 (UTC) — pointer to July un-pause study; no feature un-pause.  
 **Maintainer cancellation (2026-07-03):** **COM-RUN-02 room-key restore / UX gates — CANCELLED.** Do not patch restore, repair, or reintroduce room-key-as-gate. Redesign charter: [community-membership-redesign-charter-2026-07.md](./community-membership-redesign-charter-2026-07.md). **COM-RUN-01 roster parity remains cancelled** (§2.1).
 **Trigger:** Resume membership research across DMs (connection requests, re-add), community invite DMs, and managed workspace join — **new lens: unified graph**, not isolated group patches  
 **Related:** [community-relay-technical-issues-register-2026-06.md](./community-relay-technical-issues-register-2026-06.md) · [community-verification-com-mem-2-spec-2026-06.md](../archive/program/inactive-2026-06/community-verification-com-mem-2-spec-2026-06.md) · [modular-iteration-contract.md](./modular-iteration-contract.md) · exploration [M1](../exploration/modules/01-community-groups.md) · [M2](../exploration/modules/02-messaging-dm.md)

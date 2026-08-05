@@ -35,8 +35,9 @@ export const isManagedWorkspaceJoinSuccessful = (
     return false;
   }
 
-  // R4: full-stack profiles require relay publish evidence when URL is writable.
-  if (!devCoordinationOnly && writableRelayUrl && !relaySynced) {
+  // R4: writable Nostr URL normally needs relay publish evidence — unless coordination
+  // already confirms the actor (rejoin / already_active / directory materialization).
+  if (!devCoordinationOnly && writableRelayUrl && !relaySynced && !coordinationJoinConfirmed) {
     return false;
   }
 

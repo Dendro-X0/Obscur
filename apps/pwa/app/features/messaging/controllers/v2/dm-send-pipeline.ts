@@ -171,13 +171,14 @@ const buildSendConfirmation = (params: Readonly<{
 }>): SendConfirmation => {
   const openRelayCount = countOpenRelays(params.pool);
   const writableRelayCount = resolveWritableRelayCount(params.pool);
+  // P-evidence (v1.9.15 D2): fire-and-forget sendToOpen is not relay acceptance.
   const partialWireDelivery = params.firedToOpenCount > 0 && !params.publishSuccess;
-  const effectiveSuccess = params.publishSuccess || params.firedToOpenCount > 0;
+  const effectiveSuccess = params.publishSuccess;
   // DM transport quorum is 1 writable relay (see dm-relay-transport MIN_QUORUM).
   // Partial redundancy (e.g. 1/2 relays) is not a user-facing failure when publish succeeded.
   const deliveryStatus = params.publishSuccess
     ? "sent_quorum" as const
-    : (params.firedToOpenCount > 0 ? "sent_partial" as const : "failed" as const);
+    : ("failed" as const);
   const reasonCode = effectiveSuccess
     ? undefined
     : inferRelayPublishReasonCode({
@@ -281,17 +282,22 @@ export const sendDm = async (params: Readonly<{
       dmReceivePipelineInternals.markProcessed(dedupSet, build.signedEvent.id);
     }
 
-    // --- Phase 1: Fire immediately via sendToOpen for instant delivery ---
+    // --- Phase 1: Fire-and-forget only when caller is NOT waiting on OK ---
+    // When onConfirmed is set, Phase-2 publishToRelays owns the single EVENT + OK waiter.
+    // Dual-sending here races: OK for sendToOpen can arrive before the waiter is registered,
+    // then confirmation times out → partialWire / peer miss (voice invite A↔B invisible).
     const eventPayload = JSON.stringify(["EVENT", build.signedEvent]);
     let firedToOpenCount = 0;
-    try {
-      pool.sendToOpen(eventPayload);
-      firedToOpenCount = pool.connections.filter(c => c.status === "open").length;
-    } catch {
-      // sendToOpen is best-effort; publishToRelays below handles confirmation
+    if (!onConfirmed) {
+      try {
+        pool.sendToOpen(eventPayload);
+        firedToOpenCount = pool.connections.filter(c => c.status === "open").length;
+      } catch {
+        // sendToOpen is best-effort; publishToRelays below handles confirmation
+      }
     }
 
-    // --- Phase 2: Background relay confirmation ---
+    // --- Phase 2: Relay confirmation (canonical path when onConfirmed is set) ---
     // Resolve relay targets for confirmed publish
     const targetRelayUrls = resolveTargetRelayUrls({
       pool,
@@ -302,6 +308,8 @@ export const sendDm = async (params: Readonly<{
     });
 
     // Fire background confirmation — do NOT block on it (when onConfirmed is set)
+    // Phase-1 thin refactor: do not warm/forceReconnect here — that tore down open
+    // NativeRelay sockets and cancelled Rust pending OK waiters (dial storm).
     let capturedConfirmation: SendConfirmation | null = null;
 
     const confirmationPromise = publishToRelays({
@@ -361,16 +369,21 @@ export const sendDm = async (params: Readonly<{
     }
 
     // Return immediately — confirmation arrives via callback.
-    // Only treat as optimistic success when sendToOpen had open relay evidence.
-    const hasWireEvidence = firedToOpenCount > 0;
+    // P-evidence: open sockets / sendToOpen are not OK ACKs; stay pending (success false)
+    // so UI keeps "sending" until onConfirmed with publish evidence.
+    // Use pending_ack (not failed) so callers that await Phase-1 do not treat in-flight as hard fail.
     return {
-      success: hasWireEvidence,
-      deliveryStatus: hasWireEvidence ? "sent_partial" : "sent_partial",
+      success: false,
+      deliveryStatus: "pending_ack",
       messageId: build.canonicalEventId,
       eventId: build.signedEvent.id,
       relayResults: pool.connections
         .filter(c => c.status === "open")
-        .map(c => ({ relayUrl: c.url, success: true })),
+        .map(c => ({
+          relayUrl: c.url,
+          success: false,
+          error: "awaiting_relay_ok_ack",
+        })),
     };
   } catch (err) {
     console.error("[dm-send] pipeline error", err);

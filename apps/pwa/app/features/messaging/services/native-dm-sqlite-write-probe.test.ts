@@ -1,41 +1,34 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { MessageRecord } from "@dweb/db";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { probeDmKernelWrite } from "@/app/features/dm-kernel/dm-kernel-write-port";
 
-let insertedRecord: MessageRecord | null = null;
-
-vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
-  requiresSqlitePersistence: vi.fn(() => true),
-}));
-
-vi.mock("@dweb/db", () => ({
-  isTauri: vi.fn(() => true),
-  dbInsertMessage: vi.fn(async (record: MessageRecord) => {
-    insertedRecord = record;
-  }),
-  dbGetMessages: vi.fn(async () => (insertedRecord ? [insertedRecord] : [])),
-}));
-
-vi.mock("@/app/features/profiles/services/profile-runtime-scope", () => ({
-  getResolvedProfileId: vi.fn(() => "default"),
+vi.mock("@/app/features/dm-kernel/dm-kernel-write-port", () => ({
+  probeDmKernelWrite: vi.fn(),
 }));
 
 describe("probeNativeDmSqliteWrite", () => {
-  beforeEach(async () => {
-    insertedRecord = null;
-    vi.clearAllMocks();
-    vi.resetModules();
+  beforeEach(() => {
+    vi.mocked(probeDmKernelWrite).mockReset();
   });
 
-  it("returns roundtrip_ok when insert and read succeed", async () => {
+  it("delegates to dm-kernel write probe", async () => {
+    vi.mocked(probeDmKernelWrite).mockResolvedValue({
+      ok: true,
+      reason: "roundtrip_ok",
+      errorMessage: null,
+    });
     const { probeNativeDmSqliteWrite } = await import("./native-dm-sqlite-write-probe");
     const result = await probeNativeDmSqliteWrite();
     expect(result.ok).toBe(true);
     expect(result.reason).toBe("roundtrip_ok");
+    expect(probeDmKernelWrite).toHaveBeenCalled();
   });
 
-  it("surfaces invoke failures", async () => {
-    const { dbInsertMessage } = await import("@dweb/db");
-    vi.mocked(dbInsertMessage).mockRejectedValueOnce(new Error("db_insert_message not allowed"));
+  it("surfaces kernel probe failures", async () => {
+    vi.mocked(probeDmKernelWrite).mockResolvedValue({
+      ok: false,
+      reason: "invoke_failed",
+      errorMessage: "db_insert_message not allowed",
+    });
     const { probeNativeDmSqliteWrite } = await import("./native-dm-sqlite-write-probe");
     const result = await probeNativeDmSqliteWrite();
     expect(result.ok).toBe(false);

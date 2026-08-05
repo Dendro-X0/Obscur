@@ -58,8 +58,11 @@ describe("P5 persistence authority gates", () => {
     const runtime = readSource("features/messaging/services/call-state-runtime.ts");
     const store = readSource("features/messaging/services/call-record-sqlite-store.ts");
 
-    expect(store).toContain("dbInsertCallRecord");
-    expect(store).toContain("dbGetCallRecords");
+    expect(store).toContain("upsertCallRecord");
+    expect(store).toContain("listCallRecords");
+    expect(store).toContain("@obscur/persistence-engine");
+    expect(store).not.toMatch(/\bdbInsertCallRecord\b/);
+    expect(store).not.toMatch(/\bdbGetCallRecords\b/);
     expect(runtime).toContain("persistTerminalCallRecordFromStatus");
     expect(runtime).toMatch(/call-end[\s\S]*mirrorTerminalCallToSqlite/);
   });
@@ -75,7 +78,8 @@ describe("P5 persistence authority gates", () => {
     expect(persistence).toContain("loadGroupThreadPageFromSqlite");
     expect(sqliteStore).toContain("listAccountSharedSqliteProfileIds");
     expect(sqliteStore).toContain("mergeGroupMessageRecordsForPage");
-    expect(appendOwner).toContain("dbInsertGroupMessage");
+    expect(appendOwner).toContain("insertWorkspaceGroupMessageRecord");
+    expect(appendOwner).not.toContain("dbInsertGroupMessage");
     const ingest = readSource("features/groups/services/group-thread-relay-ingest.ts");
     expect(ingest).toContain("appendGroupThreadMessage");
     expect(chatActions).toContain("await commitSealedGroupMessages");
@@ -109,9 +113,7 @@ describe("P5 persistence authority gates", () => {
     expect(hits[0]).toContain("dm-relay-transport.ts");
 
     const hydrateSources = [
-      "features/messaging/services/thread-history/hydrate-indexed-scan.ts",
-      "features/messaging/services/dm-conversation-hydrate-pipeline.ts",
-      "features/messaging/services/thread-history/hydrate-read-model.ts",
+      "features/messaging/services/thread-history/read-model.ts",
     ];
     hydrateSources.forEach((relativePath) => {
       const source = readSource(relativePath);

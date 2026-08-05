@@ -98,7 +98,6 @@ vi.mock("@/app/features/runtime/runtime-capabilities", async (importOriginal) =>
 
 vi.mock("@dweb/db", () => ({
   isTauri: () => nativeRuntimeMocks.isNative,
-  dbGetConversations: vi.fn(async () => nativeRuntimeMocks.sqliteConversations),
 }));
 
 vi.mock("@/app/features/dm-kernel/dm-kernel-sidebar-port", () => ({
@@ -470,6 +469,10 @@ describe("messaging-provider hydration scope resets", () => {
       expect(screen.getByTestId("connections").textContent).toContain("Account A Contact");
     });
 
+    // Flush post-hydrate effects that also call chat-state load (unread suppression).
+    await act(async () => {
+      await Promise.resolve();
+    });
     chatStateStoreMocks.load.mockClear();
 
     await act(async () => {

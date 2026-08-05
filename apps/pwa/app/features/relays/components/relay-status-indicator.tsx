@@ -33,7 +33,10 @@ export const resolveRelayStatusPresentation = (params: Readonly<{
       showPulse: false,
     };
   }
-  if (isRecovering || readiness === "recovering" || phase === "recovering" || phase === "connecting") {
+  if (
+    writableRelayCount === 0
+    && (isRecovering || readiness === "recovering" || phase === "recovering" || phase === "connecting")
+  ) {
     return {
       labelKey: "relays.connecting",
       labelFallback: "Connecting",
@@ -87,7 +90,10 @@ export function RelayStatusIndicator({ embedded = false }: Readonly<{ embedded?:
   const presentation = resolveRelayStatusPresentation({
     readiness: effectiveReadiness,
     phase: relayRuntime.phase,
-    writableRelayCount: relayRuntime.writableRelayCount,
+    writableRelayCount: Math.max(
+      relayRuntime.writableRelayCount,
+      pool.connections.filter((connection) => connection.status === "open").length,
+    ),
     isRecovering,
   });
   const statusLabel = t(presentation.labelKey, presentation.labelFallback);

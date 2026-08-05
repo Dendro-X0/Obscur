@@ -19,21 +19,24 @@ describe("legacy subtraction w39 — enhanced relay pool deleted from legacy", (
 
   it("enhanced relay pool legacy file stays deleted", () => {
     expect(existsSync(join(PWA_ROOT, "app/legacy/enhanced-relay-pool-legacy.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/relays/hooks/enhanced-relay-pool-legacy.ts"))).toBe(false);
+    expect(existsSync(join(PWA_ROOT, "app/features/relays/hooks/relay-browser-pool-runtime.ts"))).toBe(true);
   });
 
-  it("canonical relay pool lives in features without legacy imports", () => {
-    const source = read("app/features/relays/hooks/enhanced-relay-pool-legacy.ts");
-    expect(source).toContain("useLegacyEnhancedRelayPool");
+  it("browser pool runtime is non-product; mesh owns UI pool", () => {
+    const source = read("app/features/relays/hooks/relay-browser-pool-runtime.ts");
     expect(source).toContain("publishToUrlsStandalone");
     expect(source).toContain("enhanced-relay-pool-types");
+    expect(source).toContain("RUST-4c");
     expect(source).not.toMatch(/@\/app\/legacy\//);
   });
 
-  it("enhanced-relay-pool-port re-exports pool from features only", () => {
+  it("enhanced-relay-pool-port re-exports mesh pool + standalone publish", () => {
     const port = read("app/features/relays/hooks/enhanced-relay-pool-port.ts");
-    expect(port).toContain("./enhanced-relay-pool-legacy");
+    expect(port).toContain("useConduitMeshRelayPool");
+    expect(port).toContain("useLegacyEnhancedRelayPool");
+    expect(port).not.toContain("enhanced-relay-pool-legacy");
     expect(port).not.toMatch(/@\/app\/legacy\//);
-    expect(port).not.toContain("@/app/legacy/enhanced-relay-pool-legacy");
   });
 
   it("use-relay-pool routes through relay-pool-hook-port", () => {

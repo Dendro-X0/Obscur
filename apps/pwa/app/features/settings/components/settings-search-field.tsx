@@ -3,7 +3,7 @@ import React from "react";
 import { Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
-import { Input } from "@dweb/ui-kit";
+import { Input } from "@dweb/ui-kit/input";
 import { SEARCH_TARGET_FLASH_CLASS } from "@/app/shared/search-target-highlight";
 import { filterSettingsSearchEntries, type SettingsSearchEntry, } from "../services/settings-search-index";
 import { getSettingsTabNavMeta } from "@/app/settings/settings-nav";

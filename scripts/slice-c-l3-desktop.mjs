@@ -14,6 +14,12 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  NEWTEST2_GROUP_ID,
+  NEWTEST2_RELAY_URL,
+  deriveLegacyCommunityId,
+  resolveNewTest2RoomKeyHex,
+} from "./lib/coordination-room-key-wrap-fixture.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const pwaDir = path.join(repoRoot, "apps", "pwa");
@@ -53,20 +59,40 @@ async function main() {
   }
 
   if (!skipBackfill) {
-    log("Publishing coordination room-key wrap fixture (Tester1 self-wrap)...");
-    const backfill = spawnSync(
-      process.execPath,
-      [
-        path.join(repoRoot, "scripts", "publish-coordination-room-key-wrap-fixture.mjs"),
-        "--coordination",
-        coordinationUrl,
-      ],
-      { cwd: repoRoot, encoding: "utf8", env: process.env },
-    );
-    process.stdout.write(backfill.stdout ?? "");
-    process.stderr.write(backfill.stderr ?? "");
-    if (backfill.status !== 0) {
-      throw new Error("Fixture backfill failed — see output above");
+    log("Resolving NewTest 2 room key (prefer existing wraps)...");
+    const communityId = deriveLegacyCommunityId(NEWTEST2_GROUP_ID, NEWTEST2_RELAY_URL);
+    const roomKey = await resolveNewTest2RoomKeyHex({
+      coordinationBaseUrl: coordinationUrl,
+      communityId,
+      groupId: NEWTEST2_GROUP_ID,
+    });
+    log(`Room key source=${roomKey.roomKeySource} wrapSeq=${roomKey.wrapSeq ?? "n/a"}`);
+    if (roomKey.roomKeySource !== "existing_wrap") {
+      log("Publishing coordination room-key wrap fixture (Tester1 self-wrap)...");
+      const backfill = spawnSync(
+        process.execPath,
+        [
+          path.join(repoRoot, "scripts", "publish-coordination-room-key-wrap-fixture.mjs"),
+          "--coordination",
+          coordinationUrl,
+          "--room-key-hex",
+          roomKey.roomKeyHex,
+        ],
+        { cwd: repoRoot, encoding: "utf8", env: process.env },
+      );
+      process.stdout.write(backfill.stdout ?? "");
+      process.stderr.write(backfill.stderr ?? "");
+      if (backfill.status !== 0) {
+        throw new Error("Fixture backfill failed — see output above");
+      }
+    } else {
+      console.log(JSON.stringify({
+        ok: true,
+        communityId,
+        groupId: NEWTEST2_GROUP_ID,
+        wrapSeq: roomKey.wrapSeq,
+        roomKeySource: roomKey.roomKeySource,
+      }));
     }
   }
 
@@ -86,7 +112,7 @@ async function main() {
       env: {
         ...process.env,
         OBSCUR_CDP_URL: cdpUrl,
-        PLAYWRIGHT_BASE_URL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3340",
+        PLAYWRIGHT_BASE_URL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:1430",
         OBSCUR_RUNTIME_CAPTURE_REQUIRE_NATIVE: "1",
       },
       shell: process.platform === "win32",

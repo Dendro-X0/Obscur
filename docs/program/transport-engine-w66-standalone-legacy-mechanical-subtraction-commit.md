@@ -1,7 +1,7 @@
 # Transport Engine W66 — Standalone Legacy Mechanical Subtraction Commit
 
-**Status:** Mechanical subtraction commit manifest pinned; execution **BLOCKED** (sign-off `BLOCKED`)  
-**Last updated:** 2026-06-26  
+**Status:** Mechanical subtraction commit **executed** (sign-off PASS + deletion env; 2026-08-04)  
+**Last updated:** 2026-08-04  
 **Band:** ENGINE-LAB / transport-engine post-B5
 
 ## Goal
@@ -30,9 +30,11 @@ Unify **W64 file deletion**, **thin port copy**, and **W65 pin flip** into a sin
 
 ## Current state (W66)
 
-- Sign-off recorded file: `Decision: BLOCKED`.
-- Pre-commit baseline: **ready** (`preCommitBaselineReady: true`).
-- Mechanical commit: **not executed** (`postSubtractionComplete: false`).
+- Sign-off recorded file: `Decision: PASS` (maintainer chat `deletion`, 2026-08-04).
+- Mechanical commit: **executed** (`postSubtractionComplete: true`).
+- Production legacy files: **absent**.
+- Production port: thin re-export of `relay-standalone-publish-port-subtracted`.
+- Proof: `pnpm verify:transport-engine-w67` Pass · `pnpm verify:transport-engine-w68` Pass.
 
 ## Non-goals for W66 (gate closed)
 

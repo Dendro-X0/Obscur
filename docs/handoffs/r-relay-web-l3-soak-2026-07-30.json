@@ -1,0 +1,31 @@
+{
+  "at": "2026-07-31T05:13:46.064Z",
+  "preferredRelayUrl": "ws://127.0.0.1:7000",
+  "dockerRelayUp": true,
+  "mode": "docker_7000",
+  "results": [
+    {
+      "name": "product_relay_7000",
+      "ok": true,
+      "detail": "listening (Docker parity)"
+    },
+    {
+      "name": "mesh_active_escape_unit",
+      "ok": true,
+      "detail": "2 Pass"
+    },
+    {
+      "name": "vitest_web_mesh_pool",
+      "ok": true,
+      "detail": "mode=docker_7000 · configure→publish EVENT/OK · damus escape rejected"
+    }
+  ],
+  "pass": true,
+  "recipe": "node scripts/l3-mesh-web-soak.mjs",
+  "claim": {
+    "maySay": "Web/TS local mesh path fixed (lab · Docker :7000)",
+    "mustNotSay": [
+      "public Nostr fixed"
+    ]
+  }
+}

@@ -2,6 +2,17 @@
 
 import { Component, type ReactNode } from "react";
 
+declare global {
+  interface Window {
+    __OBSCUR_FATAL_BOUNDARY__?: {
+      active: boolean;
+      message: string;
+      stack?: string;
+      atUnixMs: number;
+    };
+  }
+}
+
 type ErrorBoundaryProps = {
   children: ReactNode;
 };

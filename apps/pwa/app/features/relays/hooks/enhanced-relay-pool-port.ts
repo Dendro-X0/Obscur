@@ -1,9 +1,11 @@
 "use client";
 
-/** Legacy WebSocket relay pool — features import this port until transport-engine owns the pool runtime. */
-export {
-  useLegacyEnhancedRelayPool,
-} from "./enhanced-relay-pool-legacy";
+/**
+ * Relay pool port — product UI uses conduit mesh; standalone publish stays explicit.
+ * RUST-4c: no legacy product orchestrator.
+ */
+
+export { useConduitMeshRelayPool as useLegacyEnhancedRelayPool } from "./use-conduit-mesh-relay-pool";
 
 export {
   publishToRelayStandalone,

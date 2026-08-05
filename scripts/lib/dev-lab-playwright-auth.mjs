@@ -42,48 +42,174 @@ export async function probeShellHealth(page) {
   return page.evaluate(() => window.obscurDevLab?.probeShellHealth?.() ?? null);
 }
 
+async function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function isLockedIdentitySurface(page) {
+  // Evaluate-only — avoid Playwright locator waits hanging CDP attach loops.
+  // Native rehydrate can leave identityStatus=locked while Settings/Chats chrome
+  // is already interactive — that is NOT a lock surface (Soft L3 Track A).
+  // Require passphrase UI / LockedIdentityView copy, not session status alone.
+  // Slice text — relay toast spam makes full body.innerText multi-second on CDP.
+  return withTimeout(page.evaluate(() => {
+    const root = document.querySelector("main") || document.body;
+    const text = (root?.innerText ?? "").slice(0, 8_000);
+    const hasPassword = Boolean(document.querySelector('input[type="password"]'));
+    if (/identity locked|unlock identity/i.test(text) && hasPassword) {
+      return true;
+    }
+    if (/identity locked/i.test(text) && /passphrase/i.test(text)) {
+      return true;
+    }
+    return false;
+  }), 15_000, "isLockedIdentitySurface").catch(() => false);
+}
+
 async function isAuthGateVisible(page) {
-  if (await page.getByRole("button", { name: AUTH_SUBMIT_PATTERN }).isVisible().catch(() => false)) {
+  if (await isLockedIdentitySurface(page)) {
     return true;
   }
-  if (await page.locator('input[type="password"]').first().isVisible().catch(() => false)) {
-    return true;
-  }
-  if (await page.getByPlaceholder(/nsec/i).first().isVisible().catch(() => false)) {
-    return true;
-  }
-  return page.getByText(/welcome back|enter your password/i).isVisible().catch(() => false);
+  return withTimeout(page.evaluate(() => {
+    const hasPassword = Boolean(document.querySelector('input[type="password"]'));
+    const buttons = [...document.querySelectorAll("button")].map((b) => (b.textContent ?? "").trim());
+    const hasUnlock = buttons.some((t) => /^(unlock|log in)$/i.test(t));
+    const hasNsec = Boolean(document.querySelector('input[placeholder*="nsec" i]'));
+    const root = document.querySelector("main") || document.body;
+    const text = (root?.innerText ?? "").slice(0, 8_000);
+    return hasPassword || hasUnlock || hasNsec || /welcome back|enter your password/i.test(text);
+  }), 15_000, "isAuthGateVisible").catch(() => false);
 }
 
 async function isAppShellVisible(page) {
-  const chatsLink = page.getByRole("link", { name: /^chats$/i });
-  const chatsButton = page.getByRole("button", { name: /^chats$/i });
-  if (await chatsLink.isVisible().catch(() => false)) {
-    return true;
-  }
-  if (await chatsButton.isVisible().catch(() => false)) {
-    return true;
-  }
-  for (const label of ["Settings", "Network", "Search", "Chats"]) {
-    const link = page.getByRole("link", { name: label, exact: true });
-    if (await link.isVisible().catch(() => false)) {
+  return withTimeout(page.evaluate(() => {
+    const hasPassword = Boolean(document.querySelector('input[type="password"]'));
+    // Password field means unlock gate — not interactive messenger chrome.
+    if (hasPassword) {
+      return false;
+    }
+    const links = [...document.querySelectorAll("a")].map((a) => (a.textContent ?? "").trim());
+    const buttons = [...document.querySelectorAll("button")].map((b) => (b.textContent ?? "").trim());
+    if (links.some((t) => /^chats$/i.test(t)) || buttons.some((t) => /^chats$/i.test(t))) {
       return true;
     }
+    if (["Settings", "Network", "Search", "Chats"].some((label) => links.includes(label))) {
+      return true;
+    }
+    // Native rehydrate can leave session.identityStatus=locked while OBSCUR chrome is usable
+    // (network profile / connection card) — treat as unlocked for Soft L3 / MCP attach.
+    // Prefer main content + slice — toast stacks make full body.innerText CDP-hostile.
+    const root = document.querySelector("main") || document.body;
+    const text = (root?.innerText ?? "").slice(0, 8_000);
+    if (
+      /OBSCUR/i.test(text)
+      && /(TESTER\s*[12]|CONNECTION PROFILE|DIRECT MESSAGES|Public contact|Friend Code|CONNECTED\s+\d|Resend Invitation)/i.test(text)
+    ) {
+      return true;
+    }
+    return false;
+  }), 15_000, "isAppShellVisible").catch(() => false);
+}
+
+export async function isShellUnlocked(page) {
+  try {
+    if (!page || page.isClosed()) {
+      return false;
+    }
+    const href = page.url();
+    // Profile picker is pre-shell — never treat as unlocked messenger.
+    if (/\/profiles(?:\/|$|\?)/i.test(href)) {
+      return false;
+    }
+    if (await isLockedIdentitySurface(page)) {
+      return false;
+    }
+    const health = await probeShellHealth(page);
+    if (health?.shellUnlocked === true && health?.rootFatalBoundary !== true) {
+      return true;
+    }
+    return isAppShellVisible(page);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Exit desktop profile picker into sign-in / messenger for Tester1 Soft L3.
+ * Prefer named Tester1 card; fall back to first profile-slot button.
+ */
+export async function enterMessengerFromProfilePicker(page, options = {}) {
+  const log = options.log ?? (() => undefined);
+  if (!/\/profiles(?:\/|$|\?)/i.test(page.url())) {
+    return false;
+  }
+  log("on /profiles — opening profile slot into messenger/sign-in");
+  // Prefer explicit Sign in here on Tester1 card (native stored_locked recovery).
+  const signIn = page.getByRole("button", { name: /Tester1.*Sign in here|Sign in here/i }).first();
+  if (await signIn.isVisible().catch(() => false)) {
+    await signIn.click().catch(() => undefined);
+    await page.waitForTimeout(2_500);
+    return true;
+  }
+  const testerCard = page.locator("button").filter({ hasText: /Tester1/i }).first();
+  if (await testerCard.isVisible().catch(() => false)) {
+    await testerCard.click().catch(() => undefined);
+    await page.waitForTimeout(2_000);
+    return true;
+  }
+  const slotCard = page.locator("button").filter({ hasText: /Profile slot|Default/i }).first();
+  if (await slotCard.isVisible().catch(() => false)) {
+    await slotCard.click().catch(() => undefined);
+    await page.waitForTimeout(2_000);
+    return true;
+  }
+  const firstCard = page.getByRole("button").nth(0);
+  if (await firstCard.isVisible().catch(() => false)) {
+    await firstCard.click().catch(() => undefined);
+    await page.waitForTimeout(2_000);
+    return true;
   }
   return false;
 }
 
-export async function isShellUnlocked(page) {
-  const health = await probeShellHealth(page);
-  if (health?.shellUnlocked === true && health?.rootFatalBoundary !== true) {
-    return true;
+async function submitPassphraseUnlock(page, account) {
+  const passwordInput = page.locator('input[type="password"]').first();
+  await passwordInput.click({ timeout: 5_000 });
+  await passwordInput.fill("");
+  await passwordInput.fill(account.password, { timeout: 5_000 });
+  const submitAuth = page.getByRole("button", { name: AUTH_SUBMIT_PATTERN });
+  if (await submitAuth.count() > 1) {
+    await submitAuth.last().click({ timeout: 5_000 });
+  } else {
+    await submitAuth.click({ timeout: 5_000 });
   }
-  return isAppShellVisible(page);
+  await page.waitForTimeout(2500);
 }
 
 async function submitAuthForm(page, account) {
-  const textInput = page.locator('input:not([type="password"]):not([type="hidden"])').first();
   const passwordInput = page.locator('input[type="password"]').first();
+  // Prefer passphrase-only when LockedIdentityView / IdentityCard is up (search chrome
+  // may still expose a non-password input that must not receive the username).
+  if (await isLockedIdentitySurface(page)) {
+    await submitPassphraseUnlock(page, account);
+    return;
+  }
+  const textInput = page.locator('input:not([type="password"]):not([type="hidden"])').first();
+  const hasUsernameField = await textInput.isVisible().catch(() => false);
+  if (!hasUsernameField) {
+    await submitPassphraseUnlock(page, account);
+    return;
+  }
   await textInput.click();
   await textInput.fill("");
   await textInput.pressSequentially(account.username, { delay: 25 });
@@ -101,19 +227,23 @@ async function submitAuthForm(page, account) {
 
 
 async function unlockViaAuthUi(page, account = TESTER1) {
-  if (await isAppShellVisible(page)) {
+  // Do not early-return on chrome alone — locked overlay can sit above nav.
+  if (await isShellUnlocked(page) && !(await isLockedIdentitySurface(page))) {
     return;
   }
 
-  const passwordInput = page.locator('input[type="password"]').first();
-  if (await passwordInput.isVisible().catch(() => false)) {
+  const hasPassword = await withTimeout(page.evaluate(() => {
+    return Boolean(document.querySelector('input[type="password"]'));
+  }), 5_000, "hasPassword").catch(() => false);
+
+  if (hasPassword) {
     await submitAuthForm(page, account);
     return;
   }
 
   const useKeyButton = page.getByRole("button", { name: /log in with key|private key|import key/i });
   if (await useKeyButton.isVisible().catch(() => false)) {
-    await useKeyButton.click();
+    await useKeyButton.click({ timeout: 5_000 });
     await page.waitForTimeout(500);
   }
 
@@ -122,11 +252,14 @@ async function unlockViaAuthUi(page, account = TESTER1) {
   if (!(await keyInput.isVisible().catch(() => false))) {
     return;
   }
-  await keyInput.fill(keyMaterial);
-  await page.getByRole("button", { name: /import/i }).first().click();
-  if (await passwordInput.isVisible().catch(() => false)) {
-    await passwordInput.fill(account.password);
-    await page.getByRole("button", { name: /unlock|continue|import|log in/i }).first().click();
+  await keyInput.fill(keyMaterial, { timeout: 5_000 });
+  await page.getByRole("button", { name: /import/i }).first().click({ timeout: 5_000 });
+  const passwordAfterImport = await withTimeout(page.evaluate(() => {
+    return Boolean(document.querySelector('input[type="password"]'));
+  }), 5_000, "passwordAfterImport").catch(() => false);
+  if (passwordAfterImport) {
+    await page.locator('input[type="password"]').first().fill(account.password, { timeout: 5_000 });
+    await page.getByRole("button", { name: /unlock|continue|import|log in/i }).first().click({ timeout: 5_000 });
   }
   await page.waitForTimeout(1500);
 }
@@ -152,8 +285,10 @@ export async function ensureDevLabAccountUnlocked(page, accountId, options = {})
   const log = options.log ?? (() => undefined);
   const timeoutMs = options.timeoutMs ?? 120_000;
   const deadline = Date.now() + timeoutMs;
+  let attempts = 0;
 
   while (Date.now() < deadline) {
+    attempts += 1;
     if (await isShellUnlocked(page)) {
       return;
     }
@@ -161,21 +296,29 @@ export async function ensureDevLabAccountUnlocked(page, accountId, options = {})
     await page.evaluate(async (id) => {
       await window.obscurDevLab?.unlock(id);
     }, accountId).catch(() => undefined);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(800);
     if (await isShellUnlocked(page)) {
       return;
     }
 
-    if (await isAuthGateVisible(page)) {
-      log(`unlocking ${account.username} via auth UI`);
-      await unlockViaAuthUi(page, account);
-      await page.waitForTimeout(2000);
+    const gate = await isAuthGateVisible(page);
+    const locked = await isLockedIdentitySurface(page);
+    if (gate || locked) {
+      log(`unlocking ${account.username} via auth UI (attempt ${attempts}, locked=${locked})`);
+      try {
+        await unlockViaAuthUi(page, account);
+      } catch (error) {
+        log(`unlock UI attempt failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      await page.waitForTimeout(1500);
       if (await isShellUnlocked(page)) {
         return;
       }
+    } else if (attempts === 1 || attempts % 5 === 0) {
+      log(`unlock wait: no auth gate yet (attempt ${attempts})`);
     }
 
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
   }
 
   throw new Error(`Timed out unlocking ${account.username} — start dev server (pnpm dev:desktop:online) and retry.`);

@@ -18,6 +18,12 @@ export {
   createDefaultTransportSnapshot,
 } from "./build-transport-snapshot";
 export {
+  mapRustMeshSnapshotToTransportSnapshot,
+  type RustMeshSnapshot,
+  type RustMeshPhase,
+  type RustMeshReadiness,
+} from "./map-rust-mesh-snapshot-to-transport-snapshot";
+export {
   createTransportEngine,
   type TransportEngine,
 } from "./transport-engine";
@@ -25,5 +31,6 @@ export {
   buildCheckpointRelayUrlSet,
   listConfiguredRelayUrls,
   listRelayCheckpoints,
+  upsertRelayCheckpoint,
   type TransportPersistenceParams,
 } from "./transport-persistence";

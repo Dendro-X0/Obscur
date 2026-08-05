@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Clock } from "lucide-react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { useCommunityLeaveOutboxIndex, resolveLeaveOutboxScopeId } from "../hooks/use-community-leave-outbox-index";
 import { resolveCommunityLeavePublishSurfaceCopy } from "../services/community-leave-publish-copy";
 

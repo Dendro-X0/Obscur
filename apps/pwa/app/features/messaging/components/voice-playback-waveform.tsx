@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import {
   resolveVoicePlaybackSeekPercent,
 } from "@/app/features/messaging/services/voice-playback-peaks";
@@ -10,7 +10,10 @@ const MIN_BAR_HEIGHT_PERCENT = 22;
 
 const resolvePeakTone = (isOutgoing: boolean, isPlayed: boolean): string => {
   if (isOutgoing) {
-    return isPlayed ? "bg-white/90" : "bg-white/35";
+    // Light mode: purple bubble → white bars. Dark mode: light bubble → purple bars.
+    return isPlayed
+      ? "bg-white/90 dark:bg-purple-600"
+      : "bg-white/35 dark:bg-purple-400/45";
   }
   return isPlayed
     ? "bg-gradient-to-b from-purple-600 via-purple-500 to-fuchsia-400 opacity-95"

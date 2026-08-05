@@ -1,6 +1,7 @@
 import type { RelayHealthMetrics } from "@/app/features/relays/hooks/relay-health-monitor";
 import type { RelayConnection } from "@/app/features/relays/hooks/relay-connection";
 import type { RelayRuntimePhase, RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 export type RelayUiStatus = "healthy" | "degraded" | "recovering" | "unavailable";
 
@@ -61,6 +62,44 @@ const isEventFlowStale = (params: Readonly<{
   return (params.nowUnixMs ?? Date.now()) - freshnessReferenceUnixMs > STALE_EVENT_WINDOW_MS;
 };
 
+/** True when mesh/transport lists this URL as publish-ready. */
+export const isRelayUrlPublishReady = (
+  url: string,
+  publishReadyRelayUrls: ReadonlyArray<string> | undefined,
+): boolean => {
+  if (!publishReadyRelayUrls || publishReadyRelayUrls.length === 0) {
+    return false;
+  }
+  return publishReadyRelayUrls.some((entry) => (
+    entry === url || workspaceRelayUrlsMatch(entry, url)
+  ));
+};
+
+/**
+ * When mesh can already publish on a URL but the thin WS snapshot is still
+ * connecting/closed, elevate UI connection to open so cards match working DMs.
+ * Keep explicit error status visible.
+ */
+export const resolveRelayUiConnection = (params: Readonly<{
+  url: string;
+  connection?: RelayConnection;
+  isPublishReady: boolean;
+}>): RelayConnection | undefined => {
+  const connection = params.connection;
+  if (connection?.status === "open" || connection?.status === "error") {
+    return connection;
+  }
+  if (!params.isPublishReady) {
+    return connection;
+  }
+  return {
+    url: connection?.url || params.url,
+    status: "open",
+    updatedAtUnixMs: connection?.updatedAtUnixMs ?? Date.now(),
+    errorMessage: connection?.errorMessage,
+  };
+};
+
 export const deriveRelayRuntimeStatus = (params: Readonly<{
   totalCount: number;
   openCount: number;
@@ -76,8 +115,9 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
 }>): RelayRuntimeStatus => {
   const totalCount = Math.max(0, params.totalCount);
   const openCount = Math.max(0, params.openCount);
-  const writableCount = Math.max(0, params.writableCount ?? openCount);
-  const subscribableCount = Math.max(0, params.subscribableCount ?? openCount);
+  // Open sockets count as publish-ready when mesh publishReady / writable lag (Local Dev Mesh soak).
+  const writableCount = Math.max(0, params.writableCount ?? 0, openCount);
+  const subscribableCount = Math.max(0, params.subscribableCount ?? 0, openCount);
   const effectiveConnectedCount = Math.max(openCount, writableCount);
   const phase = params.phase;
   const fallbackRelayCount = Math.max(0, params.fallbackRelayCount ?? 0);
@@ -98,7 +138,8 @@ export const deriveRelayRuntimeStatus = (params: Readonly<{
     };
   }
 
-  if (phase === "recovering" || phase === "connecting") {
+  // Only show starting/recovering chrome when there is still no open or writable evidence.
+  if ((phase === "recovering" || phase === "connecting") && effectiveConnectedCount === 0) {
     return {
       status: "recovering",
       label: phase === "recovering" ? "Relay recovery in progress" : "Relay connections starting",
@@ -178,18 +219,28 @@ export const deriveRelayNodeStatus = (params: Readonly<{
   isConfigured?: boolean;
   role?: "primary" | "standby";
   isActivePoolMember?: boolean;
+  /** Mesh/transport publish-ready — elevates UI when WS snapshot lags. */
+  isPublishReady?: boolean;
   runtimePhase?: RelayRuntimePhase;
   lastInboundEventAtUnixMs?: number;
   nowUnixMs?: number;
 }>): RelayNodeStatus => {
-  const { enabled, connection, metrics } = params;
+  const { enabled, metrics } = params;
+  const connection = resolveRelayUiConnection({
+    url: params.url,
+    connection: params.connection,
+    isPublishReady: Boolean(params.isPublishReady),
+  });
   const samples = getSampleCount(metrics);
+  const socketOpen = connection?.status === "open";
+  // "Active transport" means open primary only — never contradict a Disconnected badge (U1).
+  // Publish-ready overlay can open the socket for role labeling when mesh already delivers.
   const roleLabel = !enabled
     ? "Disabled"
     : params.isFallback
       ? "Fallback"
       : params.role === "primary"
-        ? "Active transport"
+        ? (socketOpen ? "Active transport" : "Primary (offline)")
         : params.isActivePoolMember
           ? "Pool member"
           : params.role === "standby"
@@ -286,7 +337,7 @@ export const deriveRelayNodeStatus = (params: Readonly<{
       return {
         status: "degraded",
         badge: "Quiet",
-        detail: "Socket is open. This window is idle (no recent events) — not high latency. Send or wait for traffic; see Connect/RTT on the latency badge.",
+        detail: "Socket open — window idle, not high latency.",
         roleLabel,
         successLabel,
         confidenceLabel,
@@ -325,8 +376,10 @@ export const deriveRelayNodeStatus = (params: Readonly<{
     status: "unavailable",
     badge: "Disconnected",
     detail: params.role === "standby"
-      ? "Not in the active transport pool. Enable and reorder relays, or wait for automatic failover when the primary fails."
-      : "This relay is configured but does not currently have an active socket.",
+      ? "Not in the active transport pool."
+      : params.role === "primary"
+        ? "Selected primary — no open socket yet."
+        : "No active socket.",
     roleLabel,
     successLabel,
     confidenceLabel,

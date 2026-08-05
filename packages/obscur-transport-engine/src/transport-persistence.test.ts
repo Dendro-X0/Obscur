@@ -4,6 +4,7 @@ import {
   buildCheckpointRelayUrlSet,
   listConfiguredRelayUrls,
   listRelayCheckpoints,
+  upsertRelayCheckpoint,
 } from "./transport-persistence";
 
 const hostWith = (handler: HostEnginePort["invoke"]): HostEnginePort => ({
@@ -38,6 +39,28 @@ describe("transport persistence SDK", () => {
     });
     const urls = await listConfiguredRelayUrls({ host, profileId: "default" });
     expect(urls).toEqual(["wss://team.relay", "wss://backup.relay"]);
+  });
+
+  it("upsertRelayCheckpoint invokes transport engine method", async () => {
+    const host = hostWith(async (request) => {
+      expect(request.engine).toBe("transport");
+      expect(request.method).toBe("upsertRelayCheckpoint");
+      expect(request.payload).toEqual({
+        profile_id: "default",
+        relay_url: "wss://team.relay",
+        last_event_at: 99,
+      });
+      return { ok: true, data: { upserted: true } };
+    });
+    await upsertRelayCheckpoint({
+      host,
+      profileId: "default",
+      checkpoint: {
+        profile_id: "default",
+        relay_url: "wss://team.relay",
+        last_event_at: 99,
+      },
+    });
   });
 
   it("buildCheckpointRelayUrlSet dedupes trimmed urls", () => {

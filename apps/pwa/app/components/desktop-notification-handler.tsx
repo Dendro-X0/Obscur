@@ -27,6 +27,7 @@ import {
     buildIncomingCallNotificationPresentation,
     buildMessageNotificationPresentation,
 } from "@/app/features/notifications/utils/notification-presentation";
+import { resolveNotificationPeerIconUrl } from "@/app/features/notifications/utils/notification-peer-icon";
 import { formatConversationMessagePreview } from "@/app/features/messaging/services/format-conversation-message-preview";
 import { isTauri } from "@/app/lib/notification-service";
 import { useGroupsSafe } from "@/app/features/groups/providers/group-provider-port";
@@ -53,9 +54,16 @@ const UNKNOWN_DISPLAY_NAME_VALUES = new Set([
     "unknown user",
 ]);
 
-const isForeground = (): boolean => (
+/** Document visible in this window (does not require hasFocus — Tauri often reports false). */
+const isDocumentVisible = (): boolean => (
     typeof document !== "undefined"
     && document.visibilityState === "visible"
+);
+
+/** Visible + focused — used for clearing background badge noise only. */
+const isForeground = (): boolean => (
+    isDocumentVisible()
+    && typeof document !== "undefined"
     && document.hasFocus()
 );
 
@@ -253,6 +261,7 @@ export const DesktopNotificationHandler = () => {
         roomId: string;
         displayName: string;
         href?: string;
+        avatarUrl?: string;
     }>): void => {
         const canNotifyByPreference = enabled && channels.invitesSystem;
         const forceDesktopNotification = isTauri();
@@ -287,6 +296,9 @@ export const DesktopNotificationHandler = () => {
         const presentation = buildIncomingCallNotificationPresentation({
             displayName,
             href: params.href,
+            iconUrl: resolveNotificationPeerIconUrl({
+                senderPicture: params.avatarUrl,
+            }),
         });
         void showNotification(
             presentation.title,
@@ -296,6 +308,7 @@ export const DesktopNotificationHandler = () => {
                 onClick: () => {
                     relayCallActionToChatSurface("open_chat");
                 },
+                icon: presentation.icon,
                 data: {
                     overlayAction: "open_chat",
                     href: presentation.href,
@@ -303,7 +316,8 @@ export const DesktopNotificationHandler = () => {
                 requireInteraction: true,
                 force: forceDesktopNotification,
                 actions: [
-                    { action: "open_chat", title: "Open chat" },
+                    { action: "accept", title: "Accept" },
+                    { action: "decline", title: "Reject" },
                 ],
             }
         );
@@ -440,10 +454,14 @@ export const DesktopNotificationHandler = () => {
     ), []);
 
     flushCoalescedBackgroundMessageNotificationRef.current = (payload) => {
-        const title = buildCoalescedMessageNotificationTitle(
+        const baseTitle = buildCoalescedMessageNotificationTitle(
             payload.senderName,
             payload.messageCount,
         );
+        // Keep a single icon: presentation body already carries the kind glyph.
+        const title = payload.messageCount === 1
+            ? payload.presentation.title
+            : baseTitle;
         const notificationOptions = {
             onClick: () => {
                 void router.push(payload.presentation.href);
@@ -559,8 +577,9 @@ export const DesktopNotificationHandler = () => {
             if ((Date.now() - messageUnixMs) > MAX_MESSAGE_EVENT_AGE_MS) {
                 return;
             }
+            // Suppress when this chat is on-screen — do not require hasFocus (Tauri false-negatives).
             const isViewingSameConversation = (
-                isForeground()
+                isDocumentVisible()
                 && isViewingTargetConversation({
                     pathname,
                     selectedConversation,
@@ -624,7 +643,10 @@ export const DesktopNotificationHandler = () => {
                 ? groupContext?.createdGroups.find((g) => g.id === event.conversationId)
                 : null;
             const groupName = matchedGroup?.displayName || null;
-            const notificationIconUrl = matchedGroup?.avatar || senderProfile?.picture || undefined;
+            const notificationIconUrl = resolveNotificationPeerIconUrl({
+                groupAvatar: matchedGroup?.avatar,
+                senderPicture: senderProfile?.picture,
+            });
             const preview = event.message.content.trim();
             const formattedPreview = formatConversationMessagePreview(preview, {
                 peerDisplayName: senderName,
@@ -656,12 +678,13 @@ export const DesktopNotificationHandler = () => {
                         avatarUrl: senderProfile?.picture || "",
                     });
                 }
-                if (!isForeground()) {
+                if (!isDocumentVisible()) {
                     notifyIncomingCall({
                         peerPubkey,
                         roomId: voiceCallInvite.roomId,
                         displayName: senderName,
                         href,
+                        avatarUrl: senderProfile?.picture || undefined,
                     });
                 }
                 return;
@@ -669,7 +692,9 @@ export const DesktopNotificationHandler = () => {
             if (isVoiceCallControlPayload(normalizedPreview)) {
                 return;
             }
-            const isBackgroundAlert = !isForeground();
+            // OS toast only when Obscur is not the visible document (other app / minimized).
+            // Visible but other screen → in-app toast only.
+            const isBackgroundAlert = !isDocumentVisible();
             const forceBackgroundNotification = isBackgroundAlert && isTauri();
             if (!isBackgroundAlert) {
                 enqueueInAppMessageToast({
@@ -714,7 +739,7 @@ export const DesktopNotificationHandler = () => {
         if (!status || status.phase !== "ringing_incoming") {
             return;
         }
-        if (isForeground()) {
+        if (isDocumentVisible()) {
             return;
         }
         const peerDisplayNameFromConversations = createdConnections.find((connection) => (
@@ -729,11 +754,13 @@ export const DesktopNotificationHandler = () => {
         const conversationHref = createdConnections.find((connection) => (
             connection.pubkey === status.peerPubkey
         ))?.id;
+        const peerPicture = discoveryCache.getProfile(status.peerPubkey)?.picture;
         notifyIncomingCall({
             peerPubkey: status.peerPubkey,
             roomId: status.roomId,
             displayName: resolvedDisplayName,
             href: conversationHref ? buildConversationNotificationHref(conversationHref) : "/",
+            avatarUrl: peerPicture || undefined,
         });
     }, [createdConnections, globalVoiceOverlay.peerDisplayName, globalVoiceOverlay.status, notifyIncomingCall]);
 

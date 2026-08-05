@@ -2,17 +2,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { Search, Globe, Users, Loader2, ArrowRight, Lock, ChevronLeft, ChevronRight, Eye } from "lucide-react";
-import { Button } from "@dweb/ui-kit";
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, } from "@dweb/ui-kit";
-import { Input } from "@dweb/ui-kit";
-import { Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@dweb/ui-kit/pagination";
+import { Input } from "@dweb/ui-kit/input";
+import { Card } from "@dweb/ui-kit/card";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "next/navigation";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
-import { cn } from "@dweb/ui-kit";
+import { cn } from "@dweb/ui-kit/cn";
 import { toGroupConversationId } from "../utils/group-conversation-id";
 import { getPublicGroupHref } from "@/app/features/navigation/public-routes";
 interface DiscoveredGroup {

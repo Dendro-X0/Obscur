@@ -9,7 +9,8 @@ import {
     type CommunityActionWaitStep,
 } from "@/app/features/groups/components/community-action-wait-types";
 import { isCoordinationConfigured, readMembershipSyncMode } from "@/app/features/groups/services/community-membership-sync-mode";
-import { Button, Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
 import { PageShell } from "@/app/components/page-shell";
 import { cn } from "@/app/lib/utils";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
@@ -21,7 +22,7 @@ import { useLegacySealedCommunity } from "@/app/features/groups/hooks/sealed-com
 import { resolveGroupConversationByToken } from "@/app/features/messaging/utils/conversation-target";
 import { resolveGroupRouteToken } from "@/app/features/groups/utils/group-route-token";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
 import {
     CommunityNetworkTimeoutError,
@@ -30,7 +31,9 @@ import {
 import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
 import { isRelayAuthoritativeMembershipEnforced } from "@/app/features/groups/services/community-relay-authoritative-membership-policy";
 import { isWorkspaceKernelAuthority } from "@/app/features/workspace-kernel/workspace-kernel-policy";
-import { publishWorkspaceKernelLeave } from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
+import {
+    leaveManagedWorkspaceMembership,
+} from "@/app/features/workspace-kernel/workspace-kernel-leave-port";
 import {
     listManagedWorkspaceCommunityIdCandidates,
     resolveManagedWorkspaceCommunityId,
@@ -222,15 +225,25 @@ export default function LeaveCommunityPage() {
                 let relayConfirmed = false;
                 try {
                     if (coordinationLeaveReady && leaveGroupContext && identityState.privateKeyHex && localMemberPubkey) {
-                        relayConfirmed = await withCommunityNetworkTimeout(publishWorkspaceKernelLeave({
+                        // U4: sole leave orchestration (network + local commit) via leave port.
+                        const leaveResult = await withCommunityNetworkTimeout(leaveManagedWorkspaceMembership({
                             pool: relayPool,
                             group: leaveGroupContext,
                             myPublicKeyHex: localMemberPubkey,
                             myPrivateKeyHex: identityState.privateKeyHex,
                             initialMembers: leaveGroupContext.memberPubkeys,
                         }));
+                        relayConfirmed = leaveResult.ok;
+                        if (relayConfirmed) {
+                            // Sidebar refresh only — ledger already committed by leave port.
+                            applyLocalLeave(true);
+                        }
                     } else {
                         relayConfirmed = await withCommunityNetworkTimeout(leaveNip29Group());
+                        if (relayConfirmed) {
+                            setLeaveWaitPhase("local");
+                            applyLocalLeave(true);
+                        }
                     }
                 } catch (error) {
                     if (error instanceof CommunityNetworkTimeoutError) {
@@ -249,7 +262,7 @@ export default function LeaveCommunityPage() {
                     return;
                 }
                 setLeaveWaitPhase("local");
-                applyLocalLeave(true);
+                // applyLocalLeave already ran on success paths above when needed
             } else {
                 setLeaveWaitPhase("relay");
                 let relayConfirmed = false;
@@ -296,13 +309,14 @@ export default function LeaveCommunityPage() {
                 && identityState.privateKeyHex
                 && localMemberPubkey
             ) {
-                await publishWorkspaceKernelLeave({
+                await leaveManagedWorkspaceMembership({
                     pool: relayPool,
                     group: leaveGroupContext,
                     myPublicKeyHex: localMemberPubkey,
                     myPrivateKeyHex: identityState.privateKeyHex,
                     initialMembers: leaveGroupContext.memberPubkeys,
-                }).catch(() => false);
+                    tombstone: true,
+                }).catch(() => ({ ok: false, relayConfirmed: false }));
             }
             forcePurgeCommunity({
                 groupId: resolvedGroupId,

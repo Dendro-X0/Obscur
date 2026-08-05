@@ -3,15 +3,16 @@
  *
  * Timeline checkpoints in sync-checkpoints.ts remain the app contract; on native
  * we mirror `dm:all` progress into per-relay SQLite rows for restart survival.
+ * Reads/writes go through transport engine_invoke.
  */
 
 import {
-  dbGetRelayCheckpoints,
-  dbUpsertRelayCheckpoint,
   isTauri,
   type RelayCheckpointRecord,
 } from "@dweb/db";
+import { listRelayCheckpoints, upsertRelayCheckpoint } from "@obscur/transport-engine";
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { getTransportEngineHost } from "@/app/features/transport-kernel/transport-engine-host-port";
 
 export const DM_ALL_TIMELINE_KEY = "dm:all";
 
@@ -41,6 +42,10 @@ export const mirrorTimelineCheckpointToSqlite = async (params: Readonly<{
   if (params.timelineKey !== DM_ALL_TIMELINE_KEY) {
     return;
   }
+  const host = getTransportEngineHost();
+  if (!host) {
+    return;
+  }
   const relayUrls = Array.from(new Set(
     params.relayUrls.map(normalizeRelayUrl).filter((url) => url.length > 0),
   ));
@@ -48,10 +53,14 @@ export const mirrorTimelineCheckpointToSqlite = async (params: Readonly<{
     return;
   }
   await Promise.all(relayUrls.map((relayUrl) => (
-    dbUpsertRelayCheckpoint({
-      profile_id: params.profileId,
-      relay_url: relayUrl,
-      last_event_at: params.lastProcessedAtUnixSeconds,
+    upsertRelayCheckpoint({
+      host,
+      profileId: params.profileId,
+      checkpoint: {
+        profile_id: params.profileId,
+        relay_url: relayUrl,
+        last_event_at: params.lastProcessedAtUnixSeconds,
+      },
     }).catch(() => undefined)
   )));
 };
@@ -62,8 +71,12 @@ export const loadSqliteRelayCheckpointFrontier = async (
   if (!requiresSqlitePersistence() || !isTauri()) {
     return null;
   }
+  const host = getTransportEngineHost();
+  if (!host) {
+    return null;
+  }
   try {
-    const records = await dbGetRelayCheckpoints(profileId);
+    const records = await listRelayCheckpoints({ host, profileId });
     return resolveSqliteRelayCheckpointFrontier(records);
   } catch {
     return null;

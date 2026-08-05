@@ -8,17 +8,30 @@ describe("deriveRelayRuntimeStatus", () => {
     expect(status.label).toContain("No relay");
   });
 
-  it("returns recovering when runtime is actively recovering", () => {
+  it("returns recovering when runtime is actively recovering with no open sockets", () => {
     const status = deriveRelayRuntimeStatus({
-      openCount: 1,
+      openCount: 0,
       totalCount: 2,
-      writableCount: 1,
-      subscribableCount: 1,
+      writableCount: 0,
+      subscribableCount: 0,
       phase: "recovering",
       recoveryStage: "replay_subscriptions",
     });
     expect(status.status).toBe("recovering");
     expect(status.actionText).toContain("replay subscriptions");
+  });
+
+  it("does not stay on connections-starting when an open socket exists", () => {
+    const status = deriveRelayRuntimeStatus({
+      openCount: 1,
+      totalCount: 1,
+      writableCount: 0,
+      phase: "connecting",
+      lastSuccessfulPublishAtUnixMs: Date.now(),
+      nowUnixMs: Date.now(),
+    });
+    expect(status.status).not.toBe("recovering");
+    expect(status.label).not.toMatch(/starting/i);
   });
 
   it("returns degraded when sockets are open but event freshness is stale", () => {
@@ -189,6 +202,54 @@ describe("deriveRelayNodeStatus", () => {
     });
     expect(status.badge).toBe("Active transport");
     expect(status.roleLabel).toBe("Active transport");
+  });
+
+  it("labels primary without open socket as Primary (offline), not Active transport", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://nos.lol",
+      enabled: true,
+      isConfigured: true,
+      role: "primary",
+      connection: undefined,
+      metrics: {
+        url: "wss://nos.lol",
+        status: "disconnected",
+        connectionAttempts: 1,
+        successfulConnections: 1,
+        failedConnections: 0,
+        latency: 908,
+        latencyHistory: [908],
+        latencySampleSource: "connect",
+        successRate: 100,
+        circuitBreakerState: "closed",
+        circuitBreakerFailureCount: 0,
+        retryCount: 0,
+        backoffDelay: 1000,
+      },
+      runtimePhase: "degraded",
+    });
+    expect(status.badge).toBe("Disconnected");
+    expect(status.roleLabel).toBe("Primary (offline)");
+    expect(status.detail).toContain("Selected primary");
+  });
+
+  it("elevates connecting primary to Active transport when mesh publish-ready", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://nos.lol",
+      enabled: true,
+      isConfigured: true,
+      role: "primary",
+      isPublishReady: true,
+      connection: {
+        url: "wss://nos.lol",
+        status: "connecting",
+        updatedAtUnixMs: 1,
+      },
+      runtimePhase: "connecting",
+    });
+    expect(status.badge).toBe("Active transport");
+    expect(status.roleLabel).toBe("Active transport");
+    expect(status.status).toBe("healthy");
   });
 
   it("shows insufficient-data confidence for low-sample relays", () => {

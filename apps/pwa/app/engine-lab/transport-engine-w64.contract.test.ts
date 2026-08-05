@@ -47,7 +47,7 @@ describe("transport-engine w64 — standalone legacy production deletion executi
 
   it("includes thin port template readiness in pre-deletion dry-run baseline", () => {
     const recorded = readFromRepo(STANDALONE_LEGACY_DELETION_RECORDED_SIGN_OFF);
-    expect(parseSmokeSignOffDecision(recorded)).toBe("BLOCKED");
+    expect(parseSmokeSignOffDecision(recorded)).toBe("PASS");
 
     const report = evaluateStandaloneLegacySubtractionDryRun(recorded, createPwaFilesystem());
     expect(report.thinPortTemplatePresent).toBe(true);
@@ -55,18 +55,18 @@ describe("transport-engine w64 — standalone legacy production deletion executi
     expect(report.readyForPhysicalDeletion).toBe(false);
   });
 
-  it("reports post-subtraction baseline incomplete while legacy files remain", () => {
+  it("reports post-subtraction baseline complete after W66", () => {
     const report = evaluateStandaloneLegacyPostSubtractionBaseline(createPwaFilesystem());
-    expect(report.legacyFilesAbsent).toBe(false);
-    expect(report.portOmitsLegacyImport).toBe(false);
+    expect(report.legacyFilesAbsent).toBe(true);
+    expect(report.portOmitsLegacyImport).toBe(true);
     expect(report.thinPortTemplatePresent).toBe(true);
     expect(report.thinPortOmitsLegacyImport).toBe(true);
-    expect(report.postSubtractionComplete).toBe(false);
+    expect(report.postSubtractionComplete).toBe(true);
   });
 
-  it("keeps production legacy files on disk while gate is closed", () => {
+  it("production legacy files are absent after W66", () => {
     for (const relPath of STANDALONE_LEGACY_FILES_TO_DELETE) {
-      expect(existsSync(join(PWA_ROOT, relPath))).toBe(true);
+      expect(existsSync(join(PWA_ROOT, relPath))).toBe(false);
     }
   });
 });

@@ -9,4 +9,4 @@ export {
   DialogPortal,
   DialogTitle,
   DialogTrigger,
-} from "@dweb/ui-kit";
+} from "@dweb/ui-kit/dialog";

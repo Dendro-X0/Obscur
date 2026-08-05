@@ -8,7 +8,8 @@ export type MeshEvidenceClass =
   | "fire_and_forget"
   | "at_least_one_conduit_accept"
   | "recipient_ack"
-  | "coordination_head";
+  | "coordination_head"
+  | "accepted_when_imported";
 
 /** Derived from user conduit configuration — not a runtime mandate. */
 export type MeshDeploymentTier = "minimal_infra" | "private_trust" | "experimental";

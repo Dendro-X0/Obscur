@@ -1,5 +1,5 @@
 import type { CallRecord } from "@dweb/db";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildTerminalCallRecord,
   loadSqliteCallRecords,
@@ -13,16 +13,24 @@ import type { CallStatus } from "./call-state-crdt";
 
 const dbMocks = vi.hoisted(() => ({
   isTauri: vi.fn(() => true),
-  dbInsertCallRecord: vi.fn(async () => undefined),
-  dbUpdateCallRecord: vi.fn(async () => undefined),
-  dbGetCallRecords: vi.fn(async (): Promise<CallRecord[]> => []),
+}));
+
+const persistenceMocks = vi.hoisted(() => ({
+  upsertCallRecord: vi.fn(async (_args?: unknown) => undefined),
+  listCallRecords: vi.fn(async (): Promise<CallRecord[]> => []),
 }));
 
 vi.mock("@dweb/db", () => ({
   isTauri: dbMocks.isTauri,
-  dbInsertCallRecord: dbMocks.dbInsertCallRecord,
-  dbUpdateCallRecord: dbMocks.dbUpdateCallRecord,
-  dbGetCallRecords: dbMocks.dbGetCallRecords,
+}));
+
+vi.mock("@obscur/persistence-engine", () => ({
+  upsertCallRecord: persistenceMocks.upsertCallRecord,
+  listCallRecords: persistenceMocks.listCallRecords,
+}));
+
+vi.mock("@obscur/engine-host/tauri", () => ({
+  createTauriEngineHost: vi.fn(() => ({ invoke: vi.fn() })),
 }));
 
 vi.mock("@/app/features/runtime/native-persistence-policy", () => ({
@@ -46,6 +54,12 @@ const terminalStatus = (overrides?: Partial<CallStatus>): CallStatus => ({
 });
 
 describe("call-record-sqlite-store (ACC-04)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.isTauri.mockReturnValue(true);
+    persistenceMocks.listCallRecords.mockResolvedValue([]);
+  });
+
   it("maps answered terminal calls with duration", () => {
     const record = buildTerminalCallRecord({
       profileId: "default",
@@ -80,8 +94,13 @@ describe("call-record-sqlite-store (ACC-04)", () => {
       ended_at: 2,
       duration_ms: 1,
     });
-    expect(dbMocks.dbInsertCallRecord).toHaveBeenCalledTimes(1);
-    expect(dbMocks.dbUpdateCallRecord).toHaveBeenCalledTimes(1);
+    expect(persistenceMocks.upsertCallRecord).toHaveBeenCalledTimes(1);
+    expect(persistenceMocks.upsertCallRecord.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        profileId: "default",
+        record: expect.objectContaining({ call_id: "call-1" }),
+      }),
+    );
   });
 
   it("persists from terminal call status", async () => {
@@ -91,10 +110,10 @@ describe("call-record-sqlite-store (ACC-04)", () => {
       accountPublicKeyHex: ACCOUNT,
     });
     expect(persisted).toBe(true);
-    expect(dbMocks.dbInsertCallRecord).toHaveBeenCalled();
+    expect(persistenceMocks.upsertCallRecord).toHaveBeenCalled();
   });
 
-  it("maps sqlite call records into voice-call invite card summaries", () => {
+  it("maps sqlite answered records into completed voice-call summaries", () => {
     const summary = mapCallRecordToVoiceCallRoomSummary({
       call_id: "room-1",
       profile_id: "default",
@@ -114,6 +133,23 @@ describe("call-record-sqlite-store (ACC-04)", () => {
       endedNormally: true,
       durationSeconds: 8,
     });
+  });
+
+  it("does not treat bare ended sqlite records as completed ghost calls", () => {
+    const summary = mapCallRecordToVoiceCallRoomSummary({
+      call_id: "room-ghost",
+      profile_id: "default",
+      peer_pubkey: PEER,
+      initiated_by: ACCOUNT,
+      status: "ended",
+      started_at: 1_000,
+      ended_at: 31_000,
+      duration_ms: 30_000,
+    });
+    expect(summary.connectedAtUnixMs).toBeNull();
+    expect(summary.endedNormally).toBe(false);
+    expect(summary.durationSeconds).toBeNull();
+    expect(summary.endedAtUnixMs).toBe(31_000);
   });
 
   it("prefers sqlite terminal end time when DM timeline is incomplete", () => {
@@ -139,11 +175,36 @@ describe("call-record-sqlite-store (ACC-04)", () => {
     );
     expect(merged?.endedAtUnixMs).toBe(10_000);
     expect(merged?.endedNormally).toBe(true);
-    expect(merged?.durationSeconds).toBe(8);
+    expect(merged?.connectedAtUnixMs).toBe(2_000);
+  });
+
+  it("does not let non-answered sqlite ended flip timeline to completed", () => {
+    const merged = mergeVoiceCallRoomSummaries(
+      {
+        roomId: "room-1",
+        invitedAtUnixMs: 1_000,
+        expiresAtUnixMs: 5_000,
+        connectedAtUnixMs: null,
+        endedAtUnixMs: null,
+        endedNormally: false,
+        durationSeconds: null,
+      },
+      {
+        roomId: "room-1",
+        invitedAtUnixMs: 1_000,
+        expiresAtUnixMs: null,
+        connectedAtUnixMs: null,
+        endedAtUnixMs: 10_000,
+        endedNormally: false,
+        durationSeconds: null,
+      },
+    );
+    expect(merged?.endedNormally).toBe(false);
+    expect(merged?.durationSeconds).toBeNull();
   });
 
   it("loads sqlite call records on native", async () => {
-    dbMocks.dbGetCallRecords.mockResolvedValueOnce([{
+    persistenceMocks.listCallRecords.mockResolvedValueOnce([{
       call_id: "call-1",
       profile_id: "default",
       peer_pubkey: PEER,

@@ -2,7 +2,9 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Button, Label, toast } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Label } from "@dweb/ui-kit/label";
+import { toast } from "@dweb/ui-kit/toast";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import {

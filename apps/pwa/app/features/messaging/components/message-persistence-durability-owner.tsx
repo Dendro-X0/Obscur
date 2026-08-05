@@ -5,7 +5,9 @@ import { messagePersistenceService } from "@/app/features/messaging/services/mes
 import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 /**
- * Ensures batched native SQLite message writes complete before tab close / hide.
+ * Sole hide/unload flush adapter for DM SQLite durability.
+ * Row writes stay on MessagePersistenceService — do not add a second insert path here.
+ * @see specs/backend/dm-persist-dual-owner-design-2026-07.md
  */
 export function MessagePersistenceDurabilityOwner(): null {
   useEffect(() => {
@@ -15,16 +17,18 @@ export function MessagePersistenceDurabilityOwner(): null {
     const flushPendingSqliteWrites = (): void => {
       void messagePersistenceService.flushPendingNow();
     };
-    window.addEventListener("pagehide", flushPendingSqliteWrites);
-    window.addEventListener("beforeunload", flushPendingSqliteWrites);
-    document.addEventListener("visibilitychange", () => {
+    const onVisibilityChange = (): void => {
       if (document.visibilityState === "hidden") {
         flushPendingSqliteWrites();
       }
-    });
+    };
+    window.addEventListener("pagehide", flushPendingSqliteWrites);
+    window.addEventListener("beforeunload", flushPendingSqliteWrites);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", flushPendingSqliteWrites);
       window.removeEventListener("beforeunload", flushPendingSqliteWrites);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 

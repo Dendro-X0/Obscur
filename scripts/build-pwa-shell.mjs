@@ -7,11 +7,18 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { freePwaDevPort } from "./lib/dev-stack-probes.mjs";
 import { buildStaticShellManifest, resolveStaticShellSourceRevision, STATIC_SHELL_MANIFEST_FILE } from "./lib/static-shell-stale.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rootVersion = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8")).version ?? "dev";
 const shellArg = (process.argv[2] ?? process.env.TAURI_SHELL_TARGET ?? "desktop").toLowerCase();
+
+// Windows: Next on :3340 holds a lock on apps/pwa/app/api, so toggle-api hide (rename → _api) fails with EPERM.
+if (process.platform === "win32") {
+  console.log("[build-pwa-shell] freeing PWA :3340 before static export (toggle-api rename)…");
+  freePwaDevPort(repoRoot);
+}
 
 const shellEnv = (() => {
   if (shellArg === "mobile") {

@@ -17,6 +17,8 @@ type VoiceCallInviteCardProps = Readonly<{
     nowUnixMs?: number | null;
     liveStatusPhase?: "ringing_outgoing" | "ringing_incoming" | "connecting" | "connected" | "interrupted" | "ended" | null;
     liveReasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed" | null;
+    /** Outgoing delivery status from message bubble (honesty vs “sent” copy). */
+    deliveryStatus?: "sending" | "accepted" | "failed" | "queued" | string | null;
     compact?: boolean;
 }>;
 const toTimestampLabel = (value: unknown): string | null => {
@@ -38,7 +40,7 @@ const toDurationLabel = (value: unknown): string | null => {
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
-export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJoinCall, onRequestCallback, callbackConsumed = false, callSummary = null, nowUnixMs = null, liveStatusPhase = null, liveReasonCode = null, compact = false, }: VoiceCallInviteCardProps): React.JSX.Element {
+export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJoinCall, onRequestCallback, callbackConsumed = false, callSummary = null, nowUnixMs = null, liveStatusPhase = null, liveReasonCode = null, deliveryStatus = null, compact = false, }: VoiceCallInviteCardProps): React.JSX.Element {
     const { t } = useTranslation();
     const invitedAtLabel = toTimestampLabel(invite.invitedAtUnixMs);
     const expiresAtLabel = toTimestampLabel(invite.expiresAtUnixMs);
@@ -60,7 +62,15 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
         || liveReasonCode === "remote_left"
         || liveStatusPhase === "interrupted");
     const unconnectedTimeout = !callSummary?.endedNormally && !wasInterruptedByFailure && !missedWithoutFailure && !hasConnected && (inviteExpiredByNow || endedWithoutConnection || liveStatusPhase === "ended");
-    const cardState: "active" | "completed" | "missed" | "timed_out" | "failed" = callSummary?.endedNormally
+    const outgoingDeliveryFailed = isOutgoing
+        && deliveryStatus === "failed"
+        && !liveStatusPhase;
+    const outgoingDeliverySending = isOutgoing
+        && (deliveryStatus === "sending" || deliveryStatus === "queued")
+        && !liveStatusPhase;
+    const cardState: "active" | "completed" | "missed" | "timed_out" | "failed" = outgoingDeliveryFailed
+        ? "failed"
+        : callSummary?.endedNormally
         ? "completed"
         : wasInterruptedByFailure
             ? "failed"
@@ -93,6 +103,12 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
         }
     })();
     const stateSubtitle = (() => {
+        if (outgoingDeliverySending && cardState === "active") {
+            return t("messaging.voiceCallInviteSending", "Sending voice call invitation…");
+        }
+        if (outgoingDeliveryFailed) {
+            return t("messaging.voiceCallInviteSendFailed", "Failed to send voice call invitation.");
+        }
         switch (cardState) {
             case "completed":
                 return t("messaging.voiceCallEndedNormally");
@@ -121,7 +137,9 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
             case "timed_out":
                 return t("messaging.voiceCallNoAnswer");
             case "failed":
-                return t("messaging.voiceCallFailed");
+                return outgoingDeliveryFailed
+                    ? t("messaging.voiceCallFailed", "Failed")
+                    : t("messaging.voiceCallFailed");
             default:
                 return liveStatusLabel;
         }
@@ -137,7 +155,9 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
             case "timed_out":
                 return t("messaging.voiceCallTimedOut");
             case "failed":
-                return t("messaging.voiceCallFailed");
+                return outgoingDeliveryFailed
+                    ? t("messaging.voiceCallInvite", "Voice call invite")
+                    : t("messaging.voiceCallFailed");
             default:
                 return t("messaging.voiceCallInvite");
         }

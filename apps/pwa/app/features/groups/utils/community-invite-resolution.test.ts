@@ -79,16 +79,22 @@ describe("buildCommunityInviteResponseStatusByMessageId", () => {
     });
 
     it("links groupId fallback only when replyTo is missing and the group has one invite", () => {
+        const inviter = "a".repeat(64) as Message["senderPubkey"];
+        const invitee = "b".repeat(64) as Message["recipientPubkey"];
         const invite = baseMessage({
             id: "invite-a",
             eventId: "invite-a",
             isOutgoing: true,
+            senderPubkey: inviter,
+            recipientPubkey: invitee,
             timestamp: new Date(1_700_000_000_000),
             content: JSON.stringify({ type: "community-invite", groupId: "g1", roomKey: "rk" }),
         });
         const response = baseMessage({
             id: "response-1",
             isOutgoing: false,
+            senderPubkey: invitee,
+            recipientPubkey: inviter,
             timestamp: new Date(1_700_000_200_000),
             content: JSON.stringify({ type: "community-invite-response", status: "accepted", groupId: "g1" }),
         });

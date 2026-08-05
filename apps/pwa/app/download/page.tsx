@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { PageShell } from "../components/page-shell";
-import { Button } from "@dweb/ui-kit";
-import { Card } from "@dweb/ui-kit";
+import { Button } from "@dweb/ui-kit/button";
+import { Card } from "@dweb/ui-kit/card";
 import { Apple, Download, Monitor, Smartphone, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {

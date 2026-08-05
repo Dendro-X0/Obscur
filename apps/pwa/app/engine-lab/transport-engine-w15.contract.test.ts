@@ -17,12 +17,15 @@ describe("transport-engine w15 — standalone publish semantics subtraction", ()
     expect(owner).not.toContain("resolveQuorumRequired");
   });
 
-  it("relay standalone publish port still routes native authority through transport-kernel owner", () => {
+  it("production port is thin subtracted re-export; archive retains kernel owner symbols", () => {
     const port = read("app/features/relays/hooks/relay-standalone-publish-port.ts");
-    expect(port).toContain("publishTransportKernelToRelay");
-    expect(port).toContain("publishTransportKernelToRelayUrls");
-  });
+    expect(port).toContain("relay-standalone-publish-port-subtracted");
+    expect(port).not.toContain("publishTransportKernelToRelay");
 
+    const owner = read(resolveTransportEngineStandaloneLegacyReadPath(PWA_ROOT));
+    expect(owner).toContain("publishTransportKernelToRelay");
+    expect(owner).toContain("publishTransportKernelToRelayUrls");
+  });
   it("transport-engine host methods were still read-only before the w17 contract slice", () => {
     const methods = read("../../packages/obscur-engine-contracts/src/transport-engine-methods.ts");
     expect(methods).toContain("listRelayCheckpoints");

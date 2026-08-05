@@ -12,14 +12,12 @@ import { requiresSqlitePersistence } from "@/app/features/runtime/native-persist
 import { isDmKernelAuthority } from "@/app/features/dm-kernel/dm-kernel-policy";
 import { isNativeDmSqliteReadOwner } from "./native-dm-read-policy";
 import { resolveHydrationDmReadMessages, resolveLegacyHydrationAuthority } from "@/app/features/messaging/services/dm-read-authority-port";
-import { assembleDmHydrateThreadReadModel } from "@/app/features/messaging/services/thread-history/dm-thread-history-legacy-port";
 import {
   buildHydrateSupplementalMessages,
   evaluateProjectionMergePolicy,
   resolveInitialConversationPaint,
   shouldPersistDmThreadDisplayCache,
 } from "./dm-thread-read-model";
-import type { ProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import type { Message } from "../types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 
@@ -99,36 +97,6 @@ describe("native DM R1 read policy", () => {
       });
       expect(r.messages.map((m) => m.id)).toEqual(["sqlite-in", "sqlite-out"]);
       expect(r.legacyAuthorityDecision.reason).toBe("indexed_primary");
-    });
-
-    it("assembleDmHydrateThreadReadModel does not projection gap-fill", () => {
-      const assembled = assembleDmHydrateThreadReadModel({
-        conversationId: "dm:x:y",
-        conversationIds: ["dm:x:y"],
-        retentionFilteredMapped: [mk("sqlite-out", true)],
-        cappedHydratedMessages: [mk("sqlite-out", true)],
-        scannedWindowHasEarlier: false,
-        shouldCapHydratedHistoryWindow: false,
-        normalizedPublicKeyHex: pk,
-        projectionMessagesSnapshot: [mk("proj-in", false)],
-        projectionEvidenceMessagesSnapshot: [mk("proj-evidence-in", false)],
-        projectionReadAuthoritySnapshot: {
-          useProjectionReads: true,
-          reason: "read_cutover_enabled",
-          policy: {} as ProjectionReadAuthority["policy"],
-          criticalDriftCount: 0,
-        },
-        projectionRestorePhaseActive: false,
-        projectionBootstrapImportApplied: true,
-        projectionCanonicalEvidencePending: false,
-        persistedStateFallbackMessages: [],
-        liveMessages: [],
-        expandedHistory: false,
-        persistentSuppressedMessageIds: new Set(),
-        liveWindowSoftLimit: 200,
-      });
-      expect(assembled.finalMessages.some((m) => m.id === "proj-in")).toBe(false);
-      expect(assembled.finalMessages.some((m) => m.id === "sqlite-out")).toBe(true);
     });
 
     it("blocks projection merge, supplemental hydrate, display cache, and cache persist", () => {
