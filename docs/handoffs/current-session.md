@@ -1,27 +1,28 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T11:37:09Z
+- Last Updated (UTC): 2026-08-09T12:12:23Z
 
 ## Next atomic step
 
-**D — CU-EXIT / version-band honesty (Tor Verified cancelled)** · 2026-08-09
+**RS-1 — Release honesty (Tor not a gate)** · 2026-08-09
 
 | Field | Value |
 |-------|--------|
-| Why | Tor Verified **INFEASIBLE** — solo maintainer · no testers · network blocks Tor ([feasibility](../../specs/backend/tor-verified-infeasible-2026-08.md)) |
-| Work | Document honest ship claims: DM/Vault/Community Verified · Tor TI landed **not** Verified · stop Tor as queue |
-| Optional | Note Tor land for a future 1.9.16 notes band · update known-limitations if stale |
-| Siloed / CANCELLED | Tor Verified (active soak) · T5-3 live onion · AUTH-SESSION |
-| Keep | Tor TI code landed · Tor OFF clearnet path |
-| Do **not** | Fake Ready · patch Tor bootstrap on this LAN · invent testers · claim Tor Verified |
+| Charter | [release-without-tor-transport-sovereignty-charter-2026-08.md](../program/release-without-tor-transport-sovereignty-charter-2026-08.md) |
+| Work | Align known-limitations + CURRENT + demo/release copy: clearnet ship · Tor optional · sovereignty + E2EE unchanged |
+| Then | Maintainer: narrated demo on **Tor OFF** clearnet · or pick RS-2 (operator relay) / RS-3 (Relays UX) |
+| Invariants | User sovereignty · client E2EE · no parallel crypto owners |
+| CANCELLED as gate | Tor Verified · Tor bootstrap on this LAN |
+| Keep | Tor TI landed (opt-in) · DM/Vault/Community Verified |
+| Do **not** | Hold public release for Tor · fake Ready · “project failed” as architecture truth |
 
-### Prior — C Tor Verified → INFEASIBLE
+### Prior — Maintainer: Tor blocked release → reframed
 
 | Field | Value |
 |-------|--------|
-| Decision | Maintainer 2026-08-09 — no team · no Tor-capable net · Failure is the only Verified outcome here |
-| Spec | [tor-verified-infeasible-2026-08.md](../../specs/backend/tor-verified-infeasible-2026-08.md) |
-| Resume if | Capable network **or** external A+B+C evidence |
+| Intent | Website/GIFs ready · video left · Tor made public release feel failed |
+| Decision | Tor-as-gate **failed** · product clearnet path **did not** · explore other networks under sovereignty + E2EE |
+| Feasibility | [tor-verified-infeasible-2026-08.md](../../specs/backend/tor-verified-infeasible-2026-08.md) |
 
 ### Prior — CU-P1 community production soak Pass (L3)
 
@@ -2512,4 +2513,9 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: D: document ship honesty (DM/Vault/Community Verified; Tor TI not Verified); no Tor patch loops
+### 2026-08-09T12:12:23Z checkpoint
+- Summary: Reframe: project did not fail — Tor-as-release-gate failed. Charter: release without Tor; explore dialects under sovereignty+E2EE. Next RS-1 honesty.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: RS-1: release honesty docs/demo script Tor OFF; then narrated video or RS-2/RS-3
 <!-- CONTEXT_CHECKPOINTS_END -->

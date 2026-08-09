@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents (2026-08-09).
 
-_Last updated: 2026-08-09 · **DM + media L3 Pass** · **Vault LES packaged Pass** · community **CU-P1 Verified** (production relays)_
+_Last updated: 2026-08-09 · Clearnet **ship path** · Tor Verified **not a release gate** · sovereignty + E2EE unchanged_
 
 ---
 
@@ -10,14 +10,15 @@ _Last updated: 2026-08-09 · **DM + media L3 Pass** · **Vault LES packaged Pass
 
 | Track | Status |
 |-------|--------|
-| **DM / media (desktop)** | **L3 Pass** (maintainer 2026-08-05) — thin refactor Phase 1 |
-| **v1.9.15** | **Tagged** — [v1.9.15-release.md](./releases/v1.9.15-release.md) |
-| **Vault / LES** | Packaged soak **Pass / Verified** (maintainer 2026-08-09) |
-| **Community** | **CU-P1 Pass / Verified** — packaged · production relays · needs live relay connection ([charter](./program/community-production-unpause-charter-2026-08.md)) |
-| **Tor** | TI **landed** · Verified **INFEASIBLE** (solo + blocked net) — [feasibility](../specs/backend/tor-verified-infeasible-2026-08.md) · keep Tor OFF for clearnet |
-| **v2.0.0 gate** | Still blocked on train EXIT honesty |
+| **DM / media (desktop)** | **L3 Pass** |
+| **v1.9.15** | **Tagged** |
+| **Vault / LES** | Packaged **Pass / Verified** |
+| **Community** | CU-P1 **Pass / Verified** (production relays) |
+| **Public release** | Unblocked on clearnet — [release-without-tor charter](./program/release-without-tor-transport-sovereignty-charter-2026-08.md) · remaining: narrated demo (Tor OFF) |
+| **Tor** | TI landed · Verified **INFEASIBLE** here · **optional**, not success metric |
+| **Next dialects** | Operator/self-hosted · public Nostr · mesh · DTN — under sovereignty + E2EE |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → maintainer choose next band (Tor land/silo · Tor-capable Verified · CU-EXIT)
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → **RS-1** release honesty
 
 ---
 
