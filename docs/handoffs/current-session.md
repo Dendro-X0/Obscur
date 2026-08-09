@@ -1,20 +1,27 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T12:12:23Z
+- Last Updated (UTC): 2026-08-09T13:00:00Z
 
 ## Next atomic step
 
-**RS-1 — Release honesty (Tor not a gate)** · 2026-08-09
+**PAUSED — dialect research (≠ Nostr / VPS / Tor)** · tag **v1.9.16** · 2026-08-09
 
 | Field | Value |
 |-------|--------|
+| Tag | **v1.9.16** — [scope](../program/v1.9.16-scope.md) · [release](../releases/v1.9.16-release.md) |
+| Why pause | Maintainer exploring other communication integrations; knowledge limited · no implementation until research charter |
+| Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
+| Forbidden | New dialect code without charter · Tor Verified as queue · free `groups/**` · AUTH-SESSION |
+| Invariants | User sovereignty · client E2EE · one owner per lifecycle |
+| Resume when | Written research + design charter names one candidate **outside** public Nostr · operator VPS · Tor |
+| Keep | Clearnet Verified claims · Tor TI landed (opt-in, not Verified) |
+
+### Prior — v1.9.16 ship stamp
+
+| Field | Value |
+|-------|--------|
+| Claims | Vault + Community Verified · Tor TI landed · Tor not a release gate |
 | Charter | [release-without-tor-transport-sovereignty-charter-2026-08.md](../program/release-without-tor-transport-sovereignty-charter-2026-08.md) |
-| Work | Align known-limitations + CURRENT + demo/release copy: clearnet ship · Tor optional · sovereignty + E2EE unchanged |
-| Then | Maintainer: narrated demo on **Tor OFF** clearnet · or pick RS-2 (operator relay) / RS-3 (Relays UX) |
-| Invariants | User sovereignty · client E2EE · no parallel crypto owners |
-| CANCELLED as gate | Tor Verified · Tor bootstrap on this LAN |
-| Keep | Tor TI landed (opt-in) · DM/Vault/Community Verified |
-| Do **not** | Hold public release for Tor · fake Ready · “project failed” as architecture truth |
 
 ### Prior — Maintainer: Tor blocked release → reframed
 

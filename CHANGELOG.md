@@ -4,8 +4,27 @@ All notable changes to Obscur are documented here.
 
 **Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
 
-**Current tree version:** **1.9.15** ([release notes](docs/releases/v1.9.15-release.md)).  
-**Tagged:** **v1.9.14** and earlier. **Next after this tag:** community verify charter · Vault soak.
+**Current tree version:** **1.9.16** ([release notes](docs/releases/v1.9.16-release.md)).  
+**Tagged:** **v1.9.16** — clearnet ship · Tor silo · dialect research pause. **Next:** research charter for a dialect ≠ Nostr / VPS / Tor.
+
+---
+
+## [1.9.16] — 2026-08-09 (Clearnet ship · Tor silo · dialect research pause)
+
+### Added
+- Tor gateway app + desktop co-start / Ready-gate dial policy (TI lifecycle) — **opt-in**, not Verified.
+- Community production un-pause charter + CU-P1 soak stamp; Vault LES packaged soak stamp.
+- Release-without-Tor / transport sovereignty charter; Tor Verified marked infeasible under solo + blocked-net.
+
+### Changed
+- Public release no longer gated on Tor Verified; clearnet DM/Vault/Community are the ship claims.
+- Product dialect/feature progress **PAUSED** pending research of communication methods outside Nostr / operator-VPS / Tor.
+
+### Honesty
+- Do not claim Tor Verified or production Tor-ready in this tag.
+- Tor OFF remains the supported demo path on blocked networks.
+
+**Release notes:** [v1.9.16-release.md](docs/releases/v1.9.16-release.md). **Scope:** [v1.9.16-scope.md](docs/program/v1.9.16-scope.md).
 
 ---
 

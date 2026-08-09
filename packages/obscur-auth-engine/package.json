@@ -1,6 +1,6 @@
 {
   "name": "@obscur/auth-engine",
-  "version": "1.9.15",
+  "version": "1.9.16",
   "private": true,
   "type": "module",
   "description": "Auth engine — @dweb/auth ports + Tauri boot snapshot boundary.",
