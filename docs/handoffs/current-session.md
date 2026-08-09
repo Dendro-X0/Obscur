@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T10:40:00Z
+- Last Updated (UTC): 2026-08-09T10:32:52Z
 
 ## Next atomic step
 
@@ -2499,4 +2499,9 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Maintainer choose: (B) land/silo Tor WIP (C) Tor Verified on capable net (D) CU-EXIT/version band (E) stop
+### 2026-08-09T10:32:52Z checkpoint
+- Summary: B done: Tor TI landed at 5d7cd8cd; Verified+T5-3 siloed; v1.9.15 tag untouched.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer choose: (C) Tor Verified on capable net (D) CU-EXIT/version band (E) stop
 <!-- CONTEXT_CHECKPOINTS_END -->
