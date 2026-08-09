@@ -14,7 +14,7 @@ _Last updated: 2026-08-09 · **DM + media L3 Pass** · **Vault LES packaged Pass
 | **v1.9.15** | **Tagged** — [v1.9.15-release.md](./releases/v1.9.15-release.md) |
 | **Vault / LES** | Packaged soak **Pass / Verified** (maintainer 2026-08-09) |
 | **Community** | **CU-P1 Pass / Verified** — packaged · production relays · needs live relay connection ([charter](./program/community-production-unpause-charter-2026-08.md)) |
-| **Tor** | TI lifecycle **landed** (`5d7cd8cd`) · Verified **siloed** (env) · T5-3 design Ready |
+| **Tor** | TI landed · next **Tor Verified soak** on capable net ([charter](../specs/backend/tor-verified-soak-charter-2026-08.md)) — this host env-blocked |
 | **v2.0.0 gate** | Still blocked on train EXIT honesty |
 
 **Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → maintainer choose next band (Tor land/silo · Tor-capable Verified · CU-EXIT)

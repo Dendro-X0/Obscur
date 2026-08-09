@@ -1,29 +1,27 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T10:32:52Z
+- Last Updated (UTC): 2026-08-09T10:34:36Z
 
 ## Next atomic step
 
-**Maintainer choose next band** · 2026-08-09
+**C — Tor Verified soak (Tor-capable network)** · 2026-08-09
 
 | Field | Value |
 |-------|--------|
-| Why | Tor TI **landed** (`5d7cd8cd`) · Vault + Community Verified · Tor Verified still siloed |
-| Options | (C) Tor Verified on Tor-capable net · (D) CU-EXIT / version-band (e.g. note Tor land for 1.9.16) · (E) stop |
-| Landed | [tor-ti-land-silo-charter-2026-08.md](../../specs/backend/tor-ti-land-silo-charter-2026-08.md) · commit `5d7cd8cd` |
-| Siloed | Tor Verified (env) · T5-3 onion ops (design Ready) |
-| Tag | `v1.9.15` **unchanged** (not moved onto Tor land) |
-| PAUSED / CANCELLED | AUTH-SESSION · COM-RUN-02 |
-| Do **not** | Claim Tor Verified · invent onions · force-retag 1.9.15 |
+| Charter | [tor-verified-soak-charter-2026-08.md](../../specs/backend/tor-verified-soak-charter-2026-08.md) |
+| Checklist | [tor-t5-l3-soak-checklist-2026-08.md](../../specs/backend/tor-t5-l3-soak-checklist-2026-08.md) — rows **A + B + C** |
+| Who | Maintainer or invitee on a network that can bootstrap Tor to **100%** |
+| This host | Env-blocked (~14% TLS stall) — **cannot** stamp Verified here |
+| Prefer | Packaged or `dev:desktop:online` · sticky via **C-onion** if available |
+| Siloed | T5-3 live onion · AUTH-SESSION |
+| Do **not** | Fake Ready · invent onions · mark Verified from unit tests · move `v1.9.15` |
 
 ### Prior — B Tor TI land / silo (Done)
 
 | Field | Value |
 |-------|--------|
 | Commit | `5d7cd8cd` — feat(tor): land TI lifecycle gateway + silo Verified |
-| Includes | `apps/tor-gateway` · Ready-gate dial · gateway spawn · TI UX · tor specs · Vault/CU-P1 continuity docs |
-| Excludes | `release-assets/*.exe` · `appdata/` · `.codectx/` · `.codegraph/` |
-| Claim | TI-1…4 **Implemented (L1) landed** · **not** Tor Verified |
+| Claim | TI-1…4 **Implemented (L1) landed** · **not** Tor Verified until C soak |
 
 ### Prior — CU-P1 community production soak Pass (L3)
 
@@ -2504,4 +2502,9 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Maintainer choose: (C) Tor Verified on capable net (D) CU-EXIT/version band (E) stop
+### 2026-08-09T10:34:36Z checkpoint
+- Summary: C active: Tor Verified soak charter — A+B+C on Tor-capable net; this host cannot stamp Verified.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer/invitee: run tor-t5-l3 A+B+C on capable net; stamp Pass/Fail in handoff
 <!-- CONTEXT_CHECKPOINTS_END -->

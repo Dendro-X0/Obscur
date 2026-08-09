@@ -1,85 +1,89 @@
-# Checklist — Tor T5 L3 soak (post T5-1/T5-2)
+# Checklist — Tor T5 L3 soak (post TI land)
 
-**Date (UTC):** 2026-08-08  
-**Status:** Ready for maintainer runtime  
-**Parents:** [tor-t5-stability-latency-charter-2026-08.md](./tor-t5-stability-latency-charter-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](./tor-t5-tor-viable-pool-design-2026-08.md)
+**Date (UTC):** 2026-08-09  
+**Status:** Ready for maintainer / external runtime on **Tor-capable** network  
+**Parents:** [tor-verified-soak-charter-2026-08.md](./tor-verified-soak-charter-2026-08.md) · [tor-ti-land-silo-charter-2026-08.md](./tor-ti-land-silo-charter-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](./tor-t5-tor-viable-pool-design-2026-08.md)
 
 ```text
-HANDOFF ATOMIC STEP:  Tor T5 L3 soak (honesty + clearnet + optional sticky)
-PAUSED / CANCELLED:   Community · AUTH-SESSION
-CANONICAL OWNER:      Desktop Tauri + gateway :17950 · Relays settings honesty
-PROOF BEFORE DONE:    Named Pass/Fail rows below; do not claim Tor-only Verified without A–C
-OUT OF SCOPE:         Community · AUTH-SESSION · shipping production onion (T5-3) · Arti
+HANDOFF ATOMIC STEP:  Tor Verified soak (option C) — A + B + C
+PAUSED / CANCELLED:   AUTH-SESSION · this-host Tor Ready (env)
+CANONICAL OWNER:      Desktop Tauri + gateway · Relays / Security honesty
+PROOF BEFORE DONE:    Named Pass/Fail rows; Verified only if A+B+C
+OUT OF SCOPE:         Invent onion · claim Verified on blocked LAN · T5-3 live ops
 ```
 
 ## Preconditions
 
 | Item | Expected |
 |------|----------|
-| Build | Desktop shell with T5-1/T5-2 tree |
-| Gateway | `pnpm dev:tor-gateway` → bootstrap **100%** (`lifecycleReady`) |
-| Settings | `%APPDATA%/app.obscur.desktop/tor_settings.json` or in-app Tor toggle |
-| Relays list | Default Stable publics (nos / primal / damus) enabled unless a step says otherwise |
+| Network | **Tor-capable** (bootstrap can reach 100%) — not the blocked maintainer LAN |
+| Build | Packaged or `dev:desktop:online` with TI land (`5d7cd8cd`+) |
+| Gateway | Co-started or `pnpm dev:tor-gateway` → bootstrap **100%** (`lifecycleReady`) |
+| Settings | In-app Tor toggle / tor_settings |
+| Relays | Default Stable publics enabled unless a step says otherwise |
+| Must **not** | Mark Ready on SocksPort alone · Docker-only as sole end-user Tor proof |
 
 ## Matrix
 
 ### A — Tor ON · empty Tor-viable pool (honesty)
 
-| # | Action | Pass |
-|---|--------|------|
-| A1 | Tor preference **ON** · gateway ready · **no** `ws://….onion` / allowlist host | NativeRelay does **not** dial nos/primal/damus (no CF thrash / no endless CONNECTING storm to publics) |
-| A2 | Settings → Relays connectivity copy | Shows honesty: Tor on · CF unreliable · add onion / turn Tor off (or i18n key with same meaning) |
-| A3 | Shell open-socket counts | Stay **0** for CF publics; do **not** show “ISP blocked” as primary story |
-| A4 | Desktop log (optional) | No sustained `Tor tunnel connected wss://nos.lol` (or primal/damus) after pool settle |
+| # | Check? | Action | Pass |
+|---|--------|--------|------|
+| A1 | **Yes** | Tor **ON** · gateway Ready · **no** `….onion` | No CF thrash / no endless CONNECTING to nos/primal/damus |
+| A2 | **Yes** | Settings → Relays / Security copy | Honesty: Tor on · CF unreliable · add onion / turn Tor off |
+| A3 | **Yes** | Shell open-socket counts | **0** for CF publics; not “ISP blocked” as primary story |
+| A4 | Optional | Desktop log | No sustained Tor tunnel to wss://nos.lol (etc.) after settle |
 
-**Exit A:** Honesty Pass does **not** equal Tor-only Verified (no sticky open yet).
+**Exit A:** Honesty Pass ≠ Tor Verified alone.
 
 ### B — Tor OFF · clearnet regression
 
-| # | Action | Pass |
-|---|--------|------|
-| B1 | Tor preference **OFF** | Pool dials Default Stable publics again |
-| B2 | ≥1 public WS **OPEN** (maintainer UI) | Same class as prior clearnet Pass |
-| B3 | DM smoke (optional but preferred) | Send/receive or media/call path still OK |
+| # | Check? | Action | Pass |
+|---|--------|--------|------|
+| B1 | **Yes** | Tor **OFF** | Pool dials Default Stable publics again |
+| B2 | **Yes** | ≥1 public WS **OPEN** | Same class as clearnet Pass |
+| B3 | Preferred | DM smoke | Send/receive or media still OK |
 
-**Exit B:** Clearnet unbroken — required before any Tor Verified claim.
+**Exit B:** Clearnet unbroken — required for Verified.
 
-### C — Tor ON · sticky open (lab or onion)
+### C — Tor ON · sticky open
 
-Pick **one**:
+Pick **one** (prefer onion for end-user claim):
 
-| Path | Setup | Pass |
-|------|--------|------|
-| **C-lab** | Only `ws://localhost:7000` (or lab WS) enabled · Tor ON · gateway ready · lab relay up | ≥1 sticky **OPEN** · no CF dials |
-| **C-onion** | Add `ws://….onion` (or `wss://`) Tor-viable · Tor ON · gateway ready | ≥1 sticky **OPEN** via gateway tunnel · DM smoke preferred |
+| Path | Check? | Setup | Pass |
+|------|--------|--------|------|
+| **C-onion** | **Yes** (preferred) | Real `ws(s)://….onion` · Tor ON · Ready | ≥1 sticky **OPEN** via gateway |
+| **C-lab** | Lab only | Lab WS only · Tor ON · Ready | Sticky OPEN — **not** production Tor-ready |
 
-| # | Action | Pass |
-|---|--------|------|
-| C1 | After open, idle **≥2 min** | Socket stays open (no reconnect storm) |
-| C2 | Shell interactive | Relays panel / status honest open counts |
+| # | Check? | Action | Pass |
+|---|--------|--------|------|
+| C1 | **Yes** | Idle **≥2 min** after open | Socket stays open (no reconnect storm) |
+| C2 | **Yes** | Relays panel | Honest open counts |
 
-**Exit C:** Sticky open Pass — required for **Tor-only Verified** together with A + B.
+**Exit C:** Sticky Pass — required for **Tor-only Verified** with A + B.
 
 ## Claim language
 
 | Claim | Requires |
 |-------|----------|
-| T5-2 honesty **L3 Pass** | A Pass |
+| T5 honesty **L3 Pass** | A Pass |
 | Clearnet regression **L3 Pass** | B Pass |
 | Tor sticky **L3 Pass** | C Pass |
-| **Tor-only Verified** | A + B + C Pass (evidence notes in handoff) |
-| Production Tor-ready | Verified + **T5-3** onion ops (not this checklist alone) |
+| **Tor-only Verified** | A + B + C Pass + handoff stamp |
+| Production Tor-ready | Verified + **T5-3** live onion |
 
-## Evidence to paste into handoff
+## Evidence paste
 
 ```text
-T5 L3:
+T5 L3 / Tor Verified:
   A honesty: Pass|Fail — <notes>
   B Tor OFF clearnet: Pass|Fail — <notes>
-  C sticky: Pass|Fail — path=lab|onion — <notes>
+  C sticky: Pass|Fail — path=onion|lab — <notes>
+  Network: <capable net description>
+  Surface: packaged|dev-desktop-online
   Claim: honesty-only | Verified | none
 ```
 
 ## Agent limits
 
-Agents may prepare this checklist and re-run L1. Agents must **not** mark Verified from unit tests alone. Desktop UI + Tor gateway lifecycle are source of truth for A–C.
+Do **not** mark Verified from unit tests or from the blocked maintainer LAN. Desktop UI + gateway lifecycle on a capable network are source of truth.
