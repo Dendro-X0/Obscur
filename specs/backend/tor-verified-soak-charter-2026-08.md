@@ -1,7 +1,7 @@
 # Charter — Tor Verified soak (option C)
 
+**Status:** **CANCELLED as active queue** — Tor Verified **INFEASIBLE** under solo + blocked-network constraints ([feasibility](./tor-verified-infeasible-2026-08.md)) · 2026-08-09  
 **Date (UTC):** 2026-08-09  
-**Status:** **Active** — maintainer chose **C**  
 **Parents:** [tor-ti-land-silo-charter-2026-08.md](./tor-ti-land-silo-charter-2026-08.md) · [tor-t5-l3-soak-checklist-2026-08.md](./tor-t5-l3-soak-checklist-2026-08.md) · [tor-integration-external-test-readiness-2026-08.md](./tor-integration-external-test-readiness-2026-08.md)
 
 ```text

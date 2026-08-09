@@ -1,27 +1,27 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T10:34:36Z
+- Last Updated (UTC): 2026-08-09T11:37:09Z
 
 ## Next atomic step
 
-**C — Tor Verified soak (Tor-capable network)** · 2026-08-09
+**D — CU-EXIT / version-band honesty (Tor Verified cancelled)** · 2026-08-09
 
 | Field | Value |
 |-------|--------|
-| Charter | [tor-verified-soak-charter-2026-08.md](../../specs/backend/tor-verified-soak-charter-2026-08.md) |
-| Checklist | [tor-t5-l3-soak-checklist-2026-08.md](../../specs/backend/tor-t5-l3-soak-checklist-2026-08.md) — rows **A + B + C** |
-| Who | Maintainer or invitee on a network that can bootstrap Tor to **100%** |
-| This host | Env-blocked (~14% TLS stall) — **cannot** stamp Verified here |
-| Prefer | Packaged or `dev:desktop:online` · sticky via **C-onion** if available |
-| Siloed | T5-3 live onion · AUTH-SESSION |
-| Do **not** | Fake Ready · invent onions · mark Verified from unit tests · move `v1.9.15` |
+| Why | Tor Verified **INFEASIBLE** — solo maintainer · no testers · network blocks Tor ([feasibility](../../specs/backend/tor-verified-infeasible-2026-08.md)) |
+| Work | Document honest ship claims: DM/Vault/Community Verified · Tor TI landed **not** Verified · stop Tor as queue |
+| Optional | Note Tor land for a future 1.9.16 notes band · update known-limitations if stale |
+| Siloed / CANCELLED | Tor Verified (active soak) · T5-3 live onion · AUTH-SESSION |
+| Keep | Tor TI code landed · Tor OFF clearnet path |
+| Do **not** | Fake Ready · patch Tor bootstrap on this LAN · invent testers · claim Tor Verified |
 
-### Prior — B Tor TI land / silo (Done)
+### Prior — C Tor Verified → INFEASIBLE
 
 | Field | Value |
 |-------|--------|
-| Commit | `5d7cd8cd` — feat(tor): land TI lifecycle gateway + silo Verified |
-| Claim | TI-1…4 **Implemented (L1) landed** · **not** Tor Verified until C soak |
+| Decision | Maintainer 2026-08-09 — no team · no Tor-capable net · Failure is the only Verified outcome here |
+| Spec | [tor-verified-infeasible-2026-08.md](../../specs/backend/tor-verified-infeasible-2026-08.md) |
+| Resume if | Capable network **or** external A+B+C evidence |
 
 ### Prior — CU-P1 community production soak Pass (L3)
 
@@ -2507,4 +2507,9 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: Maintainer/invitee: run tor-t5-l3 A+B+C on capable net; stamp Pass/Fail in handoff
+### 2026-08-09T11:37:09Z checkpoint
+- Summary: Tor Verified INFEASIBLE: solo + blocked network; cancel C as active queue; keep TI landed; next D honesty/version band.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: D: document ship honesty (DM/Vault/Community Verified; Tor TI not Verified); no Tor patch loops
 <!-- CONTEXT_CHECKPOINTS_END -->
