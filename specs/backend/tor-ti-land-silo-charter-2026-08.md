@@ -1,7 +1,7 @@
 # Charter — Land / silo Tor TI–T5 WIP (no re-tag)
 
+**Status:** **Landed** — commit `5d7cd8cd` 2026-08-09 · Tor Verified + T5-3 remain siloed · `v1.9.15` tag not moved  
 **Date (UTC):** 2026-08-09  
-**Status:** **Active** — maintainer chose **B**  
 **Parents:** [tor-integration-redesign-charter-2026-08.md](./tor-integration-redesign-charter-2026-08.md) · [tor-integration-external-test-readiness-2026-08.md](./tor-integration-external-test-readiness-2026-08.md) · [tor-t5-3-0-onion-ops-design-2026-08.md](./tor-t5-3-0-onion-ops-design-2026-08.md)
 
 ```text

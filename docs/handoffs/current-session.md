@@ -1,18 +1,29 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T10:32:00Z
+- Last Updated (UTC): 2026-08-09T10:40:00Z
 
 ## Next atomic step
 
-**B — Land Tor TI/T5 WIP (no re-tag)** · 2026-08-09
+**Maintainer choose next band** · 2026-08-09
 
 | Field | Value |
 |-------|--------|
-| Charter | [tor-ti-land-silo-charter-2026-08.md](../../specs/backend/tor-ti-land-silo-charter-2026-08.md) |
-| Work | Commit Tor gateway + TI-1…4 + specs · exclude exe/appdata · **do not** move `v1.9.15` |
-| After land | Silo Tor Verified + T5-3 · handoff → C/D/E |
-| PAUSED / CANCELLED | AUTH-SESSION · Tor Verified (env) · COM-RUN-02 |
+| Why | Tor TI **landed** (`5d7cd8cd`) · Vault + Community Verified · Tor Verified still siloed |
+| Options | (C) Tor Verified on Tor-capable net · (D) CU-EXIT / version-band (e.g. note Tor land for 1.9.16) · (E) stop |
+| Landed | [tor-ti-land-silo-charter-2026-08.md](../../specs/backend/tor-ti-land-silo-charter-2026-08.md) · commit `5d7cd8cd` |
+| Siloed | Tor Verified (env) · T5-3 onion ops (design Ready) |
+| Tag | `v1.9.15` **unchanged** (not moved onto Tor land) |
+| PAUSED / CANCELLED | AUTH-SESSION · COM-RUN-02 |
 | Do **not** | Claim Tor Verified · invent onions · force-retag 1.9.15 |
+
+### Prior — B Tor TI land / silo (Done)
+
+| Field | Value |
+|-------|--------|
+| Commit | `5d7cd8cd` — feat(tor): land TI lifecycle gateway + silo Verified |
+| Includes | `apps/tor-gateway` · Ready-gate dial · gateway spawn · TI UX · tor specs · Vault/CU-P1 continuity docs |
+| Excludes | `release-assets/*.exe` · `appdata/` · `.codectx/` · `.codegraph/` |
+| Claim | TI-1…4 **Implemented (L1) landed** · **not** Tor Verified |
 
 ### Prior — CU-P1 community production soak Pass (L3)
 
