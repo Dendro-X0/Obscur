@@ -18,8 +18,10 @@ pub struct MeshHttpFetchViaSocksResponse {
     pub content_type: Option<String>,
 }
 
-/// Mesh HTTP GET/POST through an explicit SOCKS5(h) proxy (C13).
-/// Used by conduit mesh drivers — does not depend on the webview CORS model.
+/// Mesh HTTP GET/POST via Tor (C13 host port).
+///
+/// R4 Slice 4a: proxies to `obscur-tor-gateway` `/v1/http/fetch`.
+/// The UI process never opens SOCKS sockets (`UI_PROCESS_MAY_DIAL_VIA_SOCKS` stays false).
 #[tauri::command]
 pub async fn mesh_http_fetch_via_socks(
     url: String,
@@ -28,6 +30,15 @@ pub async fn mesh_http_fetch_via_socks(
     headers: Option<std::collections::HashMap<String, String>>,
     body_text: Option<String>,
 ) -> Result<MeshHttpFetchViaSocksResponse, String> {
+    if crate::commands::tor::UI_PROCESS_MAY_DIAL_VIA_SOCKS {
+        return Err(
+            "R4 invariant broken: UI_PROCESS_MAY_DIAL_VIA_SOCKS must stay false".to_string(),
+        );
+    }
+    if !crate::commands::tor::GATEWAY_OWNS_HTTP_DIALS {
+        return Err("R4: gateway HTTP dials are not enabled".to_string());
+    }
+
     let trimmed_url = url.trim();
     if trimmed_url.is_empty() {
         return Err("URL is empty".to_string());
@@ -36,64 +47,24 @@ pub async fn mesh_http_fetch_via_socks(
         return Err("Only http:// and https:// URLs are allowed".to_string());
     }
 
-    let trimmed_proxy = proxy_url.trim();
-    if trimmed_proxy.is_empty() {
-        return Err("proxy_url is empty".to_string());
-    }
-    if !(trimmed_proxy.starts_with("socks5://") || trimmed_proxy.starts_with("socks5h://")) {
-        return Err("proxy_url must be socks5:// or socks5h://".to_string());
-    }
+    // proxy_url is informational for callers; gateway uses its own SocksPort.
+    let _ = proxy_url;
 
-    let proxy = reqwest::Proxy::all(trimmed_proxy)
-        .map_err(|error| format!("Invalid SOCKS proxy URL: {error}"))?;
-    let client = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .connect_timeout(Duration::from_secs(12))
-        .timeout(Duration::from_secs(45))
-        .proxy(proxy)
-        .build()
-        .map_err(|error| format!("Failed to create SOCKS HTTP client: {error}"))?;
-
-    let method_upper = method.trim().to_uppercase();
-    let http_method = match method_upper.as_str() {
-        "GET" => reqwest::Method::GET,
-        "POST" => reqwest::Method::POST,
-        "PUT" => reqwest::Method::PUT,
-        "DELETE" => reqwest::Method::DELETE,
-        "HEAD" => reqwest::Method::HEAD,
-        "OPTIONS" => reqwest::Method::OPTIONS,
-        _ => return Err(format!("Unsupported HTTP method: {method_upper}")),
-    };
-
-    let mut request = client.request(http_method, trimmed_url);
-    if let Some(header_map) = headers {
-        for (key, value) in header_map {
-            request = request.header(key, value);
-        }
-    }
-    if let Some(body) = body_text {
-        request = request.body(body);
-    }
-
-    let response = request
-        .send()
-        .await
-        .map_err(|error| format!("SOCKS HTTP request failed: {error}"))?;
-    let status = response.status().as_u16();
-    let content_type = response
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .map(|value| value.to_string());
-    let body_text = response
-        .text()
-        .await
-        .map_err(|error| format!("Failed to read SOCKS HTTP response: {error}"))?;
+    let fetched = crate::commands::tor_gateway_client::http_fetch(
+        crate::commands::tor_gateway_client::GatewayHttpFetchRequest {
+            url: trimmed_url.to_string(),
+            method: method.trim().to_uppercase(),
+            headers,
+            body_text,
+        },
+    )
+    .await
+    .map_err(|e| e.to_string())?;
 
     Ok(MeshHttpFetchViaSocksResponse {
-        status,
-        body_text,
-        content_type,
+        status: fetched.status,
+        body_text: fetched.body_text,
+        content_type: fetched.content_type,
     })
 }
 

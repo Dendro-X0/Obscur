@@ -12,6 +12,13 @@ import { getRuntimeCapabilities } from "@/app/features/runtime/runtime-capabilit
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { resolveAtRestEncryptionUiPolicy } from "@/app/features/settings/services/storage-at-rest-ui-policy";
 import { DesktopAtRestEncryptionNotice } from "@/app/features/settings/components/desktop-at-rest-encryption-notice";
+import {
+  TOR_GATEWAY_OWNERSHIP_NOTE_DEFAULT,
+  getTorLifecycleUxDefaultCopy,
+  resolveTorLifecycleUxPhase,
+  torLifecycleUxI18nKey,
+  type TorLifecycleUxPhase,
+} from "@/app/features/relays/services/tor-lifecycle-ux";
 type SharedIntelSnapshot = Readonly<{
     signalCount: number;
     activeCount: number;
@@ -66,6 +73,32 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const [rollbackReasonLabel, setRollbackReasonLabel] = React.useState<string | null>(null);
     const isTauri: boolean = getRuntimeCapabilities().isNativeRuntime;
     const atRestEncryptionUiPolicy = resolveAtRestEncryptionUiPolicy();
+    const [everReadyWhilePreferred, setEverReadyWhilePreferred] = React.useState(false);
+    React.useEffect(() => {
+        if (!settings.enableTorProxy) {
+            setEverReadyWhilePreferred(false);
+            return;
+        }
+        if (torStatusSnapshot?.lifecycleReady && torStatusSnapshot?.gatewayReachable) {
+            setEverReadyWhilePreferred(true);
+        }
+    }, [
+        settings.enableTorProxy,
+        torStatusSnapshot?.lifecycleReady,
+        torStatusSnapshot?.gatewayReachable,
+    ]);
+    const torLifecycleUxPhase: TorLifecycleUxPhase = resolveTorLifecycleUxPhase({
+        preferenceOn: Boolean(settings.enableTorProxy),
+        lifecycleReady: Boolean(torStatusSnapshot?.lifecycleReady),
+        gatewayReachable: Boolean(torStatusSnapshot?.gatewayReachable),
+        everReadyWhilePreferred,
+        startFailed: torStatus === "error",
+    });
+    const torLifecyclePhaseKey = torLifecycleUxI18nKey(torLifecycleUxPhase);
+    const torLifecyclePhaseDefault = getTorLifecycleUxDefaultCopy(torLifecycleUxPhase, {
+        gatewayReachable: Boolean(torStatusSnapshot?.gatewayReachable),
+        startFailed: torStatus === "error",
+    });
     const handleRestart = () => {
         if (isTauri) {
             void invokeNativeCommand("restart_app");
@@ -465,7 +498,13 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>
                         <div className="space-y-0.5">
                             <Label className="text-base text-zinc-900 dark:text-white font-bold tracking-tight">{t("settings.security.tor.title")}</Label>
-                            <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[240px] leading-relaxed font-medium">{t("settings.security.tor.desc")}</p>
+                            <p className="text-zinc-500 dark:text-zinc-400 text-xs max-w-[240px] leading-relaxed font-medium">
+                                {t("settings.security.tor.desc")}
+                                {" "}
+                                {t("settings.security.tor.gatewayOwnershipNote", {
+                                    defaultValue: TOR_GATEWAY_OWNERSHIP_NOTE_DEFAULT,
+                                })}
+                            </p>
                         </div>
                     </div>
                     {isTauri ? (<div className="flex flex-col items-end gap-2">
@@ -474,11 +513,18 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 : t("settings.security.tor.enabled"))} className={cn("relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none", settings.enableTorProxy ? 'bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-800')}>
                                 <span className={cn("inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 shadow-sm", settings.enableTorProxy ? 'translate-x-[22px]' : 'translate-x-1')}/>
                             </button>
-                            <div className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors", torStatus === 'connected' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
-                torStatus === 'starting' ? "bg-amber-500/10 text-amber-600 border-amber-500/20 animate-pulse" :
-                    torStatus === 'error' ? "bg-red-500/10 text-red-600 border-red-500/20" :
+                            <div className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors",
+                torLifecycleUxPhase === "ready" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                torLifecycleUxPhase === "warming" ? "bg-amber-500/10 text-amber-600 border-amber-500/20 animate-pulse" :
+                torLifecycleUxPhase === "degraded" || torStatus === "error" ? "bg-red-500/10 text-red-600 border-red-500/20" :
                         "bg-zinc-500/10 text-zinc-600 border-zinc-500/20")}>
-                                {t(`settings.security.tor.status.${torStatus}`)}
+                                {torLifecycleUxPhase === "warming"
+                  ? t("settings.security.tor.status.warming", { defaultValue: "Warming" })
+                  : torLifecycleUxPhase === "ready"
+                    ? t("settings.security.tor.status.ready", { defaultValue: "Ready" })
+                    : torLifecycleUxPhase === "degraded"
+                      ? t("settings.security.tor.status.degraded", { defaultValue: "Degraded" })
+                      : t(`settings.security.tor.status.${torStatus}`)}
                             </div>
                         </div>) : (<div className="space-y-1 text-right">
                             <div className="text-[10px] font-black text-zinc-500 bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-black/5 dark:border-white/5 uppercase tracking-widest inline-block">
@@ -488,22 +534,42 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>)}
                 </div>
 
+                {isTauri && torLifecyclePhaseKey && torLifecyclePhaseDefault ? (
+                    <div className={cn(
+                      "mt-4 rounded-2xl border px-3 py-2.5 text-[11px] leading-relaxed font-medium",
+                      torLifecycleUxPhase === "ready"
+                        ? "bg-emerald-500/5 border-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+                        : torLifecycleUxPhase === "degraded"
+                          ? "bg-amber-500/5 border-amber-500/15 text-amber-800 dark:text-amber-200"
+                          : "bg-amber-500/5 border-amber-500/15 text-amber-800 dark:text-amber-200",
+                    )}>
+                        {t(torLifecyclePhaseKey, {
+                          defaultValue: torLifecyclePhaseDefault ?? undefined,
+                        })}
+                    </div>
+                ) : null}
                 {isTauri && (<div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5 space-y-2">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <div className={cn("rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider", torStatusSnapshot?.usingExternalInstance
+                            <div className={cn("rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider", torStatusSnapshot?.gatewayReachable
                 ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-700 dark:text-cyan-300"
-                : "bg-violet-500/10 border-violet-500/20 text-violet-700 dark:text-violet-300")}>
-                                {t("settings.security.tor.runtime.label")}: {torStatusSnapshot?.usingExternalInstance
-                ? t("settings.security.tor.runtime.shared")
-                : t("settings.security.tor.runtime.sidecar")}
+                : "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300")}>
+                                {t("settings.security.tor.runtime.label")}: {torStatusSnapshot?.gatewayReachable
+                ? t("settings.security.tor.runtime.gateway", {
+                    defaultValue: "Gateway",
+                })
+                : t("settings.security.tor.runtime.gatewayDown", {
+                    defaultValue: "Gateway offline",
+                })}
                             </div>
-                            <div className={cn("rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider", torStatusSnapshot?.ready
+                            <div className={cn("rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider", torStatusSnapshot?.lifecycleReady
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
                 : settings.enableTorProxy
                     ? "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
                     : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300")}>
-                                {t("settings.security.tor.reachability.label")}: {torStatusSnapshot?.ready
-                ? t("settings.security.tor.reachability.ready")
+                                {t("settings.security.tor.reachability.label")}: {torStatusSnapshot?.lifecycleReady
+                ? t("settings.security.tor.reachability.lifecycleReady", {
+                    defaultValue: "Gateway bootstrapped",
+                })
                 : settings.enableTorProxy
                     ? t("settings.security.tor.reachability.pending")
                     : t("settings.security.tor.reachability.disabled")}

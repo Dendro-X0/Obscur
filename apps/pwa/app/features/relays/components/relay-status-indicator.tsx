@@ -1,23 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRelay } from "../providers/relay-provider";
 import { cn } from "@/app/lib/utils";
 import { Radio } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { RelayReadinessState } from "../services/relay-recovery-types";
+import { resolveShellRelayActiveCounts } from "../services/resolve-shell-relay-active-counts";
 
 const OFFLINE_STATUS_GRACE_MS = 1200;
 
+/**
+ * Shell Connected/Offline label — open sockets only.
+ * Writable/publish-ready must not claim Connected when openCount is 0.
+ */
 export const resolveRelayStatusPresentation = (params: Readonly<{
   readiness: RelayReadinessState;
   phase: string;
-  writableRelayCount: number;
+  openRelayCount: number;
   isRecovering: boolean;
 }>): Readonly<{ labelKey: string; labelFallback: string; toneClass: string; showPulse: boolean }> => {
-  const { readiness, phase, writableRelayCount, isRecovering } = params;
+  const { readiness, phase, openRelayCount, isRecovering } = params;
 
-  if (readiness === "offline" || (writableRelayCount === 0 && !isRecovering)) {
+  if (openRelayCount === 0 && !isRecovering) {
     return {
       labelKey: "relays.offline",
       labelFallback: "Offline",
@@ -34,7 +39,7 @@ export const resolveRelayStatusPresentation = (params: Readonly<{
     };
   }
   if (
-    writableRelayCount === 0
+    openRelayCount === 0
     && (isRecovering || readiness === "recovering" || phase === "recovering" || phase === "connecting")
   ) {
     return {
@@ -57,11 +62,13 @@ export function RelayStatusIndicator({ embedded = false }: Readonly<{ embedded?:
   const { relayPool: pool, relayRuntime, relayRecovery, enabledRelayUrls } = useRelay();
   const [offlineStatusVisible, setOfflineStatusVisible] = useState(false);
 
-  const totalCount = Math.max(
-    pool.connections.length,
-    enabledRelayUrls?.length ?? 0,
-    relayRuntime.enabledRelayUrls.length,
-  );
+  const { openCount, totalCount } = useMemo(() => (
+    resolveShellRelayActiveCounts({
+      connections: pool.connections,
+      enabledRelayUrls: enabledRelayUrls ?? relayRuntime.enabledRelayUrls,
+    })
+  ), [pool.connections, enabledRelayUrls, relayRuntime.enabledRelayUrls]);
+
   useEffect(() => {
     if (relayRecovery.readiness !== "offline") {
       setOfflineStatusVisible(false);
@@ -90,10 +97,7 @@ export function RelayStatusIndicator({ embedded = false }: Readonly<{ embedded?:
   const presentation = resolveRelayStatusPresentation({
     readiness: effectiveReadiness,
     phase: relayRuntime.phase,
-    writableRelayCount: Math.max(
-      relayRuntime.writableRelayCount,
-      pool.connections.filter((connection) => connection.status === "open").length,
-    ),
+    openRelayCount: openCount,
     isRecovering,
   });
   const statusLabel = t(presentation.labelKey, presentation.labelFallback);
@@ -114,7 +118,7 @@ export function RelayStatusIndicator({ embedded = false }: Readonly<{ embedded?:
           {statusLabel}
         </span>
         <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-snug">
-          {relayRuntime.writableRelayCount}/{totalCount} {t("relays.active_relays")}
+          {openCount}/{totalCount} {t("relays.active_relays")}
         </span>
       </div>
     </div>

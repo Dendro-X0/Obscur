@@ -16,5 +16,7 @@ pub mod storage_at_rest;
 pub mod les;
 pub mod system;
 pub mod tor;
+pub mod tor_gateway_client;
+pub mod tor_gateway_spawn;
 pub mod tray;
 pub mod window;

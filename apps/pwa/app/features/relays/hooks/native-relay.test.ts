@@ -203,6 +203,7 @@ describe("NativeRelay", () => {
     expect(healthMocks.recordLatency).toHaveBeenCalledWith(
       "wss://relay.example",
       expect.any(Number),
+      "connect",
     );
   });
 

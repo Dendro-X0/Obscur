@@ -29,6 +29,7 @@ const headersToRecord = (
 /**
  * Desktop host port — routes HTTP mesh traffic through Tor SOCKS (C13).
  * PWA / non-native: returns socks_unavailable (callers use clearnet conduits only).
+ * R4 P0: native command refuses SOCKS dials until Slice 4.
  */
 export const createConduitMeshSocksFetchHostPort = (
   invoke: typeof invokeNativeCommand = invokeNativeCommand,

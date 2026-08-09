@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRelay } from '@/app/features/relays/providers/relay-provider';
 import type { EnhancedRelayPoolResult } from '@/app/features/relays/hooks/enhanced-relay-pool-types';
 import { deriveRelayNodeStatus, isRelayUrlPublishReady } from '@/app/features/relays/lib/relay-runtime-status';
+import { shouldRenderRelayNodeRoleChip } from '@/app/features/relays/lib/relay-node-detail-copy';
 import {
   formatRelayLatencyHistoryCaption,
   formatRelayLatencyLabel,
@@ -332,7 +333,8 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
         runtimePhase: relayRuntime.phase,
         lastInboundEventAtUnixMs: relayRuntime.lastInboundEventAtUnixMs,
     });
-    const socketOpen = poolConnection?.status === "open" || isPublishReady;
+    // Real WS/HTTP open only — mesh publishReady must not paint Ready on dead dials.
+    const socketOpen = poolConnection?.status === "open";
     const latencyLabelOptions = { socketOpen, publishReady: isPublishReady };
     const latencyLabel = formatRelayLatencyLabel(metrics, latencyLabelOptions);
     const sampleCount = metrics ? metrics.successfulConnections + metrics.failedConnections : 0;
@@ -385,16 +387,18 @@ function RelayMetricCard({ url, metrics, enabledRelayUrls, workspaceRelayUrls, a
                         <span className="text-[10px] uppercase tracking-wider font-bold opacity-60">
                             {derivedStatus.badge}
                         </span>
-                        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                            {derivedStatus.roleLabel}
-                        </span>
+                        {shouldRenderRelayNodeRoleChip(derivedStatus.roleLabel) ? (
+                            <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                {derivedStatus.roleLabel}
+                            </span>
+                        ) : null}
                     </div>
                 </div>
 
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">
                     <Zap className={cn(
                         "h-3 w-3",
-                        !socketOpen || (!(metrics && metrics.latency > 0) && !isPublishReady)
+                        !socketOpen || !(metrics && metrics.latency > 0)
                             ? "text-zinc-400"
                             : (metrics?.latency ?? 0) > 0 && metrics!.latency < 200
                                 ? "text-emerald-500"

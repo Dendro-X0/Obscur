@@ -10,6 +10,7 @@ import { REDUNDANCY_POOL_MAX_RELAYS } from "./relay-transport-mode";
 import { isLocalDevWorkspaceRelayUrl } from "./relay-transport-scope";
 import {
   filterDemotedLocalLabUrls,
+  isLocalLabAssistRelayUrl,
   shouldDemoteLocalLabFromActivePool,
 } from "./relay-local-lab-adapt";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
@@ -267,9 +268,9 @@ const isCircuitOpenHint = (
   hints: ReadonlyArray<RelayHealthHint>,
 ): boolean => findHint(url, hints)?.isCircuitOpen ?? false;
 
-/** Remote interaction URLs — public Nostr / VPS. Local lab mesh is excluded. */
+/** Remote interaction URLs — public Nostr / VPS. Local lab WS/HTTP assists excluded. */
 const isRemoteInteractionRelayUrl = (url: string): boolean => (
-  !isLocalDevWorkspaceRelayUrl(url)
+  !isLocalLabAssistRelayUrl(url)
 );
 
 /**

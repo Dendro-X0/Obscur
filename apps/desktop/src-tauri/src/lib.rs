@@ -128,10 +128,12 @@ pub fn run() {
             app.manage(mesh::runtime::MeshRuntimeState::new());
             let settings = load_tor_settings(&app.handle());
 
+            // R4 Slice 1: UI process never arms SOCKS from stale enable_tor file.
             app.manage(net::NativeNetworkRuntime::new(
-                settings.enable_tor,
+                false,
                 settings.proxy_url.clone(),
             ));
+            commands::tor::kill_orphan_tor_processes();
 
             // Manage SessionState
             app.manage(SessionState::new());
@@ -174,17 +176,23 @@ pub fn run() {
             // Manage TorState with loaded settings
             app.manage(TorState {
                 child: Mutex::new(None),
+                gateway_child: Mutex::new(None),
                 settings: Mutex::new(settings.clone()),
                 runtime_status: Mutex::new(TorRuntimeStatus::Disconnected),
                 using_external_instance: Mutex::new(false),
                 logs: Mutex::new(Vec::new()),
             });
 
-            // Start Tor if enabled
+            // TI-2: if preference enabled, ensure gateway (spawn if needed) then start Tor via gateway.
             if settings.enable_tor {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    let _ = start_tor(handle.clone(), handle.state()).await;
+                    let _ = start_tor(
+                        handle.clone(),
+                        handle.state(),
+                        handle.state(),
+                    )
+                    .await;
                 });
             }
 

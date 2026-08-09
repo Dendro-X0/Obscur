@@ -1,7 +1,7 @@
 # Community un-pause — integration study (2026-07)
 
-**Status:** Study complete · **band remains PAUSED** · 2026-07-31  
-**Kind:** Integration study only — **no `groups/**` feature code**, no un-pause without maintainer charter  
+**Status:** Study complete · **superseded for band state** by [community-production-unpause-charter-2026-08.md](../../docs/program/community-production-unpause-charter-2026-08.md) (2026-08-09 · CHARTERED / SOAK-ACTIVE · CU-P1)  
+**Kind:** Integration study — U1–U6 + GO/NO-GO still authoritative; production un-pause = August charter  
 **Prior studies:** [membership-graph-integration-study-2026-06.md](../../docs/program/membership-graph-integration-study-2026-06.md) · [community-membership-redesign-charter-2026-07.md](../../docs/program/community-membership-redesign-charter-2026-07.md) · [backend-parallel-path-audit-2026-07.md](./backend-parallel-path-audit-2026-07.md)  
 **Contract:** [modular-iteration-contract.md](../../docs/program/modular-iteration-contract.md) § Integration study
 
@@ -186,16 +186,10 @@ Ordered by **neighbor safety** then **unblocks product feedback**. Each slice is
 
 | Field | Value |
 |-------|--------|
-| Community band | **Remain PAUSED** (except chartered U-slices) |
-| Queue | **U1–U6 Done** (U5 Wave A+B) |
-| U1 | **Done** — invite native persist → dm-kernel |
-| U2 | **Done** — group persist engine A–D · `verify:u2-l3` Pass |
-| U3 | **Done** — Slice C L1 + L3 Pass (post-U2 re-proof) |
-| U4 | **Done** — membership write collapse + leave L3 |
-| U5 | **Wave A+B Done** — Find in community + header metrics honesty |
-| U6 | **Wave A+B Done** — invite role L3 |
-| Next atomic | **Dual-wave charter closed** — Wave A Done · Wave B lab soak recorded · not production un-pause |
-| Do not | Claim community production-ready · COM-RUN-01 parity patches · invent U7 without study |
+| Community band (2026-07) | Remained PAUSED after U1–U6 |
+| Community band (2026-08-09) | **CHARTERED / SOAK-ACTIVE** — [production un-pause charter](../../docs/program/community-production-unpause-charter-2026-08.md) |
+| Queue | **U1–U6 Done** (lab) · production = **CU-P1** packaged soak |
+| Do not | Claim community production-ready from lab alone · COM-RUN-01 parity patches · invent CU-P* without Fail evidence |
 
 
 ---

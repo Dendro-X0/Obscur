@@ -37,7 +37,7 @@ describe("relay-settings-node-filter", () => {
       status: "unavailable",
       badge: "Disabled",
       detail: "",
-      roleLabel: "Disabled",
+      roleLabel: "",
       successLabel: "n/a",
       confidenceLabel: "Insufficient data (0)",
     };

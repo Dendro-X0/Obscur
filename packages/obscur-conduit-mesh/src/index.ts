@@ -20,7 +20,10 @@ export type {
   MockConduitPublishBehavior,
 } from "./mock-conduit-driver";
 
-export { mapTorStatusSnapshotToMeshTorState } from "./map-tor-status-snapshot";
+export {
+  mapTorStatusSnapshotToMeshTorState,
+  MESH_DIAL_VIA_UI_SOCKS_ALLOWED,
+} from "./map-tor-status-snapshot";
 export { applyTorPolicyToConduitRuntime, applyTorPolicyToAllRuntimes } from "./apply-tor-policy-to-runtime";
 export {
   resolveConduitHttpTransportMode,

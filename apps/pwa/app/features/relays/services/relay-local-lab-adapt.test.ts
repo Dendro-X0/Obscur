@@ -42,6 +42,18 @@ describe("relay-local-lab-adapt (Nostr-first silo)", () => {
     expect(filtered).toEqual(["wss://nos.lol"]);
   });
 
+  it("demotes loopback HTTP mesh when remotes are enabled", () => {
+    const mesh = "http://127.0.0.1:8788";
+    expect(shouldDemoteLocalLabFromActivePool({
+      localUrl: mesh,
+      remotesEnabled: true,
+    })).toBe(true);
+    expect(filterDemotedLocalLabUrls({
+      orderedEnabledUrls: ["wss://nos.lol", mesh, "wss://relay.primal.net"],
+      remotesEnabled: true,
+    })).toEqual(["wss://nos.lol", "wss://relay.primal.net"]);
+  });
+
   it("keeps localhost when Soft L3-only", () => {
     const filtered = filterDemotedLocalLabUrls({
       orderedEnabledUrls: [local],

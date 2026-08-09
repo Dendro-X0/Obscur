@@ -10,12 +10,13 @@
  *   node scripts/dev-workspace-stack.mjs --online --live
  *
  *   node scripts/dev-workspace-stack.mjs --stack-only   (no desktop — for second A/B instance)
- *   node scripts/dev-workspace-stack.mjs --online --skip-coordination
+ *   node scripts/dev-workspace-stack.mjs --online --skip-tor-gateway
  *
  * Recommended Windows workflow (avoids wrangler cold-start races):
  *   Terminal 1: pnpm dev:coordination   (leave running between sessions)
  *   Terminal 2: pnpm dev:desktop:no-coord -- --rebuild
  *
+ * TI-2: `--online` also co-starts obscur-tor-gateway on :17950/:17951 unless skipped.
  * Source edits under apps/pwa/app require a static shell rebuild (auto-detected).
  * --skip-build refuses when the shell is stale unless OBSCUR_ALLOW_STALE_SHELL=1.
  * UI iteration without full rebuild: pnpm dev:desktop:online:live
@@ -78,6 +79,15 @@ const coordinationGraceMs = resolveReadyTimeoutMs(
 
 const COORDINATION_HEALTH_URL = "http://127.0.0.1:8787/health";
 const COORDINATION_PORT = 8787;
+const TOR_GATEWAY_HEALTH_URL = "http://127.0.0.1:17950/v1/health";
+const TOR_GATEWAY_PORT = 17950;
+const DEFAULT_TOR_GATEWAY_READY_TIMEOUT_MS = 120_000;
+const skipTorGateway = flags.has("--skip-tor-gateway")
+  || process.env.OBSCUR_SKIP_TOR_GATEWAY === "1";
+const torGatewayReadyTimeoutMs = resolveReadyTimeoutMs(
+  env.OBSCUR_TOR_GATEWAY_READY_TIMEOUT_MS,
+  DEFAULT_TOR_GATEWAY_READY_TIMEOUT_MS,
+);
 
 const freeCoordinationPort = () => {
   spawnSync(process.execPath, [
@@ -245,6 +255,46 @@ const ensureRelay = async () => {
   );
 };
 
+/** TI-2: co-start obscur-tor-gateway with online desktop stack (never tor.exe here). */
+const ensureTorGateway = async () => {
+  if (skipTorGateway) {
+    log("skipping tor-gateway spawn (--skip-tor-gateway / OBSCUR_SKIP_TOR_GATEWAY=1)");
+    return true;
+  }
+  if (await probeHttpOk(TOR_GATEWAY_HEALTH_URL, 3000)) {
+    log("tor-gateway already healthy on :17950");
+    return true;
+  }
+  if (await probeTcpOpen("127.0.0.1", TOR_GATEWAY_PORT)) {
+    log("tor-gateway port open — waiting for /v1/health");
+    return waitForService(
+      "tor-gateway",
+      () => probeHttpOk(TOR_GATEWAY_HEALTH_URL, 5000),
+      torGatewayReadyTimeoutMs,
+    );
+  }
+
+  // Match package.json `dev:tor-gateway` (Windows needs bash -c for cargo env).
+  const cargoCmd =
+    "OBSCUR_TOR_GATEWAY_BIND=127.0.0.1:17950 OBSCUR_TOR_GATEWAY_TUNNEL_BIND=127.0.0.1:17951 exec cargo run -p obscur-tor-gateway";
+  spawnBackground(
+    "tor-gateway",
+    process.platform === "win32" ? "bash" : "bash",
+    ["-c", cargoCmd],
+    {
+      OBSCUR_TOR_GATEWAY_BIND: "127.0.0.1:17950",
+      OBSCUR_TOR_GATEWAY_TUNNEL_BIND: "127.0.0.1:17951",
+    },
+    { shell: false },
+  );
+
+  return waitForService(
+    "tor-gateway",
+    () => probeHttpOk(TOR_GATEWAY_HEALTH_URL, 5000),
+    torGatewayReadyTimeoutMs,
+  );
+};
+
 const runStaticShellBuild = () => new Promise((resolve) => {
   const args = [path.join(repoRoot, "scripts", "dev-desktop-static.mjs")];
   if (flags.has("--online")) {
@@ -298,15 +348,16 @@ const run = async () => {
     log("AIO dev — coordination + relay + desktop in one terminal");
   }
 
-  log("phase 1: coordination + relay (+ static shell build when not using live webpack)…");
+  log("phase 1: coordination + relay + tor-gateway (+ static shell build when not using live webpack)…");
 
   const shellBuildPromise = (!stackOnly && !useLiveWebpack)
     ? runStaticShellBuild()
     : Promise.resolve(true);
 
-  const [coordinationOk, relayOk, shellBuildOk] = await Promise.all([
+  const [coordinationOk, relayOk, torGatewayOk, shellBuildOk] = await Promise.all([
     ensureCoordination(),
     ensureRelay(),
+    flags.has("--online") ? ensureTorGateway() : Promise.resolve(true),
     shellBuildPromise,
   ]);
 
@@ -332,6 +383,11 @@ const run = async () => {
       shutdown();
       process.exit(1);
     }
+  }
+  if (!torGatewayOk) {
+    console.warn("[workspace-stack] WARN: tor-gateway did not become healthy on :17950.");
+    console.warn("  Tor preference ON will try desktop spawn (TI-2) or run: pnpm dev:tor-gateway");
+    console.warn("  Skip in stack: OBSCUR_SKIP_TOR_GATEWAY=1 or --skip-tor-gateway");
   }
   if (!shellBuildOk) {
     console.error("[workspace-stack] FATAL: static shell build failed.");

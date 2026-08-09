@@ -1,19 +1,129 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-05T04:50:46Z
+- Last Updated (UTC): 2026-08-09T10:32:00Z
 
 ## Next atomic step
 
-**Release prep v1.9.15 (DM/path restore)** · maintainer package/tag · 2026-08-05
+**B — Land Tor TI/T5 WIP (no re-tag)** · 2026-08-09
 
 | Field | Value |
 |-------|--------|
-| Slice | DM + media L3 Pass (maintainer). Prep **v1.9.15** notes/bump/tag — do **not** un-pause community yet |
-| Spec | [v1.9.15-release.md](../releases/v1.9.15-release.md) · [v1.9.15-scope.md](../program/v1.9.15-scope.md) · [dm-send-thin-refactor-design-2026-08.md](../../specs/backend/dm-send-thin-refactor-design-2026-08.md) |
-| L3 | **Pass** — maintainer: DMs + media upload/send restored on desktop |
-| Next band (after tag) | Community verify (needs un-pause charter) · Vault / local security soak |
-| Do **not** | Patch `groups/**` while COM-RUN PAUSED · claim community/Vault ship in 1.9.15 · AUTH-SESSION · Soft L3 Docker SLA |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
+| Charter | [tor-ti-land-silo-charter-2026-08.md](../../specs/backend/tor-ti-land-silo-charter-2026-08.md) |
+| Work | Commit Tor gateway + TI-1…4 + specs · exclude exe/appdata · **do not** move `v1.9.15` |
+| After land | Silo Tor Verified + T5-3 · handoff → C/D/E |
+| PAUSED / CANCELLED | AUTH-SESSION · Tor Verified (env) · COM-RUN-02 |
+| Do **not** | Claim Tor Verified · invent onions · force-retag 1.9.15 |
+
+### Prior — CU-P1 community production soak Pass (L3)
+
+| Field | Value |
+|-------|--------|
+| Surface | Packaged production · **not** Docker local relay |
+| Stamp | Maintainer 2026-08-09 — community functions normal **when relay connected** |
+| Checklist | [community-production-soak-checklist-2026-08.md](../../specs/backend/community-production-soak-checklist-2026-08.md) → **Pass / Verified** |
+| Honest limit | No relay signal ⇒ no community delivery (expected) |
+| Charter | [community-production-unpause-charter-2026-08.md](../program/community-production-unpause-charter-2026-08.md) |
+
+### Prior — Vault / LES packaged soak Pass (L3)
+
+| Field | Value |
+|-------|--------|
+| Surface | Packaged desktop · `Obscur_1.9.15_x64-setup.exe` (`pnpm desktop:package` 2026-08-09) |
+| Stamp | Maintainer runtime 2026-08-09 — production shell working |
+| Evidence | File upload + deletion · group chat · profile isolation · **all features except Tor** |
+| Checklist | [vault-les-packaged-soak-checklist-2026-08.md](../../specs/backend/vault-les-packaged-soak-checklist-2026-08.md) → **Pass / Verified** |
+| Note | Packaged from tree that includes post-tag Tor TI/T5 WIP; Tor itself still env-blocked here · not in claim |
+| Tag baseline | `v1.9.15` @ `ca348e79` remains DM/media L3 baseline |
+
+### Release gate snapshot (this session)
+
+| Gate | Result |
+|------|--------|
+| `pnpm version:check` | **Pass** (1.9.15 aligned) |
+| Tag `v1.9.15` | **Exists** |
+| `pnpm verify:les-l1` | **Pass** |
+| `pnpm docs:check` | **Fail** — pre-existing stale/broken links |
+| Vault packaged soak | **Pass** (maintainer L3) |
+| Community CU-P1 | **Pass / Verified** (packaged · production relays) |
+| Tor L3 | Env-blocked here · **not** Verified |
+
+### Prior — Tor TI / T5 (siloed)
+
+| Field | Value |
+|-------|--------|
+| TI-1…TI-4 | Implemented (L1) |
+| T5-3-A | Accepted · T5-3.0 Design Ready |
+| This host | Bootstrap TLS stall ~14% · Tor OFF restores clearnet |
+| Field | Value |
+|-------|--------|
+| Code | `tor-lifecycle-ux.ts` · `auto-lock-settings-panel.tsx` · `relays-settings-tab-panel.tsx` · `en.json` |
+
+### Prior — TI-2 gateway co-start
+
+| Field | Value |
+|-------|--------|
+| Code | `tor_gateway_spawn.rs` · `tor.rs` start/stop · `dev-workspace-stack.mjs` `ensureTorGateway` |
+| Skip | `--skip-tor-gateway` / `OBSCUR_SKIP_TOR_GATEWAY=1` · override bin `OBSCUR_TOR_GATEWAY_BIN` |
+| Note | Lab may cargo-run gateway; packaged prefers binary beside exe |
+
+### Prior — TI-0 / TI-1 Ready-gate
+
+| Field | Value |
+|-------|--------|
+| Code | `relay-tor-dial-policy.ts` · `relay-provider.tsx` |
+
+### Prior — Tor R4 Slice 4b / research / firewall
+
+| Field | Value |
+|-------|--------|
+| Research | [tor-stability-latency-web-research-2026-08.md](../../specs/backend/tor-stability-latency-web-research-2026-08.md) |
+| Firewall | Clearnet 101 · Tor→CF fail |
+
+### Prior — Clearnet DM restore (maintainer Pass)
+
+| Field | Value |
+|-------|--------|
+| Evidence | Maintainer runtime 2026-08-08 — send media + call requests OK |
+| Note | Agent shell TCP to nos/primal/damus may still timeout; desktop path is source of truth for L3 |
+
+### Prior — Adaptive public Nostr Slice A (Implemented L1)
+
+| Field | Value |
+|-------|--------|
+| Design | [adaptive-public-nostr-design-2026-08.md](../../specs/backend/adaptive-public-nostr-design-2026-08.md) |
+
+### Prior — Shell relay status honesty (Implemented L1)
+
+| Field | Value |
+|-------|--------|
+| Spec | [shell-relay-status-honesty-investigation-2026-08.md](../../specs/backend/shell-relay-status-honesty-investigation-2026-08.md) |
+
+### Prior — Tor R4 feasibility close → reopen
+
+| Field | Value |
+|-------|--------|
+| Was | **D** PAUSED (env bootstrap ~5%) |
+| Now | Reopen charter — prove bootstrap 100% without regressing clearnet |
+| Spec | [tor-r4-host-bootstrap-feasibility-2026-08.md](../../specs/backend/tor-r4-host-bootstrap-feasibility-2026-08.md) |
+
+### Prior — R4 Tor gateway (Implemented L1)
+
+| Field | Value |
+|-------|--------|
+| Done (L1) | Slices 1–3 · P0 · Slice 4a · emit-loop fix · notice.log watch |
+| Gap | Gateway URL drift · bootstrap Verified pending |
+
+### Prior — Tor Option A / local-first WIP (abandoned on tree)
+
+| Field | Value |
+|-------|--------|
+| Result | L1 patches did not restore host after Tor pollution; maintainer required clean tag |
+
+### Prior — Release prep v1.9.15 (on tag)
+
+| Field | Value |
+|-------|--------|
+| Tag | `v1.9.15` / `ca348e79` · DM/media L3 Pass historically |
 
 ---
 
@@ -2363,4 +2473,19 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: Maintainer confirm 2026-08-05; docs/releases/v1.9.15-release.md
 - Uncertainty: not provided
 - Next: Commit/bump/tag v1.9.15 when maintainer says go; then community un-pause charter + Vault soak
+### 2026-08-09T08:22:04Z checkpoint
+- Summary: Maintainer L3: packaged 1.9.15 production shell Pass — upload/delete, group chat, profile isolation; Tor still unavailable (env). Vault LES soak Verified.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer choose next band: (A) community un-pause charter (B) land/silo Tor TI WIP without re-tag (C) Tor Verified only on Tor-capable net
+### 2026-08-09T08:34:48Z checkpoint
+- Summary: Maintainer A: community production un-pause charter landed — band CHARTERED/SOAK-ACTIVE; first slice CU-P1 packaged soak (no free groups/**).
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: CU-P1: maintainer stamp C1–C7 on packaged desktop (Tor OFF); agents no groups/** until Fail→investigation
+### 2026-08-09T10:26:29Z checkpoint
+- Summary: CU-P1 Pass/Verified: community normal on packaged production relays when relay connected (not Docker). Honest limit: no relay ⇒ no delivery.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: Maintainer choose: (B) land/silo Tor WIP (C) Tor Verified on capable net (D) CU-EXIT/version band (E) stop
 <!-- CONTEXT_CHECKPOINTS_END -->

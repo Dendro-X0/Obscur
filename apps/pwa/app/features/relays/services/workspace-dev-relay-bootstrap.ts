@@ -3,6 +3,8 @@ import {
   normalizeWorkspaceRelayUrl,
 } from "@/app/features/groups/services/workspace-relay-url";
 import { LOCAL_DEV_RELAY_URL } from "../hooks/use-relay-list";
+import { isLocalLabAssistRelayUrl } from "./relay-local-lab-adapt";
+import { isLocalMeshHttpGatewayUrl } from "./relay-transport-scope";
 
 export type RelayListEntry = Readonly<{
   url: string;
@@ -14,6 +16,8 @@ export type WorkspaceDevRelayBootstrapResult = Readonly<{
   workspaceRelayUrl: string;
   changed: boolean;
 }>;
+
+const DEFAULT_LOCAL_HTTP_MESH_URL = "http://127.0.0.1:8788";
 
 const relayUrlsMatch = (left: string, right: string): boolean => {
   const normalizedLeft = normalizeWorkspaceRelayUrl(left);
@@ -78,6 +82,28 @@ export const pruneUnreachableLocalDevWorkspaceRelay = (
   };
 };
 
+/** Disable loopback HTTP mesh when the gateway is not listening. */
+export const pruneUnreachableLocalMeshHttpGateway = (
+  relays: ReadonlyArray<RelayListEntry>,
+): WorkspaceDevRelayBootstrapResult | null => {
+  const enabledMesh = relays.filter((relay) => (
+    relay.enabled && isLocalMeshHttpGatewayUrl(relay.url)
+  ));
+  if (enabledMesh.length === 0) {
+    return null;
+  }
+  const next = relays.map((relay) => (
+    relay.enabled && isLocalMeshHttpGatewayUrl(relay.url)
+      ? { url: relay.url, enabled: false }
+      : relay
+  ));
+  return {
+    relays: next,
+    workspaceRelayUrl: enabledMesh[0]?.url ?? DEFAULT_LOCAL_HTTP_MESH_URL,
+    changed: true,
+  };
+};
+
 /** Best-effort probe for the local Docker/dev relay on ws://localhost:7000. */
 export const probeLocalDevWorkspaceRelay = (
   localRelayUrl: string = LOCAL_DEV_RELAY_URL,
@@ -117,12 +143,39 @@ export const probeLocalDevWorkspaceRelay = (
   });
 };
 
-/** True when any enabled relay is not the Soft L3 localhost lab node. */
+/** Best-effort health probe for loopback HTTP mesh gateway. */
+export const probeLocalMeshHttpGateway = async (
+  gatewayUrl: string = DEFAULT_LOCAL_HTTP_MESH_URL,
+  timeoutMs = 2_000,
+): Promise<boolean> => {
+  if (typeof window === "undefined" || typeof fetch !== "function") {
+    return false;
+  }
+  const base = gatewayUrl.trim().replace(/\/$/, "");
+  if (!base) {
+    return false;
+  }
+  const controller = new AbortController();
+  const timerId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${base}/mesh/v1/health`, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timerId);
+  }
+};
+
+/** True when any enabled relay is a consumer remote (not Docker/8788 lab assist). */
 export const hasEnabledNonLocalRelay = (
   relays: ReadonlyArray<RelayListEntry>,
-  localRelayUrl: string = LOCAL_DEV_RELAY_URL,
+  _localRelayUrl: string = LOCAL_DEV_RELAY_URL,
 ): boolean => relays.some((relay) => (
-  relay.enabled && !relayUrlsMatch(relay.url, localRelayUrl)
+  relay.enabled && !isLocalLabAssistRelayUrl(relay.url)
 ));
 
 export const reconcileLocalDevWorkspaceRelay = async (params: Readonly<{
@@ -130,20 +183,68 @@ export const reconcileLocalDevWorkspaceRelay = async (params: Readonly<{
   localRelayUrl?: string;
 }>): Promise<WorkspaceDevRelayBootstrapResult | null> => {
   const localRelayUrl = params.localRelayUrl ?? LOCAL_DEV_RELAY_URL;
-  const reachable = await probeLocalDevWorkspaceRelay(localRelayUrl);
-  if (reachable) {
-    // Nostr-first: never auto-enable Docker lab beside public/VPS remotes.
-    if (hasEnabledNonLocalRelay(params.relays, localRelayUrl)) {
-      return null;
+  let relays = params.relays;
+  let changed = false;
+  let workspaceRelayUrl = localRelayUrl;
+
+  const remotesEnabled = hasEnabledNonLocalRelay(relays, localRelayUrl);
+
+  // When public/VPS remotes are enabled, keep lab assists off (average-user path).
+  if (remotesEnabled) {
+    const forceOffLab = relays.map((relay) => (
+      relay.enabled && isLocalLabAssistRelayUrl(relay.url)
+        ? { url: relay.url, enabled: false }
+        : relay
+    ));
+    if (forceOffLab.some((relay, index) => relay.enabled !== relays[index]?.enabled)) {
+      return {
+        relays: forceOffLab,
+        workspaceRelayUrl: localRelayUrl,
+        changed: true,
+      };
     }
-    const result = applyWorkspaceDevRelayBootstrap(params.relays, localRelayUrl);
-    if (result.changed) {
-      writeOperatorWorkspaceRelayUrl(result.workspaceRelayUrl);
-    }
-    return result.changed ? result : null;
+    return null;
   }
 
-  return pruneUnreachableLocalDevWorkspaceRelay(params.relays, localRelayUrl);
+  const wsReachable = await probeLocalDevWorkspaceRelay(localRelayUrl);
+  if (wsReachable) {
+    const result = applyWorkspaceDevRelayBootstrap(relays, localRelayUrl);
+    if (result.changed) {
+      writeOperatorWorkspaceRelayUrl(result.workspaceRelayUrl);
+      relays = result.relays;
+      changed = true;
+      workspaceRelayUrl = result.workspaceRelayUrl;
+    }
+  } else {
+    const pruned = pruneUnreachableLocalDevWorkspaceRelay(relays, localRelayUrl);
+    if (pruned?.changed) {
+      relays = pruned.relays;
+      changed = true;
+      workspaceRelayUrl = pruned.workspaceRelayUrl;
+    }
+  }
+
+  const enabledMeshUrls = relays
+    .filter((relay) => relay.enabled && isLocalMeshHttpGatewayUrl(relay.url))
+    .map((relay) => relay.url);
+  if (enabledMeshUrls.length > 0) {
+    const anyMeshUp = (await Promise.all(
+      enabledMeshUrls.map((url) => probeLocalMeshHttpGateway(url)),
+    )).some(Boolean);
+    if (!anyMeshUp) {
+      const prunedMesh = pruneUnreachableLocalMeshHttpGateway(relays);
+      if (prunedMesh?.changed) {
+        relays = prunedMesh.relays;
+        changed = true;
+        workspaceRelayUrl = prunedMesh.workspaceRelayUrl;
+      }
+    }
+  }
+
+  if (!changed) {
+    return null;
+  }
+  return { relays, workspaceRelayUrl, changed: true };
 };
 
 export const bootstrapLocalDevWorkspaceRelay = async (params: Readonly<{

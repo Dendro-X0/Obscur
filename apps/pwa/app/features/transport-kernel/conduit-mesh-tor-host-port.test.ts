@@ -12,11 +12,13 @@ describe("conduit-mesh-tor-host-port", () => {
       state: "connected",
       configured: true,
       ready: true,
+      lifecycleReady: true,
       usingExternalInstance: false,
       proxyUrl: "socks5h://127.0.0.1:9050",
     });
 
     expect(mapped.configured).toBe(true);
+    // R4 Slice 4a: host ready ⇒ mesh may route; SOCKS executes in gateway only.
     expect(mapped.ready).toBe(true);
     expect(mapped.proxyUrl).toBe("socks5h://127.0.0.1:9050");
   });

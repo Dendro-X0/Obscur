@@ -28,7 +28,7 @@ Companion docs:
 | 9 | Checkpoints / vault media / call / search-wipe | `transport.*` / `persistence.*` via `engine_invoke` | Re-adding bare `db_*` for those domains |
 | 10 | Account backup / sync orchestration | `encrypted-account-backup-service` / `use-account-sync` | Dual backup writers without subtract |
 | 11 | Chat UI mirror (pin/hide/unread) | `chat-state-store.ts` — **UI mirror only**, not DM read authority | Using chat-state as sole thread truth |
-| 12 | Groups / community membership + group SQLite | **PAUSED** — bare `db_*` + `group-provider` (not unified) | Claiming production-ready · patching as “low priority” |
+| 12 | Groups / community membership + group SQLite | **CHARTERED / SOAK-ACTIVE** — engine + membership port + Slice C (U1–U6 lab Done); production proof = [CU-P1](../program/community-production-unpause-charter-2026-08.md) | Free `groups/**` churn · COM-RUN-02 restore · claiming Verified without packaged matrix |
 
 Hard rules:
 
@@ -45,7 +45,7 @@ Hard rules:
 | `enhanced-relay-pool-types.ts` | Shared **types** only — not a runtime owner |
 | `publishToUrlsStandalone` + subtracted port | Policy-routed; native must not use browser pool |
 | `app/features/dev-lab/**` | Dead / tombstoned |
-| Invite / group bare `db_*` | PAUSED community leftover |
+| Invite / group bare `db_*` | Tombstoned residue — do not re-warm (U2) |
 
 ## Interim multiplicity (shrink, do not expand)
 
@@ -61,10 +61,9 @@ Hard rules:
 
 **Do not** add another React filter layer.
 
-### Community visible participants (R2 — PAUSED)
+### Community visible participants (R2 — CHARTERED)
 
-Roster / directory / relay snapshot merge remains under community PAUSED.  
-**No** production “fixed” claims until un-pause + engine migrate.
+Live cross-profile roster **parity** is **not** a ship goal (COM-RUN-01 / ACC-02). U5 honesty landed; production claims need [CU-P1 soak](../program/community-production-unpause-charter-2026-08.md) Pass.
 
 ## Critical Runtime Invariants
 

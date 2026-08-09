@@ -41,6 +41,14 @@ import {
   resolveCommunityCandidateRelayUrls,
   resolveDmTransportRelayUrls,
 } from "../services/relay-transport-scope";
+import { resolveTorViableDmRelayUrls } from "../services/relay-tor-viable";
+import {
+  resolveDmUrlsForTorDialPhase,
+  resolveTorDialPolicyPhase,
+  shouldUseTorViableDialPool,
+  type TorDialPolicyPhase,
+} from "../services/relay-tor-dial-policy";
+import { resolveShellRelayActiveCounts } from "../services/resolve-shell-relay-active-counts";
 import {
   mergeNostrPoolWithCustomNodeRelayUrls,
   resolveEnabledCustomNodeRelayUrls,
@@ -92,7 +100,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const publicKeyHex = identity.state.publicKeyHex ?? null;
 
   const relayList = useRelayList({ publicKeyHex });
-  const dmTransportRelayUrls = useMemo(
+  const clearnetDmTransportRelayUrls = useMemo(
     () => resolveDmTransportRelayUrls(relayList.state.relays),
     [relayList.state.relays],
   );
@@ -100,10 +108,6 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     () => resolveCommunityCandidateRelayUrls(relayList.state.relays),
     [relayList.state.relays],
   );
-  const enabledRelayUrls = dmTransportRelayUrls;
-  const enabledRelayUrlsKey = useMemo(() => enabledRelayUrls.join("|"), [enabledRelayUrls]);
-  const enabledRelayUrlsRef = useRef(enabledRelayUrls);
-  enabledRelayUrlsRef.current = enabledRelayUrls;
 
   const { mode: relayTransportMode, setMode: setRelayTransportMode } = useRelayTransportMode();
 
@@ -112,6 +116,51 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const windowLabel = desktopSnapshot.currentWindow.windowLabel;
   const transportKernelAuthority = isTransportKernelAuthority();
   const [transportBootstrapReady, setTransportBootstrapReady] = useState(false);
+  /** TI-1: Tor dial phase inputs — subtract CF only when tor_armed (Ready). */
+  const [torPreferenceOn, setTorPreferenceOn] = useState(false);
+  const [torLifecycleReady, setTorLifecycleReady] = useState(false);
+  const [torGatewayReachable, setTorGatewayReachable] = useState(false);
+  const [torEverReadyWhilePreferred, setTorEverReadyWhilePreferred] = useState(false);
+  const [torStartFailed, setTorStartFailed] = useState(false);
+
+  const torDialPhase: TorDialPolicyPhase = useMemo(() => (
+    resolveTorDialPolicyPhase({
+      preferenceOn: torPreferenceOn,
+      lifecycleReady: torLifecycleReady,
+      gatewayReachable: torGatewayReachable,
+      everReadyWhilePreferred: torEverReadyWhilePreferred,
+      startFailed: torStartFailed,
+    })
+  ), [
+    torPreferenceOn,
+    torLifecycleReady,
+    torGatewayReachable,
+    torEverReadyWhilePreferred,
+    torStartFailed,
+  ]);
+  const torViableArmed = shouldUseTorViableDialPool(torDialPhase);
+
+  const torViableDmTransportRelayUrls = useMemo(
+    () => resolveTorViableDmRelayUrls(relayList.state.relays),
+    [relayList.state.relays],
+  );
+
+  const dmTransportRelayUrls = useMemo(
+    () => resolveDmUrlsForTorDialPhase({
+      phase: torDialPhase,
+      clearnetUrls: clearnetDmTransportRelayUrls,
+      torViableUrls: torViableDmTransportRelayUrls,
+    }),
+    [
+      torDialPhase,
+      clearnetDmTransportRelayUrls.join("|"),
+      torViableDmTransportRelayUrls.join("|"),
+    ],
+  );
+  const enabledRelayUrls = dmTransportRelayUrls;
+  const enabledRelayUrlsKey = useMemo(() => enabledRelayUrls.join("|"), [enabledRelayUrls]);
+  const enabledRelayUrlsRef = useRef(enabledRelayUrls);
+  enabledRelayUrlsRef.current = enabledRelayUrls;
   const transportPersistence = useTransportRelayPersistence({
     profileId,
     windowLabel,
@@ -213,12 +262,22 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     engineCheckpointRelayUrlsKey,
   ]);
 
-  const effectiveDmTransportRelayUrls = useMemo(() => (
-    resolveEffectiveDmTransportRelayUrls({
+  const effectiveDmTransportRelayUrls = useMemo(() => {
+    const resolved = resolveEffectiveDmTransportRelayUrls({
       userDmTransportRelayUrls: enabledRelayUrls,
       enginePoolHydrationRelayUrls,
-    })
-  ), [enabledRelayUrlsKey, enginePoolHydrationRelayUrls.join("|")]);
+    });
+    // TI-1: only tor_armed blocks CF rehydration into the dial set.
+    if (!torViableArmed) {
+      return resolved;
+    }
+    if (enabledRelayUrls.length > 0) {
+      return enabledRelayUrls;
+    }
+    return resolveTorViableDmRelayUrls(
+      resolved.map((url) => ({ url, enabled: true })),
+    );
+  }, [enabledRelayUrlsKey, enginePoolHydrationRelayUrls.join("|"), torViableArmed]);
   const effectiveDmTransportRelayUrlsKey = effectiveDmTransportRelayUrls.join("|");
 
   const { hints: relayHealthHints, hintsSignature, reconcileHintsSignature } = useRelayHealthHints({
@@ -243,9 +302,12 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       orderedEnabledUrls: effectiveDmTransportRelayUrls,
       selection: relaySelection,
       hints: relayHealthHints,
+      // TI-1: sticky Tor dials only while tor_armed.
+      maxRedundancy: torViableArmed ? 2 : undefined,
     })
   ), [
     relayTransportMode,
+    torViableArmed,
     effectiveDmTransportRelayUrlsKey,
     relaySelection.primaryUrl,
     relaySelection.standbyUrls.join("|"),
@@ -352,6 +414,11 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     const runtimeCapabilities = getRuntimeCapabilities();
     if (!runtimeCapabilities.supportsTor) {
+      setTorPreferenceOn(false);
+      setTorLifecycleReady(false);
+      setTorGatewayReachable(false);
+      setTorEverReadyWhilePreferred(false);
+      setTorStartFailed(false);
       setTransportRoutingMode("direct");
       setTransportProxySummary(undefined);
       return;
@@ -372,8 +439,30 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (!active) {
         return;
       }
-      setTransportRoutingMode(torStatus.configured ? "privacy_routed" : "direct");
-      setTransportProxySummary(torStatus.configured ? summarizeProxyUrl(torStatus.proxyUrl) : undefined);
+      const preferenceOn = Boolean(torStatus.configured);
+      const lifecycleReady = Boolean(torStatus.lifecycleReady);
+      const gatewayReachable = Boolean(torStatus.gatewayReachable);
+      const startFailed = preferenceOn && torStatus.state === "error";
+
+      setTorPreferenceOn(preferenceOn);
+      setTorLifecycleReady(lifecycleReady);
+      setTorGatewayReachable(gatewayReachable);
+      setTorStartFailed(startFailed);
+
+      if (!preferenceOn) {
+        setTorEverReadyWhilePreferred(false);
+        setTransportRoutingMode("direct");
+        setTransportProxySummary(undefined);
+        return;
+      }
+
+      setTorEverReadyWhilePreferred((previous) => (
+        lifecycleReady && gatewayReachable ? true : previous
+      ));
+
+      const armed = lifecycleReady && gatewayReachable;
+      setTransportRoutingMode(armed ? "privacy_routed" : "direct");
+      setTransportProxySummary(armed ? summarizeProxyUrl(torStatus.proxyUrl) : undefined);
     };
 
     void refreshRoutingMode();
@@ -546,20 +635,26 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [relayRuntimeSupervisor]);
 
   const relayStatus = useMemo<RelayStatusSummary>(() => {
-    const total = relayPool.connections.length;
-    let openCount = 0;
+    const { openCount, totalCount } = resolveShellRelayActiveCounts({
+      connections: relayPool.connections,
+      enabledRelayUrls,
+    });
     let errorCount = 0;
     relayPool.connections.forEach((conn) => {
-      if (conn.status === "open") openCount++;
       if (conn.status === "error") errorCount++;
     });
     return {
-      total,
+      total: totalCount,
       openCount,
       errorCount,
       coolingDownRelayCount: relayRuntime.recovery.coolingDownRelayCount ?? 0,
     };
-  }, [relayConnectionSignature, relayRuntime.recovery.coolingDownRelayCount, relayPool.connections.length]);
+  }, [
+    relayConnectionSignature,
+    relayRuntime.recovery.coolingDownRelayCount,
+    relayPool.connections,
+    enabledRelayUrls,
+  ]);
 
   useRelaySessionWatchdog(transportBootstrapReady ? relayPool : {
     reconnectAll: () => { },

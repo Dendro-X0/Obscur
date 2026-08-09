@@ -25,14 +25,14 @@ export type RelayLatencyLabelOptions = Readonly<{
 /**
  * Primary Relays card latency badge — distinguishes connect/handshake vs app RTT.
  * Disconnected cards use Last* so Connect/RTT is not read as live latency (U4).
- * Publish-ready without samples shows Ready (not n/a) so UI matches working DM transport.
+ * "Ready" only when the socket is actually open (never from publish-ready alone).
  */
 export const formatRelayLatencyLabel = (
   metrics?: RelayLatencyLabelMetrics | null,
   options?: RelayLatencyLabelOptions,
 ): string => {
   if (!metrics || !Number.isFinite(metrics.latency) || metrics.latency <= 0) {
-    return options?.publishReady ? "Ready" : "n/a";
+    return options?.socketOpen === true ? "Ready" : "n/a";
   }
   const ms = Math.round(metrics.latency);
   const isApp = resolveRelayLatencySampleSource(metrics) === "app";

@@ -76,28 +76,18 @@ export const isRelayUrlPublishReady = (
 };
 
 /**
- * When mesh can already publish on a URL but the thin WS snapshot is still
- * connecting/closed, elevate UI connection to open so cards match working DMs.
- * Keep explicit error status visible.
+ * Relays card connection for UI — never invent `open` from mesh publish-ready.
+ * False Ready/Active hid dead clearnet dials (TCP timeout while cards said Active).
+ * `isPublishReady` retained for call-site compatibility; ignored for socket status.
  */
 export const resolveRelayUiConnection = (params: Readonly<{
   url: string;
   connection?: RelayConnection;
   isPublishReady: boolean;
 }>): RelayConnection | undefined => {
-  const connection = params.connection;
-  if (connection?.status === "open" || connection?.status === "error") {
-    return connection;
-  }
-  if (!params.isPublishReady) {
-    return connection;
-  }
-  return {
-    url: connection?.url || params.url,
-    status: "open",
-    updatedAtUnixMs: connection?.updatedAtUnixMs ?? Date.now(),
-    errorMessage: connection?.errorMessage,
-  };
+  void params.isPublishReady;
+  void params.url;
+  return params.connection;
 };
 
 export const deriveRelayRuntimeStatus = (params: Readonly<{
@@ -236,7 +226,7 @@ export const deriveRelayNodeStatus = (params: Readonly<{
   // "Active transport" means open primary only — never contradict a Disconnected badge (U1).
   // Publish-ready overlay can open the socket for role labeling when mesh already delivers.
   const roleLabel = !enabled
-    ? "Disabled"
+    ? "" // TI-4: badge owns "Disabled" — do not duplex role chip
     : params.isFallback
       ? "Fallback"
       : params.role === "primary"

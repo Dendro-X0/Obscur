@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "packages/libobscur",
+  "apps/tor-gateway",
 ]
 exclude = [
   "apps/desktop/src-tauri",

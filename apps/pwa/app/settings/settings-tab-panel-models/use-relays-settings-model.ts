@@ -25,6 +25,10 @@ import { useConduitMeshTorSettingsState } from "@/app/features/transport-kernel/
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { computeRelayQuickAverageLatency } from "@/app/features/relays/lib/format-relay-latency-label";
+import {
+  humanizeRelayNodeDetailCode,
+  relayNodeDetailCodeI18nKey,
+} from "@/app/features/relays/lib/relay-node-detail-copy";
 import { DEFAULT_STABLE_PRESET, ENABLE_API_HEALTH_PROBE, RELAY_PRESETS, TRANSPORT_PRESET_GROUPS, type ApiHealthState, type RelayPresetId, } from "../settings-tab-panel-shared";
 import { useSettingsDestructiveActionsModel } from "./use-settings-destructive-actions-model";
 import { useSettingsRelayRuntimeStatus } from "./use-settings-relay-runtime-status";
@@ -159,11 +163,21 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
                 return t("settings.relays.node.detail.disconnected", {
                     defaultValue: "No active socket.",
                 });
-            default:
+            case "websocket_error":
+                return t("settings.relays.node.detail.websocketError", {
+                    defaultValue: "WebSocket connection failed.",
+                });
+            default: {
                 if (value.startsWith("Repeated failures triggered backoff. Next retry is scheduled automatically.")) {
                     return t("settings.relays.node.detail.backoffRetry");
                 }
+                const codeKey = relayNodeDetailCodeI18nKey(value);
+                const codeDefault = humanizeRelayNodeDetailCode(value);
+                if (codeKey && codeDefault) {
+                    return t(codeKey, { defaultValue: codeDefault });
+                }
                 return value;
+            }
         }
     }, [t]);
     const translateRelayConfidenceLabel = useCallback((value: string): string => {

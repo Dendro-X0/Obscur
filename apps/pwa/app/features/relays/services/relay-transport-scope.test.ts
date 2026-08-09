@@ -33,16 +33,16 @@ describe("relay-transport-scope", () => {
     expect(isDmTransportRelayUrl("wss://relay.team.example")).toBe(false);
   });
 
-  it("resolves DM transport URLs from enabled public list and appends enabled local-dev fallback", () => {
+  it("uses public DM relays only when remotes are enabled (no Docker lab append)", () => {
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "ws://localhost:7000", enabled: true },
       { url: "wss://relay.damus.io", enabled: false },
     ]);
-    expect(urls).toEqual(["wss://relay.damus.io", "ws://localhost:7000"]);
+    expect(urls).toEqual(["wss://relay.damus.io"]);
   });
 
-  it("appends enabled local dev relay after public DM relays without experiment-online gate", () => {
+  it("keeps multi-public pool without local-dev when remotes are enabled", () => {
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "ws://localhost:7000", enabled: true },
@@ -51,7 +51,6 @@ describe("relay-transport-scope", () => {
     expect(urls).toEqual([
       "wss://relay.damus.io",
       "wss://nos.lol",
-      "ws://localhost:7000",
     ]);
   });
 
@@ -78,15 +77,12 @@ describe("relay-transport-scope", () => {
     expect(urls).toEqual(["http://127.0.0.1:8788"]);
   });
 
-  it("appends enabled loopback mesh HTTP after public DM relays", () => {
+  it("does not append loopback mesh HTTP when public DM relays are enabled", () => {
     const urls = resolveDmTransportRelayUrls([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "http://127.0.0.1:8788", enabled: true },
     ]);
-    expect(urls).toEqual([
-      "wss://relay.damus.io",
-      "http://127.0.0.1:8788",
-    ]);
+    expect(urls).toEqual(["wss://relay.damus.io"]);
   });
 
   it("partitions relay list for settings UI", () => {

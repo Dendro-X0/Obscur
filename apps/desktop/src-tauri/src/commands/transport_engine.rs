@@ -17,6 +17,8 @@ use crate::mesh::snapshot::MeshSnapshotJson;
 use crate::mesh::tor_policy::MeshTorRuntimeState;
 use crate::net::NativeNetworkRuntime;
 use crate::protocol::{normalize_relay_urls, parse_event_payload};
+use crate::commands::tor_gateway_client;
+use crate::models::tor::TorState;
 use crate::relay::{connect_relay_internal, RelayPool};
 use libobscur::engine_invoke::{
     assemble_transport_publish_relay_event_network_with_attempts, dispatch,
@@ -228,6 +230,7 @@ pub async fn engine_invoke_transport_configure_mesh_conduits(
     mesh: State<'_, MeshRuntimeState>,
     relay_pool: State<'_, RelayPool>,
     net_runtime: State<'_, NativeNetworkRuntime>,
+    tor_state: State<'_, TorState>,
     request: EngineInvokeRequest,
 ) -> Result<EngineInvokeResult, String> {
     if !should_route_configure_mesh(&request) {
@@ -262,13 +265,23 @@ pub async fn engine_invoke_transport_configure_mesh_conduits(
         ));
     }
 
+    let tor_preference = tor_state
+        .settings
+        .lock()
+        .map(|s| s.enable_tor)
+        .unwrap_or(false);
+    // R4/4b: "ready" = gateway bootstrap, not UI SOCKS arm (`net_runtime` stays false).
+    let tor_lifecycle_ready = if tor_preference {
+        tor_gateway_client::status()
+            .await
+            .map(|gw| gw.bootstrap_ready)
+            .unwrap_or(false)
+    } else {
+        false
+    };
     let tor = MeshTorRuntimeState {
-        configured: parsed
-            .tor_configured
-            .unwrap_or_else(|| net_runtime.is_tor_enabled()),
-        ready: parsed
-            .tor_ready
-            .unwrap_or_else(|| net_runtime.is_tor_enabled()),
+        configured: parsed.tor_configured.unwrap_or(tor_preference),
+        ready: parsed.tor_ready.unwrap_or(tor_lifecycle_ready),
     };
 
     let mut outcome: MeshConfigureOutcome = mesh.configure_and_select(
@@ -288,6 +301,7 @@ pub async fn engine_invoke_transport_configure_mesh_conduits(
                 url.clone(),
                 relay_pool.clone(),
                 net_runtime.clone(),
+                tor_state.clone(),
             )
             .await
             {

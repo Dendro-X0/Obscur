@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_STABLE_PRESET,
+  HYBRID_PUBLIC_HTTP_PRESET,
   PRODUCT_BOOT_TRANSPORT_PRESET,
   getTransportPreset,
 } from "./transport-preset-catalog";
@@ -21,10 +22,11 @@ const loadEnFlat = (): Record<string, string> => {
 };
 
 describe("D1 relay pool Single/Multi UX copy", () => {
-  it("boot default remains public Multi-node (wire redundancy)", () => {
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET).toBe(DEFAULT_STABLE_PRESET);
+  it("boot default is Mixed adapters (Multi-node wire redundancy)", () => {
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET).toBe(HYBRID_PUBLIC_HTTP_PRESET);
     expect(PRODUCT_BOOT_TRANSPORT_PRESET.transportMode).toBe("redundancy");
     expect(getTransportPreset("low_latency")?.transportMode).toBe("basic");
+    expect(DEFAULT_STABLE_PRESET.transportMode).toBe("redundancy");
   });
 
   it("EN Settings strings use Single-node / Multi-node product language", () => {

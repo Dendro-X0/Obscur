@@ -14,6 +14,9 @@ describe("workspace-dev-relay-bootstrap", () => {
     expect(hasEnabledNonLocalRelay([
       { url: "ws://localhost:7000", enabled: true },
     ])).toBe(false);
+    expect(hasEnabledNonLocalRelay([
+      { url: "http://127.0.0.1:8788", enabled: true },
+    ])).toBe(false);
   });
 
   it("enables an existing disabled localhost relay entry", () => {

@@ -40,8 +40,13 @@ import {
   getActivePoolScopeSummaryCopy,
   getActiveTransportScopeCopy,
   getDmPublishPathCopy,
+  getTorEmptyPoolHonestyCopy,
   resolveActivePoolScopeSummaryCounts,
 } from "@/app/features/relays/services/relay-transport-scope-copy";
+import {
+  getTorWarmingHonestyCopy,
+} from "@/app/features/relays/services/tor-lifecycle-ux";
+import { shouldRenderRelayNodeRoleChip } from "@/app/features/relays/lib/relay-node-detail-copy";
 import { TransportPresetCatalogPanel } from "@/app/features/transport-kernel/transport-preset-catalog-panel";
 import { OfflinePackHelperPanel } from "@/app/features/transport-kernel/offline-pack-helper-panel";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
@@ -101,9 +106,14 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
       () => isLoopbackOnlyRelayList(relayList.state.relays),
       [relayList.state.relays],
     );
+    const torArmed = torState.configured && Boolean(torState.ready);
+    const torWarming = torState.configured && !torArmed;
     const activePoolScopeCounts = useMemo(
-      () => resolveActivePoolScopeSummaryCounts(relayList.state.relays),
-      [relayList.state.relays],
+      () => resolveActivePoolScopeSummaryCounts(relayList.state.relays, {
+        // TI-3 / TI-1: Tor-viable counts + empty-pool honesty only when dials are tor_armed.
+        torArmed,
+      }),
+      [relayList.state.relays, torArmed],
     );
     const scrollToCustomEndpoint = useCallback((): void => {
         document.getElementById("relay-custom-endpoint")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -257,9 +267,11 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                         : "text-rose-600 dark:text-rose-400")}>
                   {translateRelayNodeBadge(derivedStatus.badge)}
                 </span>
-                <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
-                  {translateRelayNodeRole(derivedStatus.roleLabel)}
-                </span>
+                {shouldRenderRelayNodeRoleChip(derivedStatus.roleLabel) ? (
+                  <span className="rounded-md bg-black/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
+                    {translateRelayNodeRole(derivedStatus.roleLabel)}
+                  </span>
+                ) : null}
               </div>
               <div className="mt-1 text-[10px] leading-relaxed text-zinc-500 dark:text-zinc-400">
                 {translateRelayNodeDetail(derivedStatus.detail)}
@@ -403,6 +415,20 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             communityConfigured: activePoolScopeCounts.communityConfiguredCount,
         })}
                   </p>
+                  {torWarming ? (
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                      {t("settings.relays.torWarmingHonesty", {
+                        defaultValue: getTorWarmingHonestyCopy(),
+                      })}
+                    </p>
+                  ) : null}
+                  {torArmed && activePoolScopeCounts.dmPoolEnabledCount === 0 ? (
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                      {t("settings.relays.torEmptyPoolHonesty", {
+                        defaultValue: getTorEmptyPoolHonestyCopy(),
+                      })}
+                    </p>
+                  ) : null}
                   <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                     {getActiveTransportScopeCopy({
             selection: relaySelection,
@@ -758,7 +784,10 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             </AnimatePresence>
             <SettingsActionStatus title={t("settings.relays.actionsTitle")} phase={relayActionPhase} message={relayActionMessage || undefined} summary={t("settings.relays.actionsSummary", {
             defaultValue: "Publish-ready {{writable}} of {{enabled}} · Open sockets {{open}} of {{enabled}}",
-            writable: Math.max(relayRuntime.writableRelayCount, relayQuickHealth.openCount),
+            // Never claim publish-ready when open sockets are zero (mesh ghost health).
+            writable: relayQuickHealth.openCount > 0
+              ? Math.max(relayRuntime.writableRelayCount, relayQuickHealth.openCount)
+              : 0,
             open: relayQuickHealth.openCount,
             enabled: relayQuickHealth.enabledCount,
         })}/>

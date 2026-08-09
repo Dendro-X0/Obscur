@@ -14,9 +14,8 @@ type WorkspaceDevRelayBootstrapOwnerProps = Readonly<{
 }>;
 
 /**
- * Soft L3 helper: when :7000 is listening *and* no public/VPS remotes are enabled,
- * enable Local Dev Mesh. When remotes are already enabled, never auto-enable lab
- * (Nostr-first silo). When :7000 is offline, disable dead localhost.
+ * Adaptive lab helper: with public remotes enabled, force Docker/8788 lab assists
+ * off. Soft L3-only (no remotes): enable :7000 when up; disable dead :7000/:8788.
  */
 export const WorkspaceDevRelayBootstrapOwner = ({
   enabled,

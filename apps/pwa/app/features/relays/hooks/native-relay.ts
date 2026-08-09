@@ -290,8 +290,10 @@ export class NativeRelay implements EventTarget {
             const result = await relayNativeAdapter.connectRelay(this.url);
             this.nativeConnected = true;
 
-            // CRITICAL FIX: Handle "Already connected" response
-            if (result === "Already connected") {
+            // Rust returns "Connected" or "Already connected". Do not rely only on
+            // relay-status events — under Tor, the status emit can race with invoke
+            // completion / listener teardown and leave readyState stuck at CONNECTING.
+            if (result === "Already connected" || result === "Connected") {
                 if (this.readyState !== NativeRelay.OPEN) {
                     this.readyState = NativeRelay.OPEN;
                     this.recordOpenLatencyOnce();

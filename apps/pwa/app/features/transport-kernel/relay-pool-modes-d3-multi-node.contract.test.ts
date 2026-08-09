@@ -7,15 +7,22 @@ import {
 } from "@/app/features/relays/services/relay-primary-selector";
 import {
   DEFAULT_STABLE_PRESET,
+  HYBRID_PUBLIC_HTTP_PRESET,
   PRODUCT_BOOT_TRANSPORT_PRESET,
 } from "@/app/features/transport-kernel/transport-preset-catalog";
 
 const DEFAULT_STABLE_URLS = [...DEFAULT_STABLE_PRESET.relays];
 
 describe("D3 multi-node Default Stable public pool", () => {
-  it("boot Default Stable is Multi-node with three public remotes", () => {
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET).toBe(DEFAULT_STABLE_PRESET);
-    expect(DEFAULT_STABLE_PRESET.transportMode).toBe("redundancy");
+  it("boot Mixed adapters keeps Multi-node mode and includes public remotes", () => {
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET).toBe(HYBRID_PUBLIC_HTTP_PRESET);
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.transportMode).toBe("redundancy");
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.relays).toEqual([
+      "wss://nos.lol",
+      "wss://relay.primal.net",
+      "wss://relay.damus.io",
+      "http://127.0.0.1:8788",
+    ]);
     expect(DEFAULT_STABLE_URLS).toEqual([
       "wss://nos.lol",
       "wss://relay.primal.net",

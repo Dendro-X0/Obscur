@@ -40,11 +40,12 @@ describe("transport-preset-catalog", () => {
     ]);
   });
 
-  it("product boot preset is public Default Stable (not Local Dev Mesh)", () => {
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET.id).toBe("default_stable");
-    expect(PRODUCT_BOOT_TRANSPORT_PRESET.category).toBe("public_nostr");
+  it("product boot preset is Mixed adapters (public + local HTTP mesh)", () => {
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.id).toBe("hybrid_public_http");
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.category).toBe("hybrid_adapters");
     expect(PRODUCT_BOOT_TRANSPORT_PRESET.requiresTor).toBeFalsy();
     expect(PRODUCT_BOOT_TRANSPORT_PRESET.relays.some((url) => url.includes("nos.lol"))).toBe(true);
+    expect(PRODUCT_BOOT_TRANSPORT_PRESET.relays.some((url) => url.includes("127.0.0.1:8788"))).toBe(true);
   });
 
   it("local dev preset points at canonical localhost relay", () => {

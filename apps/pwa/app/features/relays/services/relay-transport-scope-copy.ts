@@ -5,6 +5,7 @@ import {
   resolveDmTransportRelayUrls,
   type RelayListEntry,
 } from "./relay-transport-scope";
+import { resolveTorViableDmRelayUrls } from "./relay-tor-viable";
 
 export const formatRelayHostname = (url: string | null | undefined): string => {
   if (!url) {
@@ -33,21 +34,38 @@ export const getDmPublishPathCopy = (params: Readonly<{
 /**
  * Active-pool honesty: DM pool size uses resolveDmTransportRelayUrls (includes Local Dev Mesh
  * assist), not raw partition.dm enabled count (localhost is workspace-candidate only).
+ * TI-3 / TI-1: count Tor-viable dial targets only when dials are actually tor_armed — not on
+ * preference alone (Warming/Degraded keep clearnet pool counts).
  */
 export const resolveActivePoolScopeSummaryCounts = (
   relays: ReadonlyArray<RelayListEntry>,
+  options?: Readonly<{
+    /** @deprecated Prefer torArmed — preference alone must not subtract CF from counts. */
+    torPreferenceOn?: boolean;
+    /** True only when Tor dial phase is tor_armed (Ready + gateway reachable). */
+    torArmed?: boolean;
+  }>,
 ): Readonly<{
   dmPoolEnabledCount: number;
   communityEnabledCount: number;
   communityConfiguredCount: number;
 }> => {
   const partitioned = partitionRelayListByTransportScope(relays);
+  const countTorViable = options?.torArmed ?? options?.torPreferenceOn ?? false;
+  const dmPoolEnabledCount = countTorViable
+    ? resolveTorViableDmRelayUrls(relays).length
+    : resolveDmTransportRelayUrls(relays).length;
   return {
-    dmPoolEnabledCount: resolveDmTransportRelayUrls(relays).length,
+    dmPoolEnabledCount,
     communityEnabledCount: partitioned.community.filter((relay) => relay.enabled).length,
     communityConfiguredCount: partitioned.community.length,
   };
 };
+
+/** Charter honesty when Tor ON and Tor-viable dial pool is empty (no CF fallback). */
+export const getTorEmptyPoolHonestyCopy = (): string => (
+  "Tor is on — public Cloudflare relays are unreliable over Tor. Add an onion / Tor-viable relay, or turn Tor off for clearnet."
+);
 
 export const getActivePoolScopeSummaryCopy = (params: Readonly<{
   dmPoolEnabledCount: number;

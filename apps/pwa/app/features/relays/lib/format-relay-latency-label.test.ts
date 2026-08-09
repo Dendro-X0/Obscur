@@ -12,8 +12,9 @@ describe("formatRelayLatencyLabel", () => {
   });
 
   it("returns Ready when publish-ready without latency samples", () => {
-    expect(formatRelayLatencyLabel(undefined, { publishReady: true })).toBe("Ready");
-    expect(formatRelayLatencyLabel({ latency: 0, latencyHistory: [] }, { publishReady: true })).toBe("Ready");
+    expect(formatRelayLatencyLabel(undefined, { publishReady: true })).toBe("n/a");
+    expect(formatRelayLatencyLabel(undefined, { socketOpen: true })).toBe("Ready");
+    expect(formatRelayLatencyLabel({ latency: 0, latencyHistory: [] }, { socketOpen: true, publishReady: true })).toBe("Ready");
   });
 
   it("labels connect/handshake samples", () => {

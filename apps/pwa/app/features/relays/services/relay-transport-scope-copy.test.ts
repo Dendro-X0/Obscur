@@ -4,6 +4,7 @@ import {
   getActivePoolScopeSummaryCopy,
   getActiveTransportScopeCopy,
   getDmPublishPathCopy,
+  getTorEmptyPoolHonestyCopy,
   resolveActivePoolScopeSummaryCounts,
 } from "./relay-transport-scope-copy";
 
@@ -83,5 +84,22 @@ describe("relay transport scope copy", () => {
     expect(counts.communityEnabledCount).toBe(1);
     expect(getActivePoolScopeSummaryCopy(counts)).toContain("DM transport pool: 1");
     expect(getActivePoolScopeSummaryCopy(counts)).toContain("Workspace candidates: 1 enabled");
+  });
+
+  it("T5-2/TI-3: Tor-armed counts Tor-viable DM pool (subtracts CF)", () => {
+    const counts = resolveActivePoolScopeSummaryCounts([
+      { url: "wss://nos.lol", enabled: true },
+      { url: "wss://relay.damus.io", enabled: true },
+    ], { torArmed: true });
+    expect(counts.dmPoolEnabledCount).toBe(0);
+    expect(getTorEmptyPoolHonestyCopy()).toContain("Tor is on");
+  });
+
+  it("TI-3: Warming (preference without armed) keeps clearnet pool counts", () => {
+    const counts = resolveActivePoolScopeSummaryCounts([
+      { url: "wss://nos.lol", enabled: true },
+      { url: "wss://relay.damus.io", enabled: true },
+    ], { torArmed: false });
+    expect(counts.dmPoolEnabledCount).toBe(2);
   });
 });

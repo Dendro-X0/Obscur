@@ -121,15 +121,18 @@ export const resolveDmTransportRelayUrls = (
     .filter((relay) => relay.enabled && isDmTransportRelayUrl(relay.url))
     .map((relay) => relay.url);
 
+  // Consumer path: public/VPS remotes alone — do not append dead Docker/8788 lab assists.
+  if (dmUrls.length > 0) {
+    return dmUrls;
+  }
+
   const meshHttpUrls = relays
     .filter((relay) => relay.enabled && isLocalMeshHttpGatewayUrl(relay.url))
     .map((relay) => relay.url);
 
   let pool: ReadonlyArray<string> = dmUrls;
 
-  // Enabled local-dev WS must join the DM pool as fallback so failover/metrics can see an
-  // open mesh socket when public primaries are dead (same honesty as loopback HTTP mesh).
-  // Keep public DM URLs first when present.
+  // Soft L3 / lab-only: local-dev WS + loopback HTTP when no remotes are enabled.
   const localDevRelay = relays.find(
     (relay) => relay.enabled && isLocalDevWorkspaceRelayUrl(relay.url),
   );

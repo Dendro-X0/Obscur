@@ -56,6 +56,34 @@ describe("RelayStatusIndicator", () => {
     expect(screen.getByText("1/1 relays.active_relays")).toBeInTheDocument();
   });
 
+  it("does not claim Connected from writable-only evidence when sockets are closed", async () => {
+    const { useRelay } = await import("../providers/relay-provider");
+    vi.mocked(useRelay).mockReturnValue({
+      relayPool: {
+        connections: [
+          { url: "wss://nos.lol", status: "closed", updatedAtUnixMs: 1 },
+          { url: "wss://relay.primal.net", status: "closed", updatedAtUnixMs: 1 },
+        ],
+      },
+      relayRuntime: {
+        phase: "healthy",
+        writableRelayCount: 3,
+        enabledRelayUrls: ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.damus.io"],
+      },
+      enabledRelayUrls: ["wss://nos.lol", "wss://relay.primal.net", "wss://relay.damus.io"],
+      relayRecovery: createRelayRecoveryTestSnapshot({
+        readiness: "healthy",
+        writableRelayCount: 3,
+        subscribableRelayCount: 3,
+      }),
+    } as ReturnType<typeof useRelay>);
+
+    render(<RelayStatusIndicator />);
+
+    expect(screen.getByText("relays.offline")).toBeInTheDocument();
+    expect(screen.getByText("0/3 relays.active_relays")).toBeInTheDocument();
+  });
+
   it("suppresses offline briefly during transitions", async () => {
     const { useRelay } = await import("../providers/relay-provider");
     vi.mocked(useRelay).mockReturnValue({
@@ -80,7 +108,7 @@ describe("RelayStatusIndicator", () => {
     expect(screen.getByText("relays.connecting")).toBeInTheDocument();
   });
 
-  it("shows offline when no writable relays persist past grace period", async () => {
+  it("shows offline when no open sockets persist past grace period", async () => {
     const { useRelay } = await import("../providers/relay-provider");
     vi.mocked(useRelay).mockReturnValue({
       relayPool: {

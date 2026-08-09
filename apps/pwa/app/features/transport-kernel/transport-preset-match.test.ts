@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_STABLE_PRESET } from "./transport-preset-catalog";
+import { DEFAULT_STABLE_PRESET, HYBRID_PUBLIC_HTTP_PRESET } from "./transport-preset-catalog";
 import {
   matchTransportPreset,
   resolveActiveTransportPresetId,
@@ -54,7 +54,14 @@ describe("transport-preset-match", () => {
     expect(resolveActiveTransportPresetId(matches)).toBe("local_dev_mesh");
   });
 
-  it("resolves default_stable active for prod-first product boot defaults", () => {
+  it("resolves hybrid_public_http active for Mixed adapters product boot defaults", () => {
+    const relays = HYBRID_PUBLIC_HTTP_PRESET.relays.map((url) => ({ url, enabled: true }));
+    const matches = resolveTransportPresetMatches(relays, "redundancy");
+    expect(matches.hybrid_public_http).toBe("active");
+    expect(resolveActiveTransportPresetId(matches)).toBe("hybrid_public_http");
+  });
+
+  it("resolves default_stable active when only public Default Stable URLs are enabled", () => {
     const relays = DEFAULT_STABLE_PRESET.relays.map((url) => ({ url, enabled: true }));
     const matches = resolveTransportPresetMatches(relays, "redundancy");
     expect(matches.default_stable).toBe("active");

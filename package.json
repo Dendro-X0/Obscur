@@ -33,6 +33,8 @@
     "dev:desktop:stack": "node scripts/dev-workspace-stack.mjs --online --stack-only",
     "dev:mobile-shell:online": "node scripts/dev-mobile-shell.mjs --online",
     "dev:mobile-shell:offline": "node scripts/dev-mobile-shell.mjs --offline",
+    "dev:tor-gateway": "bash -c 'OBSCUR_TOR_GATEWAY_BIND=127.0.0.1:17950 OBSCUR_TOR_GATEWAY_TUNNEL_BIND=127.0.0.1:17951 exec cargo run -p obscur-tor-gateway'",
+    "verify:tor-gateway": "cargo test -p obscur-tor-gateway",
     "dev:coordination": "pnpm -C apps/coordination dev",
     "coordination:migrate": "pnpm -C apps/coordination db:migrate",
     "coordination:health": "node scripts/coordination-health.mjs",

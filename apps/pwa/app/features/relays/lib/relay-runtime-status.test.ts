@@ -233,7 +233,7 @@ describe("deriveRelayNodeStatus", () => {
     expect(status.detail).toContain("Selected primary");
   });
 
-  it("elevates connecting primary to Active transport when mesh publish-ready", () => {
+  it("does not elevate connecting primary to Active from mesh publish-ready alone", () => {
     const status = deriveRelayNodeStatus({
       url: "wss://nos.lol",
       enabled: true,
@@ -247,9 +247,27 @@ describe("deriveRelayNodeStatus", () => {
       },
       runtimePhase: "connecting",
     });
-    expect(status.badge).toBe("Active transport");
-    expect(status.roleLabel).toBe("Active transport");
-    expect(status.status).toBe("healthy");
+    expect(status.badge).toBe("Connecting");
+    expect(status.roleLabel).toBe("Primary (offline)");
+    expect(status.status).toBe("recovering");
+  });
+
+  it("keeps closed primary Disconnected even when mesh lists publish-ready", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://nos.lol",
+      enabled: true,
+      isConfigured: true,
+      role: "primary",
+      isPublishReady: true,
+      connection: {
+        url: "wss://nos.lol",
+        status: "closed",
+        updatedAtUnixMs: 1,
+      },
+      runtimePhase: "healthy",
+    });
+    expect(status.badge).toBe("Disconnected");
+    expect(status.roleLabel).toBe("Primary (offline)");
   });
 
   it("shows insufficient-data confidence for low-sample relays", () => {
@@ -282,5 +300,46 @@ describe("deriveRelayNodeStatus", () => {
     });
     expect(status.successLabel).toBe("n/a");
     expect(status.confidenceLabel).toContain("Insufficient data");
+  });
+
+  it("TI-4: disabled relay uses badge only (no Disabled role duplex)", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://relay.example",
+      enabled: false,
+      role: "standby",
+    });
+    expect(status.badge).toBe("Disabled");
+    expect(status.roleLabel).toBe("");
+    expect(status.detail).toContain("disabled");
+  });
+
+  it("TI-4: error detail prefers machine lastError for translate path", () => {
+    const status = deriveRelayNodeStatus({
+      url: "wss://relay.example",
+      enabled: true,
+      connection: {
+        url: "wss://relay.example",
+        status: "error",
+        errorMessage: "websocket_error",
+        updatedAtUnixMs: 1,
+      },
+      metrics: {
+        url: "wss://relay.example",
+        status: "error",
+        connectionAttempts: 2,
+        successfulConnections: 0,
+        failedConnections: 2,
+        latency: 0,
+        latencyHistory: [],
+        successRate: 0,
+        circuitBreakerState: "closed",
+        circuitBreakerFailureCount: 0,
+        retryCount: 0,
+        backoffDelay: 1000,
+        lastError: "websocket_error",
+      },
+    });
+    expect(status.badge).toBe("Error");
+    expect(status.detail).toBe("websocket_error");
   });
 });

@@ -95,9 +95,11 @@ describe("conduit-mesh — C3 tor policy", () => {
   });
 
   it("maps desktop TorStatusSnapshot shape to mesh state", () => {
+    // R4 Slice 4a: host dial-ready means gateway owns SOCKS HTTP (UI SOCKS still forbidden).
     expect(mapTorStatusSnapshotToMeshTorState({
       configured: true,
       ready: true,
+      lifecycleReady: true,
       proxyUrl: "socks5h://127.0.0.1:9050",
     })).toEqual({
       configured: true,

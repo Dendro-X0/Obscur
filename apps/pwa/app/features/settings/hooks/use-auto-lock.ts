@@ -18,9 +18,14 @@ type TorRuntimeState = 'disconnected' | 'starting' | 'connected' | 'error' | 'st
 type TorStatusSnapshot = Readonly<{
     state: TorRuntimeState;
     configured: boolean;
+    /** Dial-ready (mesh SOCKS). R4 P0: always false until Slice 4. */
     ready: boolean;
+    /** Gateway Bootstrapped 100% — lifecycle only. */
+    lifecycleReady?: boolean;
     usingExternalInstance: boolean;
     proxyUrl: string;
+    /** R4: obscur-tor-gateway answered on loopback. */
+    gatewayReachable?: boolean;
 }>;
 type TorLogSnapshot = string[];
 
@@ -81,9 +86,15 @@ export function useAutoLock() {
                 if (payload === 'connected') {
                     setTorRestartRequired(false);
                 }
+                // Snapshot refresh is pull-only; do not chain get_tor_status here in a way
+                // that historically re-emitted tor-status (WebView2 PostMessage quota storm).
                 void invokeNativeCommand<TorStatusSnapshot>("get_tor_status").then((result) => {
                     if (result.ok && result.value?.state) {
+                        setTorStatus(result.value.state);
                         setTorStatusSnapshot(result.value);
+                        if (result.value.lifecycleReady || result.value.ready) {
+                            setTorRestartRequired(false);
+                        }
                     }
                 });
             }).then(u => unlistenStatus = u);
@@ -105,7 +116,7 @@ export function useAutoLock() {
                 if (result.ok && result.value?.state) {
                     setTorStatus(result.value.state);
                     setTorStatusSnapshot(result.value);
-                    if (result.value.ready) {
+                    if (result.value.lifecycleReady || result.value.ready) {
                         setTorRestartRequired(false);
                     }
                 }
@@ -132,12 +143,7 @@ export function useAutoLock() {
         sessionStorage.setItem(getAutolockStorageKey(), String(lastActivityTime));
     }, [lastActivityTime]);
 
-    // Auto-start Tor on mount if enabled
-    useEffect(() => {
-        if (isTauri && settings.enableTorProxy && torStatus === 'disconnected') {
-            void invokeNativeCommand("start_tor");
-        }
-    }, [isTauri, settings.enableTorProxy, torStatus]);
+    // R4: UI process must never auto-start Tor (gateway owns sidecar).
 
     // Track user activity
     const recordActivity = useCallback(() => {
@@ -241,19 +247,30 @@ export function useAutoLock() {
                     setTorRestartRequired(false);
                 }
 
+                // R4 Slice 3: start/stop via gateway IPC (native command proxies; never spawns tor.exe).
                 if (newSettings.enableTorProxy) {
                     setTorStatus("starting");
-                    await invokeNativeCommand("start_tor");
+                    const started = await invokeNativeCommand<string>("start_tor", undefined, {
+                        timeoutMs: 8_000,
+                    });
+                    if (!started.ok) {
+                        setTorStatus("error");
+                        setTorLogs((prev) => [
+                            ...prev.slice(-98),
+                            started.message ||
+                                "R4: obscur-tor-gateway unreachable — run `pnpm dev:tor-gateway`.",
+                        ]);
+                    }
                 } else {
                     setTorStatus("stopped");
-                    await invokeNativeCommand("stop_tor");
+                    await invokeNativeCommand("stop_tor", undefined, { timeoutMs: 8_000 });
                 }
 
                 const statusSnapshot = await invokeNativeCommand<TorStatusSnapshot>("get_tor_status");
                 if (statusSnapshot.ok && statusSnapshot.value?.state) {
                     setTorStatus(statusSnapshot.value.state);
                     setTorStatusSnapshot(statusSnapshot.value);
-                    if (statusSnapshot.value.ready) {
+                    if (statusSnapshot.value.lifecycleReady || statusSnapshot.value.ready) {
                         setTorRestartRequired(false);
                     }
                 }

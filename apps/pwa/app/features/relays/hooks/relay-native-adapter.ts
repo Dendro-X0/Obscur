@@ -28,9 +28,14 @@ export type RelayProbeReport = Readonly<{
 export type TorStatusSnapshot = Readonly<{
   state: "disconnected" | "starting" | "connected" | "error" | "stopped";
   configured: boolean;
+  /** Dial-ready (mesh SOCKS). R4 P0: always false until Slice 4. */
   ready: boolean;
+  /** Gateway Bootstrapped 100% — lifecycle only. */
+  lifecycleReady?: boolean;
   usingExternalInstance: boolean;
   proxyUrl: string;
+  /** R4: obscur-tor-gateway answered on loopback. */
+  gatewayReachable?: boolean;
 }>;
 
 const requireNativeValue = async <T>(
@@ -45,7 +50,8 @@ const requireNativeValue = async <T>(
   return result.value;
 };
 
-const CONNECT_TIMEOUT_MS = 20_000;
+/** Tor tunnel path needs SOCKS+TLS+WS headroom; pool dials serialize behind one gate. */
+const CONNECT_TIMEOUT_MS = 120_000;
 const PROBE_TIMEOUT_MS = 10_000;
 const SEND_TIMEOUT_MS = 8_000;
 const SUBSCRIPTION_TIMEOUT_MS = 8_000;
@@ -60,8 +66,10 @@ export const relayNativeAdapter = {
         state: "disconnected",
         configured: false,
         ready: false,
+        lifecycleReady: false,
         usingExternalInstance: false,
         proxyUrl: "",
+        gatewayReachable: false,
       };
     }
   },

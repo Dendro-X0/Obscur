@@ -1,8 +1,8 @@
 # Obscur — current state
 
-**Read this first.** Snapshot for maintainers and agents (2026-08-05).
+**Read this first.** Snapshot for maintainers and agents (2026-08-09).
 
-_Last updated: 2026-08-05 · **DM + media L3 Pass** · release prep **v1.9.15** · community still PAUSED_
+_Last updated: 2026-08-09 · **DM + media L3 Pass** · **Vault LES packaged Pass** · community **CU-P1 Verified** (production relays)_
 
 ---
 
@@ -11,13 +11,13 @@ _Last updated: 2026-08-05 · **DM + media L3 Pass** · release prep **v1.9.15** 
 | Track | Status |
 |-------|--------|
 | **DM / media (desktop)** | **L3 Pass** (maintainer 2026-08-05) — thin refactor Phase 1 |
-| **v1.9.14** | Package on tree **1.9.14** — pool/presets |
-| **v1.9.15** | **Release prep** — [v1.9.15-release.md](./releases/v1.9.15-release.md) · path/DM honesty |
-| **Community** | **PAUSED** — ACC-02 / COM-RUN — no `groups/**` churn until un-pause charter |
-| **Vault / LES** | Shipped in 1.9.11–1.9.13 band — **soak next** after 1.9.15 tag |
+| **v1.9.15** | **Tagged** — [v1.9.15-release.md](./releases/v1.9.15-release.md) |
+| **Vault / LES** | Packaged soak **Pass / Verified** (maintainer 2026-08-09) |
+| **Community** | **CU-P1 Pass / Verified** — packaged · production relays · needs live relay connection ([charter](./program/community-production-unpause-charter-2026-08.md)) |
+| **Tor** | Siloed — env-blocked here · **not** Verified |
 | **v2.0.0 gate** | Still blocked on train EXIT honesty |
 
-**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → commit + bump/tag **v1.9.15** → then community verify charter · Vault soak
+**Next step:** [handoffs/current-session.md](./handoffs/current-session.md) → maintainer choose next band (Tor land/silo · Tor-capable Verified · CU-EXIT)
 
 ---
 

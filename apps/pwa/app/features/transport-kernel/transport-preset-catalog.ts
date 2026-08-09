@@ -149,7 +149,7 @@ export const SSH_BASTION_FORWARD_PRESET: TransportPreset = {
   },
 };
 
-/** Mixed adapters — public Nostr pool + private HTTP mesh (user opt-in; not boot default). */
+/** Mixed adapters — public Nostr pool + private HTTP mesh (product boot default). */
 export const HYBRID_PUBLIC_HTTP_PRESET: TransportPreset = {
   id: "hybrid_public_http",
   category: "hybrid_adapters",
@@ -188,8 +188,8 @@ export const TRANSPORT_PRESET_CATALOG: ReadonlyArray<TransportPreset> = [
   TOR_ONION_MESH_PRESET,
 ];
 
-/** Prod-first 2026-08 — cold/reset product default is public Default Stable (Nostr). */
-export const PRODUCT_BOOT_TRANSPORT_PRESET: TransportPreset = DEFAULT_STABLE_PRESET;
+/** Prod-first 2026-08 — cold/reset product default is Mixed adapters (public + local HTTP mesh). */
+export const PRODUCT_BOOT_TRANSPORT_PRESET: TransportPreset = HYBRID_PUBLIC_HTTP_PRESET;
 
 export const TRANSPORT_PRESET_GROUPS: ReadonlyArray<TransportPresetGroup> = [
   {

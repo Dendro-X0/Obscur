@@ -2,26 +2,68 @@ use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::{self, Sender};
 use tokio::sync::oneshot;
+use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::timeout;
 use tokio::time::{sleep, Instant};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 
+use crate::commands::tor_gateway_client::{self, RelayDialMode};
+use crate::models::tor::TorState;
 use crate::net::NativeNetworkRuntime;
 
 type MaybeTlsStream = tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>;
 
 // Keep native connect command completion bounded below frontend invoke timeout.
-// JS currently times out connect_relay at 20_000ms.
+// JS connect_relay timeout is 120_000ms (Tor tunnel headroom; dials serialize).
 const CONNECT_COMMAND_BUDGET_MS: u64 = 18_000;
 const CONNECT_ATTEMPT_TIMEOUT_MS: u64 = 8_000;
-const TOR_CONNECT_RETRY_DELAY_MS: u64 = 500;
+/// Tor tunnel path needs headroom for SOCKS + TLS + WS (serialized dials).
+const TOR_TUNNEL_CONNECT_BUDGET_MS: u64 = 50_000;
+const TOR_TUNNEL_ATTEMPT_TIMEOUT_MS: u64 = 25_000;
+/// Timeout/IO only — hard HTTP rejects fail the invoke immediately (4b-3 thrash cut).
+const TOR_CONNECT_RETRY_DELAY_MS: u64 = 3_000;
+/// After CF/edge 403/429/5xx, pause all Tor tunnel dials so the pool cannot stampede.
+const TOR_HARD_REJECT_COOLDOWN_MS: u64 = 45_000;
 const RELAY_WRITE_SEND_TIMEOUT_MS: u64 = 4_000;
+
+fn tor_tunnel_dial_gate() -> &'static AsyncMutex<()> {
+    static GATE: OnceLock<AsyncMutex<()>> = OnceLock::new();
+    GATE.get_or_init(|| AsyncMutex::new(()))
+}
+
+fn tor_hard_reject_cooldown_until_ms() -> &'static AtomicU64 {
+    static UNTIL: OnceLock<AtomicU64> = OnceLock::new();
+    UNTIL.get_or_init(|| AtomicU64::new(0))
+}
+
+fn now_unix_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn tor_hard_reject_cooldown_remaining_ms() -> Option<u64> {
+    let until = tor_hard_reject_cooldown_until_ms().load(Ordering::Relaxed);
+    let now = now_unix_ms();
+    if until > now {
+        Some(until - now)
+    } else {
+        None
+    }
+}
+
+fn arm_tor_hard_reject_cooldown() {
+    let until = now_unix_ms().saturating_add(TOR_HARD_REJECT_COOLDOWN_MS);
+    tor_hard_reject_cooldown_until_ms().store(until, Ordering::Relaxed);
+}
 
 fn enqueue_relay_message(tx: &Sender<Message>, message: Message) -> Result<(), String> {
     match tx.try_send(message) {
@@ -68,6 +110,29 @@ fn format_ws_connect_error(err: &tokio_tungstenite::tungstenite::Error) -> Strin
         }
         _ => err.to_string(),
     }
+}
+
+/// Cloudflare / edge rejects (403/429/5xx) do not heal on sub-second retries over Tor.
+fn is_hard_http_reject(err: &tokio_tungstenite::tungstenite::Error) -> bool {
+    use tokio_tungstenite::tungstenite::Error;
+    match err {
+        Error::Http(response) => {
+            let code = response.status().as_u16();
+            code == 403 || code == 429 || code >= 500
+        }
+        _ => false,
+    }
+}
+
+/// SOCKS connect timeout / gateway tunnel refusal — retrying in-invoke only queues the pool.
+fn is_tor_tunnel_no_retry(err: &tokio_tungstenite::tungstenite::Error) -> bool {
+    if is_hard_http_reject(err) {
+        return true;
+    }
+    let message = err.to_string().to_ascii_lowercase();
+    message.contains("socks_connect")
+        || message.contains("socks connect timed out")
+        || message.contains("tor_not_ready")
 }
 
 #[tauri::command]
@@ -363,7 +428,8 @@ pub(crate) async fn connect_relay_internal(
     window_label: String,
     url: String,
     state: State<'_, RelayPool>,
-    net_runtime: State<'_, NativeNetworkRuntime>,
+    _net_runtime: State<'_, NativeNetworkRuntime>,
+    tor_state: State<'_, TorState>,
 ) -> Result<String, String> {
     let key = (window_label.clone(), url.clone());
 
@@ -387,119 +453,176 @@ pub(crate) async fn connect_relay_internal(
     // Parse URL
     let relay_url = url::Url::parse(&url).map_err(|e| e.to_string())?;
 
-    println!("[NativeRelay] connect_relay url={}", url);
-    println!("[NativeRelay] Tor enabled={}", net_runtime.is_tor_enabled());
-    if net_runtime.is_tor_enabled() {
-        println!("[NativeRelay] Tor proxy={}", net_runtime.get_proxy_url());
-    }
+    let enable_tor_preference = tor_state
+        .settings
+        .lock()
+        .map(|s| s.enable_tor)
+        .unwrap_or(false);
 
-    // Attempt connection
-    let ws_stream: tokio_tungstenite::WebSocketStream<MaybeTlsStream> = if net_runtime
-        .is_tor_enabled()
-    {
-        println!("[NativeRelay] Relay scheme={}", relay_url.scheme());
+    let (gateway_reachable, bootstrap_ready) = if enable_tor_preference {
+        match tor_gateway_client::status().await {
+            Ok(gw) => (true, gw.bootstrap_ready),
+            Err(err) => {
+                println!("[NativeRelay] gateway status failed: {err}");
+                (false, false)
+            }
+        }
+    } else {
+        (false, false)
+    };
+
+    let dial_mode = tor_gateway_client::resolve_relay_dial_mode(
+        enable_tor_preference,
+        gateway_reachable,
+        bootstrap_ready,
+    );
+
+    println!("[NativeRelay] connect_relay url={}", url);
+    println!(
+        "[NativeRelay] Tor preference={} dial_mode={:?} (UI SOCKS armed=false)",
+        enable_tor_preference, dial_mode
+    );
+
+    let emit_error = |message: &str| {
         if let Some(window) = app.get_webview_window(&window_label) {
             let _ = window.emit(
                 "relay-status",
                 serde_json::json!({
                     "url": url,
-                    "status": "starting"
+                    "status": "error",
+                    "error": message
                 }),
             );
         }
-        let budget = Duration::from_millis(CONNECT_COMMAND_BUDGET_MS);
-        let attempt_timeout_cap = Duration::from_millis(CONNECT_ATTEMPT_TIMEOUT_MS);
-        let retry_delay = Duration::from_millis(TOR_CONNECT_RETRY_DELAY_MS);
-        let deadline = Instant::now() + budget;
-        let mut attempts: u32 = 0;
-        let mut last_error_message: Option<String> = None;
-        let mut connected_stream: Option<tokio_tungstenite::WebSocketStream<MaybeTlsStream>> = None;
-        while Instant::now() < deadline {
-            attempts = attempts.saturating_add(1);
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            let attempt_timeout = remaining.min(attempt_timeout_cap);
-            match timeout(attempt_timeout, net_runtime.connect_websocket(&relay_url)).await {
-                Ok(Ok(stream)) => {
-                    connected_stream = Some(stream);
-                    last_error_message = None;
-                    break;
-                }
-                Ok(Err(err)) => {
-                    let error_message = format_ws_connect_error(&err);
-                    println!(
-                        "[NativeRelay] Tor connect attempt {} failed: {}",
-                        attempts, error_message
-                    );
-                    last_error_message = Some(error_message);
-                }
-                Err(_) => {
-                    let error_message =
-                        format!("attempt timed out after {}ms", attempt_timeout.as_millis());
-                    println!(
-                        "[NativeRelay] Tor connect attempt {} failed: {}",
-                        attempts, error_message
-                    );
-                    last_error_message = Some(error_message);
-                }
-            }
+    };
 
-            if Instant::now() + retry_delay >= deadline {
-                break;
-            }
-            sleep(retry_delay).await;
-        }
-        if let Some(stream) = connected_stream {
-            stream
-        } else {
-            let message =
-                last_error_message.unwrap_or_else(|| "Unknown Tor connect error".to_string());
-            let final_error = format!(
-                "Tor proxy connect failed after {} attempt(s) within {}ms: {}",
-                attempts, CONNECT_COMMAND_BUDGET_MS, message
+    // Attempt connection
+    let ws_stream: tokio_tungstenite::WebSocketStream<MaybeTlsStream> = match dial_mode {
+        RelayDialMode::FailClosedGatewayDown => {
+            let message = format!(
+                "tor gateway unreachable at {} — run `pnpm dev:tor-gateway`",
+                tor_gateway_client::gateway_base_url()
             );
+            emit_error(&message);
+            return Err(message);
+        }
+        RelayDialMode::FailClosedTorNotReady => {
+            let message =
+                "tor gateway not Bootstrapped 100% — waiting before relay WS via tunnel".to_string();
+            emit_error(&message);
+            return Err(message);
+        }
+        RelayDialMode::GatewayTunnel => {
+            println!("[NativeRelay] Relay scheme={} via gateway tunnel", relay_url.scheme());
+            if let Some(remaining_ms) = tor_hard_reject_cooldown_remaining_ms() {
+                let message = format!(
+                    "tor tunnel cooling down after edge reject ({}ms remaining)",
+                    remaining_ms
+                );
+                println!("[NativeRelay] {message}");
+                emit_error(&message);
+                return Err(message);
+            }
             if let Some(window) = app.get_webview_window(&window_label) {
                 let _ = window.emit(
                     "relay-status",
                     serde_json::json!({
                         "url": url,
-                        "status": "error",
-                        "error": final_error
+                        "status": "starting"
                     }),
                 );
             }
-            return Err(final_error);
-        }
-    } else {
-        let connect_timeout = Duration::from_millis(CONNECT_COMMAND_BUDGET_MS);
-        match timeout(connect_timeout, connect_async(relay_url.as_str())).await {
-            Ok(Ok((stream, _response))) => stream,
-            Ok(Err(e)) => {
-                let message = format_ws_connect_error(&e);
-                if let Some(window) = app.get_webview_window(&window_label) {
-                    let _ = window.emit(
-                        "relay-status",
-                        serde_json::json!({
-                            "url": url,
-                            "status": "error",
-                            "error": message
-                        }),
-                    );
+            // Serialize Tor dials per attempt only — do not hold the gate across retries
+            // (one relay's CF 503 storm must not block the rest of the pool for 50s).
+            let budget = Duration::from_millis(TOR_TUNNEL_CONNECT_BUDGET_MS);
+            let attempt_timeout_cap = Duration::from_millis(TOR_TUNNEL_ATTEMPT_TIMEOUT_MS);
+            let retry_delay = Duration::from_millis(TOR_CONNECT_RETRY_DELAY_MS);
+            let deadline = Instant::now() + budget;
+            let mut attempts: u32 = 0;
+            let mut last_error_message: Option<String> = None;
+            let mut connected_stream: Option<tokio_tungstenite::WebSocketStream<MaybeTlsStream>> =
+                None;
+            while Instant::now() < deadline {
+                attempts = attempts.saturating_add(1);
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                let attempt_timeout = remaining.min(attempt_timeout_cap);
+                let attempt_result = {
+                    let _tor_dial_guard = tor_tunnel_dial_gate().lock().await;
+                    timeout(
+                        attempt_timeout,
+                        NativeNetworkRuntime::connect_websocket_via_gateway_tunnel(&relay_url),
+                    )
+                    .await
+                };
+                match attempt_result {
+                    Ok(Ok(stream)) => {
+                        println!("[NativeRelay] Tor tunnel connected {}", url);
+                        connected_stream = Some(stream);
+                        last_error_message = None;
+                        break;
+                    }
+                    Ok(Err(err)) => {
+                        let error_message = format_ws_connect_error(&err);
+                        println!(
+                            "[NativeRelay] Tor tunnel connect attempt {} failed: {}",
+                            attempts, error_message
+                        );
+                        last_error_message = Some(error_message);
+                        if is_hard_http_reject(&err) {
+                            // Edge reject — pause the whole Tor dial pool; do not stampede CF.
+                            arm_tor_hard_reject_cooldown();
+                            break;
+                        }
+                        if is_tor_tunnel_no_retry(&err) {
+                            // SOCKS timeout: fail this invoke; let JS backoff instead of
+                            // holding the dial gate for a second 12s+ Tor attempt.
+                            break;
+                        }
+                    }
+                    Err(_) => {
+                        let error_message =
+                            format!("attempt timed out after {}ms", attempt_timeout.as_millis());
+                        println!(
+                            "[NativeRelay] Tor tunnel connect attempt {} failed: {}",
+                            attempts, error_message
+                        );
+                        last_error_message = Some(error_message);
+                    }
                 }
-                return Err(message);
+
+                if Instant::now() + retry_delay >= deadline {
+                    break;
+                }
+                sleep(retry_delay).await;
             }
-            Err(_) => {
-                let message = format!("Connect timed out after {}ms", CONNECT_COMMAND_BUDGET_MS);
-                if let Some(window) = app.get_webview_window(&window_label) {
-                    let _ = window.emit(
-                        "relay-status",
-                        serde_json::json!({
-                            "url": url,
-                            "status": "error",
-                            "error": message
-                        }),
-                    );
+            if let Some(stream) = connected_stream {
+                stream
+            } else {
+                let message =
+                    last_error_message.unwrap_or_else(|| "Unknown Tor tunnel error".to_string());
+                let final_error = format!(
+                    "Tor gateway tunnel connect failed after {} attempt(s) within {}ms: {}",
+                    attempts, TOR_TUNNEL_CONNECT_BUDGET_MS, message
+                );
+                emit_error(&final_error);
+                return Err(final_error);
+            }
+        }
+        RelayDialMode::Clearnet => {
+            let connect_timeout = Duration::from_millis(CONNECT_COMMAND_BUDGET_MS);
+            match timeout(connect_timeout, connect_async(relay_url.as_str())).await {
+                Ok(Ok((stream, _response))) => stream,
+                Ok(Err(e)) => {
+                    let message = format_ws_connect_error(&e);
+                    emit_error(&message);
+                    return Err(message);
                 }
-                return Err(message);
+                Err(_) => {
+                    let message =
+                        format!("Connect timed out after {}ms", CONNECT_COMMAND_BUDGET_MS);
+                    emit_error(&message);
+                    return Err(message);
+                }
             }
         }
     };
@@ -646,9 +769,18 @@ pub async fn connect_relay(
     window: WebviewWindow,
     state: State<'_, RelayPool>,
     net_runtime: State<'_, NativeNetworkRuntime>,
+    tor_state: State<'_, TorState>,
     url: String,
 ) -> Result<String, String> {
-    connect_relay_internal(app, window.label().to_string(), url, state, net_runtime).await
+    connect_relay_internal(
+        app,
+        window.label().to_string(),
+        url,
+        state,
+        net_runtime,
+        tor_state,
+    )
+    .await
 }
 
 // Command: Disconnect from a relay
@@ -697,6 +829,7 @@ pub async fn recycle_relays(
     window: WebviewWindow,
     state: State<'_, RelayPool>,
     net_runtime: State<'_, NativeNetworkRuntime>,
+    tor_state: State<'_, TorState>,
 ) -> Result<String, String> {
     let window_label = window.label().to_string();
 
@@ -768,6 +901,7 @@ pub async fn recycle_relays(
             url.clone(),
             state.clone(),
             net_runtime.clone(),
+            tor_state.clone(),
         )
         .await;
     }
