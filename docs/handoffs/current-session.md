@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T13:00:00Z
+- Last Updated (UTC): 2026-08-09T12:59:13Z
 
 ## Next atomic step
 
@@ -2525,4 +2525,9 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Evidence: not provided
 - Uncertainty: not provided
 - Next: RS-1: release honesty docs/demo script Tor OFF; then narrated video or RS-2/RS-3
+### 2026-08-09T12:59:13Z checkpoint
+- Summary: Tagged v1.9.16: clearnet ship, Tor silo, dialect research PAUSED until charter for method outside Nostr/VPS/Tor.
+- Evidence: not provided
+- Uncertainty: not provided
+- Next: PAUSED: research + design charter for a new communication dialect (≠ Nostr / VPS / Tor); optional clearnet demo video
 <!-- CONTEXT_CHECKPOINTS_END -->
