@@ -129,19 +129,15 @@ impl NativeNetworkRuntime {
         >,
         tungstenite::Error,
     > {
-        // Tor exits + Cloudflare often reject rustls fingerprints (503/520) while
-        // OS native TLS (schannel/openssl) completes the same tunnel path (101).
-        let tls = native_tls::TlsConnector::builder().build().map_err(|e| {
-            tungstenite::Error::Io(std::io::Error::other(format!("native tls build: {e}")))
-        })?;
-        let connector = tokio_tungstenite::Connector::NativeTls(tls);
-
+        // rustls-only: native-tls/openssl-sys cannot cross-compile for Android CI
+        // (pkg-config / vendored install_dev failures). Tor fingerprint quirks on
+        // some CDNs remain a known limit — Tor is not a release gate.
         let request = relay_url.as_str().into_client_request()?;
         let (ws_stream, _) = tokio_tungstenite::client_async_tls_with_config(
             request,
             tcp_stream,
             None,
-            Some(connector),
+            None,
         )
         .await?;
         Ok(ws_stream)

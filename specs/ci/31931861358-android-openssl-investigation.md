@@ -10,11 +10,11 @@
 - Android: `openssl-sys v0.9.117` fails — `Could not find openssl via pkg-config` when `$TARGET = aarch64-linux-android`
 - Trigger: `native-tls` (via `tokio-tungstenite` features including `native-tls`) pulls OpenSSL on Android
 
-## Fix direction
+## Fix direction (iteration 2)
 
-Add mobile-target `openssl` with `vendored` in [`apps/desktop/src-tauri/Cargo.toml`](../../apps/desktop/src-tauri/Cargo.toml) so `openssl-sys` builds from source under NDK (pkg-config cannot satisfy `aarch64-linux-android`).
+Vendored OpenSSL advanced past pkg-config but failed at `make install_dev` (exit 127).
 
-Keep desktop `native-tls` path for Tor tunnel fingerprint behavior. Do **not** batch-fix desktop matrix.
+**Applied:** drop `native-tls` / openssl from the desktop crate; keep `tokio-tungstenite` on **rustls only** (`connect` + `rustls-tls-native-roots`). Tor tunnel WSS uses default rustls connector. Tor CDN fingerprint quirks remain a known limit (Tor is not a release gate).
 
 ## Non-goals
 
