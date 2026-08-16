@@ -1,6 +1,6 @@
 {
-  "version": "1.8.14",
-  "notes": "Repo stable channel. Replace this file with pnpm desktop:update-channel:publish after a signed local desktop build.",
-  "pub_date": "2026-06-02T00:00:00.000Z",
+  "version": "1.9.16",
+  "notes": "Stable channel aligned with GitHub Release v1.9.16. Streaming install still requires signed updater feed; prefer official /download.",
+  "pub_date": "2026-08-16T08:00:00.000Z",
   "platforms": {}
 }

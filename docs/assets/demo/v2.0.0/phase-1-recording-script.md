@@ -37,8 +37,8 @@ Phase 1 clips are **user onboarding on screen**, but the **intro voice** should 
 | 0a | `pnpm desktop:demo-preflight` (L1 + shell gate) exits 0 | ☐ |
 | 0b | `pnpm desktop:build:exe` → smoke `obscur_desktop_app.exe`: account, relays online (Tor off), F5 ≤2.5s | ☐ |
 | 0c | **Only then** `pnpm desktop:package` (one installer for download/install clip) | ☐ |
-| 1 | Version on site matches installer you will run (`/download` → **1.9.14** or current) | ☐ |
-| 2 | Browser tab: `obscur.app/download` (or local site) loads manifest + checksums | ☐ |
+| 1 | Version on site matches installer you will run (`/download` → **1.9.16**) | ☐ |
+| 2 | Browser tab: site `/download` + optional GitHub Release v1.9.16 Assets | ☐ |
 | 3 | Windows installer already downloaded **or** ready to download on camera | ☐ |
 | 4 | Obscur **not** running yet (clean welcome card for segment 3) | ☐ |
 | 5 | ScreenToGif: **Window Capture** → Obscur window (not full desktop + taskbar) | ☐ |
@@ -109,40 +109,42 @@ Viewer knows: **stack not rental**, **self-host path exists**, **this clip is id
 
 ---
 
-## Segment 2 — Downloading
+## Segment 2 — Downloading & install
 
-**Goal:** Show the real install path: site → download → checksum → (optional) run installer.  
-**Duration:** 30–60 s.  
-**Prereq:** Browser on `/download`.
+**Goal:** Show **both** public channels: website `/download` (primary) and GitHub Releases (secondary), then start the installer.  
+**Duration:** 45–90 s.  
+**Canonical brief (v1.9.16):** [segment-a-download-install-v1.9.16.md](./segment-a-download-install-v1.9.16.md)  
+**Prereq:** Browser ready · Release **v1.9.16** assets live.
 
 ### On-screen workflow
 
 | Step | Action | Pass when |
 |------|--------|-----------|
-| 2.1 | Navigate to **Download** | Page title “Download Obscur” |
-| 2.2 | Point at **Windows** card (or your OS) | Filename e.g. `Obscur_1.9.14_x64-setup.exe` · **Ready** |
-| 2.3 | Scroll to **Verification / Checksums** | SHA-256 visible for that file |
-| 2.4 | Click **Download** (or show file already in Downloads) | Download starts or file present |
-| 2.5 | *(Optional)* Run installer · acknowledge SmartScreen | Installer runs — cut before long wizard if editing tight |
+| 2.1 | Site home → **Download** | `/download` — “Download Obscur” |
+| 2.2 | Point at **Windows** (or your OS) card | Filename e.g. `Obscur_1.9.16_x64-setup.exe` · Ready |
+| 2.3 | Scroll **Verification / Checksums** | SHA-256 visible |
+| 2.4 | Click **Download** | Download starts or file present |
+| 2.5 | Brief cut to [GitHub Release v1.9.16](https://github.com/Dendro-X0/Obscur/releases/tag/v1.9.16) Assets | Same version listed |
+| 2.6 | Run installer · SmartScreen if shown | Installer runs — cut before Create Identity |
 
-**Skip on camera:** Full NSIS wizard unless you want a separate “install” clip.
+**Skip on camera:** Full NSIS wizard unless a separate “install” take.
 
 ### Voiceover script (relaxed)
 
-> Downloads live on the site — Windows, macOS, Linux, and a self-signed Android APK.  
-> Builds are unsigned, so Windows may show SmartScreen — that’s expected.  
-> Copy the SHA-256 from this page and verify the file before you run the installer.  
-> I’m grabbing the Windows build for this demo.
+> Two places to get Obscur: the **website download page** is primary — checksums included.  
+> The same build is also on **GitHub Releases** for the version tag.  
+> Builds are unsigned, so SmartScreen is expected — verify the hash, then install.
 
 ### Do not say
 
 - “Official Microsoft-approved”
 - “No security warnings”
 - “Android is on Play Store”
+- “GitHub is the only channel” / “website not deployed”
 
 ### Pass when
 
-Viewer sees: **where to download**, **unsigned is normal**, **checksum exists**.
+Viewer sees: **website primary**, **GitHub secondary**, **unsigned + checksum**, **installer starts**.
 
 ---
 

@@ -492,9 +492,18 @@ type RawReleaseManifest = {
   artifacts?: unknown;
 };
 
-const manifestArtifactHref = (repoRelativePath: string): string | null => {
-  if (repoRelativePath.startsWith("release-assets/")) {
-    return `${REPO_GITHUB_RAW_BASE}/${repoRelativePath}`;
+const manifestArtifactHref = (params: Readonly<{
+  version: string;
+  fileName: string;
+  repoRelativePath: string;
+}>): string | null => {
+  const version = params.version.trim().replace(/^v/i, "");
+  const fileName = params.fileName.trim();
+  if (version && fileName) {
+    return `${REPO_GITHUB_BASE}/releases/download/v${version}/${fileName}`;
+  }
+  if (params.repoRelativePath.startsWith("release-assets/")) {
+    return `${REPO_GITHUB_RAW_BASE}/${params.repoRelativePath}`;
   }
   return null;
 };
@@ -532,7 +541,7 @@ const readReleaseAssetsManifest = async (): Promise<ReleaseManifestSnapshot | nu
         path: repoPath,
         sizeBytes,
         sha256,
-        href: manifestArtifactHref(repoPath),
+        href: manifestArtifactHref({ version, fileName, repoRelativePath: repoPath }),
         buildCommand: typeof artifact.buildCommand === "string" ? artifact.buildCommand : undefined,
         installHint: typeof artifact.installHint === "string" ? artifact.installHint : undefined,
       });
@@ -575,7 +584,7 @@ const manifestToReleaseSnapshot = (
   const tag = manifest.version.startsWith("v") ? manifest.version : `v${manifest.version}`;
   return {
     tag,
-    htmlUrl: `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`,
+    htmlUrl: `${REPO_GITHUB_BASE}/releases/tag/${tag}`,
     downloadableAssets,
     preferredDesktopDownload: {
       windows: toReleaseDownloadTarget(
@@ -836,7 +845,7 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
     {
       label: "Transport presets",
       status: "pass",
-      note: "v1.9.14 pool health + operator-friendly relay/mesh starting points — encryption stays on the client.",
+      note: "v1.9.16 pool health + operator-friendly relay/mesh starting points — encryption stays on the client.",
     },
     {
       label: "Network boundaries",

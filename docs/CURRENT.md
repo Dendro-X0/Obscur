@@ -11,7 +11,7 @@ _Last updated: 2026-08-15 · **v1.9.16** · clearnet ship stamped · dialect res
 | Track | Status |
 |-------|--------|
 | **Version** | **1.9.16** / tag **v1.9.16** — [scope](./program/v1.9.16-scope.md) · [release](./releases/v1.9.16-release.md) |
-| **Download** | **Primary:** website `/download` (update channel) · GitHub Releases **not** current |
+| **Download** | **Primary:** website `/download` · **Secondary:** [GitHub Releases v1.9.16](https://github.com/Dendro-X0/Obscur/releases/tag/v1.9.16) |
 | **DM / media** | L3 Pass (1.9.15 band) |
 | **Vault / LES** | Packaged Pass / Verified |
 | **Community** | CU-P1 Pass / Verified (production relays) |

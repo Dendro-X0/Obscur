@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-16T08:25:00Z
+- Last Updated (UTC): 2026-08-16T13:30:00Z
 
 ## Next atomic step
 
@@ -10,8 +10,18 @@
 |-------|--------|
 | Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
 | Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
-| Optional next | demo Segment A · website polish · sync website `/download` channel with v1.9.16 assets if needed |
+| Optional next | Identity create segment · website polish after `/download` redeploy · stitch Segment A |
 | Keep | Clearnet Verified · website `/download` primary · Tor TI landed (not Verified) |
+
+### Checkpoint — Segment A + download channel sync (2026-08-16)
+
+| Field | Value |
+|-------|--------|
+| Segment A | Recorded · Shotcut trim · **~45 s** · [brief](../assets/demo/v2.0.0/segment-a-download-install-v1.9.16.md) |
+| Bug | In-app Update CTA no-op + website stuck on **1.9.14** while GitHub is **1.9.16** |
+| Investigation | [update-download-channel-sync-investigation-2026-08.md](../../specs/backend/update-download-channel-sync-investigation-2026-08.md) |
+| Fix | Policy JSON text parse · blocked CTA → open `/download` · `release-assets/manifest.json` → **1.9.16** · website hrefs → GitHub Releases · stable channel policy synced |
+| Deploy | Push `release-assets/manifest.json` + website touch so Vercel rebuilds `/download` |
 
 ### Checkpoint — Full Release published v1.9.16 (2026-08-16)
 

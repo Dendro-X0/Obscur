@@ -32,6 +32,19 @@ describe("streaming-update-policy", () => {
     }
   });
 
+  it("parses manifest JSON text (remote fetch path)", () => {
+    const parsed = parseStreamingUpdateManifest(JSON.stringify(manifestFixture));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.manifest.version).toBe("1.3.8");
+    }
+  });
+
+  it("rejects invalid JSON text", () => {
+    const parsed = parseStreamingUpdateManifest("{not-json");
+    expect(parsed.ok).toBe(false);
+  });
+
   it("rejects malformed artifact checksum", () => {
     const parsed = parseStreamingUpdateManifest({
       ...manifestFixture,

@@ -1,42 +1,42 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-07-19T14:31:43Z",
-  "gitCommit": "a84ffe89",
-  "version": "1.9.14",
+  "generatedAt": "2026-08-16T13:20:00Z",
+  "gitCommit": "9752fa96",
+  "version": "1.9.16",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "https://github.com/Dendro-X0/Obscur/actions/runs/29642033281",
+  "sourceRun": "https://github.com/Dendro-X0/Obscur/actions/runs/31935072226",
   "artifacts": [
     {
       "platform": "windows",
       "kind": "nsis-installer",
       "buildCommand": "Obscur Full Release CI (desktop-windows)",
-      "path": "release-assets/windows/Obscur_1.9.14_x64-setup.exe",
-      "fileName": "Obscur_1.9.14_x64-setup.exe",
-      "sizeBytes": 9146326,
-      "sha256": "8d8ed1f34ed3505591f35feb192f3b031d6f0eecb880cef670820bbe587db234",
-      "builtAt": "2026-07-18T12:20:21Z"
+      "path": "release-assets/windows/Obscur_1.9.16_x64-setup.exe",
+      "fileName": "Obscur_1.9.16_x64-setup.exe",
+      "sizeBytes": 9174250,
+      "sha256": "35168e22aac3cc133277e8b27dfc2349ff836508c45d56e99ebdcaa9ffa7a04c",
+      "builtAt": "2026-08-16T08:00:00Z"
     },
     {
       "platform": "macos",
       "kind": "dmg",
       "buildCommand": "Obscur Full Release CI (desktop-macos)",
-      "path": "release-assets/macos/Obscur_1.9.14_aarch64.dmg",
-      "fileName": "Obscur_1.9.14_aarch64.dmg",
-      "sizeBytes": 6850979,
-      "sha256": "8a82d3f0eb86e8f81b340002b00d001e3e9e1a3ebf143e2c062df68a66aa2da7",
-      "builtAt": "2026-07-18T12:20:21Z"
+      "path": "release-assets/macos/Obscur_1.9.16_aarch64.dmg",
+      "fileName": "Obscur_1.9.16_aarch64.dmg",
+      "sizeBytes": 6889672,
+      "sha256": "594e64a8711ad4a610529cf4439d41760c21f31a3f593b622fe8f74d8565e7c3",
+      "builtAt": "2026-08-16T08:00:00Z"
     },
     {
       "platform": "linux",
       "kind": "appimage",
       "buildCommand": "Obscur Full Release CI (desktop-linux)",
-      "path": "release-assets/linux/Obscur_1.9.14_amd64.AppImage",
-      "fileName": "Obscur_1.9.14_amd64.AppImage",
-      "sizeBytes": 82586104,
-      "sha256": "620c05e278491cfd1bf0edd242681932e23a86e93858c3c32b0ef2cbf6ea07e2",
-      "builtAt": "2026-07-18T12:20:21Z"
+      "path": "release-assets/linux/Obscur_1.9.16_amd64.AppImage",
+      "fileName": "Obscur_1.9.16_amd64.AppImage",
+      "sizeBytes": 82713080,
+      "sha256": "597c99e1ddaf05e949521f3ab8d4940f11841e2119b2703cbbac314779475778",
+      "builtAt": "2026-08-16T08:00:00Z"
     },
     {
       "platform": "web",
@@ -44,29 +44,28 @@
       "buildCommand": "Obscur Full Release CI (web-pwa)",
       "path": "release-assets/web/obscur-pwa-static.tar.gz",
       "fileName": "obscur-pwa-static.tar.gz",
-      "sizeBytes": 2497616,
-      "sha256": "1ef232c7b6bbcd066ae24a1fbed4c3873bea47d9d90141a6182cc5c5ee7b29ae",
-      "builtAt": "2026-07-18T12:20:21Z"
+      "sizeBytes": 2443141,
+      "sha256": "9b1e71daf091328572f3703afd970641d5ea0651ba9e30335b30f49cd64f80a9",
+      "builtAt": "2026-08-16T08:00:00Z"
     },
     {
       "platform": "android",
       "kind": "apk-universal-release-unsigned",
       "buildCommand": "Obscur Full Release CI (mobile-android)",
-      "path": "release-assets/android/Obscur_1.9.14_universal-release-unsigned.apk",
-      "fileName": "Obscur_1.9.14_universal-release-unsigned.apk",
-      "sizeBytes": 66650411,
-      "sha256": "144a435179480016a364802f107619f4d5c1ecf2dfea74f103f0b7db8a07c1c1",
-      "builtAt": "2026-07-19T14:31:42Z",
+      "path": "release-assets/android/Obscur_1.9.16_app-universal-release-unsigned.apk",
+      "fileName": "Obscur_1.9.16_app-universal-release-unsigned.apk",
+      "sizeBytes": 67360571,
+      "sha256": "25f1d5816c25da34452d5caab65cb894b70ef370202868935fa66e81ab0c463d",
+      "builtAt": "2026-08-16T08:00:00Z",
       "abiFilter": "universal (CI release unsigned)",
       "installHint": "Allow install from this source, then open the APK. Optional: adb install -r <apk>",
       "note": "Self-signed; no Play Developer Program / Play Store listing"
     }
   ],
   "notes": [
-    "v1.9.14 multi-OS desktop + web landed from green Full Release run 29642033281",
+    "v1.9.16 multi-OS desktop + web + Android from Full Release publish run 31935072226",
+    "Website /download hrefs resolve to GitHub Releases download URLs (same assets as secondary channel)",
     "Windows NSIS / macOS DMG / Linux AppImage unsigned — SmartScreen / Gatekeeper expected",
-    "Publish GitHub Release still requires workflow_dispatch publish_release=true",
-    "Removed stale 1.9.10/1.9.12 Windows installers from release-assets/windows",
-    "Android universal release-unsigned APK landed from CI — sideload only, not Play Store"
+    "Android universal release-unsigned APK — sideload only, not Play Store"
   ]
 }

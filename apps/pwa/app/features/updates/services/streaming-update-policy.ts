@@ -117,40 +117,49 @@ const parseArtifact = (value: unknown): StreamingUpdateArtifact | null => {
 };
 
 export const parseStreamingUpdateManifest = (value: unknown): ParseManifestResult => {
-  if (!isObjectRecord(value)) {
+  let candidate: unknown = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate) as unknown;
+    } catch {
+      return { ok: false, reason: "manifest must be valid JSON" };
+    }
+  }
+  if (!isObjectRecord(candidate)) {
     return { ok: false, reason: "manifest must be an object" };
   }
-  const version = typeof value.version === "string" ? normalizeVersion(value.version) : "";
+  const valueRecord = candidate;
+  const version = typeof valueRecord.version === "string" ? normalizeVersion(valueRecord.version) : "";
   if (!parseSemver(version)) {
     return { ok: false, reason: "version must be semver-like" };
   }
-  const channel = parseChannel(value.channel);
+  const channel = parseChannel(valueRecord.channel);
   if (!channel) {
     return { ok: false, reason: "channel must be stable|beta|canary" };
   }
-  const rolloutPercentage = typeof value.rolloutPercentage === "number"
-    ? Math.floor(value.rolloutPercentage)
+  const rolloutPercentage = typeof valueRecord.rolloutPercentage === "number"
+    ? Math.floor(valueRecord.rolloutPercentage)
     : Number.NaN;
   if (!Number.isFinite(rolloutPercentage) || rolloutPercentage < 0 || rolloutPercentage > 100) {
     return { ok: false, reason: "rolloutPercentage must be 0..100" };
   }
-  const killSwitch = typeof value.killSwitch === "boolean" ? value.killSwitch : false;
-  const minSafeVersionRaw = typeof value.minSafeVersion === "string"
-    ? normalizeVersion(value.minSafeVersion)
+  const killSwitch = typeof valueRecord.killSwitch === "boolean" ? valueRecord.killSwitch : false;
+  const minSafeVersionRaw = typeof valueRecord.minSafeVersion === "string"
+    ? normalizeVersion(valueRecord.minSafeVersion)
     : undefined;
   if (minSafeVersionRaw && !parseSemver(minSafeVersionRaw)) {
     return { ok: false, reason: "minSafeVersion must be semver-like when present" };
   }
-  const releaseNotesUrl = typeof value.releaseNotesUrl === "string"
-    ? value.releaseNotesUrl.trim()
+  const releaseNotesUrl = typeof valueRecord.releaseNotesUrl === "string"
+    ? valueRecord.releaseNotesUrl.trim()
     : undefined;
   if (releaseNotesUrl && !/^https?:\/\//.test(releaseNotesUrl)) {
     return { ok: false, reason: "releaseNotesUrl must be http(s) when present" };
   }
-  if (!isObjectRecord(value.artifacts)) {
+  if (!isObjectRecord(valueRecord.artifacts)) {
     return { ok: false, reason: "artifacts must be a non-empty object" };
   }
-  const artifactEntries = Object.entries(value.artifacts);
+  const artifactEntries = Object.entries(valueRecord.artifacts);
   if (artifactEntries.length === 0) {
     return { ok: false, reason: "artifacts must be a non-empty object" };
   }

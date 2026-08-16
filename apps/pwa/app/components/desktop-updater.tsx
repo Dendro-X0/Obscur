@@ -62,16 +62,17 @@ const fetchRepoChannelVersion = async (useNative: boolean): Promise<string | nul
 const GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/Dendro-X0/Obscur/releases/latest";
 const GITHUB_RELEASES_PAGE_URL = "https://github.com/Dendro-X0/Obscur/releases";
 const REPO_CHANGELOG_URL = "https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md";
+const DEFAULT_OFFICIAL_DOWNLOAD_PAGE_URL = "https://obscur-website.vercel.app/download";
 const OFFICIAL_DOWNLOAD_PAGE_URL = (() => {
   const explicit = process.env.NEXT_PUBLIC_OFFICIAL_DOWNLOAD_PAGE_URL?.trim();
   if (explicit) {
     return explicit;
   }
   const siteBase = process.env.NEXT_PUBLIC_MARKETING_SITE_URL?.trim();
-  if (!siteBase) {
-    return null;
+  if (siteBase) {
+    return `${siteBase.replace(/\/+$/g, "")}/download`;
   }
-  return `${siteBase.replace(/\/+$/g, "")}/download`;
+  return DEFAULT_OFFICIAL_DOWNLOAD_PAGE_URL;
 })();
 const STREAMING_UPDATE_CHANNEL: StreamingUpdateChannel = "stable";
 const ROLLOUT_SEED_STORAGE_KEY = "obscur.desktop.streaming-update.rollout-seed.v1";
@@ -198,18 +199,26 @@ const describePolicyBlockReason = (reason: UpdateInfo["blockReasonCode"]): strin
 const resolveDownloadFallbackUrl = (params: Readonly<{
   releaseUrl: string | null;
   assetUrl: string | null;
-}>): string | null => {
+  latestTag?: string | null;
+}>): string => {
   if (OFFICIAL_DOWNLOAD_PAGE_URL) {
     return OFFICIAL_DOWNLOAD_PAGE_URL;
   }
   if (params.assetUrl) {
     return params.assetUrl;
   }
+  const tag = params.latestTag?.trim().replace(/^v/i, "");
+  if (tag) {
+    return `${GITHUB_RELEASES_PAGE_URL}/tag/v${tag}`;
+  }
   if (params.releaseUrl) {
     return params.releaseUrl;
   }
   return GITHUB_RELEASES_PAGE_URL;
 };
+
+const isManualDownloadDelivery = (mode: UpdateInfo["deliveryMode"] | undefined): boolean =>
+  mode === "download_only" || mode === "blocked";
 
 const resolvePreferredAssetLabel = (asset: ReleaseAsset | null): string => {
   if (!asset) {
@@ -272,6 +281,7 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
       const resolvedDownloadUrl = resolveDownloadFallbackUrl({
         releaseUrl: htmlUrl,
         assetUrl: preferredAsset?.browser_download_url ?? null,
+        latestTag,
       });
       setDownloadUrl(resolvedDownloadUrl);
 
@@ -466,14 +476,12 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
 
             <div className="flex gap-2">
               <Button
-                onClick={updateInfo.deliveryMode === "download_only" ? openDownloadTarget : installUpdate}
+                onClick={isManualDownloadDelivery(updateInfo.deliveryMode) ? openDownloadTarget : installUpdate}
                 disabled={isInstalling || (updateInfo.deliveryMode === "streaming" && updateInfo.eligible === false)}
                 className="flex-1"
               >
-                {updateInfo.deliveryMode === "download_only"
-                  ? "Open Download Page"
-                  : updateInfo.eligible === false
-                  ? "Update Blocked"
+                {isManualDownloadDelivery(updateInfo.deliveryMode)
+                  ? "Open download page"
                   : isInstalling
                     ? t("settings.updates.installing")
                     : t("settings.updates.install")}
@@ -513,14 +521,12 @@ export const DesktopUpdater = ({ variant = "background" }: DesktopUpdaterProps) 
         </Button>
         {isDesktop && updateInfo?.available ? (
           <Button
-            onClick={updateInfo.deliveryMode === "download_only" ? openDownloadTarget : installUpdate}
+            onClick={isManualDownloadDelivery(updateInfo.deliveryMode) ? openDownloadTarget : installUpdate}
             disabled={isInstalling || (updateInfo.deliveryMode === "streaming" && updateInfo.eligible === false)}
             className="min-h-9 rounded-xl px-4 py-1 text-xs font-semibold"
           >
-            {updateInfo.deliveryMode === "download_only"
-              ? "Open Download Page"
-              : updateInfo.eligible === false
-              ? "Update Blocked"
+            {isManualDownloadDelivery(updateInfo.deliveryMode)
+              ? "Open download page"
               : isInstalling
                 ? t("settings.updates.installing")
                 : t("settings.updates.install")}

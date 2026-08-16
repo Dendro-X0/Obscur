@@ -1,25 +1,24 @@
 {
-  "version": "1.8.14",
+  "version": "1.9.16",
   "channel": "stable",
   "rolloutPercentage": 100,
   "killSwitch": false,
-  "minSafeVersion": "1.8.11",
-  "releaseNotesUrl": "https://github.com/Dendro-X0/Obscur/blob/main/CHANGELOG.md",
+  "releaseNotesUrl": "https://github.com/Dendro-X0/Obscur/releases/latest",
   "artifacts": {
     "windows-x86_64": {
-      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_x64-setup.exe",
-      "signature": "publish-local-build-to-populate",
-      "checksumSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "url": "https://github.com/Dendro-X0/Obscur/releases/latest/download/Obscur_1.9.16_x64-setup.exe",
+      "signature": "signature-published-with-release-artifact",
+      "checksumSha256": "35168e22aac3cc133277e8b27dfc2349ff836508c45d56e99ebdcaa9ffa7a04c"
     },
     "darwin-aarch64": {
-      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_aarch64.dmg",
-      "signature": "publish-local-build-to-populate",
-      "checksumSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "url": "https://github.com/Dendro-X0/Obscur/releases/latest/download/Obscur_1.9.16_aarch64.dmg",
+      "signature": "signature-published-with-release-artifact",
+      "checksumSha256": "594e64a8711ad4a610529cf4439d41760c21f31a3f593b622fe8f74d8565e7c3"
     },
     "linux-x86_64": {
-      "url": "https://raw.githubusercontent.com/Dendro-X0/Obscur/main/apps/desktop/release/channel/stable/Obscur_1.8.14_amd64.AppImage",
-      "signature": "publish-local-build-to-populate",
-      "checksumSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "url": "https://github.com/Dendro-X0/Obscur/releases/latest/download/Obscur_1.9.16_amd64.AppImage",
+      "signature": "signature-published-with-release-artifact",
+      "checksumSha256": "597c99e1ddaf05e949521f3ab8d4940f11841e2119b2703cbbac314779475778"
     }
   }
 }
