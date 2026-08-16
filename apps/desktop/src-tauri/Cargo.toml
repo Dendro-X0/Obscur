@@ -54,6 +54,9 @@ getrandom = "0.2.15"
 # (bare `keyring = "3"` left writes in-process only → L3b cold-boot NoEntry).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-store = "2"
+# native-tls → openssl-sys on mobile; host pkg-config cannot satisfy aarch64-linux-android.
+# Vendored OpenSSL is required for Full Release / tauri android build on CI.
+openssl = { version = "0.10", features = ["vendored"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
