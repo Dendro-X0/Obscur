@@ -2,7 +2,7 @@
 
 **Status:** Strategic direction — canonical summary in [design-goals-and-constraints.md](./design-goals-and-constraints.md) §1  
 **Supersedes:** “Obscur is a Nostr client with communities” as the **primary** product story  
-**Aligns with:** [00-charter-vision.md](../future/00-charter-vision.md), [product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md), [community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)
+**Aligns with:** [00-charter-vision.md](../future/00-charter-vision.md), [product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md), [community-fork-decision-2026-05.md](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md)
 
 ---
 
@@ -86,7 +86,7 @@ We **do not** claim: a compromised server learns nothing **at all** (timing, siz
 
 | Phase | Transport | Product surface |
 |-------|-----------|-----------------|
-| **Now (freeze)** | Stop expanding **public-relay community truth** | Path B gate or Path A DM-only ([fork doc](./community-fork-decision-2026-05.md)) |
+| **Now (freeze)** | Stop expanding **public-relay community truth** | Path B gate or Path A DM-only ([fork doc](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md)) |
 | **v1.9.x complete** | `TransportPort` + coordination membership (B2) | Workspace create requires coordination + trusted relay tier |
 | **v2.x** | **Primary:** `team_relay` / private API adapter | DM + groups default to configured private base URL |
 | **Long-term** | Nostr adapter **optional** | “Open network” profile for users who want public relays |
@@ -142,7 +142,7 @@ Enough to prove roster shrink and leave propagation **before** production VPS.
 
 ## References
 
-- [v1.9.0-kernel-backend-spec.md](./v1.9.0-kernel-backend-spec.md) — TransportPort, coordination API  
+- [v1.9.0-kernel-backend-spec.md](../archive/program/inactive-2026-08/v1.9.0-kernel-backend-spec.md) — TransportPort, coordination API  
 - [v1.9.2-scope.md](../archive/program/inactive-2026-06/v1.9.2-scope.md) — membership deltas  
 - [apps/coordination/README.md](../../apps/coordination/README.md)  
 - [01-kernel-transport-sketch.md](../future/01-kernel-transport-sketch.md)

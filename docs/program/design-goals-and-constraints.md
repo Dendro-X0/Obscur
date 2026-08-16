@@ -19,7 +19,7 @@ This document answers **what Obscur is**, **what we are restoring in v1.9.x**, *
 
 **Expanded:** [platform-pivot-private-trust-2026-05.md](./platform-pivot-private-trust-2026-05.md) · [product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md) · [future/00-charter-vision.md](../future/00-charter-vision.md)
 
-**Not the product story:** “Universal public-relay Nostr client with guaranteed global delete and roster truth.” That model is **explicitly abandoned** for workspace features ([community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)). Also not: startup growth, monetized OSS funnel, or popularity contests.
+**Not the product story:** “Universal public-relay Nostr client with guaranteed global delete and roster truth.” That model is **explicitly abandoned** for workspace features ([community-fork-decision-2026-05.md](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md)). Also not: startup growth, monetized OSS funnel, or popularity contests.
 
 ---
 
@@ -27,7 +27,7 @@ This document answers **what Obscur is**, **what we are restoring in v1.9.x**, *
 
 | Phase | Goal | Canonical docs |
 |-------|------|----------------|
-| **Now — v1.9.x** | Restore **in-scope features** to **I + V** (or **A** with copy) on desktop; kernel (Lane K) shipped in v1.9.0–v1.9.3 | [v1.9.x-release-train.md](./v1.9.x-release-train.md) · [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) |
+| **Now — v1.9.x** | Restore **in-scope features** to **I + V** (or **A** with copy) on desktop; kernel (Lane K) shipped in v1.9.0–v1.9.3 | [v1.9.x-release-train.md](../archive/program/inactive-2026-08/v1.9.x-release-train.md) · [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) |
 | **Later — v2.0 prep** | Installers, website, demo kit, full scope verification pass | [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md) — **after** v1.9.x exit |
 | **v2.0.0 tag** | Production demo per full [version-roadmap-scope.md](./version-roadmap-scope.md) § exit | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) |
 
@@ -123,13 +123,13 @@ These are **not bugs to “fix” in v1.9.x** unless a scope row explicitly reop
 | ACC-03 | Cross-restart “stay signed in” / OAuth-style convenience | **Cancelled on desktop** v1.9.10 — [v1.9.6-session-persistence-redesign.md](../archive/program/inactive-2026-06/v1.9.6-session-persistence-redesign.md) · manual unlock each session |
 | — | Public marketing / GitHub Releases promotion | After v2.0.0 — [maintainer-distribution-policy.md](../archive/program/inactive-2026-06/maintainer-distribution-policy.md) |
 
-Register: [unified-verification-issues-register.md](./unified-verification-issues-register.md)
+Register: [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md)
 
 ---
 
 ## 7. In scope for v1.9.5 (trust & security band)
 
-Work must trace to [v1.9.5-scope.md](./v1.9.10-scope.md) and Lane SEC in [version-roadmap-scope.md](./version-roadmap-scope.md):
+Work must trace to [v1.9.5-scope.md](../archive/program/inactive-2026-08/v1.9.10-scope.md) and Lane SEC in [version-roadmap-scope.md](./version-roadmap-scope.md):
 
 - **Anti-fraud (basic)** — recipient-local assessment on dm-kernel; cold-contact + financial signals; DM banner UI
 - **Anti-bot (basic)** — B2 inbound hardening, rate limits, steward disable
@@ -157,7 +157,7 @@ When documents conflict, **higher number wins**:
 | 1 | [current-session.md](../handoffs/current-session.md) |
 | 2 | **This file** — design goals and constraints |
 | 3 | [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) |
-| 4 | [v1.9.x-release-train.md](./v1.9.x-release-train.md) + active scope doc |
+| 4 | [v1.9.x-release-train.md](../archive/program/inactive-2026-08/v1.9.x-release-train.md) + active scope doc |
 | 5 | [version-roadmap-scope.md](./version-roadmap-scope.md) |
 | 6 | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) (v2.0 destination) |
 

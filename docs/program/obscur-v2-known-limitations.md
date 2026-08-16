@@ -2,7 +2,7 @@
 
 **Status:** Active (2026-07-04)  
 **Audience:** Maintainers, demo hosts, support — honest product truth after Phase 1 verification  
-**Register:** [unified-verification-issues-register.md](./unified-verification-issues-register.md) · **Scope:** [version-roadmap-scope.md](./version-roadmap-scope.md)
+**Register:** [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) · **Scope:** [version-roadmap-scope.md](./version-roadmap-scope.md)
 
 ---
 
@@ -94,5 +94,5 @@
 |-----|------|
 | [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) | Native persistence owners |
 | [obscur-v2-roadmap-2026-07.md](./obscur-v2-roadmap-2026-07.md) | Phase queue (runtime repair band) |
-| [obscur-v2-phase2-docs-charter.md](./obscur-v2-phase2-docs-charter.md) | Phase 2 doc tasks (**EXIT**) |
+| [obscur-v2-phase2-docs-charter.md](../archive/program/inactive-2026-08/obscur-v2-phase2-docs-charter.md) | Phase 2 doc tasks (**EXIT**) |
 | [obscur-v2-install-build-guide.md](./obscur-v2-install-build-guide.md) | Build / install |

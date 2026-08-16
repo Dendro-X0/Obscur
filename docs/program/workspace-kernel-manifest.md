@@ -2,7 +2,7 @@
 
 **Status:** Active strategy (2026-06-10)  
 **Supersedes for community delivery:** patching `features/groups/` parallel paths, re-enabling sovereign rooms, growing `use-sealed-community` as authority  
-**Aligns with:** [community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md) Path B · [back-online-modular-roadmap-2026-06.md](../archive/program/inactive-2026-06/back-online-modular-roadmap-2026-06.md) · [obscur-v2-slim-kernel-manifest.md](./obscur-v2-slim-kernel-manifest.md)  
+**Aligns with:** [community-fork-decision-2026-05.md](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md) Path B · [back-online-modular-roadmap-2026-06.md](../archive/program/inactive-2026-06/back-online-modular-roadmap-2026-06.md) · [obscur-v2-slim-kernel-manifest.md](./obscur-v2-slim-kernel-manifest.md)  
 **Evidence base:** [exploration module 01](../exploration/modules/01-community-groups.md) · [as-built synthesis](../exploration/synthesis/as-built-architecture-and-fork-options.md)
 
 ---
@@ -142,5 +142,5 @@ Log at port boundaries only (dev throw / prod metric):
 ## References
 
 - DM playbook: [obscur-v2-slim-kernel-manifest.md](./obscur-v2-slim-kernel-manifest.md)
-- Fork: [community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)
+- Fork: [community-fork-decision-2026-05.md](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md)
 - Handoff: [current-session.md](../handoffs/current-session.md)

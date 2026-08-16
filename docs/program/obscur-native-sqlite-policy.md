@@ -69,7 +69,7 @@ Helper: `requiresSqlitePersistence()` in `native-persistence-policy.ts`.
 
 ## Relation to Nostr / communities
 
-SQLite fixes **local truth** and delete resurrection. **Roster join/leave across clients** still requires coordination directory (not Nostr relay authority). See [community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md).
+SQLite fixes **local truth** and delete resurrection. **Roster join/leave across clients** still requires coordination directory (not Nostr relay authority). See [community-fork-decision-2026-05.md](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md).
 
 ---
 
@@ -105,7 +105,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 
 | Domain | SQLite commands | Canonical module(s) | Native read authority | Native write path | chat-state on native | Status |
 |--------|-----------------|---------------------|----------------------|-------------------|----------------------|--------|
-| **DM thread hydrate** | `dbGetMessages` | [`thread-history/hydrate-indexed-scan.ts`](../../apps/pwa/app/features/messaging/services/thread-history/hydrate-indexed-scan.ts) | **SQLite** | — | Fallback **off** ([`dm-conversation-hydrate-pipeline.ts`](../../apps/pwa/app/features/messaging/services/dm-conversation-hydrate-pipeline.ts) L201–211) | **P3b done** |
+| **DM thread hydrate** | `dbGetMessages` | [`thread-history/hydrate-pipeline-types.ts`](../../apps/pwa/app/features/messaging/services/thread-history/hydrate-pipeline-types.ts) (+ authority types) | **SQLite** | — | Fallback **off** on native (`requiresSqlitePersistence()`; see `dm-read-authority-native-hydrate.test.ts`) | **P3b done** |
 | **DM outgoing persist** | `dbInsertMessage`, `dbUpsertConversation` | [`message-persistence-service.ts`](../../apps/pwa/app/features/messaging/services/message-persistence-service.ts) | **SQLite** | Same + message bus | Mirror for repair only | **P3b done** |
 | **DM outgoing repair** | — | — (removed `02f1cb1b`) | **SQLite** | Bus → persistence service | — | **Removed** |
 | **DM invite repair** | — | — (removed `02f1cb1b`) | **SQLite** | `commitOutboundCommunityDmInvite` | — | **Removed** |
@@ -140,7 +140,7 @@ SQLite fixes **local truth** and delete resurrection. **Roster join/leave across
 |---------------|---------------------------|
 | **0 ClientGateway** | Tombstones + delete paths via gateway ports → SQLite on native |
 | **9 chat-state-store** | **Web:** durable owner. **Native:** UI mirror + repair shims only — not DM/group message read authority |
-| **R1 DM multiplicity** | Hydrate choke: `dm-conversation-hydrate-pipeline.ts` + `dm-read-authority-contract.ts`; SQLite window via `thread-history/hydrate-indexed-scan.ts` |
+| **R1 DM multiplicity** | Hydrate choke: `dm-read-authority-contract` + native hydrate tests; SQLite window via `thread-history/hydrate-*-types.ts` |
 | **R2 community** | Group list/messages: `community-group-sqlite-store.ts` + `sealed-group-message-persistence.ts`; roster still ledger/coordination |
 
 ### v1.9.x+ subtraction queue (do not expand chat-state on native)
@@ -160,7 +160,7 @@ Policy bands mark **code path** ownership; they do **not** mean every native rea
 |-------|-------------------|
 | Owner matrix § above matches code owners | **Done** (P4-5, 2026-06-01) |
 | Grep: no new native **read** authority via `messagesByConversationId` / `groupMessages` | Ongoing — repair/backup paths listed in matrix |
-| Restart soak (P3b–P3d) | Phase B — [unified-verification-matrix.md](./unified-verification-matrix.md) |
+| Restart soak (P3b–P3d) | Phase B — [unified-verification-matrix.md](../archive/program/inactive-2026-08/unified-verification-matrix.md) |
 | New native IDB writes for DM/community | **Forbidden** — CI/review |
 
 ---

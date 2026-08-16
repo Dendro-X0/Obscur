@@ -36,6 +36,6 @@ Everything else from the 2026-06 program shelf → [../archive/program/inactive-
 
 ## Paused / cancelled
 
-- **Live roster sync** — cancelled ([membership-graph-integration-study-2026-06.md](./membership-graph-integration-study-2026-06.md))
-- **Community feature band** — paused ([community-relaunch-decision-2026-06.md](./community-relaunch-decision-2026-06.md))
+- **Live roster sync** — cancelled ([membership-graph-integration-study-2026-06.md](../archive/program/inactive-2026-08/membership-graph-integration-study-2026-06.md))
+- **Community feature band** — paused ([community-relaunch-decision-2026-06.md](../archive/program/inactive-2026-08/community-relaunch-decision-2026-06.md))
 - **Transport-kernel** — not started; relay stack still multi-owner ([CURRENT.md](../CURRENT.md))

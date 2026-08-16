@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { profilePublisherInternals, useProfilePublisher } from "./use-profile-publisher";
 
 const mocks = vi.hoisted(() => {
+  const enabledRelayUrls = ["wss://relay-1.example", "wss://relay-2.example"];
   const relayPool = {
+    connections: enabledRelayUrls.map((url) => ({ url, status: "open" as const })),
     waitForConnection: vi.fn(async () => true),
     publishToAll: vi.fn(),
     sendToOpen: vi.fn(),
@@ -11,7 +13,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     relayPool,
-    enabledRelayUrls: ["wss://relay-1.example", "wss://relay-2.example"],
+    enabledRelayUrls,
     toastWarning: vi.fn(),
     toastSuccess: vi.fn(),
     protocolPublishWithQuorum: vi.fn(),
@@ -53,7 +55,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("@dweb/ui-kit", () => ({
+vi.mock("@dweb/ui-kit/toast", () => ({
   toast: {
     warning: mocks.toastWarning,
     success: mocks.toastSuccess,
@@ -151,6 +153,10 @@ describe("useProfilePublisher", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.enabledRelayUrls = ["wss://relay-1.example", "wss://relay-2.example"];
+    mocks.relayPool.connections = mocks.enabledRelayUrls.map((url) => ({
+      url,
+      status: "open" as const,
+    }));
     mocks.relayPool.waitForConnection.mockResolvedValue(true);
     mocks.relayPool.publishToAll = vi.fn();
     mocks.relayPool.publishToAll.mockResolvedValue({

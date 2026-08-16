@@ -28,9 +28,9 @@
 | Register | Path | Role |
 |----------|------|------|
 | **CodaCtrl issues (live)** | `.codectx/verify/issues-register.json` · `.codectx/verify/issues-register.summary.json` | Runtime capture queue (16 top groups, Jul 2026) |
-| **Runtime tracker** | [obscur-runtime-issue-tracker-2026-07.md](./obscur-runtime-issue-tracker-2026-07.md) | Domain inventory + verification protocol |
-| **Product COM-RUN** | [unified-verification-issues-register.md](./unified-verification-issues-register.md) · [community-relay-technical-issues-register-2026-06.md](./community-relay-technical-issues-register-2026-06.md) | Matrix-linked product rows |
-| **UX-gate static** | [obscur-ux-gate-investigation-2026-07.md](./obscur-ux-gate-investigation-2026-07.md) · [obscur-ux-gate-register.v1.json](./obscur-ux-gate-register.v1.json) | 43 pattern findings (design debt) |
+| **Runtime tracker** | [obscur-runtime-issue-tracker-2026-07.md](../archive/program/inactive-2026-08/obscur-runtime-issue-tracker-2026-07.md) | Domain inventory + verification protocol |
+| **Product COM-RUN** | [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) · [community-relay-technical-issues-register-2026-06.md](../archive/program/inactive-2026-08/community-relay-technical-issues-register-2026-06.md) | Matrix-linked product rows |
+| **UX-gate static** | [obscur-ux-gate-investigation-2026-07.md](../archive/program/inactive-2026-08/obscur-ux-gate-investigation-2026-07.md) · [obscur-ux-gate-register.v1.json](./obscur-ux-gate-register.v1.json) | 43 pattern findings (design debt) |
 | **Subtraction** | [obscur-subtraction-register-2026-07.md](./obscur-subtraction-register-2026-07.md) | Removed vs deferred owners |
 | **v2 scope** | [version-roadmap-scope.md](./version-roadmap-scope.md) | Lane K/C/T/X/P master checklist |
 
@@ -188,7 +188,7 @@ Exit evidence: chain `chain-com-run-11-phase1c-2026-07-04` → `n7-k-m2-rejoin-t
 | D2-4 | P3 gap owners documented | **Done** |
 | D2-5 | Install/build docs | [obscur-v2-install-build-guide.md](./obscur-v2-install-build-guide.md) |
 
-Charter: [obscur-v2-phase2-docs-charter.md](./obscur-v2-phase2-docs-charter.md)
+Charter: [obscur-v2-phase2-docs-charter.md](../archive/program/inactive-2026-08/obscur-v2-phase2-docs-charter.md)
 
 #### Phase 3 — Production installers **EXIT 2026-07-04**
 

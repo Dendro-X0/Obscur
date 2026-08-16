@@ -2,7 +2,7 @@
 
 **Status:** Active (2026-07-04) · Phase 2 D2-5 · Phase 3 prerequisite  
 **Audience:** Maintainers, demo hosts, release prep  
-**Charter:** [obscur-v2-phase2-docs-charter.md](./obscur-v2-phase2-docs-charter.md)
+**Charter:** [obscur-v2-phase2-docs-charter.md](../archive/program/inactive-2026-08/obscur-v2-phase2-docs-charter.md)
 
 One page for **how to run**, **how to package**, and **what to expect** — no contradictory install stories. Detailed runbooks remain in archive (linked below).
 
@@ -16,7 +16,7 @@ One page for **how to run**, **how to package**, and **what to expect** — no c
 | **Daily desktop + coordination stack** | `pnpm dev:desktop:online` | Tauri + static shell · CDP `:9230` |
 | **Offline experiment stub only** | `pnpm dev:desktop:stub` | Not product truth — do not use to greenlight release |
 | **Dev Lab (`pnpm dev:lab:*`)** | **TOMBSTONED** | Exit 1 — use CodaCtrl + release exe · [production-rewrite-and-devlab-tombstone-2026-07.md](../../specs/backend/production-rewrite-and-devlab-tombstone-2026-07.md) |
-| **Dual-profile MCP verify** | Same + open Tester2 window | CDP `:9231` · [obscur-dev-test-accounts.md](./obscur-dev-test-accounts.md) |
+| **Dual-profile MCP verify** | Same + open Tester2 window | CDP `:9231` · [obscur-dev-test-accounts.md](../archive/program/inactive-2026-08/obscur-dev-test-accounts.md) |
 | **Relay only (external stack)** | Terminal 1: `pnpm dev:relay:docker` · Terminal 2: `pnpm dev:coordination` · Terminal 3: `pnpm dev:desktop:no-coord -- --skip-build` | Faster restarts; cold-kill does not take down relay |
 | **Desktop installer (local)** | `pnpm desktop:package` | `release-assets/{windows,macos,linux}/` |
 | **Demo / prod smoke (no NSIS)** | `pnpm desktop:demo-preflight` → `pnpm desktop:build:exe` | Release exe; smoke before packaging — [demo-recording-prod-preflight-design-2026-07.md](../../specs/backend/demo-recording-prod-preflight-design-2026-07.md) |

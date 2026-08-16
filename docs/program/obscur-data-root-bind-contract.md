@@ -2,7 +2,7 @@
 
 **Status:** Active (2026-06-08)  
 **Scope:** Native Obscur desktop data folder only — not arbitrary app migration (see Deco separately).  
-**Charter:** [v1.9.8-portable-storage-and-encryption-charter.md](./v1.9.8-portable-storage-and-encryption-charter.md)  
+**Charter:** [v1.9.8-portable-storage-and-encryption-charter.md](../archive/program/inactive-2026-08/v1.9.8-portable-storage-and-encryption-charter.md)  
 **Implementation:** `apps/desktop/src-tauri/src/data_root.rs`, `data_root_bind.rs`
 
 ---

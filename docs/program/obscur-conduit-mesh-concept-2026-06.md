@@ -329,7 +329,7 @@ Each experiment requires its own **charter + headless gate** — no UI-first pro
 
 When this concept conflicts with handoff on **implementation order**, [current-session.md](../handoffs/current-session.md) wins until maintainer updates the next atomic step to cite **Conduit Mesh C1+**.
 
-This document **does not** reopen community membership rewrite ([membership-graph-integration-study-2026-06.md](./membership-graph-integration-study-2026-06.md) cancelled) — mesh carries coordination heads; it does not reinvent roster UI.
+This document **does not** reopen community membership rewrite ([membership-graph-integration-study-2026-06.md](../archive/program/inactive-2026-08/membership-graph-integration-study-2026-06.md) cancelled) — mesh carries coordination heads; it does not reinvent roster UI.
 
 ---
 

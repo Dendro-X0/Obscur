@@ -342,7 +342,7 @@ v1.9.x work (kernels, Conduit Mesh, transport presets, LES vault, Tor host integ
 3. Documented operator paths for private trust  
 4. Honest stress/limitation evidence  
 
-Paused community public-relay roster perfection remains **out of charter** as a primary goal ([community-fork-decision-2026-05.md](./community-fork-decision-2026-05.md)).
+Paused community public-relay roster perfection remains **out of charter** as a primary goal ([community-fork-decision-2026-05.md](../archive/program/inactive-2026-08/community-fork-decision-2026-05.md)).
 
 ---
 

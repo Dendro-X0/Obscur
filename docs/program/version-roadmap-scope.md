@@ -5,7 +5,7 @@
 **Last updated:** 2026-07-04 (Phase 1D row 1 lane closure)  
 **North star:** [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md)  
 **Production demo:** [v2.0-production-demo-path.md](../archive/program/inactive-2026-06/v2.0-production-demo-path.md)  
-**Release trains:** [v1.8.x-release-train.md](../archive/program/inactive-2026-06/v1.8.x-release-train.md) · [v1.9.x-release-train.md](./v1.9.x-release-train.md)  
+**Release trains:** [v1.8.x-release-train.md](../archive/program/inactive-2026-06/v1.8.x-release-train.md) · [v1.9.x-release-train.md](../archive/program/inactive-2026-08/v1.9.x-release-train.md)  
 **v2.0 release prep (after v1.9.x exit):** [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md)
 
 This document defines **what must be implemented and verified** before the **v2.0.0 production demo**. Semver tags record milestones; **this file is the scope checklist** agents and maintainers use to answer “are we done yet?”
@@ -31,7 +31,7 @@ v2.0.0   Production demo gate — all in-scope lanes verified or accepted-with-c
 |------|------|------------------|
 | **v1.7.x** | Online experiment closeout, v1.7 demo matrix | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) § v1.7.x |
 | **v1.8.x** | Lanes **C, T, X, P** (partial) | [v1.8.x-release-train.md](../archive/program/inactive-2026-06/v1.8.x-release-train.md) · [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2026-06/community-system-overhaul-phased-roadmap.md) |
-| **v1.9.x** | Lane **K** + trust/X/SQLite tags + **v1.9.4+** demo/platform | [v1.9.x-release-train.md](./v1.9.x-release-train.md) |
+| **v1.9.x** | Lane **K** + trust/X/SQLite tags + **v1.9.4+** demo/platform | [v1.9.x-release-train.md](../archive/program/inactive-2026-08/v1.9.x-release-train.md) |
 | **v2.0.0** | Full gate + demo kit + public-facing install story | This doc § v2.0.0 exit |
 
 **Policy:** [maintainer-distribution-policy.md](../archive/program/inactive-2026-06/maintainer-distribution-policy.md) — user-visible tags only; ZIP/clone + local package; promotion after v2.0.0.
@@ -43,8 +43,8 @@ v2.0.0   Production demo gate — all in-scope lanes verified or accepted-with-c
 | Bar | Meaning | Evidence |
 |-----|---------|----------|
 | **Implement (I)** | Code + contracts on `main`; automated gates green for that row | Vitest, `release:test-pack`, boundary scripts, typecheck |
-| **Verify (V)** | Runtime behavior proven for the row | [unified-verification-matrix.md](./unified-verification-matrix.md) Phase B **Pass** on desktop A/B where applicable; or scoped demo matrix Pass |
-| **Accept (A)** | Known limitation; no further engineering until re-charter | [unified-verification-issues-register.md](./unified-verification-issues-register.md) + user-facing copy in gate doc |
+| **Verify (V)** | Runtime behavior proven for the row | [unified-verification-matrix.md](../archive/program/inactive-2026-08/unified-verification-matrix.md) Phase B **Pass** on desktop A/B where applicable; or scoped demo matrix Pass |
+| **Accept (A)** | Known limitation; no further engineering until re-charter | [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) + user-facing copy in gate doc |
 
 **Rule:** **I alone is not v2.0-ready.** v2.0.0 requires **V** for in-scope features, or **A** with explicit copy in the v2.0 gate doc.
 
@@ -103,7 +103,7 @@ Ref: [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2
 | MED-001 | Restore media relink | ✓ | **A** | v1.9.1 band; not re-run Phase 1C — Phase 1D row 3 soak optional |
 | MED-002 | Ghost voice quarantine | ✓ | **A** | v1.9.1 band; not re-run Phase 1C — Phase 1D row 3 soak optional |
 
-**Verify source:** Re-run [unified-verification-matrix.md](./unified-verification-matrix.md) §1–§7 before v2.0; sync register. Do **not** trust status column in [v1.5.0-known-issues-and-investigation-queue.md](../archive/program/inactive-2026-06/v1.5.0-known-issues-and-investigation-queue.md) (last updated 2026-05-15).
+**Verify source:** Re-run [unified-verification-matrix.md](../archive/program/inactive-2026-08/unified-verification-matrix.md) §1–§7 before v2.0; sync register. Do **not** trust status column in [v1.5.0-known-issues-and-investigation-queue.md](../archive/program/inactive-2026-06/v1.5.0-known-issues-and-investigation-queue.md) (last updated 2026-05-15).
 
 ---
 
@@ -137,7 +137,7 @@ Ref: [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2
 
 | ID | Requirement | I | V | Notes |
 |----|-------------|---|---|-------|
-| SEC-F1 | dm-kernel trust assessment port (recipient-local tiers) | ◐ | — | [v1.9.5-scope.md](./v1.9.10-scope.md) SEC-F |
+| SEC-F1 | dm-kernel trust assessment port (recipient-local tiers) | ◐ | — | [v1.9.5-scope.md](../archive/program/inactive-2026-08/v1.9.10-scope.md) SEC-F |
 | SEC-F2 | Cold-contact financial signal bundle (`BUNDLE_FIN_COLD`) | ◐ | — | Greenfield [02-warning-and-trust-model.md](../archive/greenfield/02-warning-and-trust-model.md) |
 | SEC-F3 | DM thread warning UI (delivery invariant) | ◐ | — | Dismiss/snooze per thread |
 | SEC-B1 | Inbound bot rate limits + allowlist hardening | ◐ | — | B2 steward path |
@@ -149,7 +149,7 @@ Ref: [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2
 | SEC-V4 | AB-15 / COM-10 restore leak boundary | ✓ | **A** | 3× `community-ab-restore-historical` drift @ REL-002 |
 | SEC-V5 | Maintainer sign-off + exit contract | ✓ | **V** | Checklist §1–§5 signed 2026-07-04 |
 
-Ref: [v1.9.5-scope.md](./v1.9.10-scope.md) · Blocks v2.0 pipeline Phase 1 until Phase B–C exit
+Ref: [v1.9.5-scope.md](../archive/program/inactive-2026-08/v1.9.10-scope.md) · Blocks v2.0 pipeline Phase 1 until Phase B–C exit
 
 ---
 
@@ -172,7 +172,7 @@ Ref: [v1.9.5-scope.md](./v1.9.10-scope.md) · Blocks v2.0 pipeline Phase 1 until
 | Tag | Scope | Exit (Implement + Verify) |
 |-----|-------|---------------------------|
 | **v1.9.4** | Platform + community verification | [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) — Phase C exit @ `7a49e339`; client community Pass |
-| **v1.9.5** | Trust, anti-fraud/bot, security validation | [v1.9.5-scope.md](./v1.9.10-scope.md) — **blocks v2.0 prep** |
+| **v1.9.5** | Trust, anti-fraud/bot, security validation | [v1.9.5-scope.md](../archive/program/inactive-2026-08/v1.9.10-scope.md) — **blocks v2.0 prep** |
 | **v2.0.0** | Production demo | All § v2.0.0 exit rows below; v2.0 gate doc at closeout under `docs/releases/`; CHANGELOG; major bump |
 
 ---
@@ -185,7 +185,7 @@ Ship **v2.0.0** only when **all** are true:
 
 1. **v1.8.x** batch + Lane C/T/X rows in this doc are **I** and **V** or **A** in register.
 2. **v1.9.x** Lane K K1–K6 **V** (or **A** with copy) on desktop A/B for applicable demo rows.
-3. **v1.9.5** Lane SEC **V** (or **A** with copy) — trust/abuse/security validation complete per [v1.9.5-scope.md](./v1.9.10-scope.md).
+3. **v1.9.5** Lane SEC **V** (or **A** with copy) — trust/abuse/security validation complete per [v1.9.5-scope.md](../archive/program/inactive-2026-08/v1.9.10-scope.md).
 4. **Phase 4.3** recorded (accept or implement).
 
 ### B — Platform + distribution
@@ -231,8 +231,8 @@ Ship **v2.0.0** only when **all** are true:
 | 2.0 north star | [obscur-2.0-milestone-roadmap.md](../archive/program/inactive-2026-06/obscur-2.0-milestone-roadmap.md) |
 | Demo stages | [v2.0-production-demo-path.md](../archive/program/inactive-2026-06/v2.0-production-demo-path.md) |
 | **Release pipeline (order)** | [v2.0-release-pipeline.md](../archive/program/inactive-2026-06/v2.0-release-pipeline.md) |
-| Verify pass | [unified-verification-matrix.md](./unified-verification-matrix.md) |
-| Honest failures | [unified-verification-issues-register.md](./unified-verification-issues-register.md) |
+| Verify pass | [unified-verification-matrix.md](../archive/program/inactive-2026-08/unified-verification-matrix.md) |
+| Honest failures | [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) |
 | Community phases | [community-system-overhaul-phased-roadmap.md](../archive/program/inactive-2026-06/community-system-overhaul-phased-roadmap.md) |
 | Kernel band | [v1.9.0-kernel-backend-roadmap.md](../archive/program/inactive-2026-06/v1.9.0-kernel-backend-roadmap.md) |
 | Android | [android-p1-smoke-checklist.md](../archive/program/inactive-2026-06/android-p1-smoke-checklist.md) |

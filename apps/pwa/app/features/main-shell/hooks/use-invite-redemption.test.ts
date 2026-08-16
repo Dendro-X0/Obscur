@@ -49,7 +49,7 @@ vi.mock("@/app/shared/log-app-event", () => ({
   logAppEvent: vi.fn(),
 }));
 
-vi.mock("@dweb/ui-kit", () => ({
+vi.mock("@dweb/ui-kit/toast", () => ({
   toast: {
     info: mocks.toastInfo,
     success: mocks.toastSuccess,

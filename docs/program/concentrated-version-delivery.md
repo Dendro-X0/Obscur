@@ -21,8 +21,8 @@ Obscur has **many** open objectives before **v2.0.0**. Incremental “fix + manu
 | Phase | Name | Goal | Gate |
 |-------|------|------|------|
 | **A** | **Concentrated implementation** | Land **all in-scope objectives** for the active version | Vitest + typecheck + `pnpm release:test-pack` |
-| **B** | **Unified verification** | Execute every row in [unified-verification-matrix.md](./unified-verification-matrix.md) once | Pass / Fail / Blocked / Skipped recorded per row |
-| **C** | **Issues documentation** | File outcomes in [unified-verification-issues-register.md](./unified-verification-issues-register.md) | No silent failures; accepted limitations explicit |
+| **B** | **Unified verification** | Execute every row in [unified-verification-matrix.md](../archive/program/inactive-2026-08/unified-verification-matrix.md) once | Pass / Fail / Blocked / Skipped recorded per row |
+| **C** | **Issues documentation** | File outcomes in [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) | No silent failures; accepted limitations explicit |
 
 **Do not** re-enter Phase A for unrelated polish until Phase B–C complete for the current unit (except P0 CI break/fix).
 
@@ -49,11 +49,11 @@ Complete remaining scope rows; **do not** block on manual matrix during Phase A.
 | v1.9.2 B2 | [v1.9.2-scope.md](../archive/program/inactive-2026-06/v1.9.2-scope.md) | Code **done** — manual deferred to Phase B |
 | v1.9.3 B3 | [v1.9.3-scope.md](../archive/program/inactive-2026-06/v1.9.3-scope.md) | **Done** (engineering) — Vitest copy/policy suites |
 | v1.9.4 B4b | [v1.9.4-scope.md](../archive/program/inactive-2026-06/v1.9.4-scope.md) | **Done** (engineering) |
-| v1.9.5 B4a | [v1.9.5-scope.md](./v1.9.10-scope.md) | **Done** (engineering) |
+| v1.9.5 B4a | [v1.9.5-scope.md](../archive/program/inactive-2026-08/v1.9.10-scope.md) | **Done** (engineering) |
 
 **Phase A exit (v1.9.x):** **Met 2026-06-01** — `release:test-pack` green; Lane K Vitest + boundaries green.
 
-**Phase B–C exit (v1.9.x):** **Met 2026-06-01** — maintainer desktop client-side unified verification **Pass**; [unified-verification-issues-register.md](./unified-verification-issues-register.md) — no new failures.
+**Phase B–C exit (v1.9.x):** **Met 2026-06-01** — maintainer desktop client-side unified verification **Pass**; [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) — no new failures.
 
 ---
 
@@ -95,8 +95,8 @@ Mobile: **postponed** for Phase B Tier M until wrap-up ([android-p1-smoke-checkl
 
 1. Read **active concentration unit** in [current-session.md](../handoffs/current-session.md) and [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md).
 2. Phase A: implement scope doc rows only; automated gates green.
-3. When Phase A exits: run [unified-verification-matrix.md](./unified-verification-matrix.md) top to bottom (desktop A/B minimum).
-4. Phase C: every Fail → row in [unified-verification-issues-register.md](./unified-verification-issues-register.md); triage P0/P1 for next concentration unit.
+3. When Phase A exits: run [unified-verification-matrix.md](../archive/program/inactive-2026-08/unified-verification-matrix.md) top to bottom (desktop A/B minimum).
+4. Phase C: every Fail → row in [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md); triage P0/P1 for next concentration unit.
 5. Do **not** claim v2.0.0 readiness until 2.0 roadmap § gate is satisfied.
 
 ---

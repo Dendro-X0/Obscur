@@ -79,6 +79,6 @@ Document honest scope reduction: managed communities operate without E2E group s
 
 ## References
 
-- [membership-graph-integration-study-2026-06.md](./membership-graph-integration-study-2026-06.md)  
+- [membership-graph-integration-study-2026-06.md](../archive/program/inactive-2026-08/membership-graph-integration-study-2026-06.md)  
 - [modular-iteration-contract.md](./modular-iteration-contract.md)  
-- [obscur-runtime-issue-tracker-2026-07.md](./obscur-runtime-issue-tracker-2026-07.md) — COM-RUN-02 → **CANCELLED**
+- [obscur-runtime-issue-tracker-2026-07.md](../archive/program/inactive-2026-08/obscur-runtime-issue-tracker-2026-07.md) — COM-RUN-02 → **CANCELLED**

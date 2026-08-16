@@ -3,7 +3,7 @@
 **Purpose:** Single map of what was removed, what was aligned, and what stays **deferred** until the community crypto charter picks a slice. CodaCtrl diagnoses drift; this register is the maintainer source of truth for code subtraction.
 
 **Charter:** [community-membership-redesign-charter-2026-07.md](./community-membership-redesign-charter-2026-07.md)  
-**Investigation:** [obscur-ux-gate-investigation-2026-07.md](./obscur-ux-gate-investigation-2026-07.md)  
+**Investigation:** [obscur-ux-gate-investigation-2026-07.md](../archive/program/inactive-2026-08/obscur-ux-gate-investigation-2026-07.md)  
 **FLS (static gate):** `.codactrl/logic/obscur-community-membership.v1.json` · `pnpm verify:fls-alignment`
 
 ---

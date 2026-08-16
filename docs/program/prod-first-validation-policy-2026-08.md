@@ -3,7 +3,7 @@
 **Status:** Canonical · maintainer mandate  
 **Date:** 2026-08-02  
 **Design:** [prod-first-multi-transport-mandate-2026-08.md](../../specs/backend/prod-first-multi-transport-mandate-2026-08.md)  
-**Supersedes as validation surface:** [dev-lab-spec.md](./dev-lab-spec.md) (Dev Lab is tombstoned; not a pass criterion)
+**Supersedes as validation surface:** [dev-lab-spec.md](../archive/program/inactive-2026-08/dev-lab-spec.md) (Dev Lab is tombstoned; not a pass criterion)
 
 ---
 

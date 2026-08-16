@@ -2,7 +2,7 @@
 
 **One front door.** Do not search all of `/docs`.
 
-_Last updated: 2026-08-09_
+_Last updated: 2026-08-15 · **v1.9.16** · docs shelf cleanup_
 
 ---
 
@@ -21,7 +21,7 @@ That is enough for most sessions.
 
 | Shelf | When to open |
 |-------|----------------|
-| [program/README.md](./program/README.md) | Active specs (~28 files) |
+| [program/README.md](./program/README.md) | Active specs (**~39 files**) |
 | [encyclopedia/08-maintainer-playbook.md](./encyclopedia/08-maintainer-playbook.md) | Commands, triage, local dev |
 | [encyclopedia/12-core-architecture-truth-map.md](./encyclopedia/12-core-architecture-truth-map.md) | Owner boundaries |
 | [README.md](./README.md) | Full shelf index for humans |
@@ -33,7 +33,8 @@ That is enough for most sessions.
 | Path | Why |
 |------|-----|
 | [archive/](./archive/README.md) | Superseded plans — not current truth |
-| [archive/program/inactive-2026-06/](./archive/program/inactive-2026-06/README.md) | Old scope files and duplicate specs |
+| [archive/program/inactive-2026-08/](./archive/program/inactive-2026-08/README.md) | Landed W*/C* charters, closed trackers (2026-08) |
+| [archive/program/inactive-2026-06/](./archive/program/inactive-2026-06/README.md) | Older scope files and duplicate specs |
 | [future/](./future/README.md) | Non-gating sketches |
 | [exploration/](./exploration/README.md) | As-built audit — research only |
 

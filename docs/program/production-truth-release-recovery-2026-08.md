@@ -3,7 +3,7 @@
 **Status:** Active north star · replaces “Dev Lab green ⇒ ship”  
 **Date (UTC):** 2026-08-02  
 **Handoff:** [current-session.md](../handoffs/current-session.md)  
-**Charter pair:** [v1.9.15-scope.md](./v1.9.15-scope.md) · CodaCtrl findings [codactrl-improvement-findings-2026-07.md](./codactrl-improvement-findings-2026-07.md)
+**Charter pair:** [v1.9.15-scope.md](../archive/program/inactive-2026-08/v1.9.15-scope.md) · CodaCtrl findings [codactrl-improvement-findings-2026-07.md](../archive/program/inactive-2026-08/codactrl-improvement-findings-2026-07.md)
 
 ## Why this exists
 
@@ -39,7 +39,7 @@ Track B never substitutes for Track A. Track A never claims Pass from T0/T1 / ma
 | **—** | Community / COM-RUN | — | **Out of release** until un-pause | **PAUSED** |
 | **—** | AUTH-SESSION F5 | — | — | **CANCELLED** |
 
-**Exit for “messaging works in prod”:** R0–R3 Pass on production-parity desktop. Tag **v1.9.15** only when [v1.9.15-scope](./v1.9.15-scope.md) D1 Soft L3 Pass + maintainer sign-off.
+**Exit for “messaging works in prod”:** R0–R3 Pass on production-parity desktop. Tag **v1.9.15** only when [v1.9.15-scope](../archive/program/inactive-2026-08/v1.9.15-scope.md) D1 Soft L3 Pass + maintainer sign-off.
 
 ---
 
@@ -65,14 +65,14 @@ Use Obscur R1–R3 as the proving ground:
 5. **Soft L3 scenario pack** — dual-window public DM marker assert.  
 6. **Signal extract** — `lastSuccessfulPublishAtUnixMs` null + `[dm-send] confirmed` → `dm-relay-publish-ack-missing`.
 
-Detail backlog: [codactrl-improvement-findings-2026-07.md](./codactrl-improvement-findings-2026-07.md) § Round 2026-08-02.
+Detail backlog: [codactrl-improvement-findings-2026-07.md](../archive/program/inactive-2026-08/codactrl-improvement-findings-2026-07.md) § Round 2026-08-02.
 
 ---
 
 ## Immediate next action
 
 1. **R0–R3 Pass** on production-parity (agent Soft L3 + R2 + R3 reports 2026-08-02). Demo-exit messaging bar met per recovery charter.  
-2. **Not** public Nostr SLA · **not** v1.9.15 tag until maintainer Soft L3 sign-off per [v1.9.15-scope](./v1.9.15-scope.md).  
+2. **Not** public Nostr SLA · **not** v1.9.15 tag until maintainer Soft L3 sign-off per [v1.9.15-scope](../archive/program/inactive-2026-08/v1.9.15-scope.md).  
 3. Optional residuals: session-snapshot honesty · Soft L3 L2 stamp re-read · fresh-compose R4 harden.  
 4. **R4 persist smoke Pass** (2026-08-02) — WebView reload · Soft L3 marker corroboration · not O-2 cold process.  
 5. **CodaCtrl Track B dogfood recorded** (2026-08-02b) — dual CDP Works; `:3340` preflight / handoff pathway / sessionless chain still Fail — see findings § Round 2026-08-02b.

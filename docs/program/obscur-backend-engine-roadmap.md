@@ -124,7 +124,7 @@ SUBTRACT (delete when gate allows)
 | Physical deletion of `-legacy.ts` + facade | **PAUSED** — W53 smoke `PASS` required |
 
 **Gate:** `pnpm verify:transport-engine-w68` · `pnpm verify:standalone-legacy-subtraction-prep`  
-**Index:** [transport-engine-standalone-legacy-subtraction-index.md](./transport-engine-standalone-legacy-subtraction-index.md)
+**Index:** [transport-engine-standalone-legacy-subtraction-index.md](../archive/program/inactive-2026-08/transport-engine-standalone-legacy-subtraction-index.md)
 
 ---
 

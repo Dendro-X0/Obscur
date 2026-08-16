@@ -249,6 +249,6 @@ Update [current-session.md](../handoffs/current-session.md) when either band bec
 | [trust-non-ai-intelligence-design-2026-07.md](../../specs/backend/trust-non-ai-intelligence-design-2026-07.md) | Non-AI trust composition (TRUST-INT-1) |
 | [trust-non-ai-intelligence-investigation-2026-07.md](../../specs/backend/trust-non-ai-intelligence-investigation-2026-07.md) | False-positive evidence + owners |
 | [discovery-friend-code-private-key-2026-07.md](../../specs/backend/discovery-friend-code-private-key-2026-07.md) | M1 Discovery slice |
-| [v1.9.8-portable-storage-and-encryption-charter.md](./v1.9.8-portable-storage-and-encryption-charter.md) | T8 honest limits |
+| [v1.9.8-portable-storage-and-encryption-charter.md](../archive/program/inactive-2026-08/v1.9.8-portable-storage-and-encryption-charter.md) | T8 honest limits |
 | [obscur-auth-kernel-charter-2026-06.md](./obscur-auth-kernel-charter-2026-06.md) | Unlock / signing planes |
 | [design-goals-and-constraints.md](./design-goals-and-constraints.md) | Product intent |

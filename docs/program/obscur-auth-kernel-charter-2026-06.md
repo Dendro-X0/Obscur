@@ -1,6 +1,6 @@
 # Obscur Auth Kernel — charter (serverless identity & unlock)
 
-**Status:** **AUTH-K-AUTHORITY landed** — runtime owner on `auth-kernel`; `isAuthKernelAuthority()` true; KERN 1–5 headless + surface port routing complete. Manual soak: [auth-kernel-kern-manual-matrix.md](./auth-kernel-kern-manual-matrix.md).  
+**Status:** **AUTH-K-AUTHORITY landed** — runtime owner on `auth-kernel`; `isAuthKernelAuthority()` true; KERN 1–5 headless + surface port routing complete. Manual soak: [auth-kernel-kern-manual-matrix.md](../archive/program/inactive-2026-08/auth-kernel-kern-manual-matrix.md).  
 **Last updated:** 2026-06-25  
 **Owner (target):** `packages/dweb-auth` + `apps/pwa/app/features/auth-kernel` + Rust `auth_boot` in Tauri  
 **Predecessors:** [v1.9.6-session-persistence-redesign.md](../archive/program/inactive-2026-06/v1.9.6-session-persistence-redesign.md) · [obscur-auth-assistant-charter.md](../archive/program/inactive-2026-06/obscur-auth-assistant-charter.md) · [auth-ux-redesign-future.md](../archive/program/inactive-2026-06/auth-ux-redesign-future.md)  
@@ -239,7 +239,7 @@ Do **not** run parallel with community UI subtraction unless handoff explicitly 
 | **AUTH-KERN-4** | Two profile windows — keychain/session scoped; no cross-profile leak |
 | **AUTH-KERN-5** | PoW create at configured difficulty; farm attempt throttled |
 
-Manual rows: [auth-kernel-kern-manual-matrix.md](./auth-kernel-kern-manual-matrix.md) (same pattern as COM-MEM / dm-kernel gates).
+Manual rows: [auth-kernel-kern-manual-matrix.md](../archive/program/inactive-2026-08/auth-kernel-kern-manual-matrix.md) (same pattern as COM-MEM / dm-kernel gates).
 
 ---
 

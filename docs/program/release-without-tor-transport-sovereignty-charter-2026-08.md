@@ -2,7 +2,7 @@
 
 **Date (UTC):** 2026-08-09  
 **Status:** **Accepted (maintainer intent)** — Tor Verified cancelled as release gate · explore other networks under sovereignty + E2EE  
-**Parents:** [tor-verified-infeasible-2026-08.md](../../specs/backend/tor-verified-infeasible-2026-08.md) · [obscur-conduit-mesh-concept-2026-06.md](./obscur-conduit-mesh-concept-2026-06.md) · [v1.9.15-scope.md](./v1.9.15-scope.md) · [production-tor-opt-in-public-default-design-2026-07.md](../../specs/backend/production-tor-opt-in-public-default-design-2026-07.md)
+**Parents:** [tor-verified-infeasible-2026-08.md](../../specs/backend/tor-verified-infeasible-2026-08.md) · [obscur-conduit-mesh-concept-2026-06.md](./obscur-conduit-mesh-concept-2026-06.md) · [v1.9.15-scope.md](../archive/program/inactive-2026-08/v1.9.15-scope.md) · [production-tor-opt-in-public-default-design-2026-07.md](../../specs/backend/production-tor-opt-in-public-default-design-2026-07.md)
 
 ```text
 HANDOFF ATOMIC STEP:  Unblock public release on clearnet Verified path · Tor = optional advanced

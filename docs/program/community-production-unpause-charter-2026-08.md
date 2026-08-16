@@ -2,7 +2,7 @@
 
 **Status:** **Active** — CU-P1 **Pass / Verified** 2026-08-09 (maintainer); follow-on = CU-EXIT or Tor bands  
 **Kind:** Un-pause charter (modular-iteration § Integration study step 5)  
-**Prior:** [community-unpause-integration-study-2026-07.md](../../specs/backend/community-unpause-integration-study-2026-07.md) · [community-membership-redesign-charter-2026-07.md](./community-membership-redesign-charter-2026-07.md) · [membership-graph-integration-study-2026-06.md](./membership-graph-integration-study-2026-06.md)  
+**Prior:** [community-unpause-integration-study-2026-07.md](../../specs/backend/community-unpause-integration-study-2026-07.md) · [community-membership-redesign-charter-2026-07.md](./community-membership-redesign-charter-2026-07.md) · [membership-graph-integration-study-2026-06.md](../archive/program/inactive-2026-08/membership-graph-integration-study-2026-06.md)  
 **Soak matrix:** [community-production-soak-checklist-2026-08.md](../../specs/backend/community-production-soak-checklist-2026-08.md)
 
 ---

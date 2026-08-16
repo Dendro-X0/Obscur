@@ -31,8 +31,10 @@ describe("relay-native-adapter", () => {
       state: "disconnected",
       configured: false,
       ready: false,
+      lifecycleReady: false,
       usingExternalInstance: false,
       proxyUrl: "",
+      gatewayReachable: false,
     });
   });
 

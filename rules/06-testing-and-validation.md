@@ -28,7 +28,7 @@ Canonical: [v1.8.x-batch-implementation-lane.md](../docs/program/v1.8.x-batch-im
    - an owner-map / rules update,
    - or a doc update explaining the gate/risk.
 
-   Unit tests alone are insufficient for **navigation performance** — use the manual rapid-nav gate in [`docs/program/navigation-performance-contract.md`](../docs/program/navigation-performance-contract.md) **at milestone batch verification**, not as a per-slice implementation blocker.
+   Unit tests alone are insufficient for **navigation performance** — use the manual rapid-nav gate in [`docs/archive/program/inactive-2026-06/navigation-performance-contract.md`](../docs/archive/program/inactive-2026-06/navigation-performance-contract.md) **at milestone batch verification**, not as a per-slice implementation blocker.
 
 3. **Core communication work is not done without two-user reasoning.**
    - For identity, request, DM, relay, and multi-profile work, always reason about sender and receiver states separately.

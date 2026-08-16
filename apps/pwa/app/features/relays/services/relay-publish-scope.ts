@@ -6,7 +6,7 @@ const relayUrlIsOpen = (
   relayUrl: string,
   pool: RelayPoolLike,
 ): boolean => (
-  pool.connections.some((connection) => (
+  (pool.connections ?? []).some((connection) => (
     connection.status === "open"
     && workspaceRelayUrlsMatch(connection.url, relayUrl)
   ))

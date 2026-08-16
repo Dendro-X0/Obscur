@@ -1,10 +1,10 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-09T12:59:13Z
+- Last Updated (UTC): 2026-08-15T18:16:00Z
 
 ## Next atomic step
 
-**PAUSED — dialect research (≠ Nostr / VPS / Tor)** · tag **v1.9.16** · 2026-08-09
+**PAUSED — dialect research (≠ Nostr / VPS / Tor)** · tag **v1.9.16** · 2026-08-15
 
 | Field | Value |
 |-------|--------|
@@ -15,6 +15,19 @@
 | Invariants | User sovereignty · client E2EE · one owner per lifecycle |
 | Resume when | Written research + design charter names one candidate **outside** public Nostr · operator VPS · Tor |
 | Keep | Clearnet Verified claims · Tor TI landed (opt-in, not Verified) |
+| Sibling next | **`release:test-pack` test drift** (profile publisher + Tor adapter) **or** demo Segment A — after docs shelf Pass |
+
+### Checkpoint — docs shelf cleanup Pass (2026-08-15)
+
+| Field | Value |
+|-------|--------|
+| Charter | [docs-shelf-cleanup-charter-2026-08.md](../program/docs-shelf-cleanup-charter-2026-08.md) |
+| Archive | `git mv` → [inactive-2026-08/](../archive/program/inactive-2026-08/) (~91 files) |
+| Active shelf | **39** `docs/program/*.md` (≤45) · [program/README.md](../program/README.md) |
+| Front door | CURRENT / START-HERE / root README → **v1.9.16** · website `/download` primary |
+| L1 | `pnpm docs:check` **Pass** (47 files scanned) |
+| L1 | `pnpm ci:local:all-cheap` **Pass** (T0+T1+T2) |
+| Out of band | Full Release · license · `release:test-pack` unit fixes |
 
 ### Prior — v1.9.16 ship stamp
 
@@ -56,13 +69,14 @@
 
 | Gate | Result |
 |------|--------|
-| `pnpm version:check` | **Pass** (1.9.15 aligned) |
-| Tag `v1.9.15` | **Exists** |
-| `pnpm verify:les-l1` | **Pass** |
-| `pnpm docs:check` | **Fail** — pre-existing stale/broken links |
+| `pnpm version:check` | **Pass** (1.9.16 aligned) |
+| Tag `v1.9.16` | **Exists** |
+| `pnpm docs:check` | **Pass** (2026-08-15 shelf cleanup) |
+| `pnpm ci:local:all-cheap` | **Pass** (T0+T1+T2) |
 | Vault packaged soak | **Pass** (maintainer L3) |
 | Community CU-P1 | **Pass / Verified** (packaged · production relays) |
 | Tor L3 | Env-blocked here · **not** Verified |
+| `release:test-pack` | **Fail** (sibling) — profile publisher + Tor adapter tests |
 
 ### Prior — Tor TI / T5 (siloed)
 
@@ -942,7 +956,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **PASS** — Row A (Settings Conduit Mesh / E2EE / NOSTR_WS) · Row B dual-window |
-| Runbook | [conduit-mesh-c7-l3-soak-runbook.md](../program/conduit-mesh-c7-l3-soak-runbook.md) |
+| Runbook | [conduit-mesh-c7-l3-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c7-l3-soak-runbook.md) |
 | Evidence | markers `C7-L3-ws-20260715D` / `…D-reply` · B1 **1243ms** · B2 **1463ms** · relays `wss://nos.lol` + `wss://relay.damus.io` · stamp `shell-2026-07-15T13:55:42Z` · Tor disabled for soak |
 | Note | Tor-on broke public WS earlier (`RELAY_CONNECT_FAILED`); Tor left off for C7 |
 
@@ -953,7 +967,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **PASS** — S1+S2+B1+B2 |
-| Runbook | [conduit-mesh-c14-l3-sse-soak-runbook.md](../program/conduit-mesh-c14-l3-sse-soak-runbook.md) |
+| Runbook | [conduit-mesh-c14-l3-sse-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c14-l3-sse-soak-runbook.md) |
 | Evidence | health `sse` · CDP `Accept: text/event-stream` · markers `C14-L3-sse-20260715A` / reply · B1 **1876ms** · B2 **2470ms** · stamp `shell-2026-07-15T13:55:42Z` |
 
 ---
@@ -963,7 +977,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **BLOCKED** — env Tor circuits |
-| Runbook | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../program/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) |
+| Runbook | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) |
 | Evidence | SOCKS `:9050` up · desktop `ready` via TCP probe · HS onion published · Tor stuck **10%** TLS handshake failures |
 | L1 | still green — `pnpm verify:conduit-mesh-c13` |
 | Retry | When host can bootstrap Tor to 100% |
@@ -975,11 +989,11 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **L1 landed** — SSE prefer-path; long-poll/C10 remain fallbacks |
-| Charter | [conduit-mesh-c14-sse-stream-charter.md](../program/conduit-mesh-c14-sse-stream-charter.md) |
+| Charter | [conduit-mesh-c14-sse-stream-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c14-sse-stream-charter.md) |
 | Design | [conduit-mesh-c14-sse-stream-design.md](../../specs/backend/conduit-mesh-c14-sse-stream-design.md) |
 | L1 | `pnpm verify:conduit-mesh-c14` |
 | Scope | `Accept: text/event-stream` · fetch ReadableStream parse · health `sse` capability |
-| L3 | [conduit-mesh-c14-l3-sse-soak-runbook.md](../program/conduit-mesh-c14-l3-sse-soak-runbook.md) — **PASS** 2026-07-15 |
+| L3 | [conduit-mesh-c14-l3-sse-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c14-l3-sse-soak-runbook.md) — **PASS** 2026-07-15 |
 
 ---
 
@@ -988,7 +1002,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **L1 landed** — routed `ConduitMeshFetch` + `mesh_http_fetch_via_socks` + onion→`tor_required` |
-| Charter | [conduit-mesh-c13-tor-socks-drivers-charter.md](../program/conduit-mesh-c13-tor-socks-drivers-charter.md) |
+| Charter | [conduit-mesh-c13-tor-socks-drivers-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c13-tor-socks-drivers-charter.md) |
 | Design | [conduit-mesh-c13-tor-socks-drivers-design.md](../../specs/backend/conduit-mesh-c13-tor-socks-drivers-design.md) |
 | L1 | `pnpm verify:conduit-mesh-c13` |
 | Scope | Per-conduit SOCKS HTTP; PWA browser WS/SOCKS still limited; native WS uses existing Tor NetRuntime |
@@ -1001,7 +1015,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **L1 landed** — long-poll on `GET /mesh/v1/stream`; C10 poll fallback when health omits `long_poll` |
-| Charter | [conduit-mesh-c12-http-stream-charter.md](../program/conduit-mesh-c12-http-stream-charter.md) |
+| Charter | [conduit-mesh-c12-http-stream-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c12-http-stream-charter.md) |
 | Design | [conduit-mesh-c12-http-stream-design.md](../../specs/backend/conduit-mesh-c12-http-stream-design.md) |
 | L1 | `pnpm verify:conduit-mesh-c12` |
 | Scope | Health `capabilities: ["pull","long_poll"]` · store `waitForList` · driver prefer stream · SSE deferred |
@@ -1014,7 +1028,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **L1 landed** — charter + design + codec + HTTP publish/inbound bridge |
-| Charter | [conduit-mesh-c11-mesh-native-dm-codec-charter.md](../program/conduit-mesh-c11-mesh-native-dm-codec-charter.md) |
+| Charter | [conduit-mesh-c11-mesh-native-dm-codec-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c11-mesh-native-dm-codec-charter.md) |
 | Design | [conduit-mesh-c11-mesh-native-dm-codec-design.md](../../specs/backend/conduit-mesh-c11-mesh-native-dm-codec-design.md) |
 | L1 | `pnpm verify:conduit-mesh-c11` |
 | Scope | HTTP `team_relay` stores `obscur_mesh_dm_wire_v1` in ciphertext; inbound accepts native **or** legacy Nostr wire; DM pipeline unchanged |
@@ -1027,8 +1041,8 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | **Landed** — Row A **PASS** · Row B **PASS** (B1+B2) · L1 **PASS** |
-| Charter | [conduit-mesh-c10-http-pull-subscribe-charter.md](../program/conduit-mesh-c10-http-pull-subscribe-charter.md) |
-| L3 runbook | [conduit-mesh-c10-l3-http-soak-runbook.md](../program/conduit-mesh-c10-l3-http-soak-runbook.md) |
+| Charter | [conduit-mesh-c10-http-pull-subscribe-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c10-http-pull-subscribe-charter.md) |
+| L3 runbook | [conduit-mesh-c10-l3-http-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c10-l3-http-soak-runbook.md) |
 | Investigation | [conduit-mesh-c10-l3-dm-scope-cors-investigation.md](../../specs/backend/conduit-mesh-c10-l3-dm-scope-cors-investigation.md) |
 | L1 | `pnpm verify:conduit-mesh-c10` **PASS** (12 tests) · `dm-relay-transport.test.ts` **PASS** |
 | L3 blockers fixed (cumulative) | (1)–(8) prior · **(9)** HTTP-only caps hybrid targets · **(10)** pull `recipientPublicKeyHex` filter · **(11)** re-arm inbound interests after `configureConduits` + HTTP writable arm |
@@ -1068,7 +1082,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 | Field | Value |
 |-------|--------|
 | Status | L1 landed 2026-07-14 |
-| Charter | [conduit-mesh-c9-tor-host-integration-charter.md](../program/conduit-mesh-c9-tor-host-integration-charter.md) |
+| Charter | [conduit-mesh-c9-tor-host-integration-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c9-tor-host-integration-charter.md) |
 | L1 | `pnpm verify:conduit-mesh-c9` |
 
 ---
@@ -1077,11 +1091,11 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 
 | Slice | Doc | Type | Owner |
 |-------|-----|------|-------|
-| **L1 close** | [conduit-mesh-l1-band-close-2026-07.md](../program/conduit-mesh-l1-band-close-2026-07.md) | Band status | **Closed** |
-| **C10 L3** | [conduit-mesh-c10-l3-http-soak-runbook.md](../program/conduit-mesh-c10-l3-http-soak-runbook.md) | HTTP-only DM | **PASS** |
-| **C14 L3** | [conduit-mesh-c14-l3-sse-soak-runbook.md](../program/conduit-mesh-c14-l3-sse-soak-runbook.md) | SSE latency soak | Maintainer |
-| **C13 L3** | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../program/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) | Tor SOCKS HTTP | Maintainer |
-| **C7 L3** | [conduit-mesh-c7-l3-soak-runbook.md](../program/conduit-mesh-c7-l3-soak-runbook.md) | WS mesh default | Maintainer |
+| **L1 close** | [conduit-mesh-l1-band-close-2026-07.md](../archive/program/inactive-2026-08/conduit-mesh-l1-band-close-2026-07.md) | Band status | **Closed** |
+| **C10 L3** | [conduit-mesh-c10-l3-http-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c10-l3-http-soak-runbook.md) | HTTP-only DM | **PASS** |
+| **C14 L3** | [conduit-mesh-c14-l3-sse-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c14-l3-sse-soak-runbook.md) | SSE latency soak | Maintainer |
+| **C13 L3** | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) | Tor SOCKS HTTP | Maintainer |
+| **C7 L3** | [conduit-mesh-c7-l3-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c7-l3-soak-runbook.md) | WS mesh default | Maintainer |
 | **C11–C14 L1** | charters in `docs/program/` | Code | **Landed** |
 
 ---
@@ -1102,7 +1116,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 
 | Field | Value |
 |-------|--------|
-| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../program/codactrl-obscur-agent-runbook-2026-07.md) |
+| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../archive/program/inactive-2026-08/codactrl-obscur-agent-runbook-2026-07.md) |
 | WEB-R2 | **Mitigated** — `data-codactrl-sha256` hooks on `/download` |
 | RIW-8 | **Draft shipped** — `signalExtractMappings` in FLS rule pack; **CodaCtrl repo** must wire extractor |
 | WEB-R1 / WEB-R3 | **Documented** — workspace alignment + probe routing in runbook |
@@ -1116,7 +1130,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 
 | Field | Value |
 |-------|--------|
-| Release | [v1.9.12-scope.md](../program/v1.9.12-scope.md) |
+| Release | [v1.9.12-scope.md](../archive/program/inactive-2026-08/v1.9.12-scope.md) |
 | Design | [vault-chat-save-phase6-design-2026-07.md](../../specs/backend/vault-chat-save-phase6-design-2026-07.md) |
 | Plan | [vault-encryption-sandbox-plan-2026-07.md](../../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
 | L3/L4 runbook | [vault-sandbox-l3-verification-2026-07.md](../../specs/backend/vault-sandbox-l3-verification-2026-07.md) |
@@ -1131,7 +1145,7 @@ profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; 
 
 | Field | Value |
 |-------|--------|
-| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../program/codactrl-obscur-agent-runbook-2026-07.md) |
+| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../archive/program/inactive-2026-08/codactrl-obscur-agent-runbook-2026-07.md) |
 | WEB-R2 | **Mitigated** — `data-codactrl-sha256` hooks on `/download` |
 | RIW-8 | **Draft** — `signalExtractMappings` in FLS rule pack (CodaCtrl repo to consume) |
 | WEB-R1 / WEB-R3 | **Documented** — workspace alignment + probe routing in runbook |
@@ -1187,7 +1201,7 @@ Repair queue:
 | **R5** | O-4 ingest chrome | **VERIFIED t4** (`60c9bb3c` · `csess-58ce611e907b` / `csess-b7f42e294e5e`) |
 | R4 | COM-RUN-01 roster | **A** @ ACC-02 |
 
-Protocol: [obscur-runtime-issue-tracker-2026-07.md](../program/obscur-runtime-issue-tracker-2026-07.md) · register `.codectx/verify/issues-register.summary.json`
+Protocol: [obscur-runtime-issue-tracker-2026-07.md](../archive/program/inactive-2026-08/obscur-runtime-issue-tracker-2026-07.md) · register `.codectx/verify/issues-register.summary.json`
 
 **R1 — VERIFIED t4 (2026-07-04 round `2026-07-04-r1-room-key-health-t4`)**
 
@@ -1281,7 +1295,7 @@ Charter: [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-websi
 | D2-4 | SQLite honesty | **Done** |
 | D2-5 | Install/build guide | **Done** — [obscur-v2-install-build-guide.md](../program/obscur-v2-install-build-guide.md) |
 
-Charter: [obscur-v2-phase2-docs-charter.md](../program/obscur-v2-phase2-docs-charter.md)
+Charter: [obscur-v2-phase2-docs-charter.md](../archive/program/inactive-2026-08/obscur-v2-phase2-docs-charter.md)
 
 **Phase 1D row 3 — P3a–d SQLite restart soaks DONE (2026-07-04)**
 
@@ -1320,7 +1334,7 @@ Evidence: Phase 1C chain `chain-com-run-11-phase1c-2026-07-04` → `n7-k-m2-rejo
 | C | C-4.1 **V** · C-4.2 **V** | 2 |
 | T | REL-001/003/004 **V** · REL-002 **A** · MEM-003/004 **V** · MEM-002/005/006 **A** · MED-001/002 **A** | 11 |
 
-COM-RUN-01 → **Accepted** @ ACC-02 in [unified-verification-issues-register.md](../program/unified-verification-issues-register.md).
+COM-RUN-01 → **Accepted** @ ACC-02 in [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md).
 
 **Phase 1C — EXIT (2026-07-04)**
 
@@ -1498,7 +1512,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 | Git SHA | `4d000257` (last commit) + **uncommitted** community slice (health subtraction, relay bootstrap, kind-5 delete ingest) |
 | Fixture | NewTest 2 · `ws://localhost:7000` · `managed_workspace` · full-stack (`pnpm dev:desktop:online`) |
 | Verified | Sealed group **send** (COM-MEM-2 §3 step 6); **Remove from workspace** delete e2e (kind 5 ingest); community home/chat/invite when room key present (COM-RUN-04 UX subtraction) |
-| Not re-recorded this sign-off | COM-MEM-2 steps 3–4 (invite/join), 7 (cold restart), 8 (leave/re-invite); COM-MSG cold restart; roster parity (deprioritized per [membership-graph-integration-study-2026-06.md](../program/membership-graph-integration-study-2026-06.md)) |
+| Not re-recorded this sign-off | COM-MEM-2 steps 3–4 (invite/join), 7 (cold restart), 8 (leave/re-invite); COM-MSG cold restart; roster parity (deprioritized per [membership-graph-integration-study-2026-06.md](../archive/program/inactive-2026-08/membership-graph-integration-study-2026-06.md)) |
 | L1 proof | `group-thread-relay-ingest.test.ts` (kind-5 suppress path); membership UI action policy tests |
 | Next | Optional: record steps 3–4 / 7–8 in [COM-MEM-2 spec](../archive/program/inactive-2026-06/community-verification-com-mem-2-spec-2026-06.md) for full **V** on K3–K5 |
 
@@ -1506,7 +1520,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [conduit-mesh-c6-nostr-ws-charter.md](../program/conduit-mesh-c6-nostr-ws-charter.md) |
+| Added | [conduit-mesh-c6-nostr-ws-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c6-nostr-ws-charter.md) |
 | Added | `NOSTR_WS_CONDUIT_WIRE_V1`, `createNostrWsConduitDriver`, `createInMemoryNostrWsWire` |
 | Gate | `pnpm verify:conduit-mesh-c6` ✓ |
 
@@ -1514,7 +1528,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [conduit-mesh-c5-pool-retirement-charter.md](../program/conduit-mesh-c5-pool-retirement-charter.md) |
+| Added | [conduit-mesh-c5-pool-retirement-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c5-pool-retirement-charter.md) |
 | Added | `runW53SmokeParityHarness`, `useConduitMeshRelayPool`, `NEXT_PUBLIC_OBSCUR_CONDUIT_MESH_POOL` |
 | Gate | `pnpm verify:conduit-mesh-c5` ✓ |
 
@@ -1522,7 +1536,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [conduit-mesh-c4-adapter-wiring-charter.md](../program/conduit-mesh-c4-adapter-wiring-charter.md) |
+| Added | [conduit-mesh-c4-adapter-wiring-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c4-adapter-wiring-charter.md) |
 | Added | `custom-http`, `team-relay`, `coordination-http` conduit drivers; `createConduitDriverFromDescriptor` |
 | Gate | `pnpm verify:conduit-mesh-c4` |
 
@@ -1530,8 +1544,8 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [conduit-mesh-c3-tor-policy-charter.md](../program/conduit-mesh-c3-tor-policy-charter.md) |
-| Added | [conduit-mesh-c3-tor-probe-integration.md](../program/conduit-mesh-c3-tor-probe-integration.md) |
+| Added | [conduit-mesh-c3-tor-policy-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c3-tor-policy-charter.md) |
+| Added | [conduit-mesh-c3-tor-probe-integration.md](../archive/program/inactive-2026-08/conduit-mesh-c3-tor-probe-integration.md) |
 | Added | `tor-policy.ts` in contracts; runtime `getTorState` wiring |
 | Gate | `pnpm verify:conduit-mesh-c3` |
 
@@ -1539,7 +1553,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [conduit-mesh-c2-runtime-charter.md](../program/conduit-mesh-c2-runtime-charter.md) |
+| Added | [conduit-mesh-c2-runtime-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c2-runtime-charter.md) |
 | Added | `packages/obscur-conduit-mesh` — `createConduitMesh`, mock drivers, snapshot builder |
 | Gate | `pnpm verify:conduit-mesh-c2` |
 
@@ -1547,7 +1561,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [conduit-mesh-c1-contracts-charter.md](../program/conduit-mesh-c1-contracts-charter.md) |
+| Added | [conduit-mesh-c1-contracts-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c1-contracts-charter.md) |
 | Added | `packages/obscur-conduit-mesh-contracts` — Envelope, Evidence, ConduitDescriptor, MeshSnapshot, MeshPort, custom HTTP v1 |
 | Gate | `pnpm verify:conduit-mesh-c1` |
 
@@ -1574,7 +1588,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 | Deliverable | Detail |
 |-------------|--------|
 | Added | `scripts/dev-desktop-transport-smoke.mjs` · `pnpm dev:desktop:transport-smoke` |
-| Added | [obscur-kernel-ui-desktop-test-checklist.md](../program/obscur-kernel-ui-desktop-test-checklist.md) |
+| Added | [obscur-kernel-ui-desktop-test-checklist.md](../archive/program/inactive-2026-08/obscur-kernel-ui-desktop-test-checklist.md) |
 | Updated | [CURRENT.md](../CURRENT.md), [.env.example](../../apps/pwa/.env.example), [ARCHIVED-UI.md](../../apps/pwa/ARCHIVED-UI.md) |
 | Gate | `pnpm verify:standalone-legacy-subtraction-prep` · `pnpm docs:check` |
 
@@ -1583,7 +1597,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 | Deliverable | Detail |
 |-------------|--------|
 | Updated | `package.json` — w0–w68 + `verify:transport-engine` → `scripts/verify-transport-engine.mjs` |
-| Added | [transport-engine-w53-maintainer-smoke-runbook.md](../program/transport-engine-w53-maintainer-smoke-runbook.md) |
+| Added | [transport-engine-w53-maintainer-smoke-runbook.md](../archive/program/inactive-2026-08/transport-engine-w53-maintainer-smoke-runbook.md) |
 | Updated | Sign-off template/record — pre-flight gate `verify:transport-engine-w68` |
 | Gate | `pnpm verify:transport-engine-w53` (alias) · `pnpm docs:check` |
 
@@ -1599,7 +1613,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | [transport-engine-standalone-legacy-subtraction-index.md](../program/transport-engine-standalone-legacy-subtraction-index.md) |
+| Added | [transport-engine-standalone-legacy-subtraction-index.md](../archive/program/inactive-2026-08/transport-engine-standalone-legacy-subtraction-index.md) |
 | Updated | [CURRENT.md](../CURRENT.md), [CHANGELOG.md](../../CHANGELOG.md), [obscur-backend-engine-roadmap.md](../program/obscur-backend-engine-roadmap.md), [program/README.md](../program/README.md) |
 | Updated | `verify:transport-engine-w55`–`w59` → flat script (was nested pnpm chain) |
 | Assessment | B0–B5 + transport w0–w54 + prep w55–w68 **complete**; physical legacy deletion **blocked** on W53 smoke |
@@ -1996,7 +2010,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | `docs/program/transport-engine-w23-publish-parity-harness-charter.md` — parity harness dimensions + constraints |
+| Added | `docs/archive/program/inactive-2026-08/transport-engine-w23-publish-parity-harness-charter.md` — parity harness dimensions + constraints |
 | Added | `transport-engine-w23.contract.test.ts` — pins parity charter, semantic baseline owners, and Rust not-wired stub |
 | Preserved | Standalone publish owner + shared outcome mapper remain baseline semantics; no authority/runtime wiring changes |
 | Gate | `verify:transport-engine-w23` (now included in `verify:engine-lab`) |
@@ -2005,7 +2019,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | `docs/program/transport-engine-w22-host-publish-rust-charter.md` — Rust-side wiring responsibilities + constraints |
+| Added | `docs/archive/program/inactive-2026-08/transport-engine-w22-host-publish-rust-charter.md` — Rust-side wiring responsibilities + constraints |
 | Added | `transport-engine-w22.contract.test.ts` — asserts charter presence + keeps `transport_publish_not_wired` stub intact |
 | Preserved | `engine_invoke.rs` `publishRelayEvent` branch still returns `transport_publish_not_wired` (no wiring yet) |
 | Gate | `verify:transport-engine-w22` (now included in `verify:engine-lab`) |
@@ -2032,7 +2046,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | `docs/program/transport-engine-w19-host-publish-parity-charter.md` — defines parity obligations before wiring |
+| Added | `docs/archive/program/inactive-2026-08/transport-engine-w19-host-publish-parity-charter.md` — defines parity obligations before wiring |
 | Added | `transport-engine-w19.contract.test.ts` — pins charter + shared mapper owner + not-wired stub |
 | Gate | `verify:transport-engine-w19` (now included in `verify:engine-lab`) |
 
@@ -2061,7 +2075,7 @@ Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe loc
 
 | Deliverable | Detail |
 |-------------|--------|
-| Added | `docs/program/transport-engine-w16-host-publish-charter.md` — explicit defer decision + migration plan + exit criteria |
+| Added | `docs/archive/program/inactive-2026-08/transport-engine-w16-host-publish-charter.md` — explicit defer decision + migration plan + exit criteria |
 | Added | `transport-engine-w16.contract.test.ts` — pins defer decision + read-only host method catalog |
 | Preserved | `transport-engine-methods.ts` remains read-only (`listRelayCheckpoints`, `listConfiguredRelayUrls`) in this wave |
 | Gate | `verify:transport-engine-w16` (included in `verify:engine-lab`) |
@@ -2277,7 +2291,7 @@ Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages 
 - Next: Rebuild shell → dual-window marker without restart → then F-ACK if needed
 ### 2026-08-02T08:40:00Z checkpoint
 - Summary: CodaCtrl dogfood for DELIVERY-1 — filed issue+chain; CDP absent blocks live assert; leading F-ACK hyp documented; CodaCtrl gaps appended to improvement findings
-- Evidence: specs/backend/dm-delivery-1-public-path-investigation-2026-08.md · verify:issue:agent:9e5bbc9aa9d4a242 · docs/program/codactrl-improvement-findings-2026-07.md (Round 2026-08-02)
+- Evidence: specs/backend/dm-delivery-1-public-path-investigation-2026-08.md · verify:issue:agent:9e5bbc9aa9d4a242 · docs/archive/program/inactive-2026-08/codactrl-improvement-findings-2026-07.md (Round 2026-08-02)
 - Uncertainty: Fail class not live-pinned; need dual CDP public soak
 - Next: Launch desktop CDP 9230/9231 → public DM marker → pin F-ACK vs F-TARGET
 ### 2026-08-02T08:35:00Z checkpoint

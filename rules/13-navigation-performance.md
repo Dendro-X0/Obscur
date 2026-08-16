@@ -1,6 +1,6 @@
 # 13 — Navigation Performance
 
-**Canonical contract:** [`docs/program/navigation-performance-contract.md`](../docs/program/navigation-performance-contract.md)
+**Canonical contract:** [`docs/archive/program/inactive-2026-06/navigation-performance-contract.md`](../docs/archive/program/inactive-2026-06/navigation-performance-contract.md)
 
 Navigation freezes are **architecture regressions**, not one-off bugs. Unit tests are CI checkpoints only; they do not prove interactive performance and cannot memorialize every parallel path an agent might add.
 

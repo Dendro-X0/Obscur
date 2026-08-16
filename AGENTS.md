@@ -51,7 +51,7 @@ Full doc index: [`docs/README.md`](./docs/README.md). **Do not boot from `docs/a
 | Broken core flow | [`rules/10-recovery-heuristic.md`](./rules/10-recovery-heuristic.md) |
 | Feasibility / modular safety | [`rules/11-feasibility-and-modular-safety.md`](./rules/11-feasibility-and-modular-safety.md) |
 | Modular iteration (always-on) | [`.cursor/rules/obscur-modular-iteration.mdc`](./.cursor/rules/obscur-modular-iteration.mdc) · [`docs/program/modular-iteration-contract.md`](./docs/program/modular-iteration-contract.md) |
-| Navigation performance | [`rules/13-navigation-performance.md`](./rules/13-navigation-performance.md) · [`docs/program/navigation-performance-contract.md`](./docs/program/navigation-performance-contract.md) |
+| Navigation performance | [`rules/13-navigation-performance.md`](./rules/13-navigation-performance.md) · [`docs/archive/program/inactive-2026-06/navigation-performance-contract.md`](./docs/archive/program/inactive-2026-06/navigation-performance-contract.md) |
 
 ## Broken core flow (quick)
 

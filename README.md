@@ -2,7 +2,7 @@
 
 > **Active (2026-05).** Obscur development has resumed in this repository. Greenfield has been discontinued as a separate execution track; its archived design goals remain available for reference in [docs/archive/greenfield/README.md](docs/archive/greenfield/README.md).
 
-[![Version](https://img.shields.io/badge/version-1.9.11-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
+[![Version](https://img.shields.io/badge/version-1.9.16-blue)](https://github.com/Dendro-X0/Obscur/blob/main/version.json)
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
 [![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
 [![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
@@ -10,22 +10,22 @@
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
 
-Project phase: **v1.9.x** on `main`; **v2.0.0 delayed** until runtime repair band exits ([execution contract](docs/program/v1.9.x-execution-contract.md))
+Project phase: **v1.9.x** on `main` ([execution contract](docs/program/v1.9.x-execution-contract.md) · [v1.9.16 scope](docs/program/v1.9.16-scope.md))
 
-**Current status (2026-07-04):** Phases 1–3 **EXIT** (verification + installers). **Runtime repair band ACTIVE** — R1 group room-key health **VERIFIED t4**; **R2** cold auth/unlock is next. Website (`apps/website`) built but **not deployed**. See [docs/CURRENT.md](docs/CURRENT.md) and [handoff](docs/handoffs/current-session.md).
+**Current status (2026-08-15):** **v1.9.16** stamped · clearnet ship (Tor OFF) unblocked · dialect research **PAUSED**. Primary download channel is the **website** `/download` (update channel under `apps/desktop/release/channel/stable/`). GitHub **Releases is not** the current public channel. See [docs/CURRENT.md](docs/CURRENT.md) and [handoff](docs/handoffs/current-session.md).
 
-**Current version:** [`version.json`](version.json) on **`main`**. GitHub **Releases is disabled** for this repo (Settings → Features) — do not use `/releases` or **Latest**.
+**Current version:** [`version.json`](version.json) on **`main`**.
 
 **Get Obscur:**
 
 | Path | Command / link |
 |------|----------------|
+| **Download (primary)** | Website `/download` — channel manifests in [apps/desktop/release/channel/stable/](apps/desktop/release/channel/stable/) |
 | **Dev** | `pnpm dev:desktop:online` |
 | **Local installer** | `pnpm desktop:package` → install from `release-assets/` |
-| **Download page** | Website `/download` reads repo [update channel](apps/desktop/release/channel/stable/) |
 | **Source** | Clone or [Download ZIP](https://github.com/Dendro-X0/Obscur/archive/refs/heads/main.zip) |
 
-Changelog: [CHANGELOG.md](CHANGELOG.md) · Design goals: [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) · Train: [v1.9.x release train](docs/program/v1.9.x-release-train.md)
+Changelog: [CHANGELOG.md](CHANGELOG.md) · Design goals: [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) · Scope: [v1.9.16](docs/program/v1.9.16-scope.md)
 
 The project remains independently developed, community-maintained, privacy-first, and local-first.
 
@@ -42,7 +42,7 @@ The project remains independently developed, community-maintained, privacy-first
 - Public repository with auditable source code and open release history.
 - Project policy guarantee: no intentional malicious code, hidden telemetry backdoors, or closed-source runtime logic in this repository.
 - Security/privacy model and implementation history are documented in `/docs`, [`CHANGELOG.md`](CHANGELOG.md), and [`docs/releases/`](docs/releases/). For v1.8.x+, **`/docs` is the authoritative release record** where inline changelog updates were missed during fast patch lanes; entries are backfilled at tag time from program docs.
-- Release artifacts are published via GitHub Releases with reproducible version contracts.
+- Installers and update metadata are published through the **website download / update channel** with reproducible version contracts (`version.json`).
 
 ## Key Capabilities
 
@@ -56,7 +56,7 @@ The project remains independently developed, community-maintained, privacy-first
 
 ## Feature GIF Previews
 
-Current v1.9.10 captures live in `docs/assets/gifs/`. Legacy April 2026 six-pack files were removed 2026-07-10.
+Current v1.9.x captures live in `docs/assets/gifs/`. Legacy April 2026 six-pack files were removed 2026-07-10.
 
 ### Auth and onboarding
 
@@ -142,15 +142,12 @@ pnpm dev:desktop
 
 Current public distribution:
 
-- GitHub Releases (primary channel)
+- **Website `/download`** (primary) — reads [update channel](apps/desktop/release/channel/stable/)
+- Local packaged installers under `release-assets/` for maintainers
 
-Planned distribution:
+GitHub Releases is **not** the current public channel for this repo.
 
-- Official website (`apps/website`, under active planning), including:
-  - changelog and release notes,
-  - feature and architecture summaries,
-  - short GIF demonstrations for production-build features,
-  - downloadable release artifacts mirrored from GitHub Releases.
+Website (`apps/website`) also hosts changelog/feature summaries and GIF demos.
 
 Release guard commands:
 
@@ -167,16 +164,16 @@ pnpm release:preflight -- --tag vX.Y.Z
 
 ## Documentation Map
 
-The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/README.md) lives at the docs root (navigation).
+The `/docs` tree is the project encyclopedia. **Start:** [docs/START-HERE.md](docs/START-HERE.md) · [docs/CURRENT.md](docs/CURRENT.md).
 
 | Shelf | Entry |
 |-------|--------|
 | Navigation | [docs/README.md](docs/README.md) |
-| **Current release train** | [docs/program/v1.9.x-release-train.md](docs/program/v1.9.x-release-train.md) · **1.9.11** on `main` |
+| **Current scope** | [docs/program/v1.9.16-scope.md](docs/program/v1.9.16-scope.md) · **1.9.16** on `main` |
 | **Execution contract** | [docs/program/v1.9.x-execution-contract.md](docs/program/v1.9.x-execution-contract.md) |
 | **Design goals** | [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) |
-| **Latest release notes** | [v1.9.11](docs/releases/v1.9.11-release.md) · Git tags v1.9.0–v1.9.3 |
-| Program | [docs/program/PROGRAM.md](docs/program/PROGRAM.md) |
+| **Latest release notes** | [v1.9.16](docs/releases/v1.9.16-release.md) |
+| Program (active ~39) | [docs/program/README.md](docs/program/README.md) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 | Maintainer | [docs/encyclopedia/08-maintainer-playbook.md](docs/encyclopedia/08-maintainer-playbook.md) |
 | Architecture owners | [docs/encyclopedia/12-core-architecture-truth-map.md](docs/encyclopedia/12-core-architecture-truth-map.md) |
@@ -188,6 +185,6 @@ The `/docs` tree is the project encyclopedia. **Only** [docs/README.md](docs/REA
 
 - `apps/pwa`: web/PWA runtime
 - `apps/desktop`: Tauri desktop runtime
-- `apps/website`: official website and release surface (in progress)
+- `apps/website`: official website and download surface
 - `packages/dweb-*`: shared core/crypto/nostr/storage/UI packages
 - `docs`: canonical architecture, operations, and roadmap docs
