@@ -1,39 +1,29 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-15T18:40:00Z
+- Last Updated (UTC): 2026-08-16T07:45:00Z
 
 ## Next atomic step
 
-**Maintainer: dispatch Full Release build-only** (`publish_release=false`, tag `v1.9.16`) · dialect research still **PAUSED**
+**PAUSED — dialect research (≠ Nostr / VPS / Tor)** · tag **v1.9.16**
 
 | Field | Value |
 |-------|--------|
-| Why | Local T4 + preflight Pass · pack fixes on `main` @ `9385255f` · agent host has **no** `gh` auth / `GH_TOKEN` |
-| Command | Actions → **Obscur Full Release** → `publish_release=false` · `release_tag=v1.9.16` |
-| Or CLI | `gh workflow run "Obscur Full Release" -f publish_release=false -f release_tag=v1.9.16` |
-| After green build | Optional `publish_release=true` (website `/download` remains primary) |
-| Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
-| Charter | [full-release-ci-green-charter-2026-08.md](../program/full-release-ci-green-charter-2026-08.md) |
-
-### Checkpoint — Full Release CI green band (2026-08-15)
-
-| Field | Value |
-|-------|--------|
-| T4 | `pnpm release:test-pack -- --skip-preflight` **Pass** |
-| T0–T2 | `pnpm ci:local:all-cheap` **Pass** |
-| Preflight | `pnpm ci:local:preflight -- --skip-relay` **Pass** |
-| Fixes | Tor status test fields · profile publisher pool `connections` + toast mock path · invite redemption toast mock · `relayUrlIsOpen` null-safe |
-| Docs | Shelf cleanup + [full-release-ci-green-charter-2026-08.md](../program/full-release-ci-green-charter-2026-08.md) |
-| Push | `9385255f` → `origin/main` |
-| Full Release | **Dispatch pending maintainer auth** (this agent cannot call Actions API) |
-
-### Prior — PAUSED dialect research
-
-| Field | Value |
-|-------|--------|
-| Tag | **v1.9.16** — [scope](../program/v1.9.16-scope.md) · [release](../releases/v1.9.16-release.md) |
 | Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
-| Resume when | Written research + design charter names one candidate **outside** public Nostr · operator VPS · Tor |
+| Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
+| Optional next | Full Release `publish_release=true` (GitHub Release page) · demo Segment A · website polish |
+| Keep | Clearnet Verified · website `/download` primary · Tor TI landed (not Verified) |
+
+### Checkpoint — Full Release CI green Pass (2026-08-16)
+
+| Field | Value |
+|-------|--------|
+| Charter | [full-release-ci-green-charter-2026-08.md](../program/full-release-ci-green-charter-2026-08.md) |
+| T4 | `release:test-pack` **Pass** (local) · reliability-gates **Pass** @ `b184e4a0` |
+| Full Release build | **Pass** — [run 31933511240](https://github.com/Dendro-X0/Obscur/actions/runs/31933511240) · `publish_release=false` |
+| Jobs | Desktop win/mac/linux · Android APK+AAB · Web/PWA · iOS · Verify Artifacts — all success |
+| Android fix | rustls-only tungstenite (drop native-tls/openssl) · [investigation](../../specs/ci/31931861358-android-openssl-investigation.md) |
+| Commits | `9385255f` pack/docs · `b184e4a0` transport boundary · `9752fa96` rustls-only |
+| Publish | **Not** run — optional maintainer `publish_release=true` |
 
 ### Checkpoint — docs shelf cleanup Pass (2026-08-15)
 
