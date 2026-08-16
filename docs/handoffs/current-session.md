@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-16T07:45:00Z
+- Last Updated (UTC): 2026-08-16T08:25:00Z
 
 ## Next atomic step
 
@@ -10,8 +10,17 @@
 |-------|--------|
 | Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
 | Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
-| Optional next | Full Release `publish_release=true` (GitHub Release page) · demo Segment A · website polish |
+| Optional next | demo Segment A · website polish · sync website `/download` channel with v1.9.16 assets if needed |
 | Keep | Clearnet Verified · website `/download` primary · Tor TI landed (not Verified) |
+
+### Checkpoint — Full Release published v1.9.16 (2026-08-16)
+
+| Field | Value |
+|-------|--------|
+| Run | [31935072226](https://github.com/Dendro-X0/Obscur/actions/runs/31935072226) · `publish_release=true` · **Pass** |
+| Release | https://github.com/Dendro-X0/Obscur/releases/tag/v1.9.16 |
+| Assets | win setup · mac dmg · linux AppImage · Android apk/aab · PWA tar · streaming-update-policy |
+| Note | Website `/download` remains product primary; GitHub Release is secondary channel |
 
 ### Checkpoint — Full Release CI green Pass (2026-08-16)
 
@@ -23,7 +32,6 @@
 | Jobs | Desktop win/mac/linux · Android APK+AAB · Web/PWA · iOS · Verify Artifacts — all success |
 | Android fix | rustls-only tungstenite (drop native-tls/openssl) · [investigation](../../specs/ci/31931861358-android-openssl-investigation.md) |
 | Commits | `9385255f` pack/docs · `b184e4a0` transport boundary · `9752fa96` rustls-only |
-| Publish | **Not** run — optional maintainer `publish_release=true` |
 
 ### Checkpoint — docs shelf cleanup Pass (2026-08-15)
 
