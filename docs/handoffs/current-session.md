@@ -1,21 +1,39 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-15T18:16:00Z
+- Last Updated (UTC): 2026-08-15T18:40:00Z
 
 ## Next atomic step
 
-**PAUSED — dialect research (≠ Nostr / VPS / Tor)** · tag **v1.9.16** · 2026-08-15
+**Maintainer: dispatch Full Release build-only** (`publish_release=false`, tag `v1.9.16`) · dialect research still **PAUSED**
+
+| Field | Value |
+|-------|--------|
+| Why | Local T4 + preflight Pass · pack fixes on `main` @ `9385255f` · agent host has **no** `gh` auth / `GH_TOKEN` |
+| Command | Actions → **Obscur Full Release** → `publish_release=false` · `release_tag=v1.9.16` |
+| Or CLI | `gh workflow run "Obscur Full Release" -f publish_release=false -f release_tag=v1.9.16` |
+| After green build | Optional `publish_release=true` (website `/download` remains primary) |
+| Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
+| Charter | [full-release-ci-green-charter-2026-08.md](../program/full-release-ci-green-charter-2026-08.md) |
+
+### Checkpoint — Full Release CI green band (2026-08-15)
+
+| Field | Value |
+|-------|--------|
+| T4 | `pnpm release:test-pack -- --skip-preflight` **Pass** |
+| T0–T2 | `pnpm ci:local:all-cheap` **Pass** |
+| Preflight | `pnpm ci:local:preflight -- --skip-relay` **Pass** |
+| Fixes | Tor status test fields · profile publisher pool `connections` + toast mock path · invite redemption toast mock · `relayUrlIsOpen` null-safe |
+| Docs | Shelf cleanup + [full-release-ci-green-charter-2026-08.md](../program/full-release-ci-green-charter-2026-08.md) |
+| Push | `9385255f` → `origin/main` |
+| Full Release | **Dispatch pending maintainer auth** (this agent cannot call Actions API) |
+
+### Prior — PAUSED dialect research
 
 | Field | Value |
 |-------|--------|
 | Tag | **v1.9.16** — [scope](../program/v1.9.16-scope.md) · [release](../releases/v1.9.16-release.md) |
-| Why pause | Maintainer exploring other communication integrations; knowledge limited · no implementation until research charter |
 | Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
-| Forbidden | New dialect code without charter · Tor Verified as queue · free `groups/**` · AUTH-SESSION |
-| Invariants | User sovereignty · client E2EE · one owner per lifecycle |
 | Resume when | Written research + design charter names one candidate **outside** public Nostr · operator VPS · Tor |
-| Keep | Clearnet Verified claims · Tor TI landed (opt-in, not Verified) |
-| Sibling next | **`release:test-pack` test drift** (profile publisher + Tor adapter) **or** demo Segment A — after docs shelf Pass |
 
 ### Checkpoint — docs shelf cleanup Pass (2026-08-15)
 

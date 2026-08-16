@@ -5,7 +5,7 @@
  */
 
 
-import type { NostrEvent } from "@dweb/nostr/nostr-event";
+import type { NostrEvent } from "@/app/features/relays/hooks/enhanced-relay-pool-types";
 import { createRelayWebSocket } from "@/app/features/relays/hooks/create-relay-websocket";
 import type { RelayConnection } from "@/app/features/relays/hooks/relay-connection";
 import type { RelayConnectionStatus } from "@/app/features/relays/hooks/relay-connection-status";

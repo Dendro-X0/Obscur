@@ -8,6 +8,8 @@ import type { RelayConnection } from "./relay-connection";
 import type { RelayHealthMetrics } from "./relay-health-monitor";
 import type { NostrFilter } from "../types/nostr-filter";
 
+export type { NostrEvent } from "@dweb/nostr/nostr-event";
+
 export type RelayReconnectOptions = Readonly<{
   force?: boolean;
 }>;
