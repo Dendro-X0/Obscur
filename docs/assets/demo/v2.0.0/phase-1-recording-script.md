@@ -151,7 +151,8 @@ Viewer sees: **website primary**, **GitHub secondary**, **unsigned + checksum**,
 ## Segment 3 — Account creation (first identity)
 
 **Goal:** Create a **new** local profile and land on the main shell.  
-**Duration:** 30–60 s.  
+**Duration:** 40–60 s.  
+**Canonical brief (v1.9.16):** [segment-b-create-identity-v1.9.16.md](./segment-b-create-identity-v1.9.16.md)  
 **Prereq:** Fresh Obscur launch (welcome card) **or** use a throwaway profile name you can delete later.
 
 ### On-screen workflow

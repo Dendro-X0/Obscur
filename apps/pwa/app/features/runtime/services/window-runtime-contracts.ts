@@ -93,7 +93,7 @@ export const isUnlockedRuntimePhase = (phase: WindowRuntimePhase | string): bool
   phase === "activating_runtime" || phase === "ready" || phase === "degraded"
 );
 
-/** App shell may mount when runtime activated OR identity unlock evidence is present (password login). */
+/** App shell may mount only when identity unlock evidence is present. */
 export const isProfileWindowUnlockedForAppShell = (params: Readonly<{
   identityStatus: ProfileBoundSessionSnapshot["identityStatus"];
   publicKeyHex?: string | null;
@@ -102,8 +102,10 @@ export const isProfileWindowUnlockedForAppShell = (params: Readonly<{
   if (params.runtimePhase === "fatal") {
     return false;
   }
-  if (isUnlockedRuntimePhase(params.runtimePhase)) {
-    return true;
+  // Identity lock is authoritative. A stale `ready`/`degraded` phase must not keep
+  // the unlocked shell mounted after lockIdentity (manual Lock Now / title-bar lock).
+  if (params.identityStatus !== "unlocked" || !params.publicKeyHex) {
+    return false;
   }
-  return params.identityStatus === "unlocked" && Boolean(params.publicKeyHex);
+  return true;
 };

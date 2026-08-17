@@ -19,8 +19,14 @@ export function useAppLockAction(): Readonly<{
     if (!canLock) {
       return;
     }
-    await authKernel.lockBoundProfileWindow();
-    toast.success(t("settings.security.lockedToast"));
+    try {
+      await authKernel.lockBoundProfileWindow();
+      toast.success(t("settings.security.lockedToast"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(message || t("settings.security.lockNow"));
+      throw error;
+    }
   }, [authKernel, canLock, t]);
 
   return useMemo(() => ({

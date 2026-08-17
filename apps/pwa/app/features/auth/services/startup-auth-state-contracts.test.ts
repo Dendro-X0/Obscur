@@ -68,6 +68,20 @@ describe("startup-auth-state-contracts", () => {
     expect(startupAuthStateHasStoredIdentity(startupState)).toBe(true);
   });
 
+  it("shows lock screen when identity is locked even if startup was restored", () => {
+    const restored = deriveStartupAuthStateFromIdentityState({
+      identityStatus: "unlocked",
+      storedPublicKeyHex: "a".repeat(64),
+      unlockedPublicKeyHex: "a".repeat(64),
+    });
+    expect(restored.kind).toBe("restored");
+    expect(shouldShowStoredIdentityLockScreen({
+      startupState: restored,
+      isAutoLockLocked: false,
+      identityStatus: "locked",
+    })).toBe(true);
+  });
+
   it("flags private-key mismatch and allows stored-identity lock screen gating", () => {
     const startupState = createMismatchStartupAuthState({
       storedPublicKeyHex: "a".repeat(64),

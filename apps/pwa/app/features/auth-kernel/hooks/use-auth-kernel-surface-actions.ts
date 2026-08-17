@@ -108,7 +108,13 @@ export function useAuthKernelSurfaceActions(): Readonly<{
   }, [identity, ports]);
 
   const lockBoundProfileWindow = useCallback(async (): Promise<void> => {
-    await runAuthKernelBoundProfileLock(ports, profileId);
+    // Native session clear is best-effort. Product lock must always reach lockIdentity
+    // even when lockSession fails (unsupported runtime, empty profileId, native errors).
+    try {
+      await runAuthKernelBoundProfileLock(ports, profileId);
+    } catch (error) {
+      console.warn("[AuthKernel] lockSession best-effort failed; continuing with app lock:", error);
+    }
     await lockAppSession({ lockBoundProfile: runtime.lockBoundProfile });
   }, [ports, profileId, runtime.lockBoundProfile]);
 

@@ -113,8 +113,9 @@ export const createAuthKernelRuntimeSessionPort = (): RuntimeSessionPort => ({
   },
 
   lockSession: async (profileId) => {
+    // Non-native runtimes have no OS session to clear — treat as success so UI lock proceeds.
     if (!hasNativeRuntime()) {
-      return authFailed({ reasonCode: "unsupported_runtime" });
+      return authOk(undefined);
     }
     const trimmed = profileId.trim();
     if (!trimmed) {

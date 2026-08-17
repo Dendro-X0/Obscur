@@ -10,8 +10,18 @@
 |-------|--------|
 | Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
 | Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
-| Optional next | Identity create segment · website polish after `/download` redeploy · stitch Segment A |
+| Optional next | **Record Segment B** — [segment-b-create-identity-v1.9.16.md](../assets/demo/v2.0.0/segment-b-create-identity-v1.9.16.md) (create · strength/generator · Profile · Identity key honesty · Security Lock Now · unlock) |
 | Keep | Clearnet Verified · website `/download` primary · Tor TI landed (not Verified) |
+
+### Checkpoint — Manual lock ineffective (2026-08-16)
+
+| Field | Value |
+|-------|--------|
+| Symptom | Lock Obscur? confirm → Lock does not lock profile (blocks Segment B) |
+| Investigation | [manual-lock-ineffective-investigation-2026-08.md](../../specs/backend/manual-lock-ineffective-investigation-2026-08.md) |
+| Fix | Shell unlock gate requires identity unlocked · lockSession best-effort · lockBoundProfileWindow always reaches lockIdentity |
+| L1 | window-runtime-contracts + startup-auth-state-contracts tests |
+| Next | Re-record Segment B lock/unlock after rebuild |
 
 ### Checkpoint — Segment A + download channel sync (2026-08-16)
 

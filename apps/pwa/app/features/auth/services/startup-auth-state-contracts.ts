@@ -65,8 +65,14 @@ export const shouldShowStoredIdentityLockScreen = (params: Readonly<{
   if (params.identityStatus === "unlocked") {
     return params.isAutoLockLocked;
   }
-  return startupAuthStateHasStoredIdentity(params.startupState)
-  && (
+  if (!startupAuthStateHasStoredIdentity(params.startupState)) {
+    return false;
+  }
+  // Manual lock sets identity to locked before startupState may flip to stored_locked.
+  if (params.identityStatus === "locked") {
+    return true;
+  }
+  return (
     params.isAutoLockLocked
     || params.startupState.kind === "stored_locked"
     || params.startupState.kind === "mismatch"
