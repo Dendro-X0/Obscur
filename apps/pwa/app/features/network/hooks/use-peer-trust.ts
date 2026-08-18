@@ -129,16 +129,15 @@ const extractAcceptedPeersFromPersistedChatState = (
     return [];
   }
 
+  // Trust is derived exclusively from explicit accept events, not from address-book presence.
+  // createdConnections entries are NOT a trust signal — a connection can exist without a
+  // completed two-way handshake (e.g. sender side before receiver accepts).
   const acceptedFromRequests: ReadonlyArray<PublicKeyHex> = (persisted.connectionRequests ?? [])
     .filter((request) => request.status === "accepted")
     .map((request) => normalizePublicKeyHex(request.id))
     .filter((peer): peer is PublicKeyHex => peer !== null);
 
-  const acceptedFromConnections: ReadonlyArray<PublicKeyHex> = (persisted.createdConnections ?? [])
-    .map((connection) => normalizePublicKeyHex(connection.pubkey))
-    .filter((peer): peer is PublicKeyHex => peer !== null);
-
-  return Array.from(new Set([...acceptedFromRequests, ...acceptedFromConnections]));
+  return Array.from(new Set(acceptedFromRequests));
 };
 
 export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => {

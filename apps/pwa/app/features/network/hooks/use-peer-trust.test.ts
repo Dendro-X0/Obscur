@@ -122,9 +122,9 @@ describe("use-peer-trust internals", () => {
     expect(second).not.toBe(first);
   });
 
-  it("hydrates accepted peers from accepted requests and existing DM connections", () => {
+  it("hydrates accepted peers only from connectionRequests with status=accepted, not from createdConnections", () => {
     const acceptedRequestPeer = "a".repeat(64).toUpperCase();
-    const acceptedConnectionPeer = "b".repeat(64).toUpperCase();
+    const addressBookOnlyPeer = "b".repeat(64).toUpperCase();
 
     const persisted = createPersistedChatState({
       connectionRequests: [
@@ -142,10 +142,11 @@ describe("use-peer-trust internals", () => {
         },
       ],
       createdConnections: [
+        // Address-book entry only — NOT a trust signal
         {
           id: "dm-1",
           displayName: "peer-b",
-          pubkey: acceptedConnectionPeer,
+          pubkey: addressBookOnlyPeer,
           lastMessage: "",
           unreadCount: 0,
           lastMessageTimeMs: 0,
@@ -162,10 +163,29 @@ describe("use-peer-trust internals", () => {
     });
 
     const result = peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted);
-    expect(result).toEqual([
-      acceptedRequestPeer.toLowerCase(),
-      acceptedConnectionPeer.toLowerCase(),
-    ]);
+    // Only the explicitly accepted request peer should appear; address-book-only peer must not
+    expect(result).toEqual([acceptedRequestPeer.toLowerCase()]);
+  });
+
+  it("createdConnections alone (no accepted request) does NOT produce trusted peers", () => {
+    const addressBookPeer = "b".repeat(64).toUpperCase();
+
+    const persisted = createPersistedChatState({
+      connectionRequests: [],
+      createdConnections: [
+        {
+          id: "dm-1",
+          displayName: "pending-contact",
+          pubkey: addressBookPeer,
+          lastMessage: "hey",
+          unreadCount: 1,
+          lastMessageTimeMs: 1000,
+        },
+      ],
+    });
+
+    const result = peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted);
+    expect(result).toEqual([]);
   });
 
   it("ignores non-accepted requests and invalid pubkeys", () => {
@@ -205,7 +225,7 @@ describe("use-peer-trust internals", () => {
     expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(undefined)).toEqual([]);
   });
 
-  it("rehydrates accepted peers when chat state is replaced after an initially empty load", async () => {
+  it("rehydrates accepted peers from connectionRequests when chat state is replaced after an initially empty load", async () => {
     const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
     const peerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
     let restoreApplied = false;
@@ -214,6 +234,13 @@ describe("use-peer-trust internals", () => {
         return null;
       }
       return createPersistedChatState({
+        // createdConnections alone must NOT cause trust — need an accepted request
+        connectionRequests: [{
+          id: peerPublicKeyHex,
+          status: "accepted",
+          isOutgoing: true,
+          timestampMs: 1_000,
+        }],
         createdConnections: [{
           id: "dm-restore",
           displayName: "Peer",
