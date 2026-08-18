@@ -146,9 +146,21 @@ const loadFromStorage = (
   }
 };
 
+type StoredPeerTrustWrite = Readonly<{
+  acceptedPeers: ReadonlyArray<PublicKeyHex>;
+  mutedPeers: ReadonlyArray<PublicKeyHex>;
+  removedPeers?: ReadonlyArray<PublicKeyHex>;
+}>;
+
+const normalizeStoredPeerTrust = (value: StoredPeerTrustWrite): StoredPeerTrust => ({
+  acceptedPeers: value.acceptedPeers,
+  mutedPeers: value.mutedPeers,
+  removedPeers: value.removedPeers ?? [],
+});
+
 const saveToStorage = (
   publicKeyHex: PublicKeyHex,
-  value: StoredPeerTrust,
+  value: StoredPeerTrustWrite,
   profileId: string = getResolvedProfileId(),
 ): void => {
   if (typeof window === "undefined") {
@@ -156,7 +168,7 @@ const saveToStorage = (
   }
   try {
     const scopedKey = getStorageKey(publicKeyHex, profileId);
-    const serialized = JSON.stringify(value);
+    const serialized = JSON.stringify(normalizeStoredPeerTrust(value));
     window.localStorage.setItem(scopedKey, serialized);
     if (shouldDebugPersistence()) {
       console.info("[peerTrust] save", scopedKey, serialized.length);

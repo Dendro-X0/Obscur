@@ -225,6 +225,20 @@ describe("use-peer-trust internals", () => {
     expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(undefined)).toEqual([]);
   });
 
+  it("defaults missing removedPeers when restoring a backup snapshot into storage", () => {
+    const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
+    const peerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
+    peerTrustInternals.saveToStorage(myPublicKeyHex, {
+      acceptedPeers: [peerPublicKeyHex],
+      mutedPeers: [],
+    });
+    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex)).toEqual({
+      acceptedPeers: [peerPublicKeyHex],
+      mutedPeers: [],
+      removedPeers: [],
+    });
+  });
+
   it("rehydrates accepted peers from connectionRequests when chat state is replaced after an initially empty load", async () => {
     const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
     const peerPublicKeyHex = "e".repeat(64) as PublicKeyHex;
