@@ -91,10 +91,11 @@ export const resolveContactRequestComposeMode = (params: Readonly<{
   isPeerAcceptedByTrust: boolean;
   requestStatus: DmPeerRequestStatusSnapshot;
 }>): ContactRequestComposeMode => {
-  if (params.isPeerAcceptedByTrust) {
+  const handshakeComplete = params.requestStatus?.status === "accepted";
+  if (handshakeComplete && params.isPeerAcceptedByTrust) {
     return "full";
   }
-  if (params.requestStatus?.status === "accepted") {
+  if (handshakeComplete) {
     return "full";
   }
   if (isPendingContactHandshake(params.requestStatus)) {

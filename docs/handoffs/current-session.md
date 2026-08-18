@@ -1,6 +1,6 @@
 # Current Session Handoff — Obscur Engine Lab
 
-- Last Updated (UTC): 2026-08-16T13:30:00Z
+- Last Updated (UTC): 2026-08-18T22:48:00Z
 
 ## Next atomic step
 
@@ -10,8 +10,97 @@
 |-------|--------|
 | Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
 | Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
-| Optional next | **Record Segment B** — [segment-b-create-identity-v1.9.16.md](../assets/demo/v2.0.0/segment-b-create-identity-v1.9.16.md) (create · strength/generator · Profile · Identity key honesty · Security Lock Now · unlock) |
+| Optional next | **Record Segment D** — [segment-d-discovery-add-contact-v1.9.16.md](../assets/demo/v2.0.0/segment-d-discovery-add-contact-v1.9.16.md) · friend-code alias first if showing `OBSCUR-*` |
 | Keep | Clearnet Verified · website `/download` primary · Tor TI landed (not Verified) |
+
+### Checkpoint — Relationship CTA containment slice (2026-08-18)
+
+| Field | Value |
+|-------|--------|
+| Trigger | Continue remediation charter Phase 0 after system audit |
+| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment A |
+| Fix | `resolve-contact-relationship-actions` — privileged message/voice/trusted chrome requires handshake `accepted` + `peerTrust` + projection `accepted` when cutover reads are on |
+| Also | `resolveContactRequestComposeMode` no longer grants `full` on trust alone · `network-profile-view` wired to unified selector · `removedPeers` negative mask in `use-peer-trust` for remove-contact lag |
+| L1 | `resolve-contact-relationship-actions.test.ts` · `contact-request-sandbox-policy.test.ts` · `use-peer-trust.test.ts` · 71/71 network tests |
+| Remaining | Phase 0 containment slices A–D implemented; AUTH-SESSION still forbidden |
+
+### Checkpoint — peerTrust profile-scope hardening (Containment D) (2026-08-18)
+
+| Field | Value |
+|-------|--------|
+| Trigger | Continue remediation charter Phase 0 — Slice 3 |
+| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment D |
+| Fix | `peer-trust-storage-key` scopes localStorage as `obscur.peer_trust.v1.<pubkey>::<profileId>` · writes never go to unscoped keys · only `default` may inherit a legacy unscoped blob |
+| Also | `use-peer-trust` reloads on `profileId` change so in-memory trust cannot leak across profile windows |
+| L1 | `peer-trust-storage-key.test.ts` · `peer-trust-storage-scope.test.ts` · `peer-trust-profile-scope.contract.test.ts` · `use-peer-trust.test.ts` |
+| Remaining | AUTH-SESSION still forbidden · blocklist / connectionStore DB names remain suspect but no longer drive trust CTAs |
+
+### Checkpoint — Auth conflict surfacing (Containment C) (2026-08-18)
+
+| Field | Value |
+|-------|--------|
+| Trigger | Continue remediation charter Phase 0 — Slice 4 |
+| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment C |
+| Fix | `resolve-auth-surface-conflict` + `AuthSurfaceConflictBanner` — explicit banners for manual lock, active session lease, profile slot conflict, native mismatch, private key mismatch, fatal storage |
+| Also | AuthScreen unified top-of-form conflict stack; existing inline resolution panels retained for slot/active-session actions |
+| L1 | `resolve-auth-surface-conflict.test.ts` · `auth-surface-conflict-surfacing.contract.test.ts` · `auth-screen.test.tsx` · 31/31 auth conflict tests |
+| Remaining | Containment D (profile-scope hardening) |
+
+### Checkpoint — connectionStore de-privilege (Containment B) (2026-08-18)
+
+| Field | Value |
+|-------|--------|
+| Trigger | Continue remediation charter Phase 0 — Slice 2 |
+| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment B |
+| Fix | `connection-store-behavior-policy` · `use-conversations` no longer hydrates from global IndexedDB · `canMessageConnection` fail-closed · `mergeLegacyOrphanRequestsInboxItems` no address-book backfill · `resolveEffectiveContactRequestStatus` no thread-row-only pending synthesis · profile metadata no longer reads connectionStore |
+| L1 | `connection-store-behavior-policy.test.ts` · `connection-store-behavior-deprivilege.contract.test.ts` · `contact-request-legacy-orphan.test.ts` · `request-sidebar-items.test.ts` · `use-profile-metadata.test.ts` |
+| Remaining | Containment C (explicit auth conflict UI) · Containment D (profile-scope hardening) |
+
+### Checkpoint — Relationship CTA containment slice (2026-08-18)
+
+| Field | Value |
+|-------|--------|
+| Trigger | Demo canceled · second-account Import Key loops back to Auth · remove/search/trust surfaces disagree |
+| Audit | [system-logic-audit-2026-08.md](../../specs/backend/system-logic-audit-2026-08.md) |
+| Charter | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) |
+| Core finding | System failure is multi-owner drift, not a single bug: `contactsByPeer` projection, `peerTrust`, `requestsInbox`, `requestFlowEvidence`, legacy `connectionStore`, auth-kernel, runtime binding, and native session policy all still participate |
+| Auth finding | `Import Key` is a branching policy path (same-account unlock vs slot conflict vs active session lease vs native mismatch vs manual-lock gate), which explains “no response / back to Auth” |
+| Relationship finding | Projection cutover is incomplete; trust/request/action gating still reads mixed legacy + projection sources, so remove/search/message/voice surfaces can disagree |
+| Isolation finding | Some relationship stores are still keyed by `publicKeyHex` or global DB names rather than `profileId`, allowing cross-profile leakage |
+| Allowed next | Containment-only critical regression slices: de-privilege legacy `connectionStore`, projection-backed CTA gating, explicit auth conflict surfacing |
+| Forbidden next | Direct `AUTH-SESSION` / native rebind / cross-profile lease policy changes without maintainer charter |
+
+### Checkpoint — Contact request auto-trust (no two-way handshake) (2026-08-18)
+
+| Field | Value |
+|-------|--------|
+| Symptom | Sending a connection request immediately shows recipient as **TRUSTED** in All People — no acceptance received |
+| Root cause | `extractAcceptedPeersFromPersistedChatState` treated all `createdConnections` (address book) as trusted — no status guard |
+| Investigation | [contact-request-no-handshake-investigation-2026-08.md](../../specs/backend/contact-request-no-handshake-investigation-2026-08.md) |
+| Fix | Removed `acceptedFromConnections` leg from trust derivation · trust now comes exclusively from `connectionRequests[].status === "accepted"` |
+| L1 | `use-peer-trust.test.ts` · 7 tests · zero regression across 61 network tests |
+| Out of scope | Group two-way invite handshake · `Connection.handshakeStatus` schema (Option A deferred) |
+| Impact | Existing contacts whose trust was stored in localStorage `acceptedPeers` or in accepted `connectionRequests` are unaffected · address-book-only entries are no longer auto-trusted |
+
+### Checkpoint — Tor bootstrap 10% speed (2026-08-17)
+
+| Field | Value |
+|-------|--------|
+| Symptom | Warming honesty shows **STARTING 10%** · feels hung · `conn_done` handshake |
+| Evidence | 37 MB `cached-microdescs` already on disk · `taskkill` every start · `AvoidDiskWrites 1` |
+| Investigation | [tor-bootstrap-10pct-speed-investigation-2026-08.md](../../specs/backend/tor-bootstrap-10pct-speed-investigation-2026-08.md) |
+| Fix | IPv4-only · early dir fetch · persist cache · kill orphan only if :9050 bound |
+| Out of scope | Fake Ready · Tor Verified · default bridges |
+
+### Checkpoint — Tor Warming honesty + notice watcher (2026-08-17)
+
+| Field | Value |
+|-------|--------|
+| Symptom | Relays stay up after Tor ON (Warming Pass) · Security looks stuck at `waiting for 100%` |
+| Evidence | Gateway `detail=bootstrapped 50%` · `notice.log` handshake done · descriptors stall · UI never pulled percent |
+| Investigation | [tor-warming-descriptor-stall-honesty-2026-08.md](../../specs/backend/tor-warming-descriptor-stall-honesty-2026-08.md) |
+| Fix | Unbounded `notice.log` watcher · snapshot `bootstrapPercent`/`detail` · 8s Warming poll |
+| Out of scope | Tor Verified · fake Ready · bridges |
 
 ### Checkpoint — Manual lock ineffective (2026-08-16)
 
@@ -22,6 +111,18 @@
 | Fix | Shell unlock gate requires identity unlocked · lockSession best-effort · lockBoundProfileWindow always reaches lockIdentity |
 | L1 | window-runtime-contracts + startup-auth-state-contracts tests |
 | Next | Re-record Segment B lock/unlock after rebuild |
+
+### Checkpoint — Manual lock native rehydrate guard (2026-08-17)
+
+| Field | Value |
+|-------|--------|
+| Symptom | Lock toast appears, but desktop dev can fall back into unlocked shell because native session is re-hydrated from OS keychain after lock |
+| Investigation | [manual-lock-native-rehydrate-investigation-2026-08.md](../../specs/backend/manual-lock-native-rehydrate-investigation-2026-08.md) |
+| Root cause | Native restore helpers (`session_status_for_window`, `force_session_restore_for_window`, `wallet::ensure_session`) could rehydrate keychain-backed session after `clear_native_session`; JS manual-lock flag was invisible to Rust |
+| Fix | Add native profile-scoped manual-lock gate in `SessionState`; `clear_native_session` marks manual lock; explicit `set_keys` clears it; restore/status/wallet paths refuse keychain rehydrate while manual lock is active |
+| L1 | `pnpm exec vitest run app/features/runtime/services/window-runtime-contracts.test.ts app/features/auth/services/startup-auth-state-contracts.test.ts app/features/auth/components/auth-gateway.test.tsx app/features/runtime/components/profile-bound-auth-shell.test.tsx` |
+| L2 | `cargo test manual_lock_flag_blocks_until_explicit_set_keys` |
+| Next | Re-run `pnpm dev:desktop:online` smoke: unlock → Security Lock Now → auth screen persists until password/private-key unlock |
 
 ### Checkpoint — Segment A + download channel sync (2026-08-16)
 

@@ -28,6 +28,9 @@ import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversati
 import { buildOutgoingCommunityInviteDmMessage } from "@/app/features/groups/utils/community-invite-dm-message";
 import { commitOutgoingCommunityInviteDm } from "@/app/features/groups/services/community-invite-dm-orchestrator";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/use-account-projection-snapshot";
+import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
+import { resolveContactRelationshipActions } from "@/app/features/network/services/resolve-contact-relationship-actions";
 import { createDmConversation } from "@/app/features/messaging/utils/create-dm-conversation";
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { publishDmNostrEvent, resolveCommunityInviteDmPublishRelayUrls } from "@/app/features/messaging/services/publish-dm-nostr-event";
@@ -68,6 +71,46 @@ export default function ConnectionProfileView() {
     const metadata = useResolvedProfileMetadata(pk);
     const isDeletedContact = metadata?.isDeleted === true;
     const isCurrentAccountProfile = Boolean(myPublicKeyHex && pk && myPublicKeyHex === pk);
+    const projectionSnapshot = useAccountProjectionSnapshot();
+    const projectionReadAuthority = React.useMemo(() => (
+        resolveProjectionReadAuthority({
+            projectionSnapshot,
+            expectedProfileId: getResolvedProfileId(),
+            expectedAccountPublicKeyHex: myPublicKeyHex,
+        })
+    ), [myPublicKeyHex, projectionSnapshot]);
+    const requestStatus = pk
+        ? requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex })
+        : null;
+    const requestProjection = React.useMemo(() => (
+        deriveRequestProjection({
+            requestStatus,
+            evidence: pk ? requestFlowEvidenceStore.get(pk, getResolvedProfileId()) : undefined,
+        })
+    ), [pk, requestStatus]);
+    const relationshipActions = React.useMemo(() => {
+        if (!pk) {
+            return {
+                isTrustedContact: false,
+                canMessage: false,
+                canVoiceCall: false,
+            };
+        }
+        return resolveContactRelationshipActions({
+            peerPublicKeyHex: pk as PublicKeyHex,
+            peerTrustAccepted: peerTrust?.isAccepted({ publicKeyHex: pk as PublicKeyHex }) ?? false,
+            projection: projectionSnapshot.projection,
+            useProjectionReads: projectionReadAuthority.useProjectionReads,
+            requestProjection,
+        });
+    }, [
+        peerTrust,
+        pk,
+        projectionReadAuthority.useProjectionReads,
+        projectionSnapshot.projection,
+        requestProjection,
+    ]);
+    const isTrusted = relationshipActions.isTrustedContact;
     React.useEffect(() => {
         if (!isCurrentAccountProfile) {
             return;
@@ -78,14 +121,8 @@ export default function ConnectionProfileView() {
         return null;
     if (isCurrentAccountProfile)
         return null;
-    const isTrusted = peerTrust?.state?.acceptedPeers?.includes(pk as PublicKeyHex) ?? false;
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
     const isPeerOnline = presence.isPeerOnline(pk as PublicKeyHex);
-    const requestStatus = requestsInbox.getRequestStatus({ peerPublicKeyHex: pk as PublicKeyHex });
-    const requestProjection = deriveRequestProjection({
-        requestStatus,
-        evidence: requestFlowEvidenceStore.get(pk, getResolvedProfileId()),
-    });
     const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
     const resolvedName = metadata?.displayName || connection?.displayName || PRIVATE_CONTACT_LABEL;
     const displayHandle = resolvedName ? `@${resolvedName}` : PRIVATE_CONTACT_HANDLE;

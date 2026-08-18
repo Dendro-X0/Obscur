@@ -22,15 +22,10 @@ export const isPendingContactHandshake = (
   return status === "pending";
 };
 
-/** Chats sidebar visibility — trust or relay-confirmed accept only (no legacy thread shortcut). */
+/** Chats sidebar visibility — relay-confirmed accept only (no trust-only shortcut). */
 export const resolveDmPeerEstablishedForUi = (
   params: ResolveDmPeerEstablishedForUiParams,
-): boolean => {
-  if (params.isPeerAcceptedByTrust) {
-    return true;
-  }
-  return params.requestStatus?.status === "accepted";
-};
+): boolean => params.requestStatus?.status === "accepted";
 
 export type ResolveDmPeerOutgoingWaitInitiatorForUiParams = Readonly<{
   requestStatus: DmPeerRequestStatusSnapshot;

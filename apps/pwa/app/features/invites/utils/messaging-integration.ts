@@ -6,25 +6,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import { inviteManager } from "./invite-manager";
-import { connectionStore } from "./connection-store";
 import type { Connection, ConnectionRequest } from "./types";
-
-const getConnectionByPublicKeyCompat = async (
-  peerPublicKey: PublicKeyHex
-): Promise<Connection | null> => {
-  const store = connectionStore as unknown as {
-    getConnectionByPublicKey?: (publicKey: string) => Promise<Connection | null>;
-    getContactByPublicKey?: (publicKey: string) => Promise<Connection | null>;
-  };
-
-  if (store.getConnectionByPublicKey) {
-    return store.getConnectionByPublicKey(peerPublicKey);
-  }
-  if (store.getContactByPublicKey) {
-    return store.getContactByPublicKey(peerPublicKey);
-  }
-  return null;
-};
 
 /**
  * Process accepted connection requests and enable messaging
@@ -68,55 +50,19 @@ export const sendConnectionRequestViaDM = async (
 };
 
 /**
- * Check if a connection exists before allowing messaging
+ * Check if a connection exists before allowing messaging.
+ * Fail closed — canonical gating lives in peerTrust + request inbox + projection.
  */
 export const canMessageConnection = async (
-  peerPublicKey: PublicKeyHex
-): Promise<boolean> => {
-  try {
-    const connection = await getConnectionByPublicKeyCompat(peerPublicKey);
-
-    if (!connection) {
-      return false;
-    }
-
-    // Check if connection is blocked
-    if (connection.trustLevel === "blocked") {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-};
+  _peerPublicKey: PublicKeyHex
+): Promise<boolean> => false;
 
 /**
- * Get connection information for display in messaging UI
+ * Display-only legacy lookup — never used for trust or compose gating.
  */
 export const getConnectionInfo = async (
-  peerPublicKey: PublicKeyHex
-): Promise<{
-  displayName: string;
-  avatar?: string;
-  trustLevel: "trusted" | "neutral" | "blocked";
-} | null> => {
-  try {
-    const connection = await getConnectionByPublicKeyCompat(peerPublicKey);
-
-    if (!connection) {
-      return null;
-    }
-
-    return {
-      displayName: connection.displayName,
-      avatar: connection.avatar,
-      trustLevel: connection.trustLevel
-    };
-  } catch {
-    return null;
-  }
-};
+  _peerPublicKey: PublicKeyHex
+): Promise<null> => null;
 
 /**
  * Sync connection requests with relay network

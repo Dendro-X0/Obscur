@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
-import { connectionStore } from "../../invites/utils/connection-store";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
@@ -216,27 +215,6 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
                 disposed = true;
             };
         }
-
-        void (async () => {
-            try {
-                const connection = await connectionStore.getConnectionByPublicKey(pubkey);
-                if (!connection) {
-                    return;
-                }
-                const fromStore: ProfileMetadata = {
-                    pubkey: pubkey as PublicKeyHex,
-                    displayName: connection.displayName || cachedDiscoveryProfile?.displayName || cachedDiscoveryProfile?.name,
-                    avatarUrl: connection.avatar,
-                    about: cachedDiscoveryProfile?.about,
-                    nip05: cachedDiscoveryProfile?.nip05,
-                };
-                if (hasMeaningfulMetadata(fromStore)) {
-                    applyMetadata(fromStore);
-                }
-            } catch (e) {
-                console.warn("[ProfileMetadata] Error loading from store:", e);
-            }
-        })();
 
         const subId = activePool.subscribe(
             [{ kinds: [0], authors: [pubkey], limit: 1 }],

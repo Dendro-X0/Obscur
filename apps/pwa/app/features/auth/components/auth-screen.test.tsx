@@ -14,6 +14,7 @@ import en from "@/app/lib/i18n/locales/en.json";
 const authScreenMocks = vi.hoisted(() => ({
   isNativeRuntime: false,
   hasStoredIdentity: true,
+  manualLockActive: false,
   identityState: {
     status: "locked" as const,
     stored: {
@@ -33,6 +34,7 @@ const authScreenMocks = vi.hoisted(() => ({
     message: undefined as string | undefined,
   },
   resetNativeSecureStorage: vi.fn(async () => undefined),
+  resetPassphraseWithPrivateKey: vi.fn(async () => undefined),
   runtime: {
     snapshot: {
       phase: "auth_required",
@@ -46,6 +48,7 @@ const authScreenMocks = vi.hoisted(() => ({
         },
       },
     },
+    unlockBoundProfileWithPrivateKeyHex: vi.fn(async () => undefined),
   },
   authKernel: {
     ports: {
@@ -150,7 +153,14 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
         },
     getIdentityDiagnostics: () => authScreenMocks.identityDiagnostics,
     resetNativeSecureStorage: authScreenMocks.resetNativeSecureStorage,
+    resetPassphraseWithPrivateKey: authScreenMocks.resetPassphraseWithPrivateKey,
   }),
+  getIdentitySnapshot: () => (authScreenMocks.hasStoredIdentity
+    ? authScreenMocks.identityState
+    : {
+        status: "locked" as const,
+        stored: undefined,
+      }),
   useIdentityInternals: {
     rehydrateIdentityForActiveProfile: vi.fn(async () => undefined),
   },
@@ -158,6 +168,10 @@ vi.mock("@/app/features/auth/hooks/use-identity", () => ({
 
 vi.mock("@/app/features/auth-kernel/hooks/use-auth-kernel-surface-actions", () => ({
   useAuthKernelSurfaceActions: () => authScreenMocks.authKernel,
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-manual-lock-state", () => ({
+  isAuthKernelManualLockActive: vi.fn(() => authScreenMocks.manualLockActive),
 }));
 
 vi.mock("@/app/features/runtime/services/window-runtime-supervisor", () => ({
@@ -249,9 +263,19 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.authKernel.createIdentityForBoundProfile.mockClear();
     authScreenMocks.authKernel.unlockBoundProfileWithPassphrase.mockClear();
     authScreenMocks.authKernel.importIdentityForBoundProfile.mockClear();
+    authScreenMocks.runtime.unlockBoundProfileWithPrivateKeyHex.mockClear();
     vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(false);
     vi.mocked(openFreshProfileWindowForSignIn).mockClear();
     vi.mocked(getLastBoundAccountPublicKeyHex).mockReturnValue(null);
+    authScreenMocks.manualLockActive = false;
+  });
+
+  it("renders manual lock conflict banner when profile was locked locally", async () => {
+    authScreenMocks.manualLockActive = true;
+    render(<AuthScreen />);
+    expect(await screen.findByRole("alert", { name: /manual lock active/i })).toBeInTheDocument();
+    expect(screen.getByText("Profile locked")).toBeInTheDocument();
+    expect(screen.getByText(/You locked Obscur on this profile window/i)).toBeInTheDocument();
   });
 
   it("renders native secure storage mismatch recovery card", async () => {
@@ -397,13 +421,20 @@ describe("AuthScreen mismatch recovery UX", () => {
 
   it("imports private key directly without the secure-session password step", async () => {
     const privateKeyHex = "b".repeat(64) as PrivateKeyHex;
+    authScreenMocks.hasStoredIdentity = false;
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: undefined,
+    } as unknown as typeof authScreenMocks.identityState;
+    authScreenMocks.runtime.snapshot.session.startupState.kind = "no_identity";
+    authScreenMocks.runtime.snapshot.session.startupState.storedPublicKeyHex = undefined;
 
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Log In with Key" }));
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: privateKeyHex },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect(authScreenMocks.authKernel.importIdentityForBoundProfile).toHaveBeenCalledTimes(1);
@@ -479,7 +510,61 @@ describe("AuthScreen mismatch recovery UX", () => {
 
     expect(await screen.findByText(/No device login password is saved/i)).toBeInTheDocument();
     expect(screen.getByText(/Step 1: paste your private key/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Continue with private key/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unlock" })).toBeInTheDocument();
+  });
+
+  it("unlocks passwordless stored accounts with matching private key without forcing device password setup", async () => {
+    vi.mocked(hasPasswordProtectedUnlockOnDevice).mockResolvedValueOnce(false);
+    const privateKeyHex = "a".repeat(64) as PrivateKeyHex;
+    const publicKeyHex = derivePublicKeyHex(privateKeyHex);
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex,
+        encryptedPrivateKey: PASSWORDLESS_NATIVE_ONLY_SENTINEL,
+        username: "Tester2",
+      },
+    } as unknown as typeof authScreenMocks.identityState;
+
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: privateKeyHex },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+
+    await waitFor(() => {
+      expect(authScreenMocks.runtime.unlockBoundProfileWithPrivateKeyHex).toHaveBeenCalledWith({
+        privateKeyHex,
+        staySignedIn: expect.any(Boolean),
+      });
+    });
+    expect(authScreenMocks.authKernel.importIdentityForBoundProfile).not.toHaveBeenCalled();
+    expect(screen.queryByText("Set device login password")).not.toBeInTheDocument();
+  });
+
+  it("unlocks returning stored accounts with matching private key instead of re-importing", async () => {
+    const privateKeyHex = "a".repeat(64) as PrivateKeyHex;
+    const publicKeyHex = derivePublicKeyHex(privateKeyHex);
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex,
+        username: "Tester2",
+      },
+    };
+
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: privateKeyHex },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+
+    await waitFor(() => {
+      expect(authScreenMocks.runtime.unlockBoundProfileWithPrivateKeyHex).toHaveBeenCalledTimes(1);
+    });
+    expect(authScreenMocks.authKernel.importIdentityForBoundProfile).not.toHaveBeenCalled();
   });
 
   it("returns to welcome from restore when back is pressed", async () => {
