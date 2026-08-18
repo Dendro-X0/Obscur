@@ -198,7 +198,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     relayListAddRelayRef.current = relayList.addRelay;
     const recipientMetadata = useResolvedProfileMetadata(
         selectedConversation?.kind === "dm" ? selectedConversation.pubkey : null,
-        { live: false }
     );
     const isDeletedRecipient = selectedConversation?.kind === "dm" && recipientMetadata.isDeleted;
     const groupRelayUrl = selectedConversation?.kind === "group" ? selectedConversation.relayUrl : null;

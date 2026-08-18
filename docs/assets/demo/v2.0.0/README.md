@@ -9,6 +9,12 @@
 
 | Doc | Role |
 |-----|------|
+| [segment-a-download-install-v1.9.16.md](./segment-a-download-install-v1.9.16.md) | B-roll brief · site · install (~45 s) |
+| [segment-b-create-identity-v1.9.16.md](./segment-b-create-identity-v1.9.16.md) | B-roll brief · create · lock/unlock (~52 s) |
+| [segment-c-relays-transport-v1.9.16.md](./segment-c-relays-transport-v1.9.16.md) | B-roll brief · relays · E2EE · Tor honesty |
+| [segment-d-discovery-add-contact-v1.9.16.md](./segment-d-discovery-add-contact-v1.9.16.md) | B-roll brief · Discovery · npub · friend code |
+| [segment-e-multi-profile-v1.9.16.md](./segment-e-multi-profile-v1.9.16.md) | B-roll brief · multi-profile · second window · Tester2 sign-in |
+| [segment-f-accept-dm-v1.9.16.md](./segment-f-accept-dm-v1.9.16.md) | B-roll brief · appearance · accept request · DM |
 | [presenter-checklist.md](./presenter-checklist.md) | Cold-run setup + exit criteria |
 | [gif-inventory.md](./gif-inventory.md) | Visual evidence map + capture gaps |
 | [group-chat-gif-shot-list.md](./group-chat-gif-shot-list.md) | Group demo GIF sequence (Docker relay, invite, chat) |

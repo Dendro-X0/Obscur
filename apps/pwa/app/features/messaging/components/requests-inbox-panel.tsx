@@ -10,6 +10,10 @@ import { formatTime } from "../utils/formatting";
 import { useTranslation } from "react-i18next";
 import { useProfileMetadata } from "../../profile/hooks/use-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
+import {
+    REQUEST_INBOX_PEER_METADATA_LIVE,
+    resolveRequestInboxPeerDisplayName,
+} from "../services/resolve-request-inbox-peer-display-name";
 import { getInvitationInboxStatusCopy, type InvitationTone } from "../services/invitation-presentation";
 import {
     getIncomingRequestQuarantineSummary,
@@ -249,9 +253,18 @@ const quarantineReasonLabel = (
 
 function RequestItemRow({ request, quarantinePeerSignal, nowMs, onSelect }: RequestItemRowProps) {
     const { t } = useTranslation();
-    const metadata = useProfileMetadata(request.peerPublicKeyHex, { live: false });
+    const metadata = useProfileMetadata(
+        request.peerPublicKeyHex,
+        { live: REQUEST_INBOX_PEER_METADATA_LIVE },
+    );
     const isOutgoing = !!request.isOutgoing;
-    const displayName = metadata?.displayName || (request.isRequest ? t("messaging.newConnection") : t("messaging.unknownPeer"));
+    const displayName = resolveRequestInboxPeerDisplayName({
+        pubkey: request.peerPublicKeyHex,
+        metadataDisplayName: metadata?.displayName,
+        pendingInvitationFallback: t("messaging.newConnection"),
+        unknownPeerFallback: t("messaging.unknownPeer"),
+        isRequest: request.isRequest,
+    });
     const invitationStatus = getInvitationInboxStatusCopy(request.status, isOutgoing);
     const preview = request.lastMessagePreview.trim();
     const isPending = !request.status || request.status === "pending";
@@ -267,7 +280,7 @@ function RequestItemRow({ request, quarantinePeerSignal, nowMs, onSelect }: Requ
             <div className="flex items-center gap-3">
                 <UserAvatar
                     pubkey={request.peerPublicKeyHex}
-                    metadataLive={false}
+                    metadataLive={REQUEST_INBOX_PEER_METADATA_LIVE}
                     size="md"
                     className="shrink-0 rounded-xl"
                     showProfileOnClick={false}
