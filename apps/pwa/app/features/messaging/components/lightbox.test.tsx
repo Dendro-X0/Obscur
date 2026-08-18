@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AppOverlayRoot, APP_OVERLAY_ROOT_ID } from "@/app/components/app-overlay-layer";
+import { APP_OVERLAY_PORTAL_WRAPPER_CLASS } from "@/app/components/app-overlay-layer";
 import { Lightbox } from "./lightbox";
 import type { MediaItem } from "../types";
 import en from "@/app/lib/i18n/locales/en.json";
@@ -65,21 +65,19 @@ const pdfItem: MediaItem = {
 };
 
 describe("Lightbox preview navigation", () => {
-  it("renders through the app overlay root above the app shell stacking context", () => {
+  it("renders through a body portal above the Tauri desktop shell stacking context", () => {
     render(
-      <>
-        <AppOverlayRoot />
-        <Lightbox
-          item={pdfItem}
-          onClose={() => undefined}
-        />
-      </>,
+      <Lightbox
+        item={pdfItem}
+        onClose={() => undefined}
+      />,
     );
 
-    const overlayRoot = document.getElementById(APP_OVERLAY_ROOT_ID);
-    const backdrop = overlayRoot?.querySelector('[data-escape-layer="open"]');
+    const portal = document.body.querySelector('[data-testid="app-overlay-portal"]');
+    const backdrop = document.body.querySelector('[data-escape-layer="open"]');
+    expect(portal).not.toBeNull();
     expect(backdrop).not.toBeNull();
-    expect(backdrop?.className).toContain("z-[10100]");
+    expect(portal?.className).toContain(APP_OVERLAY_PORTAL_WRAPPER_CLASS);
     expect(backdrop?.className).toContain("bg-black/75");
   });
 
@@ -88,9 +86,7 @@ describe("Lightbox preview navigation", () => {
     const onNext = vi.fn();
 
     render(
-      <>
-        <AppOverlayRoot />
-        <Lightbox
+      <Lightbox
           item={pdfItem}
           onClose={() => undefined}
           onPrev={onPrev}
@@ -100,7 +96,6 @@ describe("Lightbox preview navigation", () => {
           activeIndex={1}
           totalItems={3}
         />
-      </>,
     );
 
     expect(screen.getByTitle("PDF preview: doc.pdf")).toBeInTheDocument();
@@ -113,9 +108,7 @@ describe("Lightbox preview navigation", () => {
 
   it("keeps the sequence controls visible and disables unavailable directions", () => {
     render(
-      <>
-        <AppOverlayRoot />
-        <Lightbox
+      <Lightbox
           item={pdfItem}
           onClose={() => undefined}
           onNext={() => undefined}
@@ -124,7 +117,6 @@ describe("Lightbox preview navigation", () => {
           activeIndex={0}
           totalItems={2}
         />
-      </>,
     );
 
     expect(screen.getByRole("button", { name: "Previous", hidden: true })).toBeDisabled();
