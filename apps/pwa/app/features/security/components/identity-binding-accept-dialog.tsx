@@ -4,6 +4,7 @@ import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, ShieldCheck, X } from "lucide-react";
 import { Button } from "@dweb/ui-kit/button";
+import { UI_OVERLAY_Z_CLASS } from "@dweb/ui-kit/overlay-z-index";
 import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import type { IdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
 import type { DmTrustAssessment } from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";
@@ -38,7 +39,7 @@ export function IdentityBindingAcceptDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className={`fixed inset-0 ${UI_OVERLAY_Z_CLASS.dialogBackdrop} flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm`}
       onClick={() => {
         if (!isSubmitting) {
           onClose();
@@ -46,7 +47,7 @@ export function IdentityBindingAcceptDialog({
       }}
     >
       <div
-        className="w-full max-w-lg overflow-hidden rounded-3xl border border-border/70 bg-background shadow-2xl"
+        className={`relative ${UI_OVERLAY_Z_CLASS.dialogPanel} w-full max-w-lg overflow-hidden rounded-3xl border border-border/70 bg-background shadow-2xl`}
         onClick={(event) => event.stopPropagation()}
         data-testid="identity-binding-accept-dialog"
       >

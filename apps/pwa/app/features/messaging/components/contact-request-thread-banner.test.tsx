@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ContactRequestThreadBanner } from "./contact-request-thread-banner";
 import en from "@/app/lib/i18n/locales/en.json";
+import { UI_OVERLAY_Z_CLASS } from "@dweb/ui-kit/overlay-z-index";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -46,7 +47,10 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /^accept$/i }));
-    expect(screen.getByTestId("identity-binding-accept-dialog")).toBeInTheDocument();
+    const dialog = screen.getByTestId("identity-binding-accept-dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(dialog.parentElement?.className).toContain(UI_OVERLAY_Z_CLASS.dialogBackdrop);
+    expect(dialog.className).toContain(UI_OVERLAY_Z_CLASS.dialogPanel);
 
     fireEvent.click(screen.getByRole("button", { name: /fingerprint matches/i }));
     await waitFor(() => {
