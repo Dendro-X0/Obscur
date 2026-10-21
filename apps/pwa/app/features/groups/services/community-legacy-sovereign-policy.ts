@@ -12,8 +12,8 @@ export type LegacySovereignRoomAssessment = Readonly<{
 }>;
 
 /**
- * Sovereign rooms on public Nostr relays are legacy read paths only (Phase 2).
- * New communities must use managed_workspace + coordination + private relay.
+ * Dual-tier (2026-08): sovereign / public Quiet groups are supported Quick groups (T0).
+ * No longer mark them read-only — show honesty via create UI / mode badge instead.
  */
 export const assessLegacySovereignRoomCommunity = (params: Readonly<{
   communityMode?: CommunityMode | null;
@@ -26,12 +26,10 @@ export const assessLegacySovereignRoomCommunity = (params: Readonly<{
   });
   const isSovereign = params.communityMode === "sovereign_room"
     || (params.communityMode !== "managed_workspace" && relayAssessment.tier === "public_default");
-  const isLegacyReadOnly = isSovereign && (
-    relayAssessment.tier === "public_default"
-    || isPublicDefaultRelayHost(relayHost ?? "")
-  );
+  const isPublicQuiet = relayAssessment.tier === "public_default"
+    || isPublicDefaultRelayHost(relayHost ?? "");
 
-  if (!isLegacyReadOnly) {
+  if (!isSovereign || !isPublicQuiet) {
     return {
       isLegacyReadOnly: false,
       title: "",
@@ -39,11 +37,12 @@ export const assessLegacySovereignRoomCommunity = (params: Readonly<{
     };
   }
 
+  // Informational only — does not block chat (isLegacyReadOnly stays false).
   return {
-    isLegacyReadOnly: true,
-    title: "Legacy sovereign room (read-oriented)",
+    isLegacyReadOnly: false,
+    title: "Quick group on public relays",
     detail:
-      "This community predates workspace membership authority. Roster hints from public relays are not authoritative; join/leave may not converge. Create a Managed Workspace on coordination + a private relay for reliable membership.",
+      "Encrypted chat works here. Public relays do not guarantee full message deletion, live roster parity, or enterprise directory controls — use a team-hosted workspace for those.",
   };
 };
 

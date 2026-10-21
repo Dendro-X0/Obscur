@@ -77,5 +77,25 @@ describe("MobileDmThreadHeader", () => {
     );
 
     expect(screen.getByRole("button", { name: "More actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Voice call" })).toBeInTheDocument();
+  });
+
+  it("starts a video call from an icon button", () => {
+    const onSendVideoCallInvite = vi.fn();
+    render(
+      <MobileDmThreadHeader
+        conversation={{
+          ...dmConversation,
+          displayName: "Alice",
+        }}
+        onBack={vi.fn()}
+        onSendVideoCallInvite={onSendVideoCallInvite}
+        canSendVideoCallInvite
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Video call" }));
+    expect(onSendVideoCallInvite).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
 });

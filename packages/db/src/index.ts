@@ -5,7 +5,5 @@ export type {
 } from "./types";
 export {
   isTauri,
-  dbInsertMessage,
-  dbUpsertConversation,
 } from "./client";
 export type { WipeProfileLocalDataReport } from "./client";

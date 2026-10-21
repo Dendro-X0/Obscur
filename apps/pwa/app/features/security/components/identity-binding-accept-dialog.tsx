@@ -4,6 +4,8 @@ import type React from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, ShieldCheck, X } from "lucide-react";
 import { Button } from "@dweb/ui-kit/button";
+import { APP_OVERLAY_BACKDROP_CLASS, AppOverlayPortal } from "@/app/components/app-overlay-layer";
+import { cn } from "@/app/lib/utils";
 import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import type { IdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
 import type { DmTrustAssessment } from "@/app/features/dm-kernel/dm-kernel-trust-assessment-port";
@@ -37,19 +39,21 @@ export function IdentityBindingAcceptDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={() => {
-        if (!isSubmitting) {
-          onClose();
-        }
-      }}
-    >
+    <AppOverlayPortal>
       <div
-        className="w-full max-w-lg overflow-hidden rounded-3xl border border-border/70 bg-background shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-        data-testid="identity-binding-accept-dialog"
+        className={cn(APP_OVERLAY_BACKDROP_CLASS, "flex items-center justify-center p-4")}
+        data-testid="identity-binding-accept-dialog-backdrop"
+        onClick={() => {
+          if (!isSubmitting) {
+            onClose();
+          }
+        }}
       >
+        <div
+          className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-border/70 bg-background shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+          data-testid="identity-binding-accept-dialog"
+        >
         <div className="flex items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
@@ -93,6 +97,7 @@ export function IdentityBindingAcceptDialog({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </AppOverlayPortal>
   );
 }

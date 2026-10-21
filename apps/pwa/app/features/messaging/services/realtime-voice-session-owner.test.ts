@@ -10,6 +10,8 @@ const SUPPORTED_CAPABILITY: RealtimeVoiceCapability = {
   hasPeerConnection: true,
   hasAddTrack: true,
   opusCapabilityStatus: "available",
+  videoCapabilityStatus: "available",
+  supportsVideo: true,
 };
 
 describe("realtime-voice-session-owner", () => {

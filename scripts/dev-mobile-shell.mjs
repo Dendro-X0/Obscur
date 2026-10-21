@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import { assertHostHasHeadroom } from "./lib/host-pressure.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const flags = new Set(process.argv.slice(2));
@@ -32,6 +33,12 @@ if (flags.has("--online")) {
 
 console.log("[dev:mobile-shell] NEXT_PUBLIC_MOBILE_SHELL=1 — use Chrome device mode for layout");
 console.log("[dev:mobile-shell] URL: http://127.0.0.1:3340");
+console.log("[dev:mobile-shell] Do not run this beside pnpm dev:desktop:online");
+
+const headroom = await assertHostHasHeadroom(console.log);
+if (!headroom.allowed) {
+  process.exit(2);
+}
 
 const child = spawn("pnpm", ["-C", "apps/pwa", "dev"], {
   cwd: repoRoot,

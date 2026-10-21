@@ -3,6 +3,19 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 /** Profile-scoped sessionStorage flag — survives F5 in the same tab (AUTH-KERN-2). */
 const AUTH_KERNEL_MANUAL_LOCK_KEY = "auth.kernel.manual_lock";
 
+const RELOAD_UNLOCKED_HINT_SESSION_KEY = "obscur.reload.was_unlocked.v1";
+
+export const clearReloadUnlockedSessionHint = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    sessionStorage.removeItem(RELOAD_UNLOCKED_HINT_SESSION_KEY);
+  } catch {
+    // best effort only
+  }
+};
+
 export const markAuthKernelManualLock = (profileId: string): void => {
   if (typeof window === "undefined") {
     return;
@@ -12,6 +25,7 @@ export const markAuthKernelManualLock = (profileId: string): void => {
     return;
   }
   sessionStorage.setItem(getScopedStorageKey(AUTH_KERNEL_MANUAL_LOCK_KEY, trimmed), "1");
+  clearReloadUnlockedSessionHint();
 };
 
 export const clearAuthKernelManualLock = (profileId: string): void => {

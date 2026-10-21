@@ -107,13 +107,27 @@ const filtersToMeshInterests = (
  * Archived UI harness — relay pool backed by Conduit Mesh (no enhanced-relay-pool orchestrator).
  * Publish uses mesh orchestration with Nostr EVENT passthrough; subscribe uses thin WS client.
  */
+/**
+ * Slice 2: one nostr WS client per JS realm so multi-mount pools do not each
+ * open NativeRelay to nos/primal/damus. Tests call createConduitMeshNostrWsClient()
+ * directly (isolated).
+ */
+let sharedProductNostrClient: ReturnType<typeof createConduitMeshNostrWsClient> | null = null;
+
+const getSharedProductNostrClient = (): ReturnType<typeof createConduitMeshNostrWsClient> => {
+  if (!sharedProductNostrClient) {
+    sharedProductNostrClient = createConduitMeshNostrWsClient();
+  }
+  return sharedProductNostrClient;
+};
+
 export const useConduitMeshRelayPool = (
   urls: ReadonlyArray<string>,
 ): EnhancedRelayPoolResult => {
   const profileId = getResolvedProfileId() ?? "default";
   const urlsKey = urls.join("|");
 
-  const [nostrClient] = useState(() => createConduitMeshNostrWsClient());
+  const [nostrClient] = useState(() => getSharedProductNostrClient());
   const [torHost] = useState(() => createConduitMeshTorHostPort());
   const [socksHost] = useState(() => createConduitMeshSocksFetchHostPort());
   const [runtime] = useState(() => createConduitMeshRelayPoolRuntime({
@@ -437,7 +451,8 @@ export const useConduitMeshRelayPool = (
     getActiveSubscriptionCount: () => 0,
     dispose: () => {
       runtime.dispose();
-      nostrClient.dispose();
+      // Shared product nostr client stays alive for sibling pool mounts (Slice 2).
+      // Isolated teardown: createConduitMeshNostrWsClient() outside this hook.
     },
   }), [runtime, nostrClient, activitySnapshot, connections, poolUrls, writableRelayUrls, hasWritableRelay, healthMetrics, mergeActivitySnapshot]);
 };

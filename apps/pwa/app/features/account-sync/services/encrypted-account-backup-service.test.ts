@@ -34,6 +34,8 @@ vi.mock("@/app/features/crypto/crypto-service", () => ({
   cryptoService: {
     encryptDM: vi.fn(async (plaintext: string) => `encrypted:${plaintext}`),
     decryptDM: vi.fn(async (ciphertext: string) => ciphertext.replace(/^encrypted:/, "")),
+    encryptNIP44: vi.fn(async (plaintext: string) => `nip44:${plaintext}`),
+    decryptNIP44: vi.fn(async (ciphertext: string) => ciphertext.replace(/^nip44:/, "")),
     signEvent: vi.fn(async (event: Record<string, unknown>) => ({
       ...event,
       id: "signed-event-id",
@@ -309,7 +311,9 @@ describe("encryptedAccountBackupService", () => {
       format: "obscur.portable_account_bundle.v1",
       payloadVersion: 1,
       publicKeyHex,
+      encryptionScheme: "nip44",
     }));
+    expect(cryptoService.encryptNIP44).toHaveBeenCalled();
 
     const imported = await encryptedAccountBackupService.importPortableAccountBundle({
       bundle: exported.bundle,

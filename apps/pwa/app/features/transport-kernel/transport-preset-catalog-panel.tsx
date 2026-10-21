@@ -8,8 +8,10 @@ import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
 import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 import {
-  TRANSPORT_PRESET_GROUPS,
+  getTransportPresetGroupsForDepth,
   getTransportPresetsForGroup,
+  isStandardTransportPresetId,
+  type TransportPresetCatalogDepth,
   type TransportPresetCategory,
   type TransportPresetId,
 } from "./transport-preset-catalog";
@@ -55,6 +57,10 @@ export type TransportPresetCatalogPanelProps = Readonly<{
   onScrollToCustomEndpoint?: () => void;
   torState?: MeshTorRuntimeState;
   onNavigateToSecurity?: () => void;
+  /** Messaging protocol (Nostr / Matrix) lives on Settings → Protocols — not in this catalog. */
+  onNavigateToProtocols?: () => void;
+  /** Standard = four paths; Advanced = full pack catalog. */
+  catalogDepth?: TransportPresetCatalogDepth;
 }>;
 
 export function TransportPresetCatalogPanel({
@@ -66,9 +72,15 @@ export function TransportPresetCatalogPanel({
   onScrollToCustomEndpoint,
   torState,
   onNavigateToSecurity,
+  onNavigateToProtocols,
+  catalogDepth = "standard",
 }: TransportPresetCatalogPanelProps): React.JSX.Element {
   const { t } = useTranslation();
   const resolvedTorState = torState ?? { configured: false, ready: false };
+  const presetGroups = getTransportPresetGroupsForDepth(catalogDepth);
+  const activeIsAdvancedOnly = Boolean(
+    activePresetId && catalogDepth === "standard" && !isStandardTransportPresetId(activePresetId),
+  );
 
   const matchLabel = (state: TransportPresetMatchState): string => {
     if (state === "active") {
@@ -90,11 +102,34 @@ export function TransportPresetCatalogPanel({
           {t("settings.relays.transportCatalogTitle")}
         </h3>
         <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
-          {t("settings.relays.transportCatalogDesc")}
+          {catalogDepth === "standard"
+            ? t("settings.relays.transportCatalogDescStandard", {
+              defaultValue: "Four paths — pick one threat model. Open Advanced settings for more packs (redundancy, LAN templates, SSH).",
+            })
+            : t("settings.relays.transportCatalogDesc")}
         </p>
         <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
           {t("settings.relays.encryptionNote")}
         </p>
+        {onNavigateToProtocols ? (
+          <div className="flex flex-col gap-2 rounded-xl border border-indigo-500/25 bg-indigo-500/5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-200">
+              {t("settings.relays.protocolsNavHint", {
+                defaultValue: "Want Matrix (or to switch messaging protocol)? That is under Settings → Protocols/Network — this page only configures Nostr/mesh relay endpoints.",
+              })}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              data-testid="relays-open-protocols"
+              onClick={onNavigateToProtocols}
+            >
+              {t("settings.relays.protocolsNavCta", { defaultValue: "Open Protocols/Network" })}
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-black/5 bg-white/70 px-3 py-2.5 text-xs leading-relaxed text-zinc-600 dark:border-white/10 dark:bg-black/25 dark:text-zinc-300">
@@ -116,10 +151,17 @@ export function TransportPresetCatalogPanel({
             })}
           </span>
         ) : null}
+        {activeIsAdvancedOnly ? (
+          <span className="mt-1 block text-[11px] text-amber-700 dark:text-amber-300">
+            {t("settings.relays.activePackAdvancedOnly", {
+              defaultValue: "This pack is Advanced-only — open Advanced settings to see every pack.",
+            })}
+          </span>
+        ) : null}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {TRANSPORT_PRESET_GROUPS.map((group) => {
+      <div className="grid gap-3 md:grid-cols-2" data-testid={`transport-catalog-depth-${catalogDepth}`}>
+        {presetGroups.map((group) => {
           const meta = CATEGORY_META[group.category];
           const Icon = meta.icon;
           const presets = getTransportPresetsForGroup(group);

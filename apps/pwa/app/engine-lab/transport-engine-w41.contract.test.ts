@@ -16,7 +16,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w41 — pre-authority-flip exit charter (design-only)", () => {
   it("pins authority-flip exit checklist charter", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w41-pre-authority-flip-exit-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w41-pre-authority-flip-exit-charter.md");
     expect(charter).toContain("Pre-Authority-Flip Exit Charter");
     expect(charter).toContain("mapLegacyPublishResultToRelayPublishResult");
     expect(charter).toContain("design + contract only");

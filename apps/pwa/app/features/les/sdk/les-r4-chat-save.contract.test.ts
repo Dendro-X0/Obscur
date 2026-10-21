@@ -15,6 +15,8 @@ describe("LES R4 chat save wiring", () => {
     expect(source).toContain("commitLesObjectWithProof");
     expect(source).toContain('source: "chat_save"');
     expect(source).toContain("emitLesCatalogChanged");
+    expect(source).toContain("loadLesSavedAttachmentUrlSet");
+    expect(source).toContain("suppressCatalogEmit");
     expect(source).not.toContain("saveFileToLocalVault");
     expect(source).not.toContain("awaitVaultIndexRowForKey");
   });

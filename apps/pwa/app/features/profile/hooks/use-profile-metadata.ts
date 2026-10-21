@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useRelay } from "../../relays/providers/relay-provider";
-import { connectionStore } from "../../invites/utils/connection-store";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
@@ -29,10 +28,26 @@ export interface UseProfileMetadataOptions {
 }
 
 const metadataCache = new Map<string, ProfileMetadata>();
+const metadataCacheListeners = new Set<() => void>();
 const directFetchState = new Map<string, Promise<void>>();
 const hydrateAttemptByPubkey = new Map<string, number>();
 const hydrateRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const lastOpenRelayCountByPubkey = new Map<string, number>();
+/** Pubkeys that received a relay kind-0 event this session (not local name seeds). */
+const relayKind0AppliedByPubkey = new Set<string>();
+
+const notifyMetadataCacheListeners = (): void => {
+    metadataCacheListeners.forEach((listener) => {
+        listener();
+    });
+};
+
+const subscribeMetadataCache = (listener: () => void): (() => void) => {
+    metadataCacheListeners.add(listener);
+    return (): void => {
+        metadataCacheListeners.delete(listener);
+    };
+};
 
 const clearHydrateRetryTimer = (pubkey: string): void => {
     const timer = hydrateRetryTimers.get(pubkey);
@@ -91,10 +106,12 @@ const needsRelayHydration = (metadata: ProfileMetadata | null | undefined): bool
     if (!metadata) {
         return true;
     }
-    if (!metadata.displayName) {
+    // Keep fishing for a picture even when name/about already exist from local seeds
+    // or a sparse kind-0 — about/nip05 alone must not cancel avatar hydrate.
+    if (!metadata.displayName || !metadata.avatarUrl) {
         return true;
     }
-    return !metadata.avatarUrl && !metadata.about && !metadata.nip05;
+    return false;
 };
 
 const metadataFingerprint = (metadata: ProfileMetadata | null | undefined): string => {
@@ -111,29 +128,36 @@ const metadataFingerprint = (metadata: ProfileMetadata | null | undefined): stri
 };
 
 const persistMetadataIfChanged = (metadata: ProfileMetadata): ProfileMetadata => {
+    const cacheKey = metadata.pubkey.trim().toLowerCase() as PublicKeyHex;
     const normalized = {
         ...metadata,
+        pubkey: cacheKey,
         avatarUrl: normalizePublicUrl(metadata.avatarUrl),
     };
-    const previous = metadataCache.get(metadata.pubkey);
+    const previous = metadataCache.get(cacheKey);
     if (previous && metadataFingerprint(previous) === metadataFingerprint(normalized)) {
         return previous;
     }
-    metadataCache.set(metadata.pubkey, normalized);
+    metadataCache.set(cacheKey, normalized);
     discoveryCache.upsertProfile({
-        pubkey: metadata.pubkey,
+        pubkey: cacheKey,
         displayName: normalized.displayName,
         about: normalized.about,
         picture: normalized.avatarUrl,
         nip05: normalized.nip05,
     });
+    notifyMetadataCacheListeners();
     return normalized;
 };
 
 export const seedProfileMetadataCache = (metadata: ProfileMetadata): void => {
-    persistMetadataIfChanged(metadata);
-    if (metadata.displayName) {
-        clearHydrateRetryTimer(metadata.pubkey);
+    const cacheKey = metadata.pubkey.trim().toLowerCase() as PublicKeyHex;
+    const existing = metadataCache.get(cacheKey);
+    const merged = mergeMetadata(existing, { ...metadata, pubkey: cacheKey });
+    const persisted = persistMetadataIfChanged(merged);
+    // Local seeds must not cancel relay avatar hydrate — only clear when complete.
+    if (!needsRelayHydration(persisted)) {
+        clearHydrateRetryTimer(persisted.pubkey);
     }
 };
 
@@ -146,6 +170,8 @@ export const clearProfileMetadataCache = (): void => {
     hydrateRetryTimers.clear();
     hydrateAttemptByPubkey.clear();
     lastOpenRelayCountByPubkey.clear();
+    relayKind0AppliedByPubkey.clear();
+    notifyMetadataCacheListeners();
 };
 
 /**
@@ -161,8 +187,25 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
     poolRef.current = pool;
     const [metadata, setMetadata] = useState<ProfileMetadata | null>(() => {
         if (!pubkey) return null;
-        return metadataCache.get(pubkey) || null;
+        const cacheKey = pubkey.trim().toLowerCase();
+        return metadataCache.get(cacheKey) || metadataCache.get(pubkey) || null;
     });
+
+    useEffect(() => {
+        if (!pubkey) {
+            return;
+        }
+        const cacheKey = pubkey.trim().toLowerCase();
+        return subscribeMetadataCache(() => {
+            const cached = metadataCache.get(cacheKey);
+            if (!cached) {
+                return;
+            }
+            setMetadata((current) => (
+                metadataFingerprint(current) === metadataFingerprint(cached) ? current : cached
+            ));
+        });
+    }, [pubkey]);
 
     useEffect(() => {
         const activePool = poolRef.current;
@@ -171,16 +214,27 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             return;
         }
 
+        const cacheKey = pubkey.trim().toLowerCase();
         let disposed = false;
 
-        const applyMetadata = (incoming: ProfileMetadata): void => {
+        const applyMetadata = (
+            incoming: ProfileMetadata,
+            options?: Readonly<{ fromRelayKind0?: boolean }>,
+        ): void => {
             if (disposed) {
                 return;
             }
-            const merged = mergeMetadata(metadataCache.get(pubkey), incoming);
+            const normalizedIncoming: ProfileMetadata = {
+                ...incoming,
+                pubkey: cacheKey as PublicKeyHex,
+            };
+            const merged = mergeMetadata(metadataCache.get(cacheKey), normalizedIncoming);
             const persisted = persistMetadataIfChanged(merged);
-            if (persisted.displayName) {
-                clearHydrateRetryTimer(pubkey);
+            if (options?.fromRelayKind0) {
+                relayKind0AppliedByPubkey.add(cacheKey);
+            }
+            if (!needsRelayHydration(persisted)) {
+                clearHydrateRetryTimer(cacheKey);
             }
             setMetadata((current) => {
                 const next = mergeMetadata(current, persisted);
@@ -191,7 +245,7 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             });
         };
 
-        const cached = metadataCache.get(pubkey);
+        const cached = metadataCache.get(cacheKey) || metadataCache.get(pubkey);
         if (cached) {
             setMetadata((current) => (
                 metadataFingerprint(current) === metadataFingerprint(cached) ? current : cached
@@ -200,10 +254,10 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             setMetadata((current) => (current === null ? current : null));
         }
 
-        const cachedDiscoveryProfile = discoveryCache.getProfile(pubkey);
+        const cachedDiscoveryProfile = discoveryCache.getProfile(cacheKey);
         if (cachedDiscoveryProfile) {
             applyMetadata({
-                pubkey: pubkey as PublicKeyHex,
+                pubkey: cacheKey as PublicKeyHex,
                 displayName: cachedDiscoveryProfile.displayName || cachedDiscoveryProfile.name,
                 avatarUrl: cachedDiscoveryProfile.picture,
                 nip05: cachedDiscoveryProfile.nip05,
@@ -217,33 +271,12 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             };
         }
 
-        void (async () => {
-            try {
-                const connection = await connectionStore.getConnectionByPublicKey(pubkey);
-                if (!connection) {
-                    return;
-                }
-                const fromStore: ProfileMetadata = {
-                    pubkey: pubkey as PublicKeyHex,
-                    displayName: connection.displayName || cachedDiscoveryProfile?.displayName || cachedDiscoveryProfile?.name,
-                    avatarUrl: connection.avatar,
-                    about: cachedDiscoveryProfile?.about,
-                    nip05: cachedDiscoveryProfile?.nip05,
-                };
-                if (hasMeaningfulMetadata(fromStore)) {
-                    applyMetadata(fromStore);
-                }
-            } catch (e) {
-                console.warn("[ProfileMetadata] Error loading from store:", e);
-            }
-        })();
-
         const subId = activePool.subscribe(
-            [{ kinds: [0], authors: [pubkey], limit: 1 }],
+            [{ kinds: [0], authors: [cacheKey], limit: 1 }],
             (event: NostrEvent) => {
                 const freshMetadata = metadataFromEvent(event);
                 if (freshMetadata) {
-                    applyMetadata(freshMetadata);
+                    applyMetadata(freshMetadata, { fromRelayKind0: true });
                 }
             },
         );
@@ -254,13 +287,13 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             if (disposed) {
                 return;
             }
-            const attemptCount = hydrateAttemptByPubkey.get(pubkey) ?? 0;
+            const attemptCount = hydrateAttemptByPubkey.get(cacheKey) ?? 0;
             if (!shouldScheduleProfileMetadataHydrateRetry({
-                needsHydration: needsRelayHydration(metadataCache.get(pubkey)),
+                needsHydration: needsRelayHydration(metadataCache.get(cacheKey)),
                 live: true,
                 hasRelayUrls: relayUrls.length > 0,
                 attemptCount,
-                appliedEvent: Boolean(metadataCache.get(pubkey)?.displayName),
+                appliedRelayKind0: relayKind0AppliedByPubkey.has(cacheKey),
             })) {
                 return;
             }
@@ -268,44 +301,46 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
             if (delayMs == null) {
                 return;
             }
-            clearHydrateRetryTimer(pubkey);
+            clearHydrateRetryTimer(cacheKey);
             const timer = setTimeout(() => {
-                hydrateRetryTimers.delete(pubkey);
+                hydrateRetryTimers.delete(cacheKey);
                 runDirectHydrate();
             }, delayMs);
-            hydrateRetryTimers.set(pubkey, timer);
+            hydrateRetryTimers.set(cacheKey, timer);
         };
 
         const runDirectHydrate = (): void => {
             if (disposed) {
                 return;
             }
-            if (!needsRelayHydration(metadataCache.get(pubkey))) {
+            if (!needsRelayHydration(metadataCache.get(cacheKey))) {
                 return;
             }
             if (relayUrls.length === 0) {
                 return;
             }
-            if (directFetchState.has(pubkey)) {
+            if (directFetchState.has(cacheKey)) {
                 return;
             }
 
-            const attemptCount = (hydrateAttemptByPubkey.get(pubkey) ?? 0) + 1;
-            hydrateAttemptByPubkey.set(pubkey, attemptCount);
+            const attemptCount = (hydrateAttemptByPubkey.get(cacheKey) ?? 0) + 1;
+            hydrateAttemptByPubkey.set(cacheKey, attemptCount);
 
             const directFetch = fetchLatestEventFromRelayUrls({
                 relayUrls,
-                filters: [{ kinds: [0], authors: [pubkey], limit: 1 }],
-                matcher: (event) => event.kind === 0 && event.pubkey === pubkey,
+                filters: [{ kinds: [0], authors: [cacheKey], limit: 1 }],
+                matcher: (event) => (
+                    event.kind === 0 && event.pubkey.trim().toLowerCase() === cacheKey
+                ),
             })
                 .then((event) => {
                     if (event) {
                         const fetchedMetadata = metadataFromEvent(event);
                         if (fetchedMetadata) {
-                            applyMetadata(fetchedMetadata);
+                            applyMetadata(fetchedMetadata, { fromRelayKind0: true });
                         }
                     }
-                    if (!Boolean(metadataCache.get(pubkey)?.displayName)) {
+                    if (needsRelayHydration(metadataCache.get(cacheKey))) {
                         scheduleHydrateRetry();
                     }
                 })
@@ -313,29 +348,29 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
                     scheduleHydrateRetry();
                 })
                 .finally(() => {
-                    directFetchState.delete(pubkey);
+                    directFetchState.delete(cacheKey);
                 });
-            directFetchState.set(pubkey, directFetch);
+            directFetchState.set(cacheKey, directFetch);
         };
 
-        const previousOpenCount = lastOpenRelayCountByPubkey.get(pubkey) ?? 0;
+        const previousOpenCount = lastOpenRelayCountByPubkey.get(cacheKey) ?? 0;
         const poolRecovered = shouldRetryProfileMetadataOnPoolRecovery({
-            needsHydration: needsRelayHydration(metadataCache.get(pubkey)),
+            needsHydration: needsRelayHydration(metadataCache.get(cacheKey)),
             previousOpenCount,
             nextOpenCount: openRelayCount,
         });
-        lastOpenRelayCountByPubkey.set(pubkey, openRelayCount);
+        lastOpenRelayCountByPubkey.set(cacheKey, openRelayCount);
 
         if (poolRecovered) {
-            clearHydrateRetryTimer(pubkey);
+            clearHydrateRetryTimer(cacheKey);
             runDirectHydrate();
         } else if (
-            needsRelayHydration(metadataCache.get(pubkey))
+            needsRelayHydration(metadataCache.get(cacheKey))
             && relayUrls.length > 0
-            && !directFetchState.has(pubkey)
-            && !hydrateRetryTimers.has(pubkey)
+            && !directFetchState.has(cacheKey)
+            && !hydrateRetryTimers.has(cacheKey)
         ) {
-            if ((hydrateAttemptByPubkey.get(pubkey) ?? 0) === 0) {
+            if ((hydrateAttemptByPubkey.get(cacheKey) ?? 0) === 0) {
                 runDirectHydrate();
             } else {
                 scheduleHydrateRetry();
@@ -344,7 +379,7 @@ export const useProfileMetadata = (pubkey: string | null, options: UseProfileMet
 
         return () => {
             disposed = true;
-            clearHydrateRetryTimer(pubkey);
+            clearHydrateRetryTimer(cacheKey);
             if (subId) {
                 activePool.unsubscribe(subId);
             }

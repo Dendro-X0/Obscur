@@ -1,0 +1,41 @@
+{
+  "unlocked": true,
+  "plane": "chrome",
+  "before": {
+    "total": 45,
+    "plane": "chrome",
+    "top": [
+      "engine_invoke=7",
+      "desktop_get_profile_isolation_snapshot=4",
+      "eng:workspace:listGroupMessages=4",
+      "perf_plane:stub:eng:workspace:listGroupMessages=4",
+      "desktop_scan_local_saves=2",
+      "desktop_get_save_library_context=2",
+      "fetch_remote_text=2",
+      "auth_boot_snapshot=2"
+    ]
+  },
+  "after": {
+    "total": 45,
+    "plane": "chrome",
+    "top": [
+      "engine_invoke=7",
+      "desktop_get_profile_isolation_snapshot=4",
+      "eng:workspace:listGroupMessages=4",
+      "perf_plane:stub:eng:workspace:listGroupMessages=4",
+      "desktop_scan_local_saves=2",
+      "desktop_get_save_library_context=2",
+      "fetch_remote_text=2",
+      "auth_boot_snapshot=2"
+    ]
+  },
+  "storm": false,
+  "ui": {
+    "href": "http://127.0.0.1:1430/settings",
+    "fatal": false,
+    "restoring": false,
+    "localOnly": true,
+    "snippet": "OBSCUR\nTESTER1\nObscur / e07f67dc...c191ea56\n\nRelay transport is disabled in offline mode. Run pnpm dev:desktop:online for live relays and messaging, or enable relays in Settings.\n\nSETTINGS\nGENERAL\nProfile\nAppearance\nNotifications\nACCOUNT\nIdentity\nSecurity\nNETWORK\nRelays\nStorage\nMODERATION\nBlocklist\nPrivacy\nSYSTEM\nUpdates\nProfile\nCustomize your public presence on the network.\n\nPROFILE COMPLETENESS\n"
+  },
+  "journalPath": "C:\\Users\\Administrator\\AppData\\Local\\app.obscur.desktop\\diagnostics\\invoke-journal-latest.json"
+}

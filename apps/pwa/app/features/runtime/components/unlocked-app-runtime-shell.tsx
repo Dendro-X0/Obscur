@@ -14,6 +14,8 @@ import { NetworkProvider } from "@/app/features/network/providers/network-provid
 import { TanstackQueryRuntimeProvider } from "@/app/features/query/providers/tanstack-query-runtime-provider";
 import { RelayProvider } from "@/app/features/relays/providers/relay-provider";
 import { DmKernelColdStartRepairOwner } from "@/app/features/dm-kernel/components/dm-kernel-cold-start-repair-owner";
+import { shouldQuarantineDesktopUnlockOwners } from "@/app/features/runtime/unlock-hydrate-policy";
+import { DeferredWorkspaceKernelMount } from "./deferred-workspace-kernel-mount";
 import { DesktopWarmupOwner } from "./desktop-warmup-owner";
 import { RuntimeActivationManager } from "./runtime-activation-manager";
 import { ActiveSessionLeaseOwner } from "./active-session-lease-owner";
@@ -24,42 +26,59 @@ import { DesktopNotificationHandler } from "@/app/components/desktop-notificatio
 import { AppMediaPreviewLayer } from "@/app/features/messaging/components/app-media-preview-layer";
 
 /**
- * Unlocked session tree. Providers stay mounted across sidebar navigation so global
- * handlers (desktop notifications, dialogs) and cross-route state do not crash on nav.
- * Route-scoped provider unmount was reverted — it caused useMessaging errors on every
- * page switch without measurable lag wins in dev.
+ * Unlocked session tree. Providers stay mounted across sidebar navigation.
+ *
+ * Desktop thin shell: unlock stays free of dual-bridged owners. Slice 2b idle-remounts
+ * WorkspaceKernelProvider only. Slice 2c lease remount rolled back (touch IPC stampede).
+ * Warmup / cold-repair / ingest / presence stay off. Browser PWA keeps the full tree.
  */
 export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
+  const thinDesktop = shouldQuarantineDesktopUnlockOwners();
+
+  const chromeAndMessaging = (
+    <>
+      <RuntimeActivationManager />
+      <MessagingProvider>
+        <RuntimeMessagingTransportOwnerProvider>
+          <DesktopNotificationHandler />
+          <AppMediaPreviewLayer />
+          <AppChromeProvider>
+            <LazyGlobalDialogManager />
+            <PersistentAppChrome>
+              <ChatRouteMainShell />
+              <ChatRouteVoiceCallOverlay />
+              {props.children}
+            </PersistentAppChrome>
+          </AppChromeProvider>
+        </RuntimeMessagingTransportOwnerProvider>
+      </MessagingProvider>
+    </>
+  );
+
   return (
     <TanstackQueryRuntimeProvider>
       <ProfileRuntimeProvider>
         <AccountScopeBoundaryOwner />
         <RelayProvider>
           <LegacyGroupProvider>
-            <WorkspaceKernelGroupRelayIngestOwner />
-            <WorkspaceKernelProvider>
-            <NetworkProvider>
-              <DesktopWarmupOwner />
-              <DmKernelColdStartRepairOwner />
-              <RuntimeActivationManager />
-              <ActiveSessionLeaseOwner />
-              <SecondaryProfilePostLoginRefresh />
-              <MessagingProvider>
-                <RuntimeMessagingTransportOwnerProvider>
-                  <DesktopNotificationHandler />
-                  <AppMediaPreviewLayer />
-                  <AppChromeProvider>
-                    <LazyGlobalDialogManager />
-                    <PersistentAppChrome>
-                      <ChatRouteMainShell />
-                      <ChatRouteVoiceCallOverlay />
-                      {props.children}
-                    </PersistentAppChrome>
-                  </AppChromeProvider>
-                </RuntimeMessagingTransportOwnerProvider>
-              </MessagingProvider>
-            </NetworkProvider>
-            </WorkspaceKernelProvider>
+            {thinDesktop ? (
+              <DeferredWorkspaceKernelMount>
+                <NetworkProvider>{chromeAndMessaging}</NetworkProvider>
+              </DeferredWorkspaceKernelMount>
+            ) : (
+              <>
+                <WorkspaceKernelGroupRelayIngestOwner />
+                <WorkspaceKernelProvider>
+                  <NetworkProvider>
+                    <DesktopWarmupOwner />
+                    <DmKernelColdStartRepairOwner />
+                    <ActiveSessionLeaseOwner />
+                    <SecondaryProfilePostLoginRefresh />
+                    {chromeAndMessaging}
+                  </NetworkProvider>
+                </WorkspaceKernelProvider>
+              </>
+            )}
           </LegacyGroupProvider>
         </RelayProvider>
       </ProfileRuntimeProvider>

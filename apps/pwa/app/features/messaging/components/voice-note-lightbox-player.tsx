@@ -27,6 +27,10 @@ export function VoiceNoteLightboxPlayer({
   const playback = useVoiceNotePlayback({ src, voiceNoteMetadata });
   const {
     pendingLinkUrl,
+    pendingLinkPhase,
+    reputationResult,
+    reputationChecking,
+    reputationProviderLabel,
     cancelPendingLink,
     confirmPendingLink,
     requestOpenExternalLinkPreferNative,
@@ -116,10 +120,14 @@ export function VoiceNoteLightboxPlayer({
 
       {!onRequestOpenExternalLink ? (
         <LinkOpenConfirmDialog
-          url={pendingLinkUrl}
-          onClose={cancelPendingLink}
-          onConfirm={() => confirmPendingLink()}
-        />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
       ) : null}
     </>
   );

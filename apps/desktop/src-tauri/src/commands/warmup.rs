@@ -244,6 +244,26 @@ pub async fn desktop_start_warmup(
     }
     let profile_id = trimmed.to_string();
 
+    if crate::perf_plane::stubs_hydrate() {
+        crate::invoke_pressure::note_invoke("perf_plane:reject:desktop_start_warmup");
+        return Ok(WarmupStatusSnapshot {
+            profile_id,
+            phase: WarmupPhase::Complete,
+            completed_tasks: Vec::new(),
+            current_task: None,
+            completed_count: 0,
+            total_tasks: 0,
+            elapsed_ms: 0,
+            conversation_count: None,
+            group_count: None,
+            tombstone_count: None,
+            relay_checkpoint_count: None,
+            dm_message_head_count: None,
+            group_message_head_count: None,
+            error: Some(crate::perf_plane::reject_message("desktop_start_warmup")),
+        });
+    }
+
     if warmup_state.is_running(&profile_id)? {
         if let Some(snapshot) = warmup_state.get_snapshot(&profile_id)? {
             return Ok(snapshot);

@@ -1,0 +1,175 @@
+{
+  "schema": "studio.security.surface@1.0.0",
+  "denyProductionHosts": true,
+  "healthAllowlistPath": null,
+  "securityAllowlistPath": null,
+  "health": {
+    "schema": "health.probe@1.0.0",
+    "probedAt": "2026-08-16T06:01:44.109085300+00:00",
+    "repoRoot": "E:/Web Projects/experimental-workspace/obscur",
+    "allowlistPath": null,
+    "targets": [],
+    "blocked": [
+      {
+        "code": "allowlist_required",
+        "detail": "missing allowlist — create .codactrl/health.allowlist.yaml (schema health.allowlist@1.0.0)"
+      }
+    ],
+    "fixCommands": [
+      "Create .codactrl/health.allowlist.yaml with schema health.allowlist@1.0.0",
+      "Declare only loopback api baseUrl and database urlEnv names",
+      "Copy a template from docs/studio/templates/health/ (FS3)"
+    ],
+    "ready": false
+  },
+  "checks": [
+    {
+      "id": "health.allowlist.missing",
+      "title": "OH3 health allowlist missing",
+      "status": "honesty",
+      "proves": [
+        "fail_closed_without_silent_prod_scan"
+      ],
+      "doesNotProve": [
+        "api_up",
+        "db_up"
+      ],
+      "detail": "Create .codactrl/health.allowlist.yaml for local probes"
+    },
+    {
+      "id": "health.loopback_gate",
+      "title": "Health probe loopback gate clean",
+      "status": "pass",
+      "proves": [
+        "loopback_only_health_probe"
+      ],
+      "doesNotProve": [
+        "auth_secure",
+        "tls_posture"
+      ]
+    },
+    {
+      "id": "health.probe.no_allowlist",
+      "title": "Health probe without allowlist",
+      "status": "honesty",
+      "proves": [],
+      "doesNotProve": [
+        "api_up"
+      ],
+      "detail": "No targets probed"
+    },
+    {
+      "id": "honesty.cdp_open",
+      "title": "CDP open ≠ auth secure",
+      "status": "honesty",
+      "proves": [
+        "claim_discipline_documented"
+      ],
+      "doesNotProve": [
+        "auth_secure",
+        "session_isolation",
+        "secret_hygiene"
+      ],
+      "detail": "client_session_connect / CDP attach proves attach wiring only — not authentication security"
+    },
+    {
+      "id": "honesty.stack_preflight",
+      "title": "Stack preflight ≠ security audit",
+      "status": "honesty",
+      "proves": [
+        "claim_discipline_documented"
+      ],
+      "doesNotProve": [
+        "auth_secure",
+        "network_isolation",
+        "cve_absence"
+      ],
+      "detail": "client_stack_preflight proves local port/CDP readiness — not pen-test coverage"
+    },
+    {
+      "id": "honesty.no_cloud_scanner",
+      "title": "No cloud scanner / mandatory egress",
+      "status": "pass",
+      "proves": [
+        "local_first_security_surface"
+      ],
+      "doesNotProve": [
+        "internet_vuln_db",
+        "hosted_pen_test"
+      ],
+      "detail": "OFP4 does not call external CVE feeds or SaaS scanners"
+    },
+    {
+      "id": "security.allowlist.absent",
+      "title": "Optional security.allowlist absent",
+      "status": "honesty",
+      "proves": [
+        "fail_closed_without_extra_probes"
+      ],
+      "doesNotProve": [
+        "full_security_posture"
+      ],
+      "detail": "Optional — create .codactrl/security.allowlist.yaml for extra loopback probes; OH3 health.allowlist remains primary"
+    }
+  ],
+  "mcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "See securitySurface quickstart"
+    },
+    {
+      "order": 2,
+      "tool": "studio_verify { action: \"security_surface_evaluate\" }",
+      "purpose": "OFP4 checks + proves/doesNotProve + ready"
+    },
+    {
+      "order": 3,
+      "tool": "studio_verify { action: \"health_probe_run\" }",
+      "purpose": "OH3 live loopback API/DB probes",
+      "when": "health.allowlist present"
+    },
+    {
+      "order": 4,
+      "tool": "studio_client { action: \"client_stack_preflight\" }",
+      "purpose": "Local stack readiness (doesNotProve auth secure)",
+      "when": "before CDP attach"
+    },
+    {
+      "order": 5,
+      "tool": "studio_output { action: \"studio_output_sync\", modules: [\"verify\"] }",
+      "purpose": "Publish security-surface into verify hub",
+      "when": "after evaluate"
+    }
+  ],
+  "hub": {
+    "module": "verify",
+    "latestJson": ".codectx/verify/security-surface-latest.json",
+    "reportMd": ".codectx/verify/security-surface-report.md",
+    "agentHubHint": ".codactrl/verify/security-surface/ (after studio_output_sync modules=[verify])"
+  },
+  "reportMarkdown": "# Security surface (OFP4)\n\n- **ready:** true\n- **denyProductionHosts:** true\n\n## Checks\n\n- `health.allowlist.missing` **honesty** — OH3 health allowlist missing\n  - proves: fail_closed_without_silent_prod_scan\n  - doesNotProve: api_up, db_up\n  - detail: Create .codactrl/health.allowlist.yaml for local probes\n- `health.loopback_gate` **pass** — Health probe loopback gate clean\n  - proves: loopback_only_health_probe\n  - doesNotProve: auth_secure, tls_posture\n- `health.probe.no_allowlist` **honesty** — Health probe without allowlist\n  - proves: \n  - doesNotProve: api_up\n  - detail: No targets probed\n- `honesty.cdp_open` **honesty** — CDP open ≠ auth secure\n  - proves: claim_discipline_documented\n  - doesNotProve: auth_secure, session_isolation, secret_hygiene\n  - detail: client_session_connect / CDP attach proves attach wiring only — not authentication security\n- `honesty.stack_preflight` **honesty** — Stack preflight ≠ security audit\n  - proves: claim_discipline_documented\n  - doesNotProve: auth_secure, network_isolation, cve_absence\n  - detail: client_stack_preflight proves local port/CDP readiness — not pen-test coverage\n- `honesty.no_cloud_scanner` **pass** — No cloud scanner / mandatory egress\n  - proves: local_first_security_surface\n  - doesNotProve: internet_vuln_db, hosted_pen_test\n  - detail: OFP4 does not call external CVE feeds or SaaS scanners\n- `security.allowlist.absent` **honesty** — Optional security.allowlist absent\n  - proves: fail_closed_without_extra_probes\n  - doesNotProve: full_security_posture\n  - detail: Optional — create .codactrl/security.allowlist.yaml for extra loopback probes; OH3 health.allowlist remains primary\n\n## Global doesNotProve\n\n- CDP open ≠ auth secure\n- Health ping ≠ production security posture\n- Stack preflight ≠ pen-test or CVE scan\n- Local allowlist pass ≠ cloud APM / hosted scanner\n- Security surface ≠ Obscur product complete\n\n## Hub\n\n- module: `verify`\n- json: `.codectx/verify/security-surface-latest.json`\n- report: `.codectx/verify/security-surface-report.md`\n- agent: `.codactrl/verify/security-surface/ (after studio_output_sync modules=[verify])`\n",
+  "openQuestions": [
+    "Is .codactrl/health.allowlist.yaml present for OH3 API/DB probes?",
+    "Are any claimed 'secure' outcomes only CDP-open or health ping?",
+    "Do optional security.allowlist probes stay on loopback?"
+  ],
+  "doesNotProve": [
+    "CDP open ≠ auth secure",
+    "Health ping ≠ production security posture",
+    "Stack preflight ≠ pen-test or CVE scan",
+    "Local allowlist pass ≠ cloud APM / hosted scanner",
+    "Security surface ≠ Obscur product complete"
+  ],
+  "proves": [
+    "Local allowlist gate + loopback-only probe posture",
+    "Honest doesNotProve for CDP / stack / health",
+    "Production host probes fail-closed when denyProductionHosts"
+  ],
+  "notes": [
+    "OFP4 security surface — precision local probes, not cloud pen-test theatre",
+    "Extend OH3 health.probe; never auto-assign CVEs or require internet egress",
+    "denyProductionHosts=true — non-loopback targets blocked"
+  ],
+  "ready": true
+}

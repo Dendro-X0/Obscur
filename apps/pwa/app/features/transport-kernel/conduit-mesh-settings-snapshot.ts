@@ -47,10 +47,15 @@ export const buildConduitMeshSettingsSnapshot = (
   relays: ReadonlyArray<Readonly<{ url: string; enabled: boolean }>>,
 ): ConduitMeshSettingsSnapshot => {
   const descriptors = resolveRelayPoolConduitDescriptors(relays.map((relay) => relay.url));
-  const endpoints: ConduitMeshSettingsEndpoint[] = relays.map((relay, index) => ({
+  const dialectByUrl = new Map(
+    descriptors.flatMap((descriptor) => (
+      descriptor.endpoints.map((endpoint) => [endpoint, descriptor.dialect] as const)
+    )),
+  );
+  const endpoints: ConduitMeshSettingsEndpoint[] = relays.map((relay) => ({
     url: relay.url,
     enabled: relay.enabled,
-    dialect: descriptors[index]?.dialect ?? "custom",
+    dialect: dialectByUrl.get(relay.url) ?? "custom",
   }));
 
   endpoints.sort((left, right) => {

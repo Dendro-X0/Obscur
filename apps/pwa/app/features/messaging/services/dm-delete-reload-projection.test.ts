@@ -90,7 +90,7 @@ vi.mock("@dweb/db", () => ({
 vi.mock("@obscur/dm-engine", () => ({
   deleteDmMessages: vi.fn(),
   deleteDmMessage: vi.fn(),
-  insertDmTombstone: vi.fn(),
+  insertDmTombstones: vi.fn(),
 }));
 
 vi.mock("@obscur/engine-host/tauri", () => ({

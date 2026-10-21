@@ -2,7 +2,14 @@
 
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "@dweb/ui-kit/toast";
 import type { Attachment } from "../types";
+import { normalizeAttachmentUrl } from "@/app/shared/public-url";
+import {
+  emitLesCatalogChanged,
+  loadLesSavedAttachmentUrlSet,
+} from "@/app/features/les/sdk/les-chat-save";
+import { resolveVaultProfileId } from "@/app/features/storage/services/vault-at-rest";
 import {
   saveChatAttachmentWithOutcome,
   type SaveChatAttachmentOutcome,
@@ -44,22 +51,75 @@ export function useChatVaultSaveWithUnlock(): Readonly<{
     if (attachments.length === 0) {
       return;
     }
+
+    const multi = attachments.length > 1;
+    toast.info(
+      multi
+        ? t("vault.saveFromChatSavingCount", {
+            count: attachments.length,
+            defaultValue: `Saving ${attachments.length} files to Vault…`,
+          })
+        : t("vault.saveFromChatSaving"),
+    );
+
+    const knownSavedUrls = await loadLesSavedAttachmentUrlSet();
+    let savedCount = 0;
+    let alreadyCount = 0;
+    let failedCount = 0;
+
     for (const attachment of attachments) {
       setSavingUrl(attachment.url);
       try {
         const outcome = await saveChatAttachmentWithOutcome(attachment, t, {
           suppressUnlockToast: true,
-          toastPolicy: attachments.length > 1 ? "errors-only" : "all",
+          toastPolicy: multi ? "errors-only" : "all",
+          suppressCatalogEmit: multi,
+          knownSavedUrls,
         });
         if (outcome.status === "unlock_required") {
           setPendingAttachments(attachments);
           setShowUnlock(true);
           return;
         }
+        if (outcome.status === "saved") {
+          savedCount += 1;
+          const normalized = normalizeAttachmentUrl(attachment.url) || attachment.url.trim();
+          if (normalized) {
+            knownSavedUrls.add(normalized);
+          }
+          continue;
+        }
+        if (outcome.reason === "already_saved") {
+          alreadyCount += 1;
+        } else {
+          failedCount += 1;
+        }
       } finally {
         setSavingUrl((current) => (current === attachment.url ? null : current));
       }
     }
+
+    if (multi && savedCount > 0) {
+      emitLesCatalogChanged(resolveVaultProfileId().trim() || undefined);
+    }
+
+    if (!multi) {
+      return;
+    }
+
+    if (savedCount === 0) {
+      if (alreadyCount === attachments.length) {
+        toast.info(t("vault.alreadyInVault"));
+      } else if (failedCount > 0 || alreadyCount > 0) {
+        toast.error(t("vault.saveFromChatFailed"));
+      }
+      return;
+    }
+    if (savedCount < attachments.length) {
+      toast.warning(t("vault.partialLocalSave", { saved: savedCount, total: attachments.length }));
+      return;
+    }
+    toast.success(t("vault.saveFromChatSuccess"));
   }, [t]);
 
   const retryAfterUnlock = useCallback(async (): Promise<void> => {
@@ -69,15 +129,8 @@ export function useChatVaultSaveWithUnlock(): Readonly<{
     if (!pending || pending.length === 0) {
       return;
     }
-    for (const attachment of pending) {
-      setSavingUrl(attachment.url);
-      try {
-        await saveChatAttachmentWithOutcome(attachment, t);
-      } finally {
-        setSavingUrl((current) => (current === attachment.url ? null : current));
-      }
-    }
-  }, [pendingAttachments, t]);
+    await saveMany(pending);
+  }, [pendingAttachments, saveMany]);
 
   const unlockDialog = (
     <VaultWriteUnlockDialog

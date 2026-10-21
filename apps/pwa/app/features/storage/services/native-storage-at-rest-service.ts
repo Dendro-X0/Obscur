@@ -27,27 +27,31 @@ const scheduleVaultUnlockMaintenance = async (): Promise<void> => {
 export const activateNativeStorageAtRestUnlock = async (params: Readonly<{
   profileId?: string;
   passphrase: Passphrase;
-}>): Promise<void> => {
+}>): Promise<boolean> => {
   const profileId = resolveStorageProfileId(params.profileId);
   if (!profileId) {
-    return;
+    return false;
   }
   await establishProfileStorageKeySession({
     profileId,
     passphrase: params.passphrase,
   });
   if (!hasNativeRuntime()) {
-    return;
+    return Boolean(getProfileStorageKeyMaterial(profileId));
   }
   const keyMaterial = getProfileStorageKeyMaterial(profileId);
   if (!keyMaterial) {
-    return;
+    return false;
   }
-  await invokeNativeCommand("desktop_storage_at_rest_unlock", {
+  const unlockResult = await invokeNativeCommand("desktop_storage_at_rest_unlock", {
     profileId,
     keyMaterialB64: profileDataKeyMaterialToBase64(keyMaterial),
   });
+  if (!unlockResult.ok) {
+    return false;
+  }
   await scheduleVaultUnlockMaintenance();
+  return true;
 };
 
 /** Restore vault encryption from OS keychain after stay-signed-in identity unlock. */
@@ -85,11 +89,11 @@ export const restoreNativeVaultEncryptionSessionIfNeeded = async (
     );
     const assistantPayload = await readAuthAssistantVaultPayload(profileId);
     if (assistantPayload?.passphrase?.trim()) {
-      await activateNativeStorageAtRestUnlock({
+      const activated = await activateNativeStorageAtRestUnlock({
         profileId,
         passphrase: assistantPayload.passphrase,
       });
-      return isVaultWriteEncryptionReady(profileId);
+      return activated && isVaultWriteEncryptionReady(profileId);
     }
   } catch {
     // Best-effort fallback when login assist is unavailable.
@@ -136,23 +140,43 @@ export const ensureNativeVaultEncryptionSessionForWrites = async (
   return true;
 };
 
+/**
+ * Soft-lock drift: shell may look unlocked while DbState.db is None.
+ * Prefer PDK unlock; otherwise reopen plaintext SQLite when no at-rest envelope.
+ */
+export const ensureNativeSqliteOpenForWrites = async (
+  params?: Readonly<{ profileId?: string }>,
+): Promise<boolean> => {
+  if (!hasNativeRuntime()) {
+    return true;
+  }
+  const vaultReady = await ensureNativeVaultEncryptionSessionForWrites(params);
+  if (vaultReady) {
+    return true;
+  }
+  const reopen = await invokeNativeCommand<boolean>("desktop_db_ensure_open", {}, { timeoutMs: 8_000 });
+  return reopen.ok === true;
+};
+
 /** Passphrase unlock establishes keys; keychain unlock restores persisted profile data key. */
 export const syncNativeVaultEncryptionSessionAfterIdentityUnlock = async (
   params?: Readonly<{ profileId?: string; passphrase?: Passphrase }>,
-): Promise<void> => {
+): Promise<boolean> => {
   if (!hasNativeRuntime()) {
-    return;
+    return true;
   }
   const profileId = resolveStorageProfileId(params?.profileId);
   if (params?.passphrase?.trim()) {
-    await activateNativeStorageAtRestUnlock({
+    return activateNativeStorageAtRestUnlock({
       profileId,
       passphrase: params.passphrase,
     });
-    return;
   }
-  await restoreNativeVaultEncryptionSessionIfNeeded({ profileId });
+  return restoreNativeVaultEncryptionSessionIfNeeded({ profileId });
 };
+
+export { resolveSoftLockUnlockMode } from "./soft-lock-unlock-mode";
+export type { SoftLockUnlockMode, SoftLockUnlockModeInput } from "./soft-lock-unlock-mode";
 
 export const finalizeNativeStorageAtRestLock = async (params?: Readonly<{ profileId?: string }>): Promise<void> => {
   const profileId = resolveStorageProfileId(params?.profileId);

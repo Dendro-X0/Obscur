@@ -55,6 +55,12 @@ const run = (label, command, commandArgs, options = {}) => {
   }
 };
 
+/** Release package must not stall on stale-process cleanup (Windows WMI/PowerShell hang). */
+const packageBuildEnv = () => ({
+  ...process.env,
+  OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL: "1",
+});
+
 const windowsNsisInstallerExists = async () => {
   if (process.platform !== "win32") {
     return false;
@@ -70,7 +76,9 @@ const windowsNsisInstallerExists = async () => {
 
 const runDesktopBuild = async (pnpm) => {
   try {
-    run("build PWA shell + Tauri bundle", pnpm, ["build:desktop"]);
+    run("build PWA shell + Tauri bundle", pnpm, ["build:desktop"], {
+      env: packageBuildEnv(),
+    });
   } catch (error) {
     if (process.platform === "win32" && (await windowsNsisInstallerExists())) {
       console.warn(

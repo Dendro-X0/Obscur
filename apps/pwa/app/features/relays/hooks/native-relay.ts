@@ -1,5 +1,6 @@
 import { nativeErrorStore } from "../../native/lib/native-error-store";
 import { relayHealthMonitor } from "./relay-health-monitor";
+import { shouldSurfaceSoftRelayConnectToast } from "./relay-soft-toast-policy";
 import {
     relayNativeAdapter,
     type RelayMessagePayload,
@@ -34,6 +35,26 @@ const relayHostLabel = (url: string): string => {
 const softRelayConnectUserMessage = (url: string): string => (
     `Couldn't reach ${relayHostLabel(url)}. The network or that relay may be temporarily unavailable.`
 );
+
+/** Soft connect/init toasts are pool-level — suppress when any relay is already healthy. */
+const surfaceSoftRelayConnectToast = (params: Readonly<{
+    code: "RELAY_CONNECT_FAILED" | "RELAY_INIT_FAILED";
+    url: string;
+    message: string;
+    detail?: string;
+    retry: () => Promise<void>;
+}>): void => {
+    if (!shouldSurfaceSoftRelayConnectToast()) {
+        return;
+    }
+    nativeErrorStore.addError({
+        code: params.code,
+        message: params.message,
+        detail: params.detail,
+        retryable: true,
+        retry: params.retry,
+    });
+};
 
 const NOT_CONNECTED_PATTERN = /\bnot connected\b/i;
 const isNotConnectedError = (message: string): boolean => NOT_CONNECTED_PATTERN.test(message);
@@ -123,11 +144,11 @@ export class NativeRelay implements EventTarget {
                 `Failed to initialize NativeRelay for ${this.url}: ${errorMessage}`,
                 e,
             ]);
-            nativeErrorStore.addError({
+            surfaceSoftRelayConnectToast({
                 code: "RELAY_INIT_FAILED",
+                url: this.url,
                 message: `Failed to initialize relay connection to ${this.url}`,
-                retryable: true,
-                retry: () => this.initAndConnect()
+                retry: () => this.initAndConnect(),
             });
             const errorEvent = createRelayErrorEvent(errorMessage);
             this.dispatchEvent(errorEvent);
@@ -324,8 +345,10 @@ export class NativeRelay implements EventTarget {
             } else {
                 probeMessage = "[RelayProbe] skipped direct diagnostic probe because Tor routing is enabled";
             }
+            const quietDialCapped = /quiet_dial_cap/i.test(errorMessage);
             const shouldFallbackToBrowser = (
-                !torStatus.configured
+                !quietDialCapped
+                && !torStatus.configured
                 && !this.closeRequested
                 && this.transportMode === "native"
             );
@@ -343,15 +366,15 @@ export class NativeRelay implements EventTarget {
                 return;
             }
 
-            nativeErrorStore.addError({
+            surfaceSoftRelayConnectToast({
                 code: "RELAY_CONNECT_FAILED",
+                url: this.url,
                 message: softRelayConnectUserMessage(this.url),
                 detail: [
                     `Failed to connect to ${this.url}: ${errorMessage}`,
                     probeMessage,
                 ].filter(Boolean).join("\n"),
-                retryable: true,
-                retry: () => this.connect()
+                retry: () => this.connect(),
             });
 
             const errorEvent = createRelayErrorEvent(

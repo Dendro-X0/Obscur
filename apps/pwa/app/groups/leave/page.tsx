@@ -302,6 +302,8 @@ export default function LeaveCommunityPage() {
             return;
         }
         setIsPurgingLocal(true);
+        setLeaveWaitComplete(false);
+        setLeaveWaitPhase("directory");
         try {
             if (
                 allowManagedWorkspaceLocalPurge
@@ -309,26 +311,34 @@ export default function LeaveCommunityPage() {
                 && identityState.privateKeyHex
                 && localMemberPubkey
             ) {
-                await leaveManagedWorkspaceMembership({
-                    pool: relayPool,
-                    group: leaveGroupContext,
-                    myPublicKeyHex: localMemberPubkey,
-                    myPrivateKeyHex: identityState.privateKeyHex,
-                    initialMembers: leaveGroupContext.memberPubkeys,
-                    tombstone: true,
-                }).catch(() => ({ ok: false, relayConfirmed: false }));
+                await withCommunityNetworkTimeout(
+                    leaveManagedWorkspaceMembership({
+                        pool: relayPool,
+                        group: leaveGroupContext,
+                        myPublicKeyHex: localMemberPubkey,
+                        myPrivateKeyHex: identityState.privateKeyHex,
+                        initialMembers: leaveGroupContext.memberPubkeys,
+                        tombstone: true,
+                        skipDirectoryRefresh: true,
+                    }),
+                ).catch(() => ({ ok: false, relayConfirmed: false }));
             }
+            setLeaveWaitPhase("local");
             forcePurgeCommunity({
                 groupId: resolvedGroupId,
                 relayUrl: effectiveRelay,
                 conversationId: group?.id,
             });
+            setLeaveWaitComplete(true);
             toast.success("Community removed from this device");
+            await new Promise((resolve) => setTimeout(resolve, 450));
             router.push("/network");
         } catch {
             toast.error("Failed to remove community data");
         } finally {
             setIsPurgingLocal(false);
+            setLeaveWaitPhase(null);
+            setLeaveWaitComplete(false);
         }
     };
 
@@ -351,6 +361,13 @@ export default function LeaveCommunityPage() {
             ? "Review the details below, then delete all local data when you are ready."
             : "If you are sure, continue below. Leave is confirmed on the relay before local membership is updated.";
     const isBusy = isLeaving || isPurgingLocal;
+    const showWaitRing = isLeaving || isPurgingLocal;
+    const waitRingTitle = isPurgingLocal
+        ? `Removing ${displayName}`
+        : `Leaving ${displayName}`;
+    const waitRingSubtitle = isPurgingLocal
+        ? "Coordination leave is attempted first, then local data is removed on this device."
+        : "Local removal runs first; relay and directory steps continue in the background when the network allows.";
     const compact = useMobileCompactLayout();
     const relayHostLabel = effectiveRelay.replace(/^wss?:\/\//, "").split("/")[0] || effectiveRelay || "unknown";
     const relayScopeLabel = compact ? relayHostLabel : (effectiveRelay || "unknown");
@@ -492,11 +509,11 @@ export default function LeaveCommunityPage() {
                             </div>
                         </div>
 
-                        {isLeaving ? (
+                        {showWaitRing ? (
                             <div className="rounded-2xl border border-zinc-200/50 bg-white p-4 dark:border-white/10 dark:bg-[#0b0b10]">
                                 <CommunityActionWaitRing
-                                    title={`Leaving ${displayName}`}
-                                    subtitle="Local removal runs first; relay and directory steps continue in the background when the network allows."
+                                    title={waitRingTitle}
+                                    subtitle={waitRingSubtitle}
                                     steps={leaveWaitSteps}
                                 />
                             </div>
@@ -552,11 +569,11 @@ export default function LeaveCommunityPage() {
                         </div>
                     </div>
 
-                    {isLeaving ? (
+                    {showWaitRing ? (
                         <div className="px-8 py-10">
                             <CommunityActionWaitRing
-                                title={`Leaving ${displayName}`}
-                                subtitle="Local removal runs first; relay and directory steps continue in the background when the network allows."
+                                title={waitRingTitle}
+                                subtitle={waitRingSubtitle}
                                 steps={leaveWaitSteps}
                             />
                         </div>

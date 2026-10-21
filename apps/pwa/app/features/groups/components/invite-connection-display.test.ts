@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  INVITE_CONNECTION_FALLBACK_NAME,
+  findDmConnectionByPubkey,
+  formatInviteConnectionPubkeyPreview,
+  isInviteConnectionHumanDisplayName,
   isPubkeyPlaceholderName,
   resolveInviteConnectionDisplayName,
   toInviteConnectionSearchText,
@@ -9,6 +11,20 @@ import {
 const pubkey = "192bbdbf00112233445566778899aabbccddeeff00112233445566778899aabb";
 
 describe("invite-connection-display", () => {
+  it("finds DM connections case-insensitively", () => {
+    const found = findDmConnectionByPubkey(
+      [
+        {
+          kind: "dm" as const,
+          pubkey: pubkey.toUpperCase(),
+          displayName: "Tester2",
+        },
+      ],
+      pubkey.toLowerCase(),
+    );
+    expect(found?.displayName).toBe("Tester2");
+  });
+
   it("prefers metadata display name over pubkey-like connection labels", () => {
     const displayName = resolveInviteConnectionDisplayName({
       pubkey,
@@ -17,6 +33,7 @@ describe("invite-connection-display", () => {
     });
 
     expect(displayName).toBe("Alice");
+    expect(isInviteConnectionHumanDisplayName(displayName, pubkey)).toBe(true);
   });
 
   it("uses a meaningful connection display name when metadata is absent", () => {
@@ -28,14 +45,16 @@ describe("invite-connection-display", () => {
     expect(displayName).toBe("MusicLab");
   });
 
-  it("falls back to privacy-safe default when both names are placeholders", () => {
+  it("falls back to compact pubkey preview instead of Unknown contact", () => {
     const displayName = resolveInviteConnectionDisplayName({
       pubkey,
       connectionDisplayName: pubkey.slice(0, 8),
       metadataDisplayName: `npub1${"q".repeat(20)}`,
     });
 
-    expect(displayName).toBe(INVITE_CONNECTION_FALLBACK_NAME);
+    expect(displayName).toBe(formatInviteConnectionPubkeyPreview(pubkey));
+    expect(displayName).not.toMatch(/unknown contact/i);
+    expect(isInviteConnectionHumanDisplayName(displayName, pubkey)).toBe(false);
   });
 
   it("detects common pubkey preview placeholders", () => {

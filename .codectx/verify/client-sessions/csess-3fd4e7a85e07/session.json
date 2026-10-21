@@ -1,0 +1,9 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-3fd4e7a85e07",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "createdAt": "2026-08-19T15:35:54.180820400+00:00",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
+  "url": "http://tauri.localhost/profiles"
+}

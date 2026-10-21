@@ -168,7 +168,7 @@ vi.mock("@/app/features/messaging/providers/runtime-messaging-transport-owner-pr
 
 vi.mock("@/app/features/network/providers/network-provider", () => ({
   useNetwork: () => ({
-    blocklist: { addBlocked: testFns.addBlocked },
+    blocklist: { addBlocked: testFns.addBlocked, isBlocked: vi.fn(() => false) },
     peerTrust: {
       state: { acceptedPeers: [] as string[] },
       isAccepted: () => false,
@@ -320,7 +320,7 @@ vi.mock("@/app/features/messaging/providers/messaging-provider", () => ({
 
 vi.mock("@/app/features/relays/providers/relay-provider", () => ({
   useRelay: () => ({
-    relayPool: {},
+    relayPool: { connections: [], subscribe: vi.fn(() => "sub-1"), unsubscribe: vi.fn(), sendToOpen: vi.fn(), publishToUrls: vi.fn(), publishToAll: vi.fn() },
     relayList: { state: { relays: [] } },
     relayStatus: { total: 0, openCount: 0, errorCount: 0, coolingDownRelayCount: 0 },
     enabledRelayUrls: [],
@@ -568,12 +568,8 @@ describe("main-shell hook stability", () => {
     render(<NostrMessenger />);
     await act(async () => Promise.resolve());
 
-    expect(screen.getByText(/Profile Scope Notice/)).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "This window is bound to a different local profile slot than this account's data. Open the saved profile that owns this account, or switch this window's profile before signing in."
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText(/profileScopeMismatchNoticeTitle/)).toBeInTheDocument();
+    expect(screen.getByText(/profileScopeMismatchNoticeBody/)).toBeInTheDocument();
   });
 
   it("does not overwrite restored messaging connections from peer-trust on mount", async () => {

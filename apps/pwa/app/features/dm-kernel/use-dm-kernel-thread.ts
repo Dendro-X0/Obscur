@@ -13,7 +13,8 @@ import type { Message } from "@/app/features/messaging/types";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { subscribeNativeDmRelayBackfillRepair } from "@/app/features/messaging/services/native-dm-sqlite-repair";
-import { DM_KERNEL_PAGE_SIZE, loadDmKernelThread } from "./dm-kernel-thread-port";
+import { DM_KERNEL_PAGE_SIZE } from "./dm-kernel-page-size";
+import { listDmMessages } from "@/app/features/protocol-adaptation";
 import { logDmKernelOneSidedIfNeeded } from "./dm-kernel-integrity";
 import { invalidateDmKernelThreadSessionCache } from "./dm-kernel-thread-session-cache";
 import { buildDmSiblingConversationIds, inferPeerFromConversationId } from "@/app/features/messaging/utils/dm-conversation-sibling-ids";
@@ -139,7 +140,7 @@ export function useDmKernelThread(
     if (!conversationId || !myPublicKeyHex) {
       return;
     }
-    const loaded = await loadDmKernelThread({
+    const loaded = await listDmMessages({
       profileId,
       conversationId,
       myPublicKeyHex,
@@ -400,7 +401,7 @@ export function useDmKernelThread(
       return;
     }
 
-    const earlier = await loadDmKernelThread({
+    const earlier = await listDmMessages({
       profileId,
       conversationId,
       myPublicKeyHex,

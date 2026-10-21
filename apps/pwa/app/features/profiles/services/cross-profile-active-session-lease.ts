@@ -1,10 +1,19 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+import { isChromePerfPlaneActive } from "@/app/features/runtime/experiment-shell-policy";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 
 const LEASE_STORAGE_KEY = "obscur.cross_profile.active_session_leases.v1";
-export const ACTIVE_SESSION_LEASE_TTL_MS = 12_000;
-export const ACTIVE_SESSION_LEASE_HEARTBEAT_MS = 4_000;
+/** Must stay in sync with Rust `ACTIVE_SESSION_LEASE_TTL_MS`. */
+export const ACTIVE_SESSION_LEASE_TTL_MS = 60_000;
+/** N1: TTL 60s — 30s heartbeat halves lease IPC vs 12s (E19 picker storm). */
+export const ACTIVE_SESSION_LEASE_HEARTBEAT_MS = 30_000;
+/** Skip bridge touch IPC inside this window (matches Rust TOUCH_PERSIST_MIN_INTERVAL_MS). */
+const TOUCH_INVOKE_COALESCE_MS = 25_000;
+/** Short coalesce window for picker list polls across focus/interval races. */
+const LIST_LEASES_CACHE_TTL_MS = 8_000;
+
+const lastTouchInvokeAtMsByKey = new Map<string, number>();
 
 export type ActiveSessionLeaseRecord = Readonly<{
   publicKeyHex: PublicKeyHex;
@@ -15,6 +24,14 @@ export type ActiveSessionLeaseRecord = Readonly<{
 }>;
 
 type LeaseMap = Record<string, ActiveSessionLeaseRecord>;
+
+let listLeasesCache: Readonly<{
+  atMs: number;
+  leases: ReadonlyArray<ActiveSessionLeaseRecord>;
+}> | null = null;
+
+/** Coalesce concurrent list callers (effect remount / focus races miss the TTL cache). */
+let listLeasesInFlight: Promise<ReadonlyArray<ActiveSessionLeaseRecord>> | null = null;
 
 const normalizePublicKeyHex = (value: string): PublicKeyHex | null => {
   const normalized = value.trim().toLowerCase();
@@ -148,18 +165,48 @@ export const findActiveSessionLeaseForAccountAsync = async (params: Readonly<{
 };
 
 export const listActiveSessionLeasesAsync = async (nowMs?: number): Promise<ReadonlyArray<ActiveSessionLeaseRecord>> => {
-  const resolvedNowMs = nowMs ?? Date.now();
-  if (hasNativeRuntime()) {
-    const result = await invokeNativeCommand<ReadonlyArray<ActiveSessionLeaseRecord>>(
-      "desktop_list_active_session_leases",
-      {},
-    );
-    if (result.ok) {
-      return (result.value ?? []).filter((lease) => isLeaseFresh(lease, resolvedNowMs));
-    }
+  // Chrome fault-scan: picker lease poll must not open IPC (soft stubs still flood PostMessage).
+  if (isChromePerfPlaneActive()) {
+    return [];
   }
-  const map = readLeaseMap();
-  return Object.values(map).filter((lease) => isLeaseFresh(lease, resolvedNowMs));
+  const resolvedNowMs = nowMs ?? Date.now();
+  if (
+    listLeasesCache
+    && resolvedNowMs - listLeasesCache.atMs < LIST_LEASES_CACHE_TTL_MS
+  ) {
+    return listLeasesCache.leases.filter((lease) => isLeaseFresh(lease, resolvedNowMs));
+  }
+  if (listLeasesInFlight) {
+    const leases = await listLeasesInFlight;
+    return leases.filter((lease) => isLeaseFresh(lease, resolvedNowMs));
+  }
+  listLeasesInFlight = (async (): Promise<ReadonlyArray<ActiveSessionLeaseRecord>> => {
+    let leases: ReadonlyArray<ActiveSessionLeaseRecord>;
+    if (hasNativeRuntime()) {
+      const result = await invokeNativeCommand<ReadonlyArray<ActiveSessionLeaseRecord>>(
+        "desktop_list_active_session_leases",
+        {},
+      );
+      if (result.ok) {
+        leases = (result.value ?? []).filter((lease) => isLeaseFresh(lease, resolvedNowMs));
+        listLeasesCache = { atMs: resolvedNowMs, leases };
+        return leases;
+      }
+    }
+    const map = readLeaseMap();
+    leases = Object.values(map).filter((lease) => isLeaseFresh(lease, resolvedNowMs));
+    listLeasesCache = { atMs: resolvedNowMs, leases };
+    return leases;
+  })();
+  try {
+    return await listLeasesInFlight;
+  } finally {
+    listLeasesInFlight = null;
+  }
+};
+
+const invalidateListLeasesCache = (): void => {
+  listLeasesCache = null;
 };
 
 export const claimActiveSessionLease = (params: Readonly<{
@@ -203,10 +250,12 @@ export const claimActiveSessionLeaseAsync = async (params: Readonly<{
   if (hasNativeRuntime()) {
     const result = await invokeNativeCommand<void>("desktop_claim_active_session_lease", { record });
     if (result.ok) {
+      invalidateListLeasesCache();
       return;
     }
   }
   claimActiveSessionLease(params);
+  invalidateListLeasesCache();
 };
 
 export const touchActiveSessionLease = (params: Readonly<{
@@ -238,16 +287,26 @@ export const touchActiveSessionLeaseAsync = async (params: Readonly<{
   if (!publicKeyHex) {
     return;
   }
+  const profileId = params.profileId.trim();
+  const coalesceKey = `${publicKeyHex}:${profileId}`;
+  const nowMs = Date.now();
+  const lastTouchAtMs = lastTouchInvokeAtMsByKey.get(coalesceKey) ?? 0;
+  if (nowMs - lastTouchAtMs < TOUCH_INVOKE_COALESCE_MS) {
+    return;
+  }
+  lastTouchInvokeAtMsByKey.set(coalesceKey, nowMs);
   if (hasNativeRuntime()) {
     const result = await invokeNativeCommand<void>("desktop_touch_active_session_lease", {
       publicKeyHex,
-      profileId: params.profileId.trim(),
+      profileId,
     });
     if (result.ok) {
+      invalidateListLeasesCache();
       return;
     }
   }
   touchActiveSessionLease(params);
+  invalidateListLeasesCache();
 };
 
 export const releaseActiveSessionLease = (params: Readonly<{
@@ -286,10 +345,12 @@ export const releaseActiveSessionLeaseAsync = async (params: Readonly<{
       profileId: params.profileId.trim(),
     });
     if (result.ok) {
+      invalidateListLeasesCache();
       return;
     }
   }
   releaseActiveSessionLease(params);
+  invalidateListLeasesCache();
 };
 
 export class AccountActiveInOtherProfileWindowError extends Error {

@@ -1,22 +1,23 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-08-16T13:20:00Z",
-  "gitCommit": "9752fa96",
+  "generatedAt": "2026-10-21T12:45:13Z",
+  "gitCommit": "local-b1-package",
   "version": "1.9.16",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "https://github.com/Dendro-X0/Obscur/actions/runs/31935072226",
+  "sourceRun": "local pnpm desktop:package (v2.0.0-beta.1 B1 · 2026-10-21)",
+  "clientBuildStamp": "shell-2026-10-21T12:45:13Z",
   "artifacts": [
     {
       "platform": "windows",
       "kind": "nsis-installer",
-      "buildCommand": "Obscur Full Release CI (desktop-windows)",
+      "buildCommand": "pnpm desktop:package",
       "path": "release-assets/windows/Obscur_1.9.16_x64-setup.exe",
       "fileName": "Obscur_1.9.16_x64-setup.exe",
-      "sizeBytes": 9174250,
-      "sha256": "35168e22aac3cc133277e8b27dfc2349ff836508c45d56e99ebdcaa9ffa7a04c",
-      "builtAt": "2026-08-16T08:00:00Z"
+      "sha256": "9c8bc09d373166bdce59e70aca22af66b56315dc0d547d4f13d653c9fa47288a",
+      "builtAt": "2026-10-21T12:45:13Z",
+      "notes": "Updater .sig skipped (Missing comment in secret key). B2 smoke pending on this installer / matching release exe."
     },
     {
       "platform": "macos",

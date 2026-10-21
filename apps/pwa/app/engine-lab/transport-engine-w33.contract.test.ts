@@ -15,7 +15,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w33 — host publish port shim charter", () => {
   it("pins opt-in shim charter and policy gate expectations", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w33-host-publish-port-shim-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w33-host-publish-port-shim-charter.md");
     expect(charter).toContain("Host Publish Port Shim Charter");
     expect(charter).toContain("shouldUseHostTransportPublishShim");
     expect(charter).toContain("design + contract only");

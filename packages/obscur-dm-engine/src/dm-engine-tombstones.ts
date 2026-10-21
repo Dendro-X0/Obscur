@@ -5,6 +5,7 @@ import {
   buildDmDeleteMessageRequest,
   buildDmDeleteMessagesRequest,
   buildDmInsertTombstoneRequest,
+  buildDmInsertTombstonesRequest,
   buildDmListTombstonesRequest,
 } from "@obscur/engine-contracts";
 
@@ -43,6 +44,36 @@ export const insertDmTombstone = async (
   );
   if (!result.ok) {
     throw new Error(result.errorMessage ?? result.errorCode ?? "dm.insertTombstone failed");
+  }
+};
+
+/** One IPC for many tombstones — prefer over N× `insertDmTombstone` on unlock hydrate. */
+export const insertDmTombstones = async (
+  params: DmTombstoneParams & Readonly<{
+    records: ReadonlyArray<TombstoneRecord>;
+  }>,
+): Promise<void> => {
+  if (params.records.length === 0) {
+    return;
+  }
+  if (params.records.length === 1) {
+    await insertDmTombstone({
+      host: params.host,
+      profileId: params.profileId,
+      windowLabel: params.windowLabel,
+      record: params.records[0]!,
+    });
+    return;
+  }
+  const result = await params.host.invoke(
+    buildDmInsertTombstonesRequest({
+      profileId: params.profileId,
+      windowLabel: params.windowLabel,
+      payload: { records: params.records },
+    }),
+  );
+  if (!result.ok) {
+    throw new Error(result.errorMessage ?? result.errorCode ?? "dm.insertTombstones failed");
   }
 };
 

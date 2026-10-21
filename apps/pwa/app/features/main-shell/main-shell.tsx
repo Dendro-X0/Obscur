@@ -14,6 +14,7 @@ import { useRuntimeMessagingTransportOwnerController } from "@/app/features/mess
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { createPendingStartupAuthState, shouldShowStoredIdentityLockScreen, } from "@/app/features/auth/services/startup-auth-state-contracts";
+import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { toast } from "@dweb/ui-kit/toast";
 import { useTranslation } from "react-i18next";
 import type { Conversation, DmConversation, GroupConversation, Message, SendDirectMessageParams, SendDirectMessageResult, VoiceCallInvitePayload, } from "@/app/features/messaging/types";
@@ -21,15 +22,45 @@ import { applyConnectionOverrides, extractAttachmentsFromContent } from "@/app/f
 import { createRealtimeVoiceSessionOwner } from "@/app/features/messaging/services/realtime-voice-session-owner";
 import { getRealtimeVoiceCapability } from "@/app/features/messaging/services/realtime-voice-capability";
 import {
-    queryMediaPermission,
-    requestMediaStream,
-    shouldRequestMediaPermissionDirectly,
+    shouldOpenMediaConsentRecovery,
+    type MediaConsentPurpose,
 } from "@/app/features/messaging/services/media-device-access";
 import { MediaDeviceConsentDialog } from "@/app/features/messaging/components/media-device-consent-dialog";
-import { isVoiceCallInviteDeliveryAccepted, shouldStartVoiceCallInviteSession } from "@/app/features/messaging/services/voice-call-invite-delivery";
+import { shouldWarnOfflinePeerBeforeVoiceInviteDial } from "@/app/features/messaging/services/voice-invite-offline-peer-honesty";
+import {
+    canStartVoiceCallInviteDial,
+    isVoiceCallInviteDeliveryAccepted,
+    shouldStartVoiceCallInviteSession,
+} from "@/app/features/messaging/services/voice-call-invite-delivery";
+import { isVoiceCallSignalDeliveryAccepted } from "@/app/features/messaging/services/voice-call-signal-delivery";
+import {
+    isHaveLocalOfferInvalidState,
+    runHostOfferDispatchCoalesced,
+    type HostOfferInFlightMap,
+} from "@/app/features/messaging/services/voice-call-host-offer-coalesce";
+import {
+    canStartVoiceCallInviteWhileLineIdle,
+    shouldDeferVoiceInviteForBusyLine,
+} from "@/app/features/messaging/services/voice-call-busy-line";
+import { preserveVoiceCallUiStatusMedia } from "@/app/features/messaging/services/voice-call-ui-status-media";
+import { preserveVoiceCallMediaFields } from "@/app/features/messaging/services/voice-call-ui-status-preserve";
 import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { resolveVoiceInviteTombstoneVerdict } from "@/app/features/messaging/services/realtime-voice-invite-tombstone";
-import { createVoiceCallSignalPayload, parseVoiceCallInvitePayload, parseVoiceCallSignalPayload, type VoiceCallSignalPayload, } from "@/app/features/messaging/services/realtime-voice-signaling";
+import { createVoiceCallInvitePayload, createVoiceCallSignalPayload, parseVoiceCallInvitePayload, parseVoiceCallSignalPayload, type VoiceCallSignalPayload, } from "@/app/features/messaging/services/realtime-voice-signaling";
+import { resolveCallTypeFromInvite } from "@/app/features/messaging/services/voice-call-reason-honesty";
+import { resolveVoicePeerConnectionStartFailureUi } from "@/app/features/messaging/services/voice-peer-connection-start-honesty";
+import { resolveVoiceOfferDispatchFailureUi } from "@/app/features/messaging/services/voice-offer-dispatch-honesty";
+import { resolveVoiceAnswerDispatchFailureUi } from "@/app/features/messaging/services/voice-answer-dispatch-honesty";
+import {
+    acquireLocalCallMedia,
+    attachLocalMediaToPeerConnection,
+    CAMERA_UNAVAILABLE_BANNER_DEFAULT,
+    CAMERA_UNAVAILABLE_BANNER_I18N_KEY,
+    isLabCanvasVideoEnabled,
+    resolveOfferToReceiveVideo,
+    type CallLocalMediaMode,
+} from "@/app/features/messaging/services/realtime-call-local-media";
+import { prepareLocalMediaForCallDial } from "@/app/features/messaging/services/video-call-dial-preflight";
 import { isRealtimeVoiceCallsEnabled } from "@/app/features/messaging/services/realtime-voice-feature-gate";
 import { subscribeNowMs, getNowMsSnapshot, getNowMsServerSnapshot } from "@/app/features/messaging/utils/time";
 import { Sidebar } from "@/app/features/messaging/components/sidebar";
@@ -98,6 +129,10 @@ import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { useRequestTransport } from "@/app/features/messaging/hooks/use-request-transport";
+import {
+  pendingAcceptRelayQueue,
+  retryAcceptRelayNotification,
+} from "@/app/features/messaging/services/request-transport-service";
 import { configureInviteRequestStateBridge, configureInviteRequestTransportBridge } from "@/app/features/invites/utils/invite-manager";
 import type { Connection as LegacyInviteConnection, ConnectionRequest as LegacyInviteRequest } from "@/app/features/invites/utils/types";
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
@@ -118,9 +153,26 @@ import { setGlobalVoiceCallOverlayState, setGlobalVoiceCallOverlayWaveAudioLevel
 import { resolveIncomingVoiceInviteExit } from "@/app/features/messaging/services/realtime-voice-invite-exit";
 import { extractVoiceCallOverlayAction, readAndConsumePendingVoiceCallOverlayAction, type VoiceCallOverlayAction, } from "@/app/features/messaging/services/voice-call-overlay-action-bridge";
 import { subscribeVoiceCallOverlayActionDual } from "@/app/features/messaging/services/subscribe-voice-call-overlay-action-dual";
-import { resolveRealtimeVoiceConnectTimeoutDecision } from "@/app/features/messaging/services/realtime-voice-timeout-policy";
+import {
+    mapRealtimeVoiceConnectTimeoutToUiReasonCode,
+    resolveRealtimeVoiceConnectTimeoutDecision,
+    resolveRealtimeVoiceConnectTimeoutMaxExtensions,
+} from "@/app/features/messaging/services/realtime-voice-timeout-policy";
 import { resolveVoiceInviteBootstrapReplayDecision, resolveVoiceSignalBootstrapReplayDecision, } from "@/app/features/messaging/services/realtime-voice-history-replay-policy";
 import { advanceVoiceWaveAudioLevelChannel, getVoiceWaveOverlayLevel, type VoiceWaveAudioLevelState, } from "@/app/features/messaging/services/realtime-voice-waveform-level";
+import {
+    emitRealtimeCallQualitySample,
+    parseRealtimeCallQualitySnapshot,
+    REALTIME_CALL_QUALITY_SAMPLE_MIN_INTERVAL_MS,
+    shouldEmitRealtimeCallQualitySample,
+} from "@/app/features/messaging/services/realtime-call-quality-stats";
+import {
+    REALTIME_CALL_DISCONNECT_GRACE_MS,
+    resolveRealtimeCallConnectionStateAction,
+    shouldEndCallAfterDisconnectGrace,
+} from "@/app/features/messaging/services/realtime-call-disconnect-grace";
+import { buildRealtimeCallHostConnectedContext } from "@/app/features/messaging/services/realtime-call-connect-latency";
+import { resolveRealtimeCallIceServersFromEnv } from "@/app/features/messaging/services/realtime-call-ice-servers";
 const LAST_PAGE_STORAGE_KEY = "obscur-last-page";
 const getLastPageStorageKey = (): string => getScopedStorageKey(LAST_PAGE_STORAGE_KEY, getResolvedProfileId());
 const HISTORY_SYNC_NOTICE_FIRST_LOGIN_SEEN_KEY = "obscur.messaging.history_sync_notice.first_login_seen.v1";
@@ -172,6 +224,10 @@ type VoiceCallUiStatusState = Readonly<{
     role: "host" | "joiner";
     sinceUnixMs: number;
     reasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed";
+    /** M1-A negotiated type; omit = voice. */
+    callType?: "voice" | "video";
+    /** M1-B: local media outcome (audio_only_fallback → honesty banner). */
+    mediaMode?: CallLocalMediaMode;
 }>;
 type PendingIncomingVoiceInvite = Readonly<{
     messageId: string;
@@ -199,6 +255,8 @@ function NostrMessengerContent() {
     const { createdGroups, isNewGroupOpen, setIsNewGroupOpen, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, } = useGroups();
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [showWelcome] = useState(false);
+    /** Soft-lock slice 2: identity unlocked but DbState cannot accept writes. */
+    const [nativeSqliteWriteBlocked, setNativeSqliteWriteBlocked] = useState(false);
     const [pendingRequestsBadgeDismissed, setPendingRequestsBadgeDismissed] = useState(
         () => readRequestsPendingBadgeDismissed(),
     );
@@ -269,11 +327,17 @@ function NostrMessengerContent() {
     });
     // Feature hooks
     const { handleSendMessage, deleteMessageForMe, deleteMessageForEveryone, showMessageOnDeviceAgain, showAllHiddenMessagesOnDevice, toggleReaction, sendCeremonyViewModel, confirmSendCeremony, cancelSendCeremony, } = useChatActions(dmController);
+    const waitForWritableRelay = useCallback(
+        (timeoutMs: number) => relayPool.waitForScopedConnection([], timeoutMs),
+        [relayPool],
+    );
     const requestTransport = useRequestTransport({
         dmController,
         peerTrust,
         requestsInbox,
+        waitForWritableRelay,
     });
+    const [acceptRelayPendingPeers, setAcceptRelayPendingPeers] = useState<ReadonlySet<PublicKeyHex>>(() => new Set());
     const inviteStateBridge = useMemo(() => {
         const toLegacyRequest = (item: Readonly<{
             peerPublicKeyHex: PublicKeyHex;
@@ -432,13 +496,21 @@ function NostrMessengerContent() {
     const activeVoiceCallSessionRef = useRef<ActiveVoiceCallSession | null>(null);
     const voicePeerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const voiceLocalStreamRef = useRef<MediaStream | null>(null);
+    const voiceLocalMediaModeRef = useRef<CallLocalMediaMode>("audio");
     const voiceMicConsentResolverRef = useRef<((stream: MediaStream | null) => void) | null>(null);
     const [voiceMicConsentOpen, setVoiceMicConsentOpen] = useState(false);
+    const [voiceMediaConsentPurpose, setVoiceMediaConsentPurpose] = useState<MediaConsentPurpose>("voice_call");
     const voiceRemoteStreamRef = useRef<MediaStream | null>(null);
+    /** Bumps when local/remote MediaStream refs change so the global dock/stage can preview video. */
+    const [voiceCallMediaRevision, setVoiceCallMediaRevision] = useState(0);
+    const bumpVoiceCallMediaRevision = useCallback((): void => {
+        setVoiceCallMediaRevision((current) => current + 1);
+    }, []);
     const voiceRemoteAudioElementRef = useRef<HTMLAudioElement | null>(null);
     const voicePendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
     const voiceLocalAudioMonitorStopRef = useRef<(() => void) | null>(null);
     const voiceRemoteAudioMonitorStopRef = useRef<(() => void) | null>(null);
+    const voiceQualitySampleLastEmitUnixMsRef = useRef<number | null>(null);
     const processedVoiceSignalMessageIdsRef = useRef<Set<string>>(new Set());
     const voiceSignalsBootstrappedRef = useRef(false);
     const processedVoiceInviteMessageIdsRef = useRef<Set<string>>(new Set());
@@ -446,6 +518,9 @@ function NostrMessengerContent() {
     const deferredVoiceInviteMessageIdsRef = useRef<Set<string>>(new Set());
     const outgoingVoiceInviteRoomIdsRef = useRef<Set<string>>(new Set());
     const voiceCallJoinAcceptedAtByRoomRef = useRef<Map<string, number>>(new Map());
+    const voiceCallHostDialStartedAtByRoomRef = useRef<Map<string, number>>(new Map());
+    const voiceCallHostOfferSentAtByRoomRef = useRef<Map<string, number>>(new Map());
+    const voiceCallIceStunOnlyRef = useRef(true);
     const voiceCallLeaveTombstonesRef = useRef<Map<string, number>>(new Map());
     const incomingVoiceRingtoneIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const voiceJoinRequestRetryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -456,10 +531,13 @@ function NostrMessengerContent() {
     const voiceOfferRetryAttemptRef = useRef(0);
     const voiceCallConnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const voiceCallInterruptionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const voiceCallDisconnectGraceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const voiceCallConnectTimeoutKeyRef = useRef<string | null>(null);
     const voiceCallConnectTimeoutExtensionAttemptRef = useRef(0);
+    const voiceCallQualitySampleAtRef = useRef<number | null>(null);
     const voicePeerConnectionCreationRef = useRef<Promise<RTCPeerConnection | null> | null>(null);
     const voicePeerConnectionCreationKeyRef = useRef<string | null>(null);
+    const voiceHostOfferInFlightRef = useRef<HostOfferInFlightMap>(new Map());
     const voiceLeaveSignalRetryTimeoutsRef = useRef<Set<number>>(new Set());
     const leaveCallOnUnmountRef = useRef<() => void>(() => { });
     const relayStatusRef = useRef(relayStatus);
@@ -698,45 +776,109 @@ function NostrMessengerContent() {
         if (!dmController) {
             return false;
         }
-        try {
-            const result = await dmController.sendDm({
-                peerPublicKeyInput: params.peerPubkey,
-                plaintext: JSON.stringify(params.payload),
-                customTags: [["t", "voice-call-signal"]],
-            });
-            const hasImmediateRelayEvidence = (result.deliveryStatus === "sent_quorum"
-                || result.deliveryStatus === "sent_partial");
-            const hasLegacyRelayWriteEvidence = result.deliveryStatus === undefined
-                ? (result.success || result.relayResults.some((relayResult) => relayResult.success))
-                : false;
-            const signalSent = hasImmediateRelayEvidence || hasLegacyRelayWriteEvidence;
+        const attemptSend = async (): Promise<boolean> => {
+            try {
+                const result = await dmController.sendDm({
+                    peerPublicKeyInput: params.peerPubkey,
+                    plaintext: JSON.stringify(params.payload),
+                    customTags: [["t", "voice-call-signal"]],
+                });
+                const signalSent = isVoiceCallSignalDeliveryAccepted({
+                    deliveryStatus: result.deliveryStatus,
+                    success: result.success,
+                    partialWireDelivery: result.partialWireDelivery,
+                    eventId: result.eventId,
+                    relayResults: result.relayResults,
+                });
+                const provisional = signalSent
+                    && (result.deliveryStatus === "pending_ack"
+                        || (result.deliveryStatus === "failed" && result.partialWireDelivery === true));
+                logAppEvent({
+                    name: "messaging.realtime_voice.signal_send_result",
+                    level: signalSent ? (provisional ? "warn" : "info") : "warn",
+                    scope: { feature: "messaging", action: "realtime_voice_signal" },
+                    context: {
+                        status: signalSent ? (provisional ? "sent_provisional" : "sent") : "failed",
+                        deliveryStatus: result.deliveryStatus ?? "legacy",
+                        signalType: params.payload.signalType,
+                        roomIdHint: toRoomIdHint(params.payload.roomId),
+                        relayResultCount: result.relayResults.length,
+                        partialWireDelivery: result.partialWireDelivery === true,
+                    },
+                });
+                return signalSent;
+            }
+            catch {
+                logAppEvent({
+                    name: "messaging.realtime_voice.signal_send_result",
+                    level: "error",
+                    scope: { feature: "messaging", action: "realtime_voice_signal" },
+                    context: {
+                        status: "error",
+                        signalType: params.payload.signalType,
+                        roomIdHint: toRoomIdHint(params.payload.roomId),
+                    },
+                });
+                return false;
+            }
+        };
+        const first = await attemptSend();
+        if (first) {
+            return true;
+        }
+        // Past DM send dedup window (500ms); stamp sentAt so plaintext differs.
+        await new Promise<void>((resolve) => {
+            window.setTimeout(() => resolve(), 600);
+        });
+        const retryPayload: VoiceCallSignalPayload = {
+            ...params.payload,
+            sentAtUnixMs: Date.now(),
+        };
+        const retry = await (async (): Promise<boolean> => {
+            try {
+                const result = await dmController.sendDm({
+                    peerPublicKeyInput: params.peerPubkey,
+                    plaintext: JSON.stringify(retryPayload),
+                    customTags: [["t", "voice-call-signal"]],
+                });
+                const signalSent = isVoiceCallSignalDeliveryAccepted({
+                    deliveryStatus: result.deliveryStatus,
+                    success: result.success,
+                    partialWireDelivery: result.partialWireDelivery,
+                    eventId: result.eventId,
+                    relayResults: result.relayResults,
+                });
+                logAppEvent({
+                    name: "messaging.realtime_voice.signal_send_result",
+                    level: signalSent ? "info" : "warn",
+                    scope: { feature: "messaging", action: "realtime_voice_signal" },
+                    context: {
+                        status: signalSent ? "sent_retry" : "failed_retry",
+                        deliveryStatus: result.deliveryStatus ?? "legacy",
+                        signalType: params.payload.signalType,
+                        roomIdHint: toRoomIdHint(params.payload.roomId),
+                        relayResultCount: result.relayResults.length,
+                        partialWireDelivery: result.partialWireDelivery === true,
+                    },
+                });
+                return signalSent;
+            }
+            catch {
+                return false;
+            }
+        })();
+        if (retry) {
             logAppEvent({
-                name: "messaging.realtime_voice.signal_send_result",
-                level: signalSent ? "info" : "warn",
+                name: "messaging.realtime_voice.signal_send_retry_recovered",
+                level: "info",
                 scope: { feature: "messaging", action: "realtime_voice_signal" },
                 context: {
-                    status: signalSent ? "sent" : "failed",
-                    deliveryStatus: result.deliveryStatus ?? "legacy",
-                    signalType: params.payload.signalType,
-                    roomIdHint: toRoomIdHint(params.payload.roomId),
-                    relayResultCount: result.relayResults.length,
-                },
-            });
-            return signalSent;
-        }
-        catch {
-            logAppEvent({
-                name: "messaging.realtime_voice.signal_send_result",
-                level: "error",
-                scope: { feature: "messaging", action: "realtime_voice_signal" },
-                context: {
-                    status: "error",
                     signalType: params.payload.signalType,
                     roomIdHint: toRoomIdHint(params.payload.roomId),
                 },
             });
-            return false;
         }
+        return retry;
     }, [dmController]);
     useEffect(() => {
         sendVoiceSignalRef.current = sendVoiceSignal;
@@ -907,6 +1049,12 @@ function NostrMessengerContent() {
             updateVoiceWaveAudioLevel(params.channel, 0);
         }
     }, [stopVoiceAudioMonitor, updateVoiceWaveAudioLevel]);
+    const clearVoiceDisconnectGraceTimer = useCallback((): void => {
+        if (voiceCallDisconnectGraceTimeoutRef.current) {
+            clearTimeout(voiceCallDisconnectGraceTimeoutRef.current);
+            voiceCallDisconnectGraceTimeoutRef.current = null;
+        }
+    }, []);
     const clearVoiceCallTimers = useCallback((): void => {
         if (voiceCallConnectTimeoutRef.current) {
             clearTimeout(voiceCallConnectTimeoutRef.current);
@@ -916,7 +1064,8 @@ function NostrMessengerContent() {
             clearTimeout(voiceCallInterruptionTimeoutRef.current);
             voiceCallInterruptionTimeoutRef.current = null;
         }
-    }, []);
+        clearVoiceDisconnectGraceTimer();
+    }, [clearVoiceDisconnectGraceTimer]);
     const clearVoiceLeaveSignalRetryTimers = useCallback((): void => {
         const timeouts = voiceLeaveSignalRetryTimeoutsRef.current;
         timeouts.forEach((timeoutId) => {
@@ -955,14 +1104,19 @@ function NostrMessengerContent() {
             }
         });
         voiceLocalStreamRef.current = null;
-    }, [stopVoiceAudioMonitor]);
+        voiceLocalMediaModeRef.current = "audio";
+        bumpVoiceCallMediaRevision();
+    }, [bumpVoiceCallMediaRevision, stopVoiceAudioMonitor]);
     const clearVoiceRemoteStream = useCallback((): void => {
         stopVoiceAudioMonitor("remote");
         if (voiceRemoteAudioElementRef.current) {
             voiceRemoteAudioElementRef.current.srcObject = null;
         }
-        voiceRemoteStreamRef.current = null;
-    }, [stopVoiceAudioMonitor]);
+        if (voiceRemoteStreamRef.current) {
+            voiceRemoteStreamRef.current = null;
+            bumpVoiceCallMediaRevision();
+        }
+    }, [bumpVoiceCallMediaRevision, stopVoiceAudioMonitor]);
     const tearDownVoicePeerConnection = useCallback((params?: Readonly<{
         reasonCode?: "left_by_user" | "session_closed";
     }>): void => {
@@ -973,6 +1127,7 @@ function NostrMessengerContent() {
         clearVoiceOfferRetryInterval();
         voicePeerConnectionCreationRef.current = null;
         voicePeerConnectionCreationKeyRef.current = null;
+        voiceCallQualitySampleAtRef.current = null;
         const connection = voicePeerConnectionRef.current;
         if (connection) {
             connection.onicecandidate = null;
@@ -998,6 +1153,8 @@ function NostrMessengerContent() {
         setActiveVoiceCallUiState(null);
         if (previousSession) {
             voiceCallJoinAcceptedAtByRoomRef.current.delete(previousSession.roomId);
+            voiceCallHostDialStartedAtByRoomRef.current.delete(previousSession.roomId);
+            voiceCallHostOfferSentAtByRoomRef.current.delete(previousSession.roomId);
             setVoiceCallUiStatus({
                 roomId: previousSession.roomId,
                 peerPubkey: previousSession.peerPubkey,
@@ -1016,28 +1173,75 @@ function NostrMessengerContent() {
             return null;
         }
 
-        const permission = await queryMediaPermission("microphone");
-        // Single-step: OS/WebView owns first grant. In-app dialog is recovery only.
-        if (shouldRequestMediaPermissionDirectly(permission)) {
-            const result = await requestMediaStream({ kind: "microphone" });
-            if (result.ok) {
-                voiceLocalStreamRef.current = result.stream;
-                return result.stream;
+        const wantVideo = voiceCallUiStatusRef.current?.callType === "video";
+        // Always getUserMedia first — WebView owns the prompt. In-app dialog is
+        // recovery only after mic NotAllowedError (never trust permissions.query alone).
+        // M1-B: camera failure → audio_only_fallback (no camera consent loop).
+        const result = await acquireLocalCallMedia({
+            wantVideo,
+            labCanvasVideoEnabled: isLabCanvasVideoEnabled(),
+        });
+        if (result.ok) {
+            voiceLocalStreamRef.current = result.stream;
+            voiceLocalMediaModeRef.current = result.mediaMode;
+            bumpVoiceCallMediaRevision();
+            if (result.mediaMode === "audio_only_fallback") {
+                setVoiceCallUiStatus((current) => (
+                    current
+                        ? { ...current, mediaMode: "audio_only_fallback" }
+                        : current
+                ));
+                logAppEvent({
+                    name: "messaging.realtime_voice.camera_fallback",
+                    level: "info",
+                    scope: { feature: "messaging", action: "realtime_voice_media" },
+                    context: {
+                        cameraReasonCode: result.cameraReasonCode ?? "unknown",
+                        mediaMode: result.mediaMode,
+                    },
+                });
+            } else if (wantVideo && (result.mediaMode === "av" || result.mediaMode === "av_lab_canvas")) {
+                const mediaMode = result.mediaMode;
+                setVoiceCallUiStatus((current) => (
+                    current ? { ...current, mediaMode } : current
+                ));
+                if (mediaMode === "av_lab_canvas") {
+                    logAppEvent({
+                        name: "messaging.realtime_voice.lab_canvas_video",
+                        level: "info",
+                        scope: { feature: "messaging", action: "realtime_voice_media" },
+                        context: {
+                            mediaMode,
+                            cameraReasonCode: result.cameraReasonCode ?? "unknown",
+                        },
+                    });
+                }
             }
-            if (result.reasonCode !== "permission_denied") {
-                return null;
-            }
+            return result.stream;
+        }
+        if (!shouldOpenMediaConsentRecovery(result.reasonCode)) {
+            return null;
         }
 
         const stream = await new Promise<MediaStream | null>((resolve) => {
             voiceMicConsentResolverRef.current = resolve;
+            setVoiceMediaConsentPurpose(wantVideo ? "video_call" : "voice_call");
             setVoiceMicConsentOpen(true);
         });
         if (stream) {
             voiceLocalStreamRef.current = stream;
+            voiceLocalMediaModeRef.current = wantVideo ? "audio_only_fallback" : "audio";
+            bumpVoiceCallMediaRevision();
+            if (wantVideo) {
+                setVoiceCallUiStatus((current) => (
+                    current
+                        ? { ...current, mediaMode: "audio_only_fallback" }
+                        : current
+                ));
+            }
         }
         return stream;
-    }, []);
+    }, [bumpVoiceCallMediaRevision]);
 
     const closeVoiceMicConsent = useCallback((stream: MediaStream | null): void => {
         setVoiceMicConsentOpen(false);
@@ -1045,6 +1249,92 @@ function NostrMessengerContent() {
         voiceMicConsentResolverRef.current = null;
         resolver?.(stream);
     }, []);
+    const failVoicePeerConnectionStart = useCallback((params: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        role: "host" | "joiner";
+    }>): void => {
+        const honesty = resolveVoicePeerConnectionStartFailureUi();
+        activeVoiceCallSessionRef.current = null;
+        setActiveVoiceCallUiState(null);
+        setVoiceCallUiStatus({
+            roomId: params.roomId,
+            peerPubkey: params.peerPubkey,
+            phase: honesty.phase,
+            role: params.role,
+            sinceUnixMs: Date.now(),
+            reasonCode: honesty.reasonCode,
+        });
+        logAppEvent({
+            name: "messaging.realtime_voice.peer_connection_start_failed",
+            level: "warn",
+            scope: { feature: "messaging", action: "realtime_voice_signal" },
+            context: {
+                status: honesty.logStatus,
+                roomIdHint: toRoomIdHint(params.roomId),
+                role: params.role,
+            },
+        });
+        toast.error(t(honesty.toastKey));
+    }, [t]);
+    const failVoiceOfferDispatch = useCallback((params: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        role: "host" | "joiner";
+    }>): void => {
+        const honesty = resolveVoiceOfferDispatchFailureUi();
+        tearDownVoicePeerConnection({ reasonCode: "session_closed" });
+        activeVoiceCallSessionRef.current = null;
+        setActiveVoiceCallUiState(null);
+        setVoiceCallUiStatus({
+            roomId: params.roomId,
+            peerPubkey: params.peerPubkey,
+            phase: honesty.phase,
+            role: params.role,
+            sinceUnixMs: Date.now(),
+            reasonCode: honesty.reasonCode,
+        });
+        logAppEvent({
+            name: "messaging.realtime_voice.offer_dispatch_failed",
+            level: "warn",
+            scope: { feature: "messaging", action: "realtime_voice_signal" },
+            context: {
+                status: honesty.logStatus,
+                roomIdHint: toRoomIdHint(params.roomId),
+                role: params.role,
+            },
+        });
+        toast.error(t(honesty.toastKey));
+    }, [t, tearDownVoicePeerConnection]);
+    const failVoiceAnswerDispatch = useCallback((params: Readonly<{
+        roomId: string;
+        peerPubkey: string;
+        role: "host" | "joiner";
+    }>): void => {
+        const honesty = resolveVoiceAnswerDispatchFailureUi();
+        tearDownVoicePeerConnection({ reasonCode: "session_closed" });
+        activeVoiceCallSessionRef.current = null;
+        setActiveVoiceCallUiState(null);
+        setVoiceCallUiStatus({
+            roomId: params.roomId,
+            peerPubkey: params.peerPubkey,
+            phase: honesty.phase,
+            role: params.role,
+            sinceUnixMs: Date.now(),
+            reasonCode: honesty.reasonCode,
+        });
+        logAppEvent({
+            name: "messaging.realtime_voice.answer_dispatch_failed",
+            level: "warn",
+            scope: { feature: "messaging", action: "realtime_voice_signal" },
+            context: {
+                status: honesty.logStatus,
+                roomIdHint: toRoomIdHint(params.roomId),
+                role: params.role,
+            },
+        });
+        toast.error(t(honesty.toastKey));
+    }, [t, tearDownVoicePeerConnection]);
     const ensureVoicePeerConnection = useCallback(async (session: ActiveVoiceCallSession): Promise<RTCPeerConnection | null> => {
         if (voicePeerConnectionRef.current
             && activeVoiceCallSessionRef.current?.roomId === session.roomId
@@ -1069,19 +1359,29 @@ function NostrMessengerContent() {
             if (typeof RTCPeerConnection !== "function") {
                 return null;
             }
-            const connection = new RTCPeerConnection({
-                iceServers: [
-                    { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:global.stun.twilio.com:3478" },
-                ],
+            const iceResolution = resolveRealtimeCallIceServersFromEnv();
+            voiceCallIceStunOnlyRef.current = iceResolution.stunOnly;
+            logAppEvent({
+                name: "messaging.realtime_voice.ice_config",
+                level: iceResolution.stunOnly ? "warn" : "info",
+                scope: { feature: "messaging", action: "realtime_voice_signal" },
+                context: {
+                    roomIdHint: toRoomIdHint(session.roomId),
+                    role: session.role,
+                    stunOnly: iceResolution.stunOnly,
+                    hasTurn: iceResolution.hasTurn,
+                    stunUrlCount: iceResolution.stunUrlCount,
+                    turnUrlCount: iceResolution.turnUrlCount,
+                },
             });
-            stream.getTracks().forEach((track) => {
-                try {
-                    connection.addTrack(track, stream);
-                }
-                catch {
-                    // best effort
-                }
+            const connection = new RTCPeerConnection({
+                iceServers: [...iceResolution.iceServers],
+            });
+            const wantVideoReceive = voiceCallUiStatusRef.current?.callType === "video";
+            attachLocalMediaToPeerConnection({
+                connection,
+                stream,
+                wantVideoReceive,
             });
             connection.onicecandidate = (event): void => {
                 const liveSession = activeVoiceCallSessionRef.current;
@@ -1122,6 +1422,7 @@ function NostrMessengerContent() {
                 }
                 const remoteStream = event.streams[0] ?? new MediaStream([event.track]);
                 voiceRemoteStreamRef.current = remoteStream;
+                bumpVoiceCallMediaRevision();
                 const audioElement = voiceRemoteAudioElementRef.current;
                 if (audioElement) {
                     audioElement.srcObject = remoteStream;
@@ -1157,9 +1458,56 @@ function NostrMessengerContent() {
                         roomIdHint: toRoomIdHint(session.roomId),
                         connectionState: state,
                         role: session.role,
+                        stunOnly: voiceCallIceStunOnlyRef.current,
                     },
                 });
+                const markNetworkInterrupted = (): void => {
+                    clearVoiceDisconnectGraceTimer();
+                    setVoiceCallUiStatus((previous) => ({
+                        roomId: session.roomId,
+                        peerPubkey: session.peerPubkey,
+                        phase: "interrupted",
+                        role: session.role,
+                        sinceUnixMs: Date.now(),
+                        reasonCode: "network_interrupted",
+                        ...preserveVoiceCallUiStatusMedia({
+                            roomId: session.roomId,
+                            previous,
+                        }),
+                    }));
+                    realtimeVoiceSessionOwnerRef.current.transportDegraded({
+                        reasonCode: "network_degraded",
+                        eventUnixMs: Date.now(),
+                    });
+                };
+                const graceAction = resolveRealtimeCallConnectionStateAction({
+                    connectionState: state,
+                    gracePending: voiceCallDisconnectGraceTimeoutRef.current !== null,
+                });
+                if (graceAction === "cancel_grace") {
+                    clearVoiceDisconnectGraceTimer();
+                }
+                else if (graceAction === "start_grace") {
+                    voiceCallDisconnectGraceTimeoutRef.current = setTimeout(() => {
+                        voiceCallDisconnectGraceTimeoutRef.current = null;
+                        const stillLive = activeVoiceCallSessionRef.current;
+                        const liveConnection = voicePeerConnectionRef.current;
+                        if (!stillLive
+                            || stillLive.roomId !== session.roomId
+                            || stillLive.peerPubkey !== session.peerPubkey
+                            || liveConnection !== connection) {
+                            return;
+                        }
+                        if (shouldEndCallAfterDisconnectGrace(connection.connectionState)) {
+                            markNetworkInterrupted();
+                        }
+                    }, REALTIME_CALL_DISCONNECT_GRACE_MS);
+                }
+                else if (graceAction === "end_interrupted") {
+                    markNetworkInterrupted();
+                }
                 if (state === "connected") {
+                    const connectedAtUnixMs = Date.now();
                     if (session.role === "joiner") {
                         const acceptedAtUnixMs = voiceCallJoinAcceptedAtByRoomRef.current.get(session.roomId) ?? null;
                         if (acceptedAtUnixMs !== null) {
@@ -1170,40 +1518,48 @@ function NostrMessengerContent() {
                                 context: {
                                     roomIdHint: toRoomIdHint(session.roomId),
                                     peerPubkeySuffix: session.peerPubkey.slice(-8),
-                                    acceptToConnectedElapsedMs: Math.max(0, Date.now() - acceptedAtUnixMs),
+                                    acceptToConnectedElapsedMs: Math.max(0, connectedAtUnixMs - acceptedAtUnixMs),
                                 },
                             });
                         }
                         voiceCallJoinAcceptedAtByRoomRef.current.delete(session.roomId);
                     }
-                    setVoiceCallUiStatus({
+                    else if (session.role === "host") {
+                        const hostContext = buildRealtimeCallHostConnectedContext({
+                            roomIdHint: toRoomIdHint(session.roomId),
+                            peerPubkeySuffix: session.peerPubkey.slice(-8),
+                            dialStartedAtUnixMs: voiceCallHostDialStartedAtByRoomRef.current.get(session.roomId),
+                            offerSentAtUnixMs: voiceCallHostOfferSentAtByRoomRef.current.get(session.roomId),
+                            connectedAtUnixMs,
+                        });
+                        logAppEvent({
+                            name: "messaging.realtime_voice.host_connected",
+                            level: "info",
+                            scope: { feature: "messaging", action: "realtime_voice_signal" },
+                            context: hostContext,
+                        });
+                        voiceCallHostDialStartedAtByRoomRef.current.delete(session.roomId);
+                        voiceCallHostOfferSentAtByRoomRef.current.delete(session.roomId);
+                    }
+                    setVoiceCallUiStatus((previous) => ({
                         roomId: session.roomId,
                         peerPubkey: session.peerPubkey,
                         phase: "connected",
                         role: session.role,
-                        sinceUnixMs: Date.now(),
-                    });
+                        sinceUnixMs: connectedAtUnixMs,
+                        ...preserveVoiceCallUiStatusMedia({
+                            roomId: session.roomId,
+                            previous,
+                        }),
+                    }));
                     realtimeVoiceSessionOwnerRef.current.connected({
                         participantCount: 2,
                         hasPeerSessionEvidence: true,
-                        eventUnixMs: Date.now(),
-                    });
-                }
-                else if (state === "disconnected" || state === "failed") {
-                    setVoiceCallUiStatus({
-                        roomId: session.roomId,
-                        peerPubkey: session.peerPubkey,
-                        phase: "interrupted",
-                        role: session.role,
-                        sinceUnixMs: Date.now(),
-                        reasonCode: "network_interrupted",
-                    });
-                    realtimeVoiceSessionOwnerRef.current.transportDegraded({
-                        reasonCode: "network_degraded",
-                        eventUnixMs: Date.now(),
+                        eventUnixMs: connectedAtUnixMs,
                     });
                 }
                 else if (state === "closed") {
+                    clearVoiceDisconnectGraceTimer();
                     realtimeVoiceSessionOwnerRef.current.closed({ eventUnixMs: Date.now() });
                 }
             };
@@ -1232,13 +1588,17 @@ function NostrMessengerContent() {
                 role: session.role,
                 connectionState: connection.connectionState,
             });
-            setVoiceCallUiStatus({
+            setVoiceCallUiStatus((previous) => ({
                 roomId: session.roomId,
                 peerPubkey: session.peerPubkey,
                 phase: "connecting",
                 role: session.role,
                 sinceUnixMs: Date.now(),
-            });
+                ...preserveVoiceCallUiStatusMedia({
+                    roomId: session.roomId,
+                    previous,
+                }),
+            }));
             return connection;
         })();
         voicePeerConnectionCreationRef.current = createConnectionPromise;
@@ -1251,7 +1611,7 @@ function NostrMessengerContent() {
                 voicePeerConnectionCreationKeyRef.current = null;
             }
         }
-    }, [ensureVoiceLocalStream, myPublicKeyHex, sendVoiceSignal, tearDownVoicePeerConnection]);
+    }, [bumpVoiceCallMediaRevision, clearVoiceDisconnectGraceTimer, ensureVoiceLocalStream, myPublicKeyHex, sendVoiceSignal, tearDownVoicePeerConnection]);
     const dispatchVoiceLeaveSignalWithRetry = useCallback((params: Readonly<{
         roomId: string;
         peerPubkey: string;
@@ -1294,7 +1654,9 @@ function NostrMessengerContent() {
         };
         dispatch();
     }, [clearVoiceLeaveSignalRetryTimers, myPublicKeyHex]);
-    const handleSendVoiceCallInvite = useCallback(async (): Promise<void> => {
+    const handleSendVoiceCallInvite = useCallback(async (
+        requestedCallType: "voice" | "video" = "voice",
+    ): Promise<void> => {
         if (!REALTIME_VOICE_CALLS_ENABLED) {
             return;
         }
@@ -1308,126 +1670,282 @@ function NostrMessengerContent() {
         if (isSendingVoiceCallInvite) {
             return;
         }
-        setIsSendingVoiceCallInvite(true);
-        const nowUnixMs = Date.now();
-        const roomToken = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-            ? crypto.randomUUID()
-            : `${nowUnixMs.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-        const roomId = `dm-voice-${roomToken}`;
-        const expiresAtUnixMs = nowUnixMs + (5 * 60 * 1000);
-        const payload = {
-            type: "voice-call-invite",
-            version: 1,
-            roomId,
-            invitedAtUnixMs: nowUnixMs,
-            expiresAtUnixMs,
-            fromPubkey: myPublicKeyHex ?? null,
-        } as const;
-        logAppEvent({
-            name: "messaging.realtime_voice.invite_send_attempt",
-            level: "info",
-            scope: { feature: "messaging", action: "realtime_voice_invite" },
-            context: {
-                conversationKind: selectedConversationView.kind,
-                roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
-            },
-        });
-        try {
-            const result = await dmController.sendDm({
-                peerPublicKeyInput: selectedConversationView.pubkey,
-                plaintext: JSON.stringify(payload),
-                customTags: [["t", "voice-call-invite"]],
-                waitForConfirmation: true,
-                suppressPublishFeedbackToast: true,
+        if (!canStartVoiceCallInviteWhileLineIdle({ phase: voiceCallUiStatusRef.current?.phase })) {
+            toast.info(t(
+                "messaging.voiceCallLineBusyDialBlocked",
+                "Already in a call — end it before starting another.",
+            ));
+            return;
+        }
+        const openRelayCount = relayStatusRef.current.openCount;
+        if (!canStartVoiceCallInviteDial({ openRelayCount })) {
+            logAppEvent({
+                name: "messaging.realtime_voice.invite_send_result",
+                level: "warn",
+                scope: { feature: "messaging", action: "realtime_voice_invite" },
+                context: {
+                    status: "blocked_no_open_relay",
+                    openRelayCount,
+                    configuredRelayCount: relayStatusRef.current.total,
+                    callType: requestedCallType,
+                },
             });
-            const inviteConfirmed = isVoiceCallInviteDeliveryAccepted(result.deliveryStatus);
-            const inviteProvisional = shouldStartVoiceCallInviteSession({
-                deliveryStatus: result.deliveryStatus,
-                partialWireDelivery: result.partialWireDelivery,
-                eventId: result.eventId || result.messageId,
-            }) && !inviteConfirmed;
-            const inviteStart = inviteConfirmed || inviteProvisional;
-            if (!inviteStart) {
+            toast.error(t(
+                requestedCallType === "video"
+                    ? "messaging.videoCallInviteNoOpenRelay"
+                    : "messaging.voiceCallInviteNoOpenRelay",
+                requestedCallType === "video"
+                    ? "No open relays — enable a relay in Settings → Relays, then retry the video call."
+                    : "No open relays — enable a relay in Settings → Relays, then retry the voice call.",
+            ));
+            return;
+        }
+        const dialPeerPubkey = selectedConversationView.pubkey;
+        const peerIsOnline = presence.isPeerOnline(dialPeerPubkey)
+            || isRecentPresenceEvidenceActive({
+                nowMs: Date.now(),
+                lastObservedAtMs: peerLastActiveByPeerPubkey[dialPeerPubkey],
+            });
+        if (shouldWarnOfflinePeerBeforeVoiceInviteDial({ peerIsOnline })) {
+            toast.warning(t(
+                requestedCallType === "video"
+                    ? "messaging.videoCallInvitePeerOffline"
+                    : "messaging.voiceCallInvitePeerOffline",
+                "This contact looks offline — they may not see the invite until they reconnect.",
+            ));
+        }
+        setIsSendingVoiceCallInvite(true);
+        let dialMediaMode: CallLocalMediaMode = requestedCallType === "video" ? "av" : "audio";
+        try {
+            if (requestedCallType === "video") {
+                const preflight = await prepareLocalMediaForCallDial({
+                    wantVideo: true,
+                    labCanvasVideoEnabled: isLabCanvasVideoEnabled(),
+                    existingStream: voiceLocalStreamRef.current,
+                    existingMediaMode: voiceLocalMediaModeRef.current,
+                });
                 logAppEvent({
-                    name: "messaging.realtime_voice.invite_send_result",
-                    level: "warn",
+                    name: "messaging.realtime_voice.video_dial_preflight",
+                    level: preflight.ok ? "info" : "warn",
                     scope: { feature: "messaging", action: "realtime_voice_invite" },
                     context: {
-                        status: result.deliveryStatus === "queued_retrying" ? "queued" : "failed",
+                        ok: preflight.ok,
+                        microphoneCount: preflight.microphoneCount,
+                        cameraCount: preflight.cameraCount,
+                        mediaMode: preflight.ok ? preflight.mediaMode : null,
+                        reasonCode: preflight.ok ? (preflight.cameraReasonCode ?? null) : preflight.reasonCode,
+                    },
+                });
+                if (!preflight.ok) {
+                    if (preflight.needsConsentRecovery) {
+                        const stream = await new Promise<MediaStream | null>((resolve) => {
+                            voiceMicConsentResolverRef.current = resolve;
+                            setVoiceMediaConsentPurpose("video_call");
+                            setVoiceMicConsentOpen(true);
+                        });
+                        if (!stream) {
+                            toast.error(t(
+                                "messaging.videoCallMediaPermissionDenied",
+                                "Camera or microphone permission is required for a video call.",
+                            ));
+                            return;
+                        }
+                        voiceLocalStreamRef.current = stream;
+                        voiceLocalMediaModeRef.current = "audio_only_fallback";
+                        bumpVoiceCallMediaRevision();
+                        dialMediaMode = "audio_only_fallback";
+                        toast.info(t(
+                            CAMERA_UNAVAILABLE_BANNER_I18N_KEY,
+                            CAMERA_UNAVAILABLE_BANNER_DEFAULT,
+                        ));
+                    }
+                    else {
+                        toast.error(t(
+                            "messaging.videoCallMediaUnavailable",
+                            "Microphone is unavailable — cannot start a video call.",
+                        ));
+                        return;
+                    }
+                }
+                else {
+                    voiceLocalStreamRef.current = preflight.stream;
+                    voiceLocalMediaModeRef.current = preflight.mediaMode;
+                    bumpVoiceCallMediaRevision();
+                    dialMediaMode = preflight.mediaMode;
+                    if (preflight.mediaMode === "audio_only_fallback") {
+                        toast.info(t(
+                            CAMERA_UNAVAILABLE_BANNER_I18N_KEY,
+                            CAMERA_UNAVAILABLE_BANNER_DEFAULT,
+                        ));
+                    }
+                }
+            }
+            const nowUnixMs = Date.now();
+            const roomToken = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `${nowUnixMs.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+            const roomId = `dm-voice-${roomToken}`;
+            const expiresAtUnixMs = nowUnixMs + (5 * 60 * 1000);
+            const localCapability = getRealtimeVoiceCapability();
+            const payload = createVoiceCallInvitePayload({
+                roomId,
+                invitedAtUnixMs: nowUnixMs,
+                expiresAtUnixMs,
+                fromPubkey: myPublicKeyHex ?? null,
+                callType: requestedCallType,
+                capabilities: { video: localCapability.supportsVideo },
+            });
+            logAppEvent({
+                name: "messaging.realtime_voice.invite_send_attempt",
+                level: "info",
+                scope: { feature: "messaging", action: "realtime_voice_invite" },
+                context: {
+                    conversationKind: selectedConversationView.kind,
+                    roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
+                    openRelayCount,
+                    callType: requestedCallType,
+                },
+            });
+            try {
+                const result = await dmController.sendDm({
+                    peerPublicKeyInput: selectedConversationView.pubkey,
+                    plaintext: JSON.stringify(payload),
+                    customTags: [["t", "voice-call-invite"]],
+                    waitForConfirmation: true,
+                    suppressPublishFeedbackToast: true,
+                });
+                const inviteConfirmed = isVoiceCallInviteDeliveryAccepted(result.deliveryStatus);
+                const inviteProvisional = shouldStartVoiceCallInviteSession({
+                    deliveryStatus: result.deliveryStatus,
+                    partialWireDelivery: result.partialWireDelivery,
+                    eventId: result.eventId || result.messageId,
+                }) && !inviteConfirmed;
+                const inviteStart = inviteConfirmed || inviteProvisional;
+                if (!inviteStart) {
+                    logAppEvent({
+                        name: "messaging.realtime_voice.invite_send_result",
+                        level: "warn",
+                        scope: { feature: "messaging", action: "realtime_voice_invite" },
+                        context: {
+                            status: result.deliveryStatus === "queued_retrying" ? "queued" : "failed",
+                            deliveryStatus: result.deliveryStatus ?? "unknown",
+                            roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
+                            relayResultCount: result.relayResults.length,
+                            hasError: !!result.error,
+                            partialWireDelivery: result.partialWireDelivery === true,
+                            reasonCode: result.reasonCode ?? null,
+                            callType: requestedCallType,
+                        },
+                    });
+                    if (requestedCallType === "video") {
+                        stopVoiceLocalStream();
+                    }
+                    if (result.deliveryStatus === "queued_retrying") {
+                        toast.warning(t(
+                            requestedCallType === "video"
+                                ? "messaging.videoCallInviteQueued"
+                                : "messaging.voiceCallInviteQueued",
+                        ));
+                    }
+                    else {
+                        toast.error(
+                            getRelayPublishFailureUserMessage({
+                                reasonCode: result.reasonCode,
+                                error: result.error,
+                                successCount: result.relayResults.filter((r) => r.success).length,
+                                totalRelays: result.relayResults.length,
+                                partialWireDelivery: result.partialWireDelivery,
+                            }) || t(
+                                requestedCallType === "video"
+                                    ? "messaging.videoCallInviteSendFailed"
+                                    : "messaging.voiceCallInviteSendFailed",
+                            ),
+                        );
+                    }
+                    return;
+                }
+                logAppEvent({
+                    name: "messaging.realtime_voice.invite_send_result",
+                    level: inviteConfirmed && result.deliveryStatus === "sent_quorum" ? "info" : "warn",
+                    scope: { feature: "messaging", action: "realtime_voice_invite" },
+                    context: {
+                        status: inviteConfirmed
+                            ? (result.deliveryStatus === "sent_quorum" ? "sent" : "partial")
+                            : "provisional_wire",
                         deliveryStatus: result.deliveryStatus ?? "unknown",
                         roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
                         relayResultCount: result.relayResults.length,
-                        hasError: !!result.error,
                         partialWireDelivery: result.partialWireDelivery === true,
-                        reasonCode: result.reasonCode ?? null,
+                        callType: requestedCallType,
                     },
                 });
-                if (result.deliveryStatus === "queued_retrying") {
-                    toast.warning(t("messaging.voiceCallInviteQueued"));
+                outgoingVoiceInviteRoomIdsRef.current.add(roomId);
+                const dialStartedAtUnixMs = Date.now();
+                voiceCallHostDialStartedAtByRoomRef.current.set(roomId, dialStartedAtUnixMs);
+                setVoiceCallUiStatus({
+                    roomId,
+                    peerPubkey: selectedConversationView.pubkey,
+                    phase: "ringing_outgoing",
+                    role: "host",
+                    sinceUnixMs: dialStartedAtUnixMs,
+                    callType: requestedCallType,
+                    mediaMode: requestedCallType === "video" ? dialMediaMode : undefined,
+                });
+                if (inviteConfirmed && result.deliveryStatus === "sent_quorum") {
+                    toast.success(t(
+                        requestedCallType === "video"
+                            ? "messaging.videoCallInviteSent"
+                            : "messaging.voiceCallInviteSent",
+                    ));
+                }
+                else if (inviteConfirmed) {
+                    toast.warning(t(
+                        requestedCallType === "video"
+                            ? "messaging.videoCallInviteSentPartial"
+                            : "messaging.voiceCallInviteSentPartial",
+                    ));
                 }
                 else {
-                    toast.error(
-                        getRelayPublishFailureUserMessage({
-                            reasonCode: result.reasonCode,
-                            error: result.error,
-                            successCount: result.relayResults.filter((r) => r.success).length,
-                            totalRelays: result.relayResults.length,
-                            partialWireDelivery: result.partialWireDelivery,
-                        }) || t("messaging.voiceCallInviteSendFailed"),
-                    );
+                    toast.warning(getRelayPublishFailureUserMessage({
+                        partialWireDelivery: true,
+                    }));
                 }
-                return;
             }
-            logAppEvent({
-                name: "messaging.realtime_voice.invite_send_result",
-                level: inviteConfirmed && result.deliveryStatus === "sent_quorum" ? "info" : "warn",
-                scope: { feature: "messaging", action: "realtime_voice_invite" },
-                context: {
-                    status: inviteConfirmed
-                        ? (result.deliveryStatus === "sent_quorum" ? "sent" : "partial")
-                        : "provisional_wire",
-                    deliveryStatus: result.deliveryStatus ?? "unknown",
-                    roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
-                    relayResultCount: result.relayResults.length,
-                    partialWireDelivery: result.partialWireDelivery === true,
-                },
-            });
-            outgoingVoiceInviteRoomIdsRef.current.add(roomId);
-            setVoiceCallUiStatus({
-                roomId,
-                peerPubkey: selectedConversationView.pubkey,
-                phase: "ringing_outgoing",
-                role: "host",
-                sinceUnixMs: Date.now(),
-            });
-            if (inviteConfirmed && result.deliveryStatus === "sent_quorum") {
-                toast.success(t("messaging.voiceCallInviteSent"));
+            catch {
+                logAppEvent({
+                    name: "messaging.realtime_voice.invite_send_result",
+                    level: "error",
+                    scope: { feature: "messaging", action: "realtime_voice_invite" },
+                    context: {
+                        status: "error",
+                        roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
+                        callType: requestedCallType,
+                    },
+                });
+                if (requestedCallType === "video") {
+                    stopVoiceLocalStream();
+                }
+                toast.error(t(
+                    requestedCallType === "video"
+                        ? "messaging.videoCallInviteSendFailed"
+                        : "messaging.voiceCallInviteSendFailed",
+                ));
             }
-            else if (inviteConfirmed) {
-                toast.warning(t("messaging.voiceCallInviteSentPartial"));
-            }
-            else {
-                toast.warning(getRelayPublishFailureUserMessage({
-                    partialWireDelivery: true,
-                }));
-            }
-        }
-        catch {
-            logAppEvent({
-                name: "messaging.realtime_voice.invite_send_result",
-                level: "error",
-                scope: { feature: "messaging", action: "realtime_voice_invite" },
-                context: {
-                    status: "error",
-                    roomIdHint: `${roomId.slice(0, 8)}...${roomId.slice(-8)}`,
-                },
-            });
-            toast.error(t("messaging.voiceCallInviteSendFailed"));
         }
         finally {
             setIsSendingVoiceCallInvite(false);
         }
-    }, [dmController, isSendingVoiceCallInvite, myPublicKeyHex, selectedConversationView, t]);
+    }, [
+        bumpVoiceCallMediaRevision,
+        dmController,
+        isSendingVoiceCallInvite,
+        myPublicKeyHex,
+        peerLastActiveByPeerPubkey,
+        presence,
+        selectedConversationView,
+        stopVoiceLocalStream,
+        t,
+    ]);
     useEffect(() => {
         if (!REALTIME_VOICE_CALLS_ENABLED) {
             clearPendingVoiceCallRequest();
@@ -1546,6 +2064,23 @@ function NostrMessengerContent() {
                     role: "joiner",
                     connectionState: "connecting",
                 });
+                // Join from card or accept toast must keep wire video intent (same-machine dual
+                // profile may lose the camera, not the video stage chrome).
+                const joinCallType = resolveCallTypeFromInvite({
+                    inviteCallType: params.invite.callType,
+                    inviteAdvertisesVideo: params.invite.capabilities?.video,
+                    localSupportsVideo: getRealtimeVoiceCapability().supportsVideo,
+                });
+                setVoiceCallUiStatus((previous) => ({
+                    roomId,
+                    peerPubkey: targetPeerPubkey,
+                    phase: "connecting",
+                    role: "joiner",
+                    sinceUnixMs: Date.now(),
+                    ...preserveVoiceCallUiStatusMedia({ roomId, previous }),
+                    // Wire invite wins — do not keep a prior voice demotion.
+                    callType: joinCallType,
+                }));
                 const joinSignal = createVoiceCallSignalPayload({
                     roomId,
                     signalType: "join-request",
@@ -1591,6 +2126,8 @@ function NostrMessengerContent() {
                     activeVoiceCallSessionRef.current = null;
                     setActiveVoiceCallUiState(null);
                     voiceCallJoinAcceptedAtByRoomRef.current.delete(roomId);
+                    voiceCallHostDialStartedAtByRoomRef.current.delete(roomId);
+                    voiceCallHostOfferSentAtByRoomRef.current.delete(roomId);
                     setVoiceCallUiStatus({
                         roomId,
                         peerPubkey: targetPeerPubkey,
@@ -1691,17 +2228,20 @@ function NostrMessengerContent() {
                 });
                 return;
             }
-            const existingSession = activeVoiceCallSessionRef.current;
-            const existingConnection = voicePeerConnectionRef.current;
-            if (existingSession
-                && existingSession.role === "host"
-                && existingSession.roomId === signal.roomId
-                && existingSession.peerPubkey === peerPubkey
-                && existingConnection
-                && existingConnection.localDescription
-                && existingConnection.localDescription.type === "offer"
-                && typeof existingConnection.localDescription.sdp === "string"
-                && existingConnection.localDescription.sdp.length > 0) {
+            const resendExistingHostOffer = async (): Promise<boolean | null> => {
+                const existingSession = activeVoiceCallSessionRef.current;
+                const existingConnection = voicePeerConnectionRef.current;
+                if (!(existingSession
+                    && existingSession.role === "host"
+                    && existingSession.roomId === signal.roomId
+                    && existingSession.peerPubkey === peerPubkey
+                    && existingConnection
+                    && existingConnection.localDescription
+                    && existingConnection.localDescription.type === "offer"
+                    && typeof existingConnection.localDescription.sdp === "string"
+                    && existingConnection.localDescription.sdp.length > 0)) {
+                    return null;
+                }
                 const localDescription = existingConnection.localDescription;
                 const resentOffer = await sendVoiceSignal({
                     peerPubkey,
@@ -1726,130 +2266,178 @@ function NostrMessengerContent() {
                         status: resentOffer ? "sent" : "failed",
                     },
                 });
-                return;
-            }
-            const capability = getRealtimeVoiceCapability();
-            const next = realtimeVoiceSessionOwnerRef.current.start({
-                roomId: signal.roomId,
-                mode: "create",
-                capability,
-                eventUnixMs: Date.now(),
-            });
-            if (next.phase === "unsupported") {
-                toast.warning(t("messaging.voiceCallJoinUnsupported"));
-                return;
-            }
-            const session: ActiveVoiceCallSession = {
-                roomId: signal.roomId,
-                peerPubkey,
-                role: "host",
+                return resentOffer;
             };
-            setActiveVoiceCallUiState({
+            // Single-flight: concurrent join-request (dupes + joiner retries) must not
+            // double createOffer and tear down a healthy accept path.
+            let hostOfferSoftAbort = false;
+            const offerSent = await runHostOfferDispatchCoalesced({
                 roomId: signal.roomId,
-                peerPubkey,
-                role: "host",
-                connectionState: "connecting",
-            });
-            const connection = await ensureVoicePeerConnection(session);
-            if (!connection) {
-                return;
-            }
-            const dispatchHostOffer = async (targetConnection: RTCPeerConnection): Promise<boolean> => {
-                const offer = await targetConnection.createOffer({
-                    offerToReceiveAudio: true,
-                });
-                await targetConnection.setLocalDescription(offer);
-                if (!targetConnection.localDescription) {
-                    return false;
-                }
-                return await sendVoiceSignal({
-                    peerPubkey,
-                    payload: createVoiceCallSignalPayload({
+                inFlight: voiceHostOfferInFlightRef.current,
+                dispatch: async (): Promise<boolean> => {
+                    const existingResend = await resendExistingHostOffer();
+                    if (existingResend !== null) {
+                        return existingResend;
+                    }
+                    const capability = getRealtimeVoiceCapability();
+                    const next = realtimeVoiceSessionOwnerRef.current.start({
                         roomId: signal.roomId,
-                        signalType: "offer",
-                        fromPubkey: myPublicKeyHex,
-                        toPubkey: peerPubkey,
-                        sdp: {
-                            type: targetConnection.localDescription.type,
-                            sdp: targetConnection.localDescription.sdp,
-                        },
-                    }),
-                });
-            };
-            let offerSent = false;
-            let offerDispatchRecovered = false;
-            try {
-                offerSent = await dispatchHostOffer(connection);
-            }
-            catch (error) {
-                const errorMessage = error instanceof Error ? error.message : String(error ?? "unknown");
-                const mLineOrderMismatch = /order of m-lines/i.test(errorMessage);
-                logAppEvent({
-                    name: "messaging.realtime_voice.join_offer_create_failed",
-                    level: "warn",
-                    scope: { feature: "messaging", action: "realtime_voice_signal" },
-                    context: {
-                        roomIdHint: toRoomIdHint(signal.roomId),
-                        peerPubkeySuffix: peerPubkey.slice(-8),
-                        signalingState: connection.signalingState,
-                        connectionState: connection.connectionState,
-                        reasonCode: mLineOrderMismatch ? "mline_order_mismatch" : "offer_create_failed",
-                        errorMessage,
-                    },
-                });
-                if (mLineOrderMismatch) {
-                    tearDownVoicePeerConnection({ reasonCode: "session_closed" });
-                    const resetConnection = await ensureVoicePeerConnection(session);
-                    if (resetConnection) {
-                        try {
-                            offerSent = await dispatchHostOffer(resetConnection);
-                            offerDispatchRecovered = true;
+                        mode: "create",
+                        capability,
+                        eventUnixMs: Date.now(),
+                    });
+                    if (next.phase === "unsupported") {
+                        toast.warning(t("messaging.voiceCallJoinUnsupported"));
+                        hostOfferSoftAbort = true;
+                        return false;
+                    }
+                    const session: ActiveVoiceCallSession = {
+                        roomId: signal.roomId,
+                        peerPubkey,
+                        role: "host",
+                    };
+                    setActiveVoiceCallUiState({
+                        roomId: signal.roomId,
+                        peerPubkey,
+                        role: "host",
+                        connectionState: "connecting",
+                    });
+                    const connection = await ensureVoicePeerConnection(session);
+                    if (!connection) {
+                        failVoicePeerConnectionStart({
+                            roomId: signal.roomId,
+                            peerPubkey,
+                            role: "host",
+                        });
+                        hostOfferSoftAbort = true;
+                        return false;
+                    }
+                    const dispatchHostOffer = async (targetConnection: RTCPeerConnection): Promise<boolean> => {
+                        const offer = await targetConnection.createOffer({
+                            offerToReceiveAudio: true,
+                            offerToReceiveVideo: resolveOfferToReceiveVideo(
+                                voiceCallUiStatusRef.current?.callType === "video",
+                            ),
+                        });
+                        await targetConnection.setLocalDescription(offer);
+                        if (!targetConnection.localDescription) {
+                            return false;
                         }
-                        catch (resetError) {
-                            const resetErrorMessage = resetError instanceof Error ? resetError.message : String(resetError ?? "unknown");
-                            logAppEvent({
-                                name: "messaging.realtime_voice.join_offer_retry_after_reset_failed",
-                                level: "warn",
-                                scope: { feature: "messaging", action: "realtime_voice_signal" },
-                                context: {
-                                    roomIdHint: toRoomIdHint(signal.roomId),
-                                    peerPubkeySuffix: peerPubkey.slice(-8),
-                                    errorMessage: resetErrorMessage,
+                        return await sendVoiceSignal({
+                            peerPubkey,
+                            payload: createVoiceCallSignalPayload({
+                                roomId: signal.roomId,
+                                signalType: "offer",
+                                fromPubkey: myPublicKeyHex,
+                                toPubkey: peerPubkey,
+                                sdp: {
+                                    type: targetConnection.localDescription.type,
+                                    sdp: targetConnection.localDescription.sdp,
                                 },
-                            });
-                            return;
+                            }),
+                        });
+                    };
+                    try {
+                        return await dispatchHostOffer(connection);
+                    }
+                    catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : String(error ?? "unknown");
+                        const mLineOrderMismatch = /order of m-lines/i.test(errorMessage);
+                        const haveLocalOfferRace = isHaveLocalOfferInvalidState(errorMessage);
+                        logAppEvent({
+                            name: "messaging.realtime_voice.join_offer_create_failed",
+                            level: "warn",
+                            scope: { feature: "messaging", action: "realtime_voice_signal" },
+                            context: {
+                                roomIdHint: toRoomIdHint(signal.roomId),
+                                peerPubkeySuffix: peerPubkey.slice(-8),
+                                signalingState: connection.signalingState,
+                                connectionState: connection.connectionState,
+                                reasonCode: mLineOrderMismatch
+                                    ? "mline_order_mismatch"
+                                    : (haveLocalOfferRace ? "have_local_offer_race" : "offer_create_failed"),
+                                errorMessage,
+                            },
+                        });
+                        if (haveLocalOfferRace) {
+                            const resendAfterRace = await resendExistingHostOffer();
+                            if (resendAfterRace === true) {
+                                return true;
+                            }
+                            // Local offer exists but resend failed — keep PC alive; periodic offer retry may recover.
+                            if (connection.localDescription?.type === "offer") {
+                                logAppEvent({
+                                    name: "messaging.realtime_voice.join_offer_race_kept_local",
+                                    level: "warn",
+                                    scope: { feature: "messaging", action: "realtime_voice_signal" },
+                                    context: {
+                                        roomIdHint: toRoomIdHint(signal.roomId),
+                                        peerPubkeySuffix: peerPubkey.slice(-8),
+                                    },
+                                });
+                                return true;
+                            }
+                            return false;
                         }
+                        if (mLineOrderMismatch) {
+                            tearDownVoicePeerConnection({ reasonCode: "session_closed" });
+                            const resetConnection = await ensureVoicePeerConnection(session);
+                            if (!resetConnection) {
+                                failVoicePeerConnectionStart({
+                                    roomId: signal.roomId,
+                                    peerPubkey,
+                                    role: "host",
+                                });
+                                hostOfferSoftAbort = true;
+                                return false;
+                            }
+                            try {
+                                const recovered = await dispatchHostOffer(resetConnection);
+                                logAppEvent({
+                                    name: "messaging.realtime_voice.join_offer_retry_after_reset",
+                                    level: "info",
+                                    scope: { feature: "messaging", action: "realtime_voice_signal" },
+                                    context: {
+                                        roomIdHint: toRoomIdHint(signal.roomId),
+                                        peerPubkeySuffix: peerPubkey.slice(-8),
+                                        status: recovered ? "sent" : "failed",
+                                    },
+                                });
+                                return recovered;
+                            }
+                            catch (resetError) {
+                                const resetErrorMessage = resetError instanceof Error
+                                    ? resetError.message
+                                    : String(resetError ?? "unknown");
+                                logAppEvent({
+                                    name: "messaging.realtime_voice.join_offer_retry_after_reset_failed",
+                                    level: "warn",
+                                    scope: { feature: "messaging", action: "realtime_voice_signal" },
+                                    context: {
+                                        roomIdHint: toRoomIdHint(signal.roomId),
+                                        peerPubkeySuffix: peerPubkey.slice(-8),
+                                        errorMessage: resetErrorMessage,
+                                    },
+                                });
+                                return false;
+                            }
+                        }
+                        return false;
                     }
-                    else {
-                        return;
-                    }
-                }
-                else {
-                    return;
-                }
-            }
-            if (offerDispatchRecovered) {
-                logAppEvent({
-                    name: "messaging.realtime_voice.join_offer_retry_after_reset",
-                    level: "info",
-                    scope: { feature: "messaging", action: "realtime_voice_signal" },
-                    context: {
-                        roomIdHint: toRoomIdHint(signal.roomId),
-                        peerPubkeySuffix: peerPubkey.slice(-8),
-                        status: offerSent ? "sent" : "failed",
-                    },
-                });
+                },
+            });
+            if (hostOfferSoftAbort) {
+                return;
             }
             if (!offerSent) {
-                logAppEvent({
-                    name: "messaging.realtime_voice.join_offer_dispatch_failed",
-                    level: "warn",
-                    scope: { feature: "messaging", action: "realtime_voice_signal" },
-                    context: {
-                        roomIdHint: toRoomIdHint(signal.roomId),
-                        peerPubkeySuffix: peerPubkey.slice(-8),
-                    },
+                failVoiceOfferDispatch({
+                    roomId: signal.roomId,
+                    peerPubkey,
+                    role: "host",
                 });
+            }
+            else if (!voiceCallHostOfferSentAtByRoomRef.current.has(signal.roomId)) {
+                voiceCallHostOfferSentAtByRoomRef.current.set(signal.roomId, Date.now());
             }
             return;
         }
@@ -1892,6 +2480,8 @@ function NostrMessengerContent() {
             }
             if (pendingInviteMatches || pendingStatusMatches) {
                 voiceCallJoinAcceptedAtByRoomRef.current.delete(signal.roomId);
+                voiceCallHostDialStartedAtByRoomRef.current.delete(signal.roomId);
+                voiceCallHostOfferSentAtByRoomRef.current.delete(signal.roomId);
                 setVoiceCallUiStatus((current) => {
                     if (!current || current.roomId !== signal.roomId || current.peerPubkey !== peerPubkey) {
                         return current;
@@ -1913,6 +2503,11 @@ function NostrMessengerContent() {
         }
         const connection = voicePeerConnectionRef.current ?? await ensureVoicePeerConnection(activeSessionSnapshot);
         if (!connection) {
+            failVoicePeerConnectionStart({
+                roomId: activeSessionSnapshot.roomId,
+                peerPubkey: activeSessionSnapshot.peerPubkey,
+                role: activeSessionSnapshot.role,
+            });
             return;
         }
         if (signal.signalType === "offer" && signal.sdp && myPublicKeyHex) {
@@ -2001,6 +2596,11 @@ function NostrMessengerContent() {
                         peerPubkeySuffix: peerPubkey.slice(-8),
                     },
                 });
+                failVoiceAnswerDispatch({
+                    roomId: signal.roomId,
+                    peerPubkey,
+                    role: activeSessionSnapshot.role,
+                });
                 return;
             }
             await flushPendingRemoteIceCandidates(connection);
@@ -2022,6 +2622,11 @@ function NostrMessengerContent() {
                         errorMessage,
                     },
                 });
+                failVoiceAnswerDispatch({
+                    roomId: signal.roomId,
+                    peerPubkey,
+                    role: activeSessionSnapshot.role,
+                });
                 return;
             }
             if (connection.localDescription) {
@@ -2039,16 +2644,18 @@ function NostrMessengerContent() {
                     }),
                 });
                 if (!answerSent) {
-                    logAppEvent({
-                        name: "messaging.realtime_voice.join_answer_dispatch_failed",
-                        level: "warn",
-                        scope: { feature: "messaging", action: "realtime_voice_signal" },
-                        context: {
-                            roomIdHint: toRoomIdHint(signal.roomId),
-                            peerPubkeySuffix: peerPubkey.slice(-8),
-                        },
+                    failVoiceAnswerDispatch({
+                        roomId: signal.roomId,
+                        peerPubkey,
+                        role: activeSessionSnapshot.role,
                     });
                 }
+            } else {
+                failVoiceAnswerDispatch({
+                    roomId: signal.roomId,
+                    peerPubkey,
+                    role: activeSessionSnapshot.role,
+                });
             }
             return;
         }
@@ -2098,6 +2705,9 @@ function NostrMessengerContent() {
     }, [
         dmController.state.messages,
         ensureVoicePeerConnection,
+        failVoiceAnswerDispatch,
+        failVoiceOfferDispatch,
+        failVoicePeerConnectionStart,
         flushPendingRemoteIceCandidates,
         incomingVoiceInvite?.invite.roomId,
         incomingVoiceInvite?.peerPubkey,
@@ -2218,12 +2828,18 @@ function NostrMessengerContent() {
         setIncomingVoiceInvite(null);
         if (pendingInvite.invite.roomId) {
             voiceCallJoinAcceptedAtByRoomRef.current.set(pendingInvite.invite.roomId, Date.now());
+            const acceptCallType = resolveCallTypeFromInvite({
+                inviteCallType: pendingInvite.invite.callType,
+                inviteAdvertisesVideo: pendingInvite.invite.capabilities?.video,
+                localSupportsVideo: getRealtimeVoiceCapability().supportsVideo,
+            });
             setVoiceCallUiStatus({
                 roomId: pendingInvite.invite.roomId,
                 peerPubkey: pendingInvite.peerPubkey,
                 phase: "connecting",
                 role: "joiner",
                 sinceUnixMs: Date.now(),
+                callType: acceptCallType,
             });
         }
         setSelectedConversation(nextConversation);
@@ -2440,22 +3056,21 @@ function NostrMessengerContent() {
                 });
                 return;
             }
-            const activeSession = activeVoiceCallSessionRef.current;
             const currentVoicePhase = voiceCallUiStatus?.phase ?? null;
             const rtcConnectionState = voicePeerConnectionRef.current?.connectionState ?? "none";
-            const shouldBlockForActiveSession = (activeSession?.peerPubkey === peerPubkey
-                && (currentVoicePhase === "connected"
-                    || currentVoicePhase === "connecting"
-                    || currentVoicePhase === "ringing_outgoing"
-                    || currentVoicePhase === "ringing_incoming"
-                    || rtcConnectionState === "new"
-                    || rtcConnectionState === "connecting"
-                    || rtcConnectionState === "connected"));
+            // Busy-line: defer ANY invite (same peer or third-party C) while a call is live.
+            // Previously only same-peer was deferred — C could overwrite A↔B call UI mid-media.
+            const shouldBlockForActiveSession = shouldDeferVoiceInviteForBusyLine({
+                phase: currentVoicePhase,
+                rtcConnectionState,
+            });
             if (shouldBlockForActiveSession) {
                 // Do not mark as processed yet; the current session may be tearing down.
                 // We re-check this invite on the next pass to avoid losing immediate re-invites.
                 if (!deferredVoiceInviteMessageIdsRef.current.has(message.id)) {
                     deferredVoiceInviteMessageIdsRef.current.add(message.id);
+                    const activePeer = activeVoiceCallSessionRef.current?.peerPubkey ?? null;
+                    const thirdParty = Boolean(activePeer && activePeer !== peerPubkey);
                     logAppEvent({
                         name: "messaging.realtime_voice.invite_processing_deferred",
                         level: "info",
@@ -2465,6 +3080,8 @@ function NostrMessengerContent() {
                             peerPubkeySuffix: peerPubkey.slice(-8),
                             currentVoicePhase,
                             rtcConnectionState,
+                            thirdParty,
+                            reasonCode: "busy_line",
                         },
                     });
                 }
@@ -2479,12 +3096,18 @@ function NostrMessengerContent() {
                 invite,
                 receivedAtUnixMs: Date.now(),
             });
+            const negotiatedCallType = resolveCallTypeFromInvite({
+                inviteCallType: invite.callType,
+                inviteAdvertisesVideo: invite.capabilities?.video,
+                localSupportsVideo: getRealtimeVoiceCapability().supportsVideo,
+            });
             setVoiceCallUiStatus({
                 roomId: invite.roomId,
                 peerPubkey,
                 phase: "ringing_incoming",
                 role: "joiner",
                 sinceUnixMs: Date.now(),
+                callType: negotiatedCallType,
             });
         });
         if (processed.size > 2000) {
@@ -2795,9 +3418,17 @@ function NostrMessengerContent() {
         if (!voiceCallUiStatus) {
             return;
         }
-        if (voiceCallUiStatus.phase === "ringing_outgoing" || voiceCallUiStatus.phase === "connecting") {
+        if (
+            voiceCallUiStatus.phase === "ringing_outgoing"
+            || voiceCallUiStatus.phase === "ringing_incoming"
+            || voiceCallUiStatus.phase === "connecting"
+        ) {
             const statusSnapshot = voiceCallUiStatus;
-            const timeoutPhase = statusSnapshot.phase === "connecting" ? "connecting" : "ringing_outgoing";
+            const timeoutPhase = statusSnapshot.phase === "connecting"
+                ? "connecting"
+                : statusSnapshot.phase === "ringing_incoming"
+                    ? "ringing_incoming"
+                    : "ringing_outgoing";
             const timeoutKey = `${statusSnapshot.roomId}|${statusSnapshot.peerPubkey}|${statusSnapshot.phase}`;
             if (voiceCallConnectTimeoutKeyRef.current !== timeoutKey) {
                 voiceCallConnectTimeoutKeyRef.current = timeoutKey;
@@ -2806,16 +3437,25 @@ function NostrMessengerContent() {
             voiceCallConnectTimeoutRef.current = setTimeout(() => {
                 const active = activeVoiceCallSessionRef.current;
                 const connection = voicePeerConnectionRef.current;
+                const hasLocalDescription = Boolean(connection?.localDescription);
+                const hasRemoteDescription = Boolean(connection?.remoteDescription);
+                const maxExtensionAttempts = resolveRealtimeVoiceConnectTimeoutMaxExtensions({
+                    openRelayCount: relayStatusRef.current.openCount,
+                    configuredRelayCount: relayStatusRef.current.total,
+                    hasLocalDescription,
+                    hasRemoteDescription,
+                    baselineMaxExtensionAttempts: VOICE_CALL_CONNECT_TIMEOUT_MAX_EXTENSIONS,
+                });
                 const timeoutDecision = resolveRealtimeVoiceConnectTimeoutDecision({
                     phase: timeoutPhase,
                     hasActiveSession: Boolean(active
                         && active.roomId === statusSnapshot.roomId
                         && active.peerPubkey === statusSnapshot.peerPubkey),
                     rtcConnectionState: connection?.connectionState ?? "none",
-                    hasLocalDescription: Boolean(connection?.localDescription),
-                    hasRemoteDescription: Boolean(connection?.remoteDescription),
+                    hasLocalDescription,
+                    hasRemoteDescription,
                     extensionAttemptCount: voiceCallConnectTimeoutExtensionAttemptRef.current,
-                    maxExtensionAttempts: VOICE_CALL_CONNECT_TIMEOUT_MAX_EXTENSIONS,
+                    maxExtensionAttempts,
                 });
                 logAppEvent({
                     name: "messaging.realtime_voice.connect_timeout_diagnostics",
@@ -2833,9 +3473,10 @@ function NostrMessengerContent() {
                         hasActiveSession: Boolean(active),
                         activeSessionRole: active?.role ?? null,
                         rtcConnectionState: connection?.connectionState ?? "none",
-                        hasLocalDescription: Boolean(connection?.localDescription),
-                        hasRemoteDescription: Boolean(connection?.remoteDescription),
+                        hasLocalDescription,
+                        hasRemoteDescription,
                         timeoutExtensionAttemptCount: voiceCallConnectTimeoutExtensionAttemptRef.current,
+                        maxExtensionAttempts,
                         timeoutDecision: timeoutDecision.action,
                         timeoutDecisionReasonCode: timeoutDecision.reasonCode,
                     },
@@ -2852,7 +3493,7 @@ function NostrMessengerContent() {
                             role: statusSnapshot.role,
                             phase: statusSnapshot.phase,
                             extensionAttemptCount: voiceCallConnectTimeoutExtensionAttemptRef.current,
-                            maxExtensionAttempts: VOICE_CALL_CONNECT_TIMEOUT_MAX_EXTENSIONS,
+                            maxExtensionAttempts,
                             reasonCode: timeoutDecision.reasonCode,
                         },
                     });
@@ -2870,33 +3511,31 @@ function NostrMessengerContent() {
                     });
                     return;
                 }
-                if (active
-                    && active.roomId === statusSnapshot.roomId
-                    && active.peerPubkey === statusSnapshot.peerPubkey) {
-                    leaveCallOnUnmountRef.current();
-                    toast.warning(t("messaging.voiceCallWaitTimeout"));
-                    return;
-                }
+                const timeoutReasonCode = mapRealtimeVoiceConnectTimeoutToUiReasonCode(
+                    timeoutDecision.reasonCode,
+                );
                 if (myPublicKeyHex) {
                     dispatchVoiceLeaveSignalWithRetry({
                         roomId: statusSnapshot.roomId,
                         peerPubkey: statusSnapshot.peerPubkey,
                     });
                 }
-                setVoiceCallUiStatus((current) => {
-                    if (!current
-                        || current.roomId !== statusSnapshot.roomId
-                        || current.peerPubkey !== statusSnapshot.peerPubkey
-                        || current.phase !== statusSnapshot.phase) {
-                        return current;
-                    }
-                    return {
-                        ...current,
-                        phase: "interrupted",
-                        sinceUnixMs: Date.now(),
-                        reasonCode: "session_closed",
-                    };
+                setVoiceCallUiStatus({
+                    roomId: statusSnapshot.roomId,
+                    peerPubkey: statusSnapshot.peerPubkey,
+                    phase: "interrupted",
+                    role: statusSnapshot.role,
+                    sinceUnixMs: Date.now(),
+                    reasonCode: timeoutReasonCode,
+                    callType: statusSnapshot.callType,
+                    mediaMode: statusSnapshot.mediaMode,
                 });
+                if (active
+                    && active.roomId === statusSnapshot.roomId
+                    && active.peerPubkey === statusSnapshot.peerPubkey) {
+                    tearDownVoicePeerConnection({ reasonCode: "session_closed" });
+                }
+                toast.warning(t("messaging.voiceCallWaitTimeout"));
             }, VOICE_CALL_MIN_WAIT_MS);
         }
         else {
@@ -2918,7 +3557,7 @@ function NostrMessengerContent() {
             clearVoiceCallTimers();
             clearVoiceLeaveSignalRetryTimers();
         };
-    }, [clearVoiceCallTimers, clearVoiceLeaveSignalRetryTimers, dispatchVoiceLeaveSignalWithRetry, myPublicKeyHex, t, voiceCallUiStatus]);
+    }, [clearVoiceCallTimers, clearVoiceLeaveSignalRetryTimers, dispatchVoiceLeaveSignalWithRetry, myPublicKeyHex, t, tearDownVoicePeerConnection, voiceCallUiStatus]);
     useEffect(() => {
         if (!REALTIME_VOICE_CALLS_ENABLED) {
             stopVoiceAudioMonitor("local");
@@ -2945,6 +3584,56 @@ function NostrMessengerContent() {
         }
     }, [startVoiceAudioMonitor, stopVoiceAudioMonitor, voiceCallUiStatus?.phase]);
     useEffect(() => {
+        if (!REALTIME_VOICE_CALLS_ENABLED || voiceCallUiStatus?.phase !== "connected") {
+            return;
+        }
+        let disposed = false;
+        const sampleQuality = async (): Promise<void> => {
+            if (disposed) {
+                return;
+            }
+            const connection = voicePeerConnectionRef.current;
+            const status = voiceCallUiStatusRef.current;
+            const nowUnixMs = Date.now();
+            if (!connection || !shouldEmitRealtimeCallQualitySample({
+                phase: status?.phase,
+                lastEmitUnixMs: voiceCallQualitySampleAtRef.current,
+                nowUnixMs,
+            })) {
+                return;
+            }
+            voiceCallQualitySampleAtRef.current = nowUnixMs;
+            try {
+                const report = await connection.getStats();
+                if (disposed || voicePeerConnectionRef.current !== connection) {
+                    return;
+                }
+                const snapshot = parseRealtimeCallQualitySnapshot({
+                    report,
+                    sampledAtUnixMs: nowUnixMs,
+                    connectionState: connection.connectionState,
+                    iceConnectionState: connection.iceConnectionState,
+                });
+                emitRealtimeCallQualitySample({
+                    roomIdHint: toRoomIdHint(status?.roomId ?? ""),
+                    role: status?.role ?? null,
+                    snapshot,
+                });
+            }
+            catch {
+                // Quality sampling is diagnostic only.
+            }
+        };
+        void sampleQuality();
+        const intervalId = window.setInterval(() => {
+            void sampleQuality();
+        }, REALTIME_CALL_QUALITY_SAMPLE_MIN_INTERVAL_MS);
+        return () => {
+            disposed = true;
+            window.clearInterval(intervalId);
+        };
+    }, [voiceCallUiStatus?.phase]);
+    useEffect(() => {
         processedVoiceSignalMessageIdsRef.current = new Set();
         voiceSignalsBootstrappedRef.current = false;
         processedVoiceInviteMessageIdsRef.current = new Set();
@@ -2952,6 +3641,8 @@ function NostrMessengerContent() {
         deferredVoiceInviteMessageIdsRef.current = new Set();
         outgoingVoiceInviteRoomIdsRef.current = new Set();
         voiceCallJoinAcceptedAtByRoomRef.current.clear();
+        voiceCallHostDialStartedAtByRoomRef.current.clear();
+        voiceCallHostOfferSentAtByRoomRef.current.clear();
         voiceCallLeaveTombstonesRef.current.clear();
         setJoiningVoiceCallInviteMessageId(null);
         setIncomingVoiceInvite(null);
@@ -3076,10 +3767,13 @@ function NostrMessengerContent() {
             waveAudioLevel: voiceCallUiStatus?.phase === "connected"
                 ? undefined
                 : 0,
+            localVideoStream: voiceLocalStreamRef.current,
+            remoteVideoStream: voiceRemoteStreamRef.current,
         });
     }, [
         voiceCallDockResolvedPeerAvatarUrl,
         voiceCallDockResolvedPeerDisplayName,
+        voiceCallMediaRevision,
         voiceCallUiStatus,
     ]);
     useEffect(() => {
@@ -3236,11 +3930,44 @@ function NostrMessengerContent() {
         }
         return latestMs;
     }, [groupState.messages, selectedConversationView]);
+    const reprobeNativeSqliteWriteReady = useCallback(async (): Promise<void> => {
+        if (!hasNativeRuntime()) {
+            setNativeSqliteWriteBlocked(false);
+            return;
+        }
+        const { ensureNativeSqliteOpenForWrites } = await import(
+            "@/app/features/storage/services/native-storage-at-rest-service"
+        );
+        const ready = await ensureNativeSqliteOpenForWrites({
+            profileId: getResolvedProfileId(),
+        });
+        setNativeSqliteWriteBlocked(!ready);
+    }, []);
     const handleUnlock = async (passphrase: string) => {
         setIsUnlocking(true);
         try {
+            const { resolveSoftLockUnlockMode, activateNativeStorageAtRestUnlock } = await import(
+                "@/app/features/storage/services/native-storage-at-rest-service"
+            );
+            const unlockMode = resolveSoftLockUnlockMode({
+                identityStatus: identity.state.status,
+                nativeSqliteWriteBlocked,
+            });
+            if (unlockMode === "storage_only") {
+                const activated = await activateNativeStorageAtRestUnlock({
+                    profileId: getResolvedProfileId(),
+                    passphrase: passphrase as Passphrase,
+                });
+                if (!activated) {
+                    return false;
+                }
+                unlock();
+                await reprobeNativeSqliteWriteReady();
+                return true;
+            }
             await identity.unlockIdentity({ passphrase: passphrase as Passphrase });
             unlock();
+            await reprobeNativeSqliteWriteReady();
             return true;
         }
         catch (error) {
@@ -3264,6 +3991,7 @@ function NostrMessengerContent() {
             }
             await identity.unlockWithPrivateKeyHex({ privateKeyHex: unlocked.privateKeyHex as any });
             unlock();
+            await reprobeNativeSqliteWriteReady();
             return true;
         }
         catch {
@@ -3347,13 +4075,38 @@ function NostrMessengerContent() {
             peerPublicKeyHex: pk,
             requestEventId,
         });
-        if (outcome.status === "failed" || outcome.status === "queued") {
-            toast.warning("Request acceptance is pending relay confirmation.");
-            return;
+        if (outcome.relayConfirmed === false) {
+            setAcceptRelayPendingPeers((previous) => new Set(previous).add(pk));
+            toast.success("Contact accepted. Relay notification pending — use Retry now when relays connect.");
+        } else {
+            setAcceptRelayPendingPeers((previous) => {
+                if (!previous.has(pk)) return previous;
+                const next = new Set(previous);
+                next.delete(pk);
+                return next;
+            });
+            toast.success("Request accepted.");
         }
-        toast.success("Request accepted.");
         promoteAcceptedContactToChats(pk, dmDisplayNameByPubkey.get(pk) ?? PRIVATE_CONTACT_DISPLAY_NAME);
     }, [dmDisplayNameByPubkey, promoteAcceptedContactToChats, requestTransport, requestsInbox.state.items]);
+
+    const handleRetryAcceptRelayNotification = useCallback(async (pk: PublicKeyHex) => {
+        const confirmed = await retryAcceptRelayNotification(
+            pk,
+            (params) => dmController.sendDm(params),
+        );
+        if (confirmed) {
+            setAcceptRelayPendingPeers((previous) => {
+                if (!previous.has(pk)) return previous;
+                const next = new Set(previous);
+                next.delete(pk);
+                return next;
+            });
+            toast.success("Accept notification delivered to relay.");
+            return;
+        }
+        toast.error("Relay still unavailable. Check footer relay count and retry.");
+    }, [dmController]);
 
     const handleDeclineContactRequest = useCallback(async (pk: PublicKeyHex) => {
         const requestEventId = requestsInbox.state.items.find(
@@ -3441,15 +4194,37 @@ function NostrMessengerContent() {
         setPendingRequestsBadgeDismissed(true);
     }, []);
     const isIdentityUnlocked = identity.state.status === "unlocked";
+    const activeProfileId = getResolvedProfileId();
     const startupState = identity.getIdentityDiagnostics?.()?.startupState ?? createPendingStartupAuthState({
         storedPublicKeyHex: identity.state.stored?.publicKeyHex,
     });
+    useEffect(() => {
+        if (!isIdentityUnlocked || !hasNativeRuntime()) {
+            setNativeSqliteWriteBlocked(false);
+            return;
+        }
+        let cancelled = false;
+        void (async () => {
+            const { ensureNativeSqliteOpenForWrites } = await import(
+                "@/app/features/storage/services/native-storage-at-rest-service"
+            );
+            const ready = await ensureNativeSqliteOpenForWrites({
+                profileId: activeProfileId,
+            });
+            if (!cancelled) {
+                setNativeSqliteWriteBlocked(!ready);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isIdentityUnlocked, identity.state.publicKeyHex, activeProfileId]);
     const shouldShowLockScreen = shouldShowStoredIdentityLockScreen({
         startupState,
         isAutoLockLocked: isLocked,
         identityStatus: identity.state.status,
+        nativeSqliteWriteBlocked,
     });
-    const activeProfileId = getResolvedProfileId();
     const projectionReadAuthority = useMemo(() => (resolveProjectionReadAuthority({
         projectionSnapshot: accountProjectionSnapshot,
         expectedProfileId: activeProfileId,
@@ -3661,7 +4436,9 @@ function NostrMessengerContent() {
         return <AppLoadingScreen title="Restoring identity" detail="Unlocking profile context..."/>;
     }
     if (shouldShowLockScreen) {
-        return (<LockScreen publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? ""} username={identity.state.stored?.username} isUnlocking={isUnlocking} onUnlock={handleUnlock} hasPin={hasPin} onUnlockPin={handleUnlockPin} onForget={identity.forgetIdentity}/>);
+        return (<LockScreen publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? ""} username={identity.state.stored?.username} isUnlocking={isUnlocking} onUnlock={handleUnlock} hasPin={hasPin} onUnlockPin={handleUnlockPin} onForget={identity.forgetIdentity} errorMessage={nativeSqliteWriteBlocked
+                ? "Local database is locked. Unlock this profile (device password or Import Key), then retry."
+                : undefined}/>);
     }
     const syncStatusBanners = (<>
       {accountSyncUiPolicy.showRestoreProgress ? (<div className="border-b border-sky-500/20 bg-sky-500/10 px-4 py-2 text-sm text-sky-800 dark:text-sky-200">
@@ -3723,12 +4500,16 @@ function NostrMessengerContent() {
             }
             : undefined} onSendVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm"
             ? () => {
-                void handleSendVoiceCallInvite();
+                void handleSendVoiceCallInvite("voice");
             }
-            : undefined} canSendVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm" && !!dmController} isSendingVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED ? isSendingVoiceCallInvite : false} onJoinVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED ? (params) => {
+            : undefined} canSendVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm" && !!dmController} isSendingVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED ? isSendingVoiceCallInvite : false} onSendVideoCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm"
+            ? () => {
+                void handleSendVoiceCallInvite("video");
+            }
+            : undefined} canSendVideoCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm" && !!dmController} onJoinVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED ? (params) => {
             handleJoinVoiceCallInvite(params);
         } : undefined} onRequestVoiceCallCallback={REALTIME_VOICE_CALLS_ENABLED ? () => {
-            void handleSendVoiceCallInvite();
+            void handleSendVoiceCallInvite("voice");
         } : undefined} joiningVoiceCallInviteMessageId={REALTIME_VOICE_CALLS_ENABLED ? joiningVoiceCallInviteMessageId : null} activeVoiceCallState={REALTIME_VOICE_CALLS_ENABLED ? activeVoiceCallForSelectedConversation : null} voiceCallStatus={REALTIME_VOICE_CALLS_ENABLED ? voiceCallStatusForSelectedConversation : null} onLeaveVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleLeaveVoiceCall : undefined} onAcceptIncomingVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleAcceptIncomingVoiceInvite : undefined} onDeclineIncomingVoiceCall={REALTIME_VOICE_CALLS_ENABLED ? handleDeclineIncomingVoiceInvite : undefined} groupAdmins={groupState.admins} communityBotTriggerSummary={selectedCommunityBotTriggerSummary} groupRelayUrl={selectedConversationView.kind === "group" ? selectedConversationView.relayUrl : null} messageMenu={messageMenu} setMessageMenu={setMessageMenu} messageMenuRef={messageMenuRef} onCopyText={(text) => {
             navigator.clipboard.writeText(text);
             toast.success(t("messaging.textCopied"));
@@ -3794,6 +4575,11 @@ function NostrMessengerContent() {
             ? () => handleCancelOutgoingRequest(selectedConversationView.pubkey)
             : undefined} onResendConnectionRequest={selectedConversationView.kind === "dm"
             ? () => handleResendConnectionRequest(selectedConversationView.pubkey)
+            : undefined} acceptRelayReady={relayStatus.openCount > 0} relayPending={selectedConversationView.kind === "dm"
+            ? acceptRelayPendingPeers.has(selectedConversationView.pubkey)
+            || pendingAcceptRelayQueue.hasPending(selectedConversationView.pubkey)
+            : false} onRetryRelayNotification={selectedConversationView.kind === "dm"
+            ? () => handleRetryAcceptRelayNotification(selectedConversationView.pubkey)
             : undefined} onBlockPeer={() => selectedConversationView.kind === 'dm' && blocklist.addBlocked({ publicKeyInput: selectedConversationView.pubkey })} relayOverlap={selectedConversationView.kind === 'dm' ? contactRelayOverlap : undefined} deliveryRisk={selectedConversationView.kind === 'dm' ? contactRelayOverlap.status : null} onAddRelay={(url) => { relayList.addRelay({ url }); }} onNavigateToRelaySettings={() => { void router.push("/settings?tab=relays"); }} hideDesktopChatHeader={isMobileDmShell}/>) : null;
     const syncStatusBannerNode = isMobileDmShell ? (<MobileShellStatusStrip items={mobileShellStatusItems} onOpenProfiles={() => {
             void router.push("/profiles");
@@ -3826,9 +4612,15 @@ function NostrMessengerContent() {
                     }
                     : undefined} onSendVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm"
                     ? () => {
-                        void handleSendVoiceCallInvite();
+                        void handleSendVoiceCallInvite("voice");
                     }
                     : undefined} canSendVoiceCallInvite={REALTIME_VOICE_CALLS_ENABLED
+                    && selectedConversationView.kind === "dm"
+                    && Boolean(dmController)} onSendVideoCallInvite={REALTIME_VOICE_CALLS_ENABLED && selectedConversationView.kind === "dm"
+                    ? () => {
+                        void handleSendVoiceCallInvite("video");
+                    }
+                    : undefined} canSendVideoCallInvite={REALTIME_VOICE_CALLS_ENABLED
                     && selectedConversationView.kind === "dm"
                     && Boolean(dmController)}/>
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent">
@@ -3837,6 +4629,13 @@ function NostrMessengerContent() {
             </>)}
         </MobileDmShellLayout>
         <audio ref={voiceRemoteAudioElementRef} autoPlay playsInline className="hidden"/>
+        <MediaDeviceConsentDialog
+          isOpen={voiceMicConsentOpen}
+          kind="microphone"
+          purpose={voiceMediaConsentPurpose}
+          onClose={() => closeVoiceMicConsent(null)}
+          onGranted={(stream) => closeVoiceMicConsent(stream)}
+        />
         <DevPanel dmController={dmController}/>
       </>);
     }
@@ -3852,7 +4651,7 @@ function NostrMessengerContent() {
       <MediaDeviceConsentDialog
         isOpen={voiceMicConsentOpen}
         kind="microphone"
-        purpose="voice_call"
+        purpose={voiceMediaConsentPurpose}
         onClose={() => closeVoiceMicConsent(null)}
         onGranted={(stream) => closeVoiceMicConsent(stream)}
       />

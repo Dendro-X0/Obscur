@@ -3,7 +3,7 @@
  */
 
 export const STANDALONE_LEGACY_SUBTRACTION_PREP_BAND_CHARTER = (
-  "docs/program/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md"
+  "docs/archive/program/inactive-2026-08/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md"
 );
 
 export const STANDALONE_LEGACY_SUBTRACTION_PREP_VERIFY_SCRIPT = (

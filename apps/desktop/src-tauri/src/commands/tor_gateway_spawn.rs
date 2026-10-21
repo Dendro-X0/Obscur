@@ -100,6 +100,7 @@ pub fn spawn_gateway_process(launch: &GatewayLaunch) -> Result<Child, String> {
 }
 
 /// Spawn gateway if health fails; wait until `/v1/health` answers.
+#[allow(dead_code)] // Reserved for gateway bootstrap recovery paths (Slice 4a+).
 pub async fn ensure_gateway_reachable(
     store_child: &mut Option<Child>,
 ) -> Result<(), String> {

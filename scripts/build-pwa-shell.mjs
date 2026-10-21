@@ -14,7 +14,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const rootVersion = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8")).version ?? "dev";
 const shellArg = (process.argv[2] ?? process.env.TAURI_SHELL_TARGET ?? "desktop").toLowerCase();
 
-// Windows: Next on :3340 holds a lock on apps/pwa/app/api, so toggle-api hide (rename → _api) fails with EPERM.
+// Windows: Next on :3340 (and sometimes TS/codegraph watchers) lock apps/pwa/app/api so
+// toggle-api hide (rename → _api) fails with EPERM. Free :3340; toggle-api also has Move-Item / copy+delete fallbacks.
 if (process.platform === "win32") {
   console.log("[build-pwa-shell] freeing PWA :3340 before static export (toggle-api rename)…");
   freePwaDevPort(repoRoot);

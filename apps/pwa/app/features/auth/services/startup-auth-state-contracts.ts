@@ -61,7 +61,15 @@ export const shouldShowStoredIdentityLockScreen = (params: Readonly<{
   startupState: StartupAuthState;
   isAutoLockLocked: boolean;
   identityStatus?: StartupAuthState["identityStatus"];
+  /**
+   * Soft-lock drift (slice 2): identity session looks unlocked but native SQLite
+   * cannot accept writes — force LockScreen so passphrase / Import Key can reopen PDK.
+   */
+  nativeSqliteWriteBlocked?: boolean;
 }>): boolean => {
+  if (params.nativeSqliteWriteBlocked === true) {
+    return true;
+  }
   if (params.identityStatus === "unlocked") {
     return params.isAutoLockLocked;
   }

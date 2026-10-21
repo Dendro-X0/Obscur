@@ -1,8 +1,15 @@
 import { schnorr } from "@noble/curves/secp256k1";
 
 export const ROOM_KEY_WRAP_SCHEME_V1 = "obscur.nip04_room_key_wrap.v1" as const;
+export const ROOM_KEY_WRAP_SCHEME_V2 = "obscur.nip44_room_key_wrap.v2" as const;
 
-export type RoomKeyWrapScheme = typeof ROOM_KEY_WRAP_SCHEME_V1;
+export type RoomKeyWrapScheme =
+  | typeof ROOM_KEY_WRAP_SCHEME_V1
+  | typeof ROOM_KEY_WRAP_SCHEME_V2;
+
+export const isRoomKeyWrapScheme = (value: unknown): value is RoomKeyWrapScheme => (
+  value === ROOM_KEY_WRAP_SCHEME_V1 || value === ROOM_KEY_WRAP_SCHEME_V2
+);
 
 export type RoomKeyWrapWire = Readonly<{
   communityId: string;

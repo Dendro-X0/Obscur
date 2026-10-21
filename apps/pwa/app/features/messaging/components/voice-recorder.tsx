@@ -13,9 +13,8 @@ import {
     type VoiceNoteRecordingCapability,
 } from "@/app/features/messaging/services/voice-note-recording-capability";
 import {
-    queryMediaPermission,
     requestMediaStream,
-    shouldRequestMediaPermissionDirectly,
+    shouldOpenMediaConsentRecovery,
 } from "@/app/features/messaging/services/media-device-access";
 import { useVoiceRecordingWaveform } from "@/app/features/messaging/hooks/use-voice-recording-waveform";
 import { VoiceRecordingWaveform } from "./voice-recording-waveform";
@@ -149,26 +148,24 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
             return;
         }
 
-        const permission = await queryMediaPermission("microphone");
-        // Single-step: OS/WebView prompt owns first grant. In-app dialog is recovery only.
-        if (shouldRequestMediaPermissionDirectly(permission)) {
-            const result = await requestMediaStream({ kind: "microphone" });
-            if (result.ok) {
-                beginRecordingWithStream(result.stream, capability.preferredMimeType);
-                return;
-            }
-            if (result.reasonCode !== "permission_denied") {
-                toast.error(
-                    result.reasonCode === "not_found"
-                        ? (t("messaging.microphoneNotDetected") || "No microphone was detected.")
-                        : result.reasonCode === "unavailable"
-                            ? (t("messaging.microphoneUnavailable") || "Microphone is unavailable.")
-                            : (t("messaging.microphoneAccessDenied") || "Microphone access denied"),
-                );
-                return;
-            }
+        // Always getUserMedia first — WebView owns the prompt. Do not gate on
+        // permissions.query (Tauri often mis-reports denied → double dialog).
+        const result = await requestMediaStream({ kind: "microphone" });
+        if (result.ok) {
+            beginRecordingWithStream(result.stream, capability.preferredMimeType);
+            return;
         }
-        setConsentOpen(true);
+        if (shouldOpenMediaConsentRecovery(result.reasonCode)) {
+            setConsentOpen(true);
+            return;
+        }
+        toast.error(
+            result.reasonCode === "not_found"
+                ? (t("messaging.microphoneNotDetected") || "No microphone was detected.")
+                : result.reasonCode === "unavailable"
+                    ? (t("messaging.microphoneUnavailable") || "Microphone is unavailable.")
+                    : (t("messaging.microphoneAccessDenied") || "Microphone access denied"),
+        );
     };
 
     const handleConsentGranted = async (stream: MediaStream): Promise<void> => {

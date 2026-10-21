@@ -16,7 +16,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w23 — publish parity harness charter", () => {
   it("pins the parity harness charter and required dimensions", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w23-publish-parity-harness-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w23-publish-parity-harness-charter.md");
     expect(charter).toContain("Headless Publish Parity Harness Charter");
     expect(charter).toContain("Required parity dimensions");
     expect(charter).toContain("Relay normalization parity");

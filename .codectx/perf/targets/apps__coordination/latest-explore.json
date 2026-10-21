@@ -1,7 +1,7 @@
 {
   "appRoot": "apps/coordination",
-  "completedAt": "2026-07-07T08:32:52.974521600+00:00",
-  "exploreId": "7ba7bb2b-50e3-1b44-e9b2-a5120928a81e",
-  "findingCount": 1,
-  "graphHash": "sha256:45dd800b2548f284865f8334f6a4604932b7ff76abffd887642662a31c8c0f9e"
+  "completedAt": "2026-10-14T15:38:29.695581900+00:00",
+  "exploreId": "4730cabb-670e-62a5-bd03-7e1adbe8fa3c",
+  "findingCount": 65,
+  "graphHash": "sha256:36c344b013d19dfad9d5a14b84360d0c850e457cf54a5f463b9c5fcd1f7932fa"
 }

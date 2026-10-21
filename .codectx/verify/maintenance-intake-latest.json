@@ -1,0 +1,136 @@
+{
+  "schema": "studio.maintenance.intake@1.0.0",
+  "orientation": {
+    "source": "hub",
+    "schema": "studio.orientation.pack@1.0.0",
+    "subjectKind": "obscur",
+    "subjectMatched": true,
+    "hubCount": 8,
+    "landmineCount": 5,
+    "coldSubject": false,
+    "dualOwnerCount": 3,
+    "packageShape": "monorepo-workspace"
+  },
+  "surfaces": {
+    "source": ".codactrl/perf/agent/fix-queue.json",
+    "present": true,
+    "totalItems": 1,
+    "buckets": [
+      {
+        "prefix": "other",
+        "count": 1,
+        "topRefs": [
+          "perf:dev:tauri-vite-shell:apps/desktop"
+        ]
+      }
+    ],
+    "notes": [
+      "Surfaces from hub `.codactrl/perf/agent/fix-queue.json` (no perf_explore_run)"
+    ]
+  },
+  "runtimeProof": {
+    "status": "none",
+    "confirmEvidenceCount": 0,
+    "hasRouteProbeArtifact": false,
+    "sources": [
+      ".codactrl/perf/agent/api-runtime-confirm-plan.json"
+    ],
+    "notes": [
+      "Confirm plan hub present; confirmEvidenceCount inferred 0"
+    ]
+  },
+  "issues": {
+    "source": ".codectx/verify/issue-precision-latest.json",
+    "present": true,
+    "rowCount": 82,
+    "packLinkCount": 11,
+    "topTitles": [
+      "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "Client assert failed: textVisible — text not visible: Tester2",
+      "Client assert failed: domExists — unsupported assert kind: domExists",
+      "Client assert failed: textVisible — text not visible: Excluded",
+      "Client assert failed: textVisible — text not visible: Restoring session"
+    ],
+    "notes": [
+      "Issues from hub (no issue_precision_evaluate forced)"
+    ]
+  },
+  "verdict": {
+    "kind": "remediate",
+    "rationale": "Orientation usable with finite trackable surfaces/issues — prefer surgical remediation"
+  },
+  "verdictRules": [
+    "Orientation OK + finite trackable surfaces/issues → remediate",
+    "Many structural yellows + missing runtime proof ≠ rewrite_candidate",
+    "rewrite_candidate only with matched landmines + high dual-owner + dense surface queue (hint; RWR owns standards)",
+    "Missing hubs / cold never-explored → unknown (not green)",
+    "Intake never claims product fixed or live prove"
+  ],
+  "refresh": {
+    "orientation": false,
+    "surfaces": false
+  },
+  "pathway": {
+    "id": "pathways.maintenanceRamp",
+    "title": "Maintenance ramp intake (MRI)",
+    "steps": [
+      "studio_help → maintenanceIntake / pathways.maintenanceRamp",
+      "studio_repo { action: \"studio_maintenance_intake\" }",
+      "Follow nextMcpSequence (explore / OH / ARP / issues / ladder as needed)",
+      "Do not invent a parallel multi-desk tour"
+    ]
+  },
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_repo { action: \"studio_maintenance_intake\" }",
+      "purpose": "Already done — maintenance ramp intake (this result)"
+    },
+    {
+      "order": 2,
+      "tool": "studio_perf { action: \"perf_findings_list\" }",
+      "purpose": "Inspect ranked obligations from existing explore",
+      "when": "surfaces.present"
+    },
+    {
+      "order": 3,
+      "tool": "studio_perf { action: \"perf_confirm_plan\" }",
+      "purpose": "API runtime proof plan (ARP) when obligations exist",
+      "when": "runtimeProof!=complete"
+    },
+    {
+      "order": 4,
+      "tool": "studio_client { action: \"client_validation_ladder\" }",
+      "purpose": "User-visible prove ladder when subject matches (e.g. Obscur)",
+      "when": "subjectMatched"
+    }
+  ],
+  "openQuestions": [
+    "Which hub is the surgical entry for the current task (not the whole monorepo)?",
+    "Is explore cache warm enough for hop/trail, or is repo_explore_run required first?",
+    "Owner conflicts dualOwnerCount=3 — which dual-owner edge blocks the claim?",
+    "Which O-* landmine class matches the user-visible symptom (cold restart, relay, groups)?",
+    "Has clientSatisfied / live CDP prove been run, or only unit/CI green?",
+    "Runtime proof not run — use pathways.apiRuntimeProof / perf_confirm_plan when API obligations matter"
+  ],
+  "doesNotProve": [
+    "Orientation pack ≠ architecture complete or product fixed",
+    "Soft neural hubs ≠ authoritative map.neural.summary",
+    "Landmine tags ≠ reproduced fault on this checkout",
+    "Suggested MCP order ≠ executed prove / stress",
+    "O-1…O-5 pointers ≠ Obscur product complete (subject-owned)",
+    "CI / unit green ≠ cold-restart or packaged desktop truth",
+    "MRI intake is not live CDP / client prove",
+    "MRI intake is not production APM or latency proof",
+    "rewrite_candidate is a hint only — RWR owns Design rewrite/refactor standards",
+    "Empty or missing hubs must not be read as green / fixed",
+    "Structural yellow counts alone do not imply rewrite — prefer remediate + ARP"
+  ],
+  "notes": [
+    "MRI1/MRI2 maintenance intake: hub-first compose — prefer this over inventing a multi-desk tour",
+    "Did not run perf_explore_run or live CDP inside intake",
+    "Surfaces from hub `.codactrl/perf/agent/fix-queue.json` (no perf_explore_run)",
+    "Issues from hub (no issue_precision_evaluate forced)",
+    "Confirm plan hub present; confirmEvidenceCount inferred 0"
+  ]
+}

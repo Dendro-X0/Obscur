@@ -35,6 +35,9 @@ const panelLoaders = {
   relays: dynamic(() => import("../panels/relays-settings-tab-panel"), {
     loading: settingsTabPanelLoading,
   }),
+  protocols: dynamic(() => import("../panels/protocols-settings-tab-panel"), {
+    loading: settingsTabPanelLoading,
+  }),
   storage: dynamic(() => import("../panels/storage-settings-tab-panel"), {
     loading: settingsTabPanelLoading,
   }),

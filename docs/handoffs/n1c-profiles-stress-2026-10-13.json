@@ -1,0 +1,135 @@
+{
+  "startedAt": "2026-10-13T16:14:53.378Z",
+  "endedAt": "2026-10-13T16:15:57.917Z",
+  "cdp": "http://127.0.0.1:9230",
+  "idleMs": 60000,
+  "focusLoops": 25,
+  "clickLoops": 8,
+  "s0": {
+    "url": "http://127.0.0.1:1430/profiles",
+    "markers": {
+      "pathname": "/profiles",
+      "onProfiles": true,
+      "pickerCopy": true,
+      "advancedCopy": true,
+      "openingProfilesCopy": false,
+      "messagingOnPicker": false,
+      "textSample": "PROFILES Change Language Who's using Obscur? Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another. Tester1 Sign in here ? Profile slot Needs setup Add New profile Advanced profile management Show on startup"
+    }
+  },
+  "afterEnsure": {
+    "markers": {
+      "pathname": "/profiles",
+      "onProfiles": true,
+      "pickerCopy": true,
+      "advancedCopy": true,
+      "openingProfilesCopy": false,
+      "messagingOnPicker": false,
+      "textSample": "PROFILES Change Language Who's using Obscur? Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another. Tester1 Sign in here ? Profile slot Needs setup Add New profile Advanced profile management Show on startup"
+    }
+  },
+  "idleSamples": [
+    {
+      "atMs": 40038,
+      "markers": {
+        "pathname": "/profiles",
+        "onProfiles": true,
+        "pickerCopy": true,
+        "advancedCopy": true,
+        "openingProfilesCopy": false,
+        "messagingOnPicker": false,
+        "textSample": "PROFILES Change Language Who's using Obscur? Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another. Tester1 Sign in here ? Profile slot Needs setup Add New profile Advanced profile management Show on startup"
+      }
+    },
+    {
+      "atMs": 50041,
+      "markers": {
+        "pathname": "/profiles",
+        "onProfiles": true,
+        "pickerCopy": true,
+        "advancedCopy": true,
+        "openingProfilesCopy": false,
+        "messagingOnPicker": false,
+        "textSample": "PROFILES Change Language Who's using Obscur? Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another. Tester1 Sign in here ? Profile slot Needs setup Add New profile Advanced profile management Show on startup"
+      }
+    },
+    {
+      "atMs": 60046,
+      "markers": {
+        "pathname": "/profiles",
+        "onProfiles": true,
+        "pickerCopy": true,
+        "advancedCopy": true,
+        "openingProfilesCopy": false,
+        "messagingOnPicker": false,
+        "textSample": "PROFILES Change Language Who's using Obscur? Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another. Tester1 Sign in here ? Profile slot Needs setup Add New profile Advanced profile management Show on startup"
+      }
+    }
+  ],
+  "afterFocus": {
+    "markers": {
+      "pathname": "/profiles",
+      "onProfiles": true,
+      "pickerCopy": true,
+      "advancedCopy": true,
+      "openingProfilesCopy": false,
+      "messagingOnPicker": false,
+      "textSample": "PROFILES Change Language Who's using Obscur? Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another. Tester1 Sign in here ? Profile slot Needs setup Add New profile Advanced profile management Show on startup"
+    }
+  },
+  "clickResults": [
+    {
+      "i": 5,
+      "markers": {
+        "pathname": "/profiles",
+        "onProfiles": true,
+        "pickerCopy": false,
+        "advancedCopy": false,
+        "openingProfilesCopy": false,
+        "messagingOnPicker": false,
+        "textSample": "PROFILES Back to profile picker Manage Profiles Each window is independent. Open any profile in its own window or sign in here — no window depends on another having launched first. SAVED PROFILES Tester1 Sign in here e07f67dc...c191ea56 Last used 1m ago Open Profile Window ? Prof"
+      }
+    },
+    {
+      "i": 6,
+      "markers": {
+        "pathname": "/profiles",
+        "onProfiles": true,
+        "pickerCopy": false,
+        "advancedCopy": false,
+        "openingProfilesCopy": false,
+        "messagingOnPicker": false,
+        "textSample": "PROFILES Back to profile picker Manage Profiles Each window is independent. Open any profile in its own window or sign in here — no window depends on another having launched first. SAVED PROFILES Tester1 Sign in here e07f67dc...c191ea56 Last used 1m ago Open Profile Window ? Prof"
+      }
+    },
+    {
+      "i": 7,
+      "markers": {
+        "pathname": "/profiles",
+        "onProfiles": true,
+        "pickerCopy": false,
+        "advancedCopy": false,
+        "openingProfilesCopy": false,
+        "messagingOnPicker": false,
+        "textSample": "PROFILES Back to profile picker Manage Profiles Each window is independent. Open any profile in its own window or sign in here — no window depends on another having launched first. SAVED PROFILES Tester1 Sign in here e07f67dc...c191ea56 Last used 1m ago Open Profile Window ? Prof"
+      }
+    }
+  ],
+  "finalMarkers": {
+    "pathname": "/profiles",
+    "onProfiles": true,
+    "pickerCopy": false,
+    "advancedCopy": false,
+    "openingProfilesCopy": false,
+    "messagingOnPicker": false,
+    "textSample": "PROFILES Back to profile picker Manage Profiles Each window is independent. Open any profile in its own window or sign in here — no window depends on another having launched first. SAVED PROFILES Tester1 Sign in here e07f67dc...c191ea56 Last used 1m ago Open Profile Window ? Prof"
+  },
+  "pass": true,
+  "passNote": "Retriaged 2026-10-13T17:10Z — Advanced management view is still /profiles picker surface (no messaging). Original failReasons missing_picker_copy was harness false-negative.",
+  "failReasons": [],
+  "originalFailReasons": [
+    "missing_picker_copy"
+  ],
+  "invokePressureS0": "total=27 picker-only (no engine_invoke/tombstone/sign)",
+  "note": "Picker-scoped stress only. CDP-on tax. Pair with CDP-off idle for heap honesty. Lease visibility thrash under old focusChurn → N1e."
+}

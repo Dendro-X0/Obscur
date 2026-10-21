@@ -1,10 +1,11 @@
 /**
  * Media device detection + permission classification (mic / camera).
- * Spec: specs/backend/media-device-consent-design-2026-08.md
+ * Spec: specs/backend/media-permission-single-prompt-design-2026-08.md
+ * (supersedes query-gated path in media-device-consent-design-2026-08.md)
  */
 
 export type MediaConsentKind = "microphone" | "camera";
-export type MediaConsentPurpose = "voice_note" | "voice_call" | "qr_scan";
+export type MediaConsentPurpose = "voice_note" | "voice_call" | "video_call" | "qr_scan";
 export type MediaPermissionState = "granted" | "denied" | "prompt" | "unknown";
 export type MediaAccessReasonCode =
   | "permission_denied"
@@ -35,8 +36,9 @@ export const shouldSkipMediaConsentDialog = (
 ): boolean => permission === "granted" && deviceCount > 0;
 
 /**
- * OS/WebView must own the first microphone grant prompt.
- * In-app dialog is recovery/guidance only (denied) or post-failure explain.
+ * @deprecated Do not gate first grant on permissions.query — WebView2 often
+ * mis-reports `denied` before any prompt. Always call getUserMedia first;
+ * use shouldOpenMediaConsentRecovery after failure.
  */
 export const shouldRequestMediaPermissionDirectly = (
   permission: MediaPermissionState,
@@ -45,6 +47,14 @@ export const shouldRequestMediaPermissionDirectly = (
   || permission === "prompt"
   || permission === "unknown"
 );
+
+/**
+ * In-app dialog is recovery only after getUserMedia NotAllowedError.
+ * Never open it based on permissions.query alone (Tauri double-prompt bug).
+ */
+export const shouldOpenMediaConsentRecovery = (
+  reasonCode: MediaAccessReasonCode,
+): boolean => reasonCode === "permission_denied";
 
 export const classifyMediaAccessError = (error: unknown): MediaAccessReasonCode => {
   const name = error instanceof Error ? error.name : "";

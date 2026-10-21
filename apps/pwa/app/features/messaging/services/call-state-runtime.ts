@@ -26,6 +26,7 @@ export type {
   CallId,
 } from "./call-state-crdt.js";
 
+import { resolveSupportedCallType } from "./voice-call-reason-honesty";
 import {
   createCallState,
   assertCallActive,
@@ -363,9 +364,12 @@ export const initiateCall = (
   now: number = Date.now()
 ): CallStatusType => {
   const state = getCallStateForProfile(profileId);
+  // M1-A: video only when both peers advertise supportsVideo (caller must pass options via
+  // resolveSupportedCallType before initiate when negotiating). Default coerce = voice.
+  const resolvedType = resolveSupportedCallType(callType);
 
   const newState = assertCallActive(state, callId, participantPubkey, now, {
-    type: callType,
+    type: resolvedType,
     initiatedAt: now,
     initiatedBy: profileId, // My pubkey
   });

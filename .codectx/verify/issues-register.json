@@ -1,8 +1,8 @@
 {
   "schema": "verify.issues.register@0.3.0",
-  "updatedAt": "2026-07-06T14:51:07.851636500+00:00",
+  "updatedAt": "2026-08-23T18:33:43.972594200+00:00",
   "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
-  "issueCount": 47,
+  "issueCount": 74,
   "issues": [
     {
       "id": "verify:issue:agent:10ae33ad355320dc",
@@ -251,44 +251,18 @@
         ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-fec5199c2177/console.jsonl",
         ".codectx/verify/client-sessions/csess-f2191e90e578/steps.json",
         ".codectx/verify/faults/fault-0d2c0823.json",
-        ".codectx/verify/faults/fault-0dd352c0.json",
-        ".codectx/verify/faults/fault-1285de34.json",
-        ".codectx/verify/faults/fault-1a2cb746.json",
-        ".codectx/verify/faults/fault-1df0fe98.json",
-        ".codectx/verify/faults/fault-317657e4.json",
         ".codectx/verify/faults/fault-32b01a0e.json",
         ".codectx/verify/faults/fault-470056bf.json",
-        ".codectx/verify/faults/fault-4720432c.json",
         ".codectx/verify/faults/fault-4a0f5a41.json",
-        ".codectx/verify/faults/fault-4a171a35.json",
-        ".codectx/verify/faults/fault-5100471d.json",
-        ".codectx/verify/faults/fault-52dd9177.json",
         ".codectx/verify/faults/fault-5e069e8a.json",
         ".codectx/verify/faults/fault-6a3f1d6c.json",
-        ".codectx/verify/faults/fault-7f9100c4.json",
         ".codectx/verify/faults/fault-83e3683e.json",
         ".codectx/verify/faults/fault-887ce425.json",
-        ".codectx/verify/faults/fault-91576178.json",
-        ".codectx/verify/faults/fault-a017a981.json",
         ".codectx/verify/faults/fault-a1b215ab.json",
-        ".codectx/verify/faults/fault-a8d78552.json",
-        ".codectx/verify/faults/fault-aca31c9d.json",
         ".codectx/verify/faults/fault-aeac8782.json",
-        ".codectx/verify/faults/fault-b72efd02.json",
-        ".codectx/verify/faults/fault-bf3a84e1.json",
-        ".codectx/verify/faults/fault-bfbf96a4.json",
-        ".codectx/verify/faults/fault-c2485378.json",
         ".codectx/verify/faults/fault-c957c88f.json",
-        ".codectx/verify/faults/fault-cebc13ad.json",
-        ".codectx/verify/faults/fault-d3266449.json",
         ".codectx/verify/faults/fault-d65998e5.json",
-        ".codectx/verify/faults/fault-d730591d.json",
-        ".codectx/verify/faults/fault-d91cd690.json",
-        ".codectx/verify/faults/fault-da76af2d.json",
-        ".codectx/verify/faults/fault-e91b9aa7.json",
-        ".codectx/verify/faults/fault-f9cb9bcd.json",
-        ".codectx/verify/faults/fault-fc0c8590.json",
-        ".codectx/verify/faults/fault-fc9c865f.json"
+        ".codectx/verify/faults/fault-e91b9aa7.json"
       ],
       "proofTier": "t3",
       "doesNotProve": [
@@ -299,35 +273,9 @@
       "ingestedAt": "2026-07-03T07:09:18.349351300+00:00",
       "findingId": "cap-fec5199c2177",
       "fingerprint": "symptom:groups-ledger-validation",
-      "occurrenceCount": 40,
+      "occurrenceCount": 14,
       "relatedIds": [
         "verify:issue:agent:289e783f035b6129",
-        "verify:issue:fault:fault-d91cd690",
-        "verify:issue:fault:fault-317657e4",
-        "verify:issue:fault:fault-4a171a35",
-        "verify:issue:fault:fault-fc0c8590",
-        "verify:issue:fault:fault-bf3a84e1",
-        "verify:issue:fault:fault-1285de34",
-        "verify:issue:fault:fault-1a2cb746",
-        "verify:issue:fault:fault-7f9100c4",
-        "verify:issue:fault:fault-f9cb9bcd",
-        "verify:issue:fault:fault-d3266449",
-        "verify:issue:fault:fault-aca31c9d",
-        "verify:issue:fault:fault-4720432c",
-        "verify:issue:fault:fault-5100471d",
-        "verify:issue:fault:fault-bfbf96a4",
-        "verify:issue:fault:fault-a017a981",
-        "verify:issue:fault:fault-cebc13ad",
-        "verify:issue:fault:fault-0dd352c0",
-        "verify:issue:fault:fault-fc9c865f",
-        "verify:issue:fault:fault-1df0fe98",
-        "verify:issue:fault:fault-c2485378",
-        "verify:issue:fault:fault-52dd9177",
-        "verify:issue:fault:fault-a8d78552",
-        "verify:issue:fault:fault-b72efd02",
-        "verify:issue:fault:fault-da76af2d",
-        "verify:issue:fault:fault-d730591d",
-        "verify:issue:fault:fault-91576178",
         "verify:issue:fault:fault-32b01a0e",
         "verify:issue:fault:fault-a1b215ab",
         "verify:issue:fault:fault-83e3683e",
@@ -354,136 +302,6 @@
           "id": "verify:issue:agent:289e783f035b6129",
           "title": "RIW-1 re-verify 2026-07-01: 18/20 ledger invalid unchanged; migration stall; dm_kernel.sqlite_write_failed x12 on profile nav",
           "ingestedAt": "2026-07-01T06:18:04.046860+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-d91cd690",
-          "title": "groups.ledger_migration_needed — count=117",
-          "ingestedAt": "2026-07-01T14:09:46.841767900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-317657e4",
-          "title": "groups.ledger_validation_issues — count=111",
-          "ingestedAt": "2026-07-01T14:11:16.163370100+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-4a171a35",
-          "title": "groups.ledger_migration_needed — count=137",
-          "ingestedAt": "2026-07-01T16:54:59.571036600+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-fc0c8590",
-          "title": "groups.ledger_validation_issues — count=123",
-          "ingestedAt": "2026-07-01T16:57:25.982901900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-bf3a84e1",
-          "title": "groups.ledger_migration_needed — count=101",
-          "ingestedAt": "2026-07-01T17:13:59.827276300+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-1285de34",
-          "title": "groups.ledger_migration_needed — count=94",
-          "ingestedAt": "2026-07-01T17:28:48.023176700+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-1a2cb746",
-          "title": "groups.ledger_migration_needed — count=122",
-          "ingestedAt": "2026-07-01T17:33:18.484745200+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-7f9100c4",
-          "title": "groups.ledger_validation_issues — count=118",
-          "ingestedAt": "2026-07-01T17:33:55.763225600+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-f9cb9bcd",
-          "title": "groups.ledger_validation_issues — count=127",
-          "ingestedAt": "2026-07-01T17:34:38.526594100+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-d3266449",
-          "title": "workspace.thread.hydrate — count=109",
-          "ingestedAt": "2026-07-01T17:46:43.979538400+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-aca31c9d",
-          "title": "workspace.thread.hydrate — count=120",
-          "ingestedAt": "2026-07-01T17:47:24.919557+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-4720432c",
-          "title": "groups.ledger_migration_needed — count=63",
-          "ingestedAt": "2026-07-01T18:00:36.797852800+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-5100471d",
-          "title": "groups.ledger_migration_needed — count=51",
-          "ingestedAt": "2026-07-01T22:05:27.534353500+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-bfbf96a4",
-          "title": "groups.ledger_migration_needed — count=85",
-          "ingestedAt": "2026-07-01T22:06:09.732414300+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-a017a981",
-          "title": "groups.ledger_migration_needed — count=42",
-          "ingestedAt": "2026-07-01T22:33:29.829256900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-cebc13ad",
-          "title": "groups.ledger_migration_needed — count=42",
-          "ingestedAt": "2026-07-01T22:35:29.823804500+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-0dd352c0",
-          "title": "groups.ledger_migration_needed — count=80",
-          "ingestedAt": "2026-07-01T22:36:06.835279600+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-fc9c865f",
-          "title": "messaging.delete_for_everyone_remote_result — count=50",
-          "ingestedAt": "2026-07-02T08:35:32.592667700+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-1df0fe98",
-          "title": "relay.transport_engine_pool_subscribe — count=67",
-          "ingestedAt": "2026-07-02T08:44:28.141642200+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-c2485378",
-          "title": "workspace.thread.hydrate — count=84",
-          "ingestedAt": "2026-07-02T08:44:53.852083700+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-52dd9177",
-          "title": "messaging.delete_for_everyone_remote_result — count=95",
-          "ingestedAt": "2026-07-02T09:59:13.608201900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-a8d78552",
-          "title": "groups.ledger_migration_needed — count=63",
-          "ingestedAt": "2026-07-02T11:03:28.797505400+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-b72efd02",
-          "title": "messaging.delete_for_everyone_remote_result — count=94",
-          "ingestedAt": "2026-07-02T12:47:47.363478+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-da76af2d",
-          "title": "groups.ledger_migration_needed — count=36",
-          "ingestedAt": "2026-07-02T13:23:46.605540400+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-d730591d",
-          "title": "messaging.delete_for_everyone_remote_result — count=107",
-          "ingestedAt": "2026-07-02T14:45:27.500610900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-91576178",
-          "title": "messaging.delete_for_everyone_remote_result — count=149",
-          "ingestedAt": "2026-07-02T14:53:26.447302+00:00"
         },
         {
           "id": "verify:issue:fault:fault-32b01a0e",
@@ -788,6 +606,28 @@
       ]
     },
     {
+      "id": "verify:issue:assert:cap-4a17a6f54e3d",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-4a17a6f54e3d/manifest.json",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-4a17a6f54e3d/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/steps.json"
+      ],
+      "proofTier": "t2",
+      "doesNotProve": [
+        "Packaged desktop",
+        "WebView2-specific behavior",
+        "Multi-window focus"
+      ],
+      "ingestedAt": "2026-08-18T18:15:27.327654100+00:00",
+      "findingId": "cap-4a17a6f54e3d",
+      "fingerprint": "finding:cap-4a17a6f54e3d:client_assert",
+      "occurrenceCount": 1
+    },
+    {
       "id": "verify:issue:assert:cap-5ad02d69dd30",
       "severity": "p1",
       "status": "open",
@@ -805,6 +645,28 @@
       "ingestedAt": "2026-07-01T03:57:46.925683500+00:00",
       "findingId": "cap-5ad02d69dd30",
       "fingerprint": "finding:cap-5ad02d69dd30:client_assert",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:assert:cap-7c36691a2d41",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: domExists — unsupported assert kind: domExists",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-7c36691a2d41/manifest.json",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-7c36691a2d41/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/steps.json"
+      ],
+      "proofTier": "t2",
+      "doesNotProve": [
+        "Packaged desktop",
+        "WebView2-specific behavior",
+        "Multi-window focus"
+      ],
+      "ingestedAt": "2026-08-18T18:15:21.560478300+00:00",
+      "findingId": "cap-7c36691a2d41",
+      "fingerprint": "finding:cap-7c36691a2d41:client_assert",
       "occurrenceCount": 1
     },
     {
@@ -907,6 +769,48 @@
       "occurrenceCount": 1
     },
     {
+      "id": "verify:issue:assert:cap-c83f5561abd3",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: E2E Encrypted",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-c83f5561abd3/manifest.json",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-c83f5561abd3/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-08-23T18:33:43.970796800+00:00",
+      "findingId": "cap-c83f5561abd3",
+      "fingerprint": "finding:cap-c83f5561abd3:client_assert",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:assert:cap-d750192b42c3",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: beta-smoke-20260823-t1-nip17",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-d750192b42c3/manifest.json",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-d750192b42c3/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-08-23T18:33:17.702877400+00:00",
+      "findingId": "cap-d750192b42c3",
+      "fingerprint": "finding:cap-d750192b42c3:client_assert",
+      "occurrenceCount": 1
+    },
+    {
       "id": "verify:issue:assert:cap-e9215a92a21b",
       "severity": "p1",
       "status": "open",
@@ -924,6 +828,63 @@
       "ingestedAt": "2026-07-04T08:27:22.466198800+00:00",
       "findingId": "cap-e9215a92a21b",
       "fingerprint": "finding:cap-e9215a92a21b:client_assert",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:false-green:verify:false-green:oxd6-high-tier-t0-steps:obscur-dev-lab-gate",
+      "symptomId": "high-tier-t0-steps",
+      "severity": "open",
+      "status": "open",
+      "title": "Scenario `obscur-dev-lab-gate` defaultTier=T4 but only T0 fileExists/fileContains steps",
+      "source": "false_green",
+      "evidenceRefs": [
+        ".codectx/verify/false-green.json"
+      ],
+      "proofTier": "t4",
+      "doesNotProve": [
+        "T4 runtime proof",
+        "Catalog max tier ≠ scenario step capability"
+      ],
+      "ingestedAt": "2026-08-23T18:33:43.972594200+00:00",
+      "findingId": "verify:false-green:oxd6-high-tier-t0-steps:obscur-dev-lab-gate",
+      "fingerprint": "symptom:high-tier-t0-steps",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:false-green:verify:false-green:oxd6-orphan-landmine:orphan",
+      "symptomId": "orphan-landmine",
+      "severity": "open",
+      "status": "open",
+      "title": "Orphan pack landmine `orphan` (no register mint)",
+      "source": "false_green",
+      "evidenceRefs": [
+        ".codectx/verify/false-green.json"
+      ],
+      "proofTier": "t1",
+      "doesNotProve": [
+        "Register issue minted",
+        "Product Fixed"
+      ],
+      "ingestedAt": "2026-08-23T18:33:43.972594200+00:00",
+      "findingId": "verify:false-green:oxd6-orphan-landmine:orphan",
+      "fingerprint": "symptom:orphan-landmine",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-0dd352c0",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=80",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-0dd352c0.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T22:36:06.835279600+00:00",
+      "findingId": "fault-0dd352c0",
+      "fingerprint": "finding:fault-0dd352c0:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -945,21 +906,54 @@
       "occurrenceCount": 1
     },
     {
-      "id": "verify:issue:fault:fault-1bfb48bc",
+      "id": "verify:issue:fault:fault-1285de34",
       "severity": "p1",
       "status": "open",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "title": "groups.ledger_migration_needed — count=94",
       "source": "runtime_digest",
       "evidenceRefs": [
-        ".codectx/verify/faults/fault-1bfb48bc.json"
+        ".codectx/verify/faults/fault-1285de34.json"
       ],
-      "proofTier": "t3",
       "doesNotProve": [
         "Imported digest proves runtime observation at capture time only"
       ],
-      "ingestedAt": "2026-07-04T16:11:32.714260200+00:00",
-      "findingId": "fault-1bfb48bc",
-      "fingerprint": "finding:fault-1bfb48bc:runtime_digest",
+      "ingestedAt": "2026-07-01T17:28:48.023176700+00:00",
+      "findingId": "fault-1285de34",
+      "fingerprint": "finding:fault-1285de34:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-1a2cb746",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=122",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-1a2cb746.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T17:33:18.484745200+00:00",
+      "findingId": "fault-1a2cb746",
+      "fingerprint": "finding:fault-1a2cb746:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-1df0fe98",
+      "severity": "p1",
+      "status": "open",
+      "title": "relay.transport_engine_pool_subscribe — count=67",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-1df0fe98.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T08:44:28.141642200+00:00",
+      "findingId": "fault-1df0fe98",
+      "fingerprint": "finding:fault-1df0fe98:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1017,21 +1011,20 @@
       "occurrenceCount": 1
     },
     {
-      "id": "verify:issue:fault:fault-3610d923",
+      "id": "verify:issue:fault:fault-317657e4",
       "severity": "p1",
       "status": "open",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "title": "groups.ledger_validation_issues — count=111",
       "source": "runtime_digest",
       "evidenceRefs": [
-        ".codectx/verify/faults/fault-3610d923.json"
+        ".codectx/verify/faults/fault-317657e4.json"
       ],
-      "proofTier": "t3",
       "doesNotProve": [
         "Imported digest proves runtime observation at capture time only"
       ],
-      "ingestedAt": "2026-07-04T16:11:26.590088800+00:00",
-      "findingId": "fault-3610d923",
-      "fingerprint": "finding:fault-3610d923:runtime_digest",
+      "ingestedAt": "2026-07-01T14:11:16.163370100+00:00",
+      "findingId": "fault-317657e4",
+      "fingerprint": "finding:fault-317657e4:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1053,6 +1046,40 @@
       "occurrenceCount": 1
     },
     {
+      "id": "verify:issue:fault:fault-4720432c",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=63",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-4720432c.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T18:00:36.797852800+00:00",
+      "findingId": "fault-4720432c",
+      "fingerprint": "finding:fault-4720432c:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-4a171a35",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=137",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-4a171a35.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T16:54:59.571036600+00:00",
+      "findingId": "fault-4a171a35",
+      "fingerprint": "finding:fault-4a171a35:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
       "id": "verify:issue:fault:fault-4ce5736c",
       "severity": "p1",
       "status": "open",
@@ -1068,6 +1095,40 @@
       "ingestedAt": "2026-07-04T17:53:45.671412900+00:00",
       "findingId": "fault-4ce5736c",
       "fingerprint": "finding:fault-4ce5736c:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-5100471d",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=51",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-5100471d.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T22:05:27.534353500+00:00",
+      "findingId": "fault-5100471d",
+      "fingerprint": "finding:fault-5100471d:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-52dd9177",
+      "severity": "p1",
+      "status": "open",
+      "title": "messaging.delete_for_everyone_remote_result — count=95",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-52dd9177.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T09:59:13.608201900+00:00",
+      "findingId": "fault-52dd9177",
+      "fingerprint": "finding:fault-52dd9177:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1158,6 +1219,23 @@
       "ingestedAt": "2026-07-04T14:10:17.743239900+00:00",
       "findingId": "fault-7be52e18",
       "fingerprint": "finding:fault-7be52e18:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-7f9100c4",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_validation_issues — count=118",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-7f9100c4.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T17:33:55.763225600+00:00",
+      "findingId": "fault-7f9100c4",
+      "fingerprint": "finding:fault-7f9100c4:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1315,21 +1393,130 @@
       ]
     },
     {
+      "id": "verify:issue:fault:fault-91576178",
+      "severity": "p1",
+      "status": "open",
+      "title": "messaging.delete_for_everyone_remote_result — count=149",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-91576178.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T14:53:26.447302+00:00",
+      "findingId": "fault-91576178",
+      "fingerprint": "finding:fault-91576178:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
       "id": "verify:issue:fault:fault-9a209d25",
+      "symptomId": "navigation-settings-auth-kick",
       "severity": "p1",
       "status": "open",
       "title": "runtime.profile_binding_refresh_completed — count=2",
       "source": "runtime_digest",
       "evidenceRefs": [
-        ".codectx/verify/faults/fault-9a209d25.json"
+        ".codectx/verify/faults/fault-1bfb48bc.json",
+        ".codectx/verify/faults/fault-3610d923.json",
+        ".codectx/verify/faults/fault-9a209d25.json",
+        ".codectx/verify/faults/fault-d5664a30.json",
+        ".codectx/verify/faults/fault-ed9c8eaa.json",
+        ".codectx/verify/faults/fault-f493d43a.json"
       ],
       "proofTier": "t3",
       "doesNotProve": [
         "Imported digest proves runtime observation at capture time only"
       ],
       "ingestedAt": "2026-07-04T16:32:35.406572200+00:00",
-      "findingId": "fault-9a209d25",
-      "fingerprint": "finding:fault-9a209d25:runtime_digest",
+      "findingId": "fault-f493d43a",
+      "fingerprint": "symptom:navigation-settings-auth-kick",
+      "occurrenceCount": 6,
+      "relatedIds": [
+        "verify:issue:fault:fault-3610d923",
+        "verify:issue:fault:fault-1bfb48bc",
+        "verify:issue:fault:fault-d5664a30",
+        "verify:issue:fault:fault-ed9c8eaa",
+        "verify:issue:fault:fault-9a209d25"
+      ],
+      "symptomClass": "navigation_settings_auth_kick",
+      "priorChapters": [
+        {
+          "id": "verify:issue:fault:fault-f493d43a",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T04:49:23.660166100+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-3610d923",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:11:26.590088800+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-1bfb48bc",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:11:32.714260200+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-d5664a30",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:13:08.623246600+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-ed9c8eaa",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:30:38.847883700+00:00"
+        }
+      ]
+    },
+    {
+      "id": "verify:issue:fault:fault-a017a981",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=42",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-a017a981.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T22:33:29.829256900+00:00",
+      "findingId": "fault-a017a981",
+      "fingerprint": "finding:fault-a017a981:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-a8d78552",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=63",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-a8d78552.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T11:03:28.797505400+00:00",
+      "findingId": "fault-a8d78552",
+      "fingerprint": "finding:fault-a8d78552:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-aca31c9d",
+      "severity": "p1",
+      "status": "open",
+      "title": "workspace.thread.hydrate — count=120",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-aca31c9d.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T17:47:24.919557+00:00",
+      "findingId": "fault-aca31c9d",
+      "fingerprint": "finding:fault-aca31c9d:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1369,21 +1556,156 @@
       "occurrenceCount": 1
     },
     {
-      "id": "verify:issue:fault:fault-d5664a30",
+      "id": "verify:issue:fault:fault-b72efd02",
       "severity": "p1",
       "status": "open",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "title": "messaging.delete_for_everyone_remote_result — count=94",
       "source": "runtime_digest",
       "evidenceRefs": [
-        ".codectx/verify/faults/fault-d5664a30.json"
+        ".codectx/verify/faults/fault-b72efd02.json"
       ],
-      "proofTier": "t3",
       "doesNotProve": [
         "Imported digest proves runtime observation at capture time only"
       ],
-      "ingestedAt": "2026-07-04T16:13:08.623246600+00:00",
-      "findingId": "fault-d5664a30",
-      "fingerprint": "finding:fault-d5664a30:runtime_digest",
+      "ingestedAt": "2026-07-02T12:47:47.363478+00:00",
+      "findingId": "fault-b72efd02",
+      "fingerprint": "finding:fault-b72efd02:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-bf3a84e1",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=101",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-bf3a84e1.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T17:13:59.827276300+00:00",
+      "findingId": "fault-bf3a84e1",
+      "fingerprint": "finding:fault-bf3a84e1:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-bfbf96a4",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=85",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-bfbf96a4.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T22:06:09.732414300+00:00",
+      "findingId": "fault-bfbf96a4",
+      "fingerprint": "finding:fault-bfbf96a4:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-c2485378",
+      "severity": "p1",
+      "status": "open",
+      "title": "workspace.thread.hydrate — count=84",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-c2485378.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T08:44:53.852083700+00:00",
+      "findingId": "fault-c2485378",
+      "fingerprint": "finding:fault-c2485378:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-cebc13ad",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=42",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-cebc13ad.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T22:35:29.823804500+00:00",
+      "findingId": "fault-cebc13ad",
+      "fingerprint": "finding:fault-cebc13ad:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-d3266449",
+      "severity": "p1",
+      "status": "open",
+      "title": "workspace.thread.hydrate — count=109",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-d3266449.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T17:46:43.979538400+00:00",
+      "findingId": "fault-d3266449",
+      "fingerprint": "finding:fault-d3266449:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-d730591d",
+      "severity": "p1",
+      "status": "open",
+      "title": "messaging.delete_for_everyone_remote_result — count=107",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-d730591d.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T14:45:27.500610900+00:00",
+      "findingId": "fault-d730591d",
+      "fingerprint": "finding:fault-d730591d:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-d91cd690",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=117",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-d91cd690.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T14:09:46.841767900+00:00",
+      "findingId": "fault-d91cd690",
+      "fingerprint": "finding:fault-d91cd690:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-da76af2d",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_migration_needed — count=36",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-da76af2d.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T13:23:46.605540400+00:00",
+      "findingId": "fault-da76af2d",
+      "fingerprint": "finding:fault-da76af2d:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1456,24 +1778,6 @@
       "ingestedAt": "2026-07-04T14:11:04.787412+00:00",
       "findingId": "fault-e45873e1",
       "fingerprint": "finding:fault-e45873e1:runtime_digest",
-      "occurrenceCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-ed9c8eaa",
-      "severity": "p1",
-      "status": "open",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
-      "source": "runtime_digest",
-      "evidenceRefs": [
-        ".codectx/verify/faults/fault-ed9c8eaa.json"
-      ],
-      "proofTier": "t3",
-      "doesNotProve": [
-        "Imported digest proves runtime observation at capture time only"
-      ],
-      "ingestedAt": "2026-07-04T16:30:38.847883700+00:00",
-      "findingId": "fault-ed9c8eaa",
-      "fingerprint": "finding:fault-ed9c8eaa:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1581,24 +1885,6 @@
       "occurrenceCount": 1
     },
     {
-      "id": "verify:issue:fault:fault-f493d43a",
-      "severity": "p1",
-      "status": "open",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
-      "source": "runtime_digest",
-      "evidenceRefs": [
-        ".codectx/verify/faults/fault-f493d43a.json"
-      ],
-      "proofTier": "t3",
-      "doesNotProve": [
-        "Imported digest proves runtime observation at capture time only"
-      ],
-      "ingestedAt": "2026-07-04T04:49:23.660166100+00:00",
-      "findingId": "fault-f493d43a",
-      "fingerprint": "finding:fault-f493d43a:runtime_digest",
-      "occurrenceCount": 1
-    },
-    {
       "id": "verify:issue:fault:fault-f6ffae1c",
       "severity": "p1",
       "status": "open",
@@ -1617,6 +1903,40 @@
       "occurrenceCount": 1
     },
     {
+      "id": "verify:issue:fault:fault-f9cb9bcd",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_validation_issues — count=127",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-f9cb9bcd.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T17:34:38.526594100+00:00",
+      "findingId": "fault-f9cb9bcd",
+      "fingerprint": "finding:fault-f9cb9bcd:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-fc0c8590",
+      "severity": "p1",
+      "status": "open",
+      "title": "groups.ledger_validation_issues — count=123",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-fc0c8590.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-01T16:57:25.982901900+00:00",
+      "findingId": "fault-fc0c8590",
+      "fingerprint": "finding:fault-fc0c8590:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
       "id": "verify:issue:fault:fault-fc82c518",
       "severity": "p1",
       "status": "open",
@@ -1632,6 +1952,23 @@
       "ingestedAt": "2026-07-04T17:53:35.342944+00:00",
       "findingId": "fault-fc82c518",
       "fingerprint": "finding:fault-fc82c518:runtime_digest",
+      "occurrenceCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-fc9c865f",
+      "severity": "p1",
+      "status": "open",
+      "title": "messaging.delete_for_everyone_remote_result — count=50",
+      "source": "runtime_digest",
+      "evidenceRefs": [
+        ".codectx/verify/faults/fault-fc9c865f.json"
+      ],
+      "doesNotProve": [
+        "Imported digest proves runtime observation at capture time only"
+      ],
+      "ingestedAt": "2026-07-02T08:35:32.592667700+00:00",
+      "findingId": "fault-fc9c865f",
+      "fingerprint": "finding:fault-fc9c865f:runtime_digest",
       "occurrenceCount": 1
     },
     {
@@ -1668,13 +2005,13 @@
       "doesNotProve": [
         "Digest capture without symptom mapping or signal extract (RIW-8)"
       ],
-      "ingestedAt": "2026-07-06T14:51:07.851636500+00:00",
+      "ingestedAt": "2026-08-23T18:33:43.972594200+00:00",
       "fingerprint": "unmapped:capture-digest",
       "occurrenceCount": 25,
       "riwId": "RIW-8"
     }
   ],
-  "triageIssueCount": 46,
+  "triageIssueCount": 73,
   "unmappedCaptureCount": 25,
   "quarantinedScenarioRunId": "vrun-31d8d75b"
 }

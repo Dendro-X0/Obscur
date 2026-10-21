@@ -1,7 +1,9 @@
+import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ContactRequestThreadBanner } from "./contact-request-thread-banner";
 import en from "@/app/lib/i18n/locales/en.json";
+import { APP_OVERLAY_PORTAL_WRAPPER_CLASS } from "@/app/components/app-overlay-layer";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -14,9 +16,13 @@ vi.mock("react-i18next", () => ({
 
 const PEER = ("c".repeat(64)) as import("@dweb/crypto/public-key-hex").PublicKeyHex;
 
+function renderBanner(ui: React.ReactElement): ReturnType<typeof render> {
+  return render(ui);
+}
+
 describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
   it("renders identity binding and accept/decline for incoming requests", () => {
-    render(
+    renderBanner(
       <ContactRequestThreadBanner
         displayName="Tester2"
         peerPublicKeyHex={PEER}
@@ -35,7 +41,7 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
 
   it("opens accept confirm dialog before calling onAcceptConfirm", async () => {
     const onAcceptConfirm = vi.fn(async () => {});
-    render(
+    renderBanner(
       <ContactRequestThreadBanner
         displayName="Tester2"
         peerPublicKeyHex={PEER}
@@ -46,7 +52,11 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /^accept$/i }));
-    expect(screen.getByTestId("identity-binding-accept-dialog")).toBeInTheDocument();
+    const portal = document.body.querySelector('[data-testid="app-overlay-portal"]');
+    const dialog = screen.getByTestId("identity-binding-accept-dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(document.body.contains(dialog)).toBe(true);
+    expect(portal?.className).toContain(APP_OVERLAY_PORTAL_WRAPPER_CLASS);
 
     fireEvent.click(screen.getByRole("button", { name: /fingerprint matches/i }));
     await waitFor(() => {
@@ -55,7 +65,7 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
   });
 
   it("shows trust warning in accept dialog for risky request preview", () => {
-    render(
+    renderBanner(
       <ContactRequestThreadBanner
         displayName="Tester2"
         peerPublicKeyHex={PEER}
@@ -72,7 +82,7 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
   });
 
   it("shows waiting state for outgoing pending requests", () => {
-    render(
+    renderBanner(
       <ContactRequestThreadBanner
         displayName="DemoUser"
         peerPublicKeyHex={PEER}
@@ -88,9 +98,31 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
     expect(screen.getByRole("button", { name: /cancel request/i })).toBeInTheDocument();
   });
 
+  it("shows relay-pending banner with retry button when relayPending is true", async () => {
+    const onRetry = vi.fn(async () => {});
+    renderBanner(
+      <ContactRequestThreadBanner
+        displayName="DemoUser"
+        peerPublicKeyHex={PEER}
+        isInitiator={false}
+        onAcceptConfirm={vi.fn()}
+        onDecline={vi.fn()}
+        relayPending
+        onRetryRelayNotification={onRetry}
+      />,
+    );
+
+    expect(screen.getByTestId("contact-request-relay-pending-banner")).toBeInTheDocument();
+    expect(screen.getByText(/relay notification pending/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /retry now/i }));
+    await waitFor(() => {
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("shows resend affordance for outgoing declined requests", async () => {
     const onResendRequest = vi.fn(async () => {});
-    render(
+    renderBanner(
       <ContactRequestThreadBanner
         displayName="DemoUser"
         peerPublicKeyHex={PEER}

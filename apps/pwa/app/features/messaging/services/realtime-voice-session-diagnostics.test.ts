@@ -28,6 +28,8 @@ describe("realtime-voice-session-diagnostics", () => {
         hasPeerConnection: true,
         hasAddTrack: true,
         opusCapabilityStatus: "available",
+        videoCapabilityStatus: "available",
+        supportsVideo: true,
       },
       nowUnixMs: 1_000,
     });
@@ -70,6 +72,8 @@ describe("realtime-voice-session-diagnostics", () => {
         hasPeerConnection: true,
         hasAddTrack: true,
         opusCapabilityStatus: "available",
+        videoCapabilityStatus: "available",
+        supportsVideo: true,
       },
       nowUnixMs: 2_000,
     });

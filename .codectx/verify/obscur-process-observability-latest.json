@@ -1,0 +1,146 @@
+{
+  "schema": "studio.obscur.processObservability@1.0.0",
+  "pathway": {
+    "id": "pathways.obscurProcessObservability",
+    "title": "Obscur process observability recipes — A7 deepen (H-OX2)",
+    "steps": [
+      "studio_help → obscurProcessObservability / pathways.obscurProcessObservability",
+      "studio_repo { action: \"studio_obscur_field_residual\" }  # H-OX1 context",
+      "studio_repo { action: \"studio_obscur_process_observability\" }",
+      "Match freezeFingerprintKind / symptom before citing recipe",
+      "citeAsShellFixed=false — do not reopen SHELL-001 without freeze repro"
+    ]
+  },
+  "priorBand": "H-OX1",
+  "backlogClass": "A7_process_observability",
+  "recipes": [
+    {
+      "id": "recipe.dial-storm",
+      "symptomId": "dial-storm-freeze",
+      "title": "Dial / subscribe storm freeze",
+      "detect": [
+        "freezeFingerprintKind=dial-storm-freeze (OXD3)",
+        "Digest mentions dial-storm / transport_engine_pool_subscribe flood"
+      ],
+      "operatorSteps": [
+        "Confirm kind-aware promote did not collapse into Tor-only",
+        "Pause relay arm / empty-pool hold per subject recipe",
+        "Re-run ladder after storm settles — Blocked ≠ interact Fail"
+      ],
+      "doesNotClaim": [
+        "continuous_dial_rate_metric_product",
+        "shell_001_fixed",
+        "obscur_product_fixed"
+      ]
+    },
+    {
+      "id": "recipe.ui-hang",
+      "symptomId": "ui-hang",
+      "title": "UI hang (CDP list OK / Runtime unresponsive)",
+      "detect": [
+        "freezeFingerprintKind=ui-hang",
+        "uiResponsive / uiHang assert FAIL with CDP still listable"
+      ],
+      "operatorSteps": [
+        "Prefer hang assert over click-harder on frozen UI",
+        "Capture screenshot + hang attrs; do not cite Soft L3 as Fixed",
+        "Cold-restart subject only when handoff allows (not PAUSED)"
+      ],
+      "doesNotClaim": [
+        "webview_stall_metric_product",
+        "shell_001_fixed",
+        "soft_l3_fixed"
+      ]
+    },
+    {
+      "id": "recipe.profiles-remount",
+      "symptomId": "profiles-gate-remount",
+      "title": "Profiles / provider remount freeze",
+      "detect": [
+        "freezeFingerprintKind=profiles-gate-remount",
+        "Remount without enable_tor requirement"
+      ],
+      "operatorSteps": [
+        "Refuse Tor auto-promote for remount kind",
+        "Bound remount to provider-tree / settings arm timeline"
+      ],
+      "doesNotClaim": [
+        "obscur_product_fixed",
+        "shell_001_fixed"
+      ]
+    },
+    {
+      "id": "recipe.tor-orphan",
+      "symptomId": "tor-ui-freeze-closed-loop",
+      "title": "Tor closed-loop / orphan tor.exe (recipe-based)",
+      "detect": [
+        "freezeFingerprintKind=tor-ui-freeze-closed-loop",
+        "Orphan tor.exe suspected with UI freeze"
+      ],
+      "operatorSteps": [
+        "Use Tor kill-switch / closed-loop recipe — not remount collapse",
+        "Confirm settingsArmed + Tor kind before promote"
+      ],
+      "doesNotClaim": [
+        "continuous_process_watch_product",
+        "shell_001_fixed",
+        "obscur_product_fixed"
+      ]
+    }
+  ],
+  "citeAsShellFixed": false,
+  "citeAsContinuousApm": false,
+  "residualGapId": "obscur_field_residual_partial",
+  "residualStatus": "partial",
+  "emptyGreen": false,
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.obscurProcessObservability + honesty"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_obscur_field_residual\" }",
+      "purpose": "H-OX1 context — A7 was open"
+    },
+    {
+      "order": 3,
+      "tool": "studio_repo { action: \"studio_obscur_process_observability\" }",
+      "purpose": "Compose A7 process observability recipes"
+    },
+    {
+      "order": 4,
+      "tool": "studio_client { action: \"client_validation_ladder\" }",
+      "purpose": "When live hang/dial evidence exists (subject-gated)",
+      "when": "when claiming live hang class"
+    }
+  ],
+  "openQuestions": [
+    "Recipes deepen A7 documentation — continuous dial-rate / WebView stall metrics still open",
+    "Do not reopen SHELL-001 without freeze / Not Responding repro",
+    "H-NEW H-MC charter is next product arc after H-OX2 ships"
+  ],
+  "doesNotProve": [
+    "shell_001_fixed",
+    "continuous_process_watch_product",
+    "webview_stall_metric_product",
+    "continuous_dial_rate_metric_product",
+    "obscur_product_fixed",
+    "soft_l3_fixed",
+    "living_prove_closed",
+    "mcp_settings_listing_fixed",
+    "organizational_memory_closed",
+    "product_fixed"
+  ],
+  "proves": [
+    "process_observability_recipes_documented",
+    "kind_aware_symptom_ids_cited",
+    "a7_deepen_without_shell_fixed_claim"
+  ],
+  "notes": [
+    "H-OX2 process observability — A7 recipe deepen after H-OX1",
+    "residualStatus=partial",
+    "citeAsShellFixed=false · citeAsContinuousApm=false"
+  ]
+}

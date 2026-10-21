@@ -17,7 +17,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "../../../components/ui/dropdown-menu";
 import { cn } from "@/app/lib/utils";
 import Image from "next/image";
-import type { GroupAccessMode, CommunityMode, RelayCapabilityTier } from "../types";
+import type { CommunityHostingTier, GroupAccessMode, CommunityMode, RelayCapabilityTier } from "../types";
 import { assessRelayCapability, isManagedWorkspaceRelayGateBlocking, isPublicDefaultRelayHost, resolveManagedWorkspaceRelayGate, type RelayCapabilityAssessment, } from "../services/community-mode-contract";
 import { probeCoordinationHealth } from "../services/community-coordination-health";
 import { assessWorkspaceCommunityTrust } from "../services/community-trust-policy";
@@ -29,7 +29,10 @@ import { isCoordinationConfigured } from "../services/community-membership-sync-
 import { LOCAL_DEV_RELAY_URL } from "@/app/features/relays/hooks/use-relay-list";
 import { normalizeWorkspaceRelayUrl } from "../services/workspace-relay-url";
 import { operatorTrustBundleHostFromRelayUrl, readOperatorTrustBundleSnapshot, } from "../services/operator-trust-bundle-audit";
+import { assessQuickGroupCreate, pickDefaultQuickGroupRelayHost, resolveHostingTierForCreate, } from "../services/community-quick-group-create";
+import { readPreferredGroupCreateTier } from "../services/preferred-group-create-tier";
 import { isNewSovereignRoomCreationAllowed, isWorkspaceCommunityCreateAllowed, WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE, } from "@/app/features/workspace-kernel/workspace-kernel-sovereign-create-policy";
+import { useEscapeDismissLayer } from "@/app/lib/use-escape-dismiss-layer";
 const hostFromRelayUrl = (relayUrl: string): string => (relayUrl.replace(/^wss?:\/\//i, "").replace(/\/$/, ""));
 
 const MANAGED_WORKSPACE_GUARANTEE_KEYS = [
@@ -46,6 +49,7 @@ export interface GroupCreateInfo {
     access: GroupAccessMode;
     relayCapabilityTier: RelayCapabilityTier;
     communityMode: CommunityMode;
+    hostingTier: CommunityHostingTier;
 }
 export type CommunityCreateWaitPhase = "local" | "relay" | "directory" | "done";
 interface CreateGroupDialogProps {
@@ -75,11 +79,39 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
         about: "",
         avatar: "",
         access: "invite-only",
-        relayCapabilityTier: "managed_intranet",
-        communityMode: "managed_workspace",
+        relayCapabilityTier: "public_default",
+        communityMode: "sovereign_room",
+        hostingTier: "public_quiet",
     }));
+    const [publicLimitsAcked, setPublicLimitsAcked] = useState(false);
     const [coordinationHealthy, setCoordinationHealthy] = useState<boolean | null>(null);
+    const isQuickGroup = info.communityMode === "sovereign_room";
+    const isTeamWorkspace = info.communityMode === "managed_workspace";
     const devFlagsRevision = useWorkspaceDevFlagsRevision();
+    React.useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+        setPublicLimitsAcked(false);
+    }, [info.host, isOpen]);
+    React.useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+        const preferred = readPreferredGroupCreateTier();
+        if (preferred === "team") {
+            setInfo((prev) => (
+                prev.communityMode === "managed_workspace"
+                    ? prev
+                    : {
+                        ...prev,
+                        communityMode: "managed_workspace",
+                        host: "",
+                        relayCapabilityTier: "managed_intranet",
+                    }
+            ));
+        }
+    }, [isOpen]);
     React.useEffect(() => {
         if (!isOpen) {
             return;
@@ -90,18 +122,21 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
             relays: relayList.state.relays,
             connections: pool.connections,
             getHealth: (url) => pool.getRelayHealth(url),
-            forManagedWorkspace: true,
+            forManagedWorkspace: isTeamWorkspace,
             allowDisconnectedPrivateRelays: isCoordinationOnlyWorkspaceDevMode(),
         });
         const bundleSnapshot = readOperatorTrustBundleSnapshot();
         const operatorPreferredHost = bundleSnapshot.workspaceRelayUrl
             ? operatorTrustBundleHostFromRelayUrl(bundleSnapshot.workspaceRelayUrl)
             : null;
-        const defaultHost = pickDefaultCommunityCreateRelayHost(catalog, operatorPreferredHost);
+        const defaultHost = isQuickGroup
+            ? (pickDefaultQuickGroupRelayHost(relayList.state.relays)
+                || pickDefaultCommunityCreateRelayHost(catalog, operatorPreferredHost))
+            : pickDefaultCommunityCreateRelayHost(catalog, operatorPreferredHost);
         if (defaultHost) {
             setInfo((prev) => (prev.host.trim().length > 0 ? prev : { ...prev, host: defaultHost }));
         }
-        else if (isCoordinationOnlyWorkspaceDevMode()) {
+        else if (isCoordinationOnlyWorkspaceDevMode() && isTeamWorkspace) {
             setInfo((prev) => (prev.host.trim().length > 0 ? prev : {
                 ...prev,
                 host: hostFromRelayUrl(LOCAL_DEV_RELAY_URL),
@@ -132,7 +167,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
         return () => {
             cancelled = true;
         };
-    }, [isOpen, relayList.state.relays, relayConnectionSignature, devFlagsRevision]);
+    }, [isOpen, isQuickGroup, isTeamWorkspace, relayList.state.relays, relayConnectionSignature, devFlagsRevision]);
     const coordinationGateSatisfied = React.useMemo(() => isCoordinationGateSatisfied(coordinationHealthy), [coordinationHealthy, devFlagsRevision]);
     const relayAssessment: RelayCapabilityAssessment = React.useMemo(() => {
         return assessRelayCapability({
@@ -161,36 +196,63 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
         relays: relayList.state.relays,
         connections: relayPool.connections,
         getHealth: (url) => relayPool.getRelayHealth(url),
-        forManagedWorkspace: true,
-        allowDisconnectedPrivateRelays: coordinationOnlyDev,
-    }), [coordinationOnlyDev, relayList.state.relays, relayPool.connections, relayPool.getRelayHealth]);
+        forManagedWorkspace: isTeamWorkspace,
+        allowDisconnectedPrivateRelays: coordinationOnlyDev && isTeamWorkspace,
+    }), [coordinationOnlyDev, isTeamWorkspace, relayList.state.relays, relayPool.connections, relayPool.getRelayHealth]);
     const selectedRelayOption = React.useMemo(() => relayCatalog.find((option) => option.host === info.host.trim()), [info.host, relayCatalog]);
     const normalizedCreateRelayUrl = React.useMemo(() => normalizeWorkspaceRelayUrl(info.host), [info.host]);
     const createRelayTransportReady = hasWritableCommunityRelayTransport(normalizedCreateRelayUrl);
+    const quickGroupTrust = React.useMemo(() => assessQuickGroupCreate({
+        communityRelayUrl: normalizedCreateRelayUrl,
+        enabledRelayUrls: relayList.state.relays.map((r) => r.url),
+    }), [normalizedCreateRelayUrl, relayList.state.relays]);
     const coordinationConfigured = isCoordinationConfigured();
     const coordinationUnreachable = coordinationConfigured
         && coordinationHealthy === false
         && !coordinationGateSatisfied;
-    const relayHostAllowed = coordinationOnlyDev
-        ? info.host.trim().length > 0 || coordinationGateSatisfied
-        : selectedRelayOption
-            ? selectedRelayOption.selectable
-            : createRelayTransportReady && !isPublicDefaultRelayHost(info.host);
-    const workspaceCreateBlockedEffective = workspaceCreateBlocked;
-    const workspaceKernelCreateDeferred = !isWorkspaceCommunityCreateAllowed();
-    const sovereignCreateBlocked = !isNewSovereignRoomCreationAllowed();
-    const isValid = info.groupId.trim().length > 0 &&
-        info.name.trim().length > 0 &&
-        relayHostAllowed &&
-        coordinationGateSatisfied &&
-        !workspaceCreateBlockedEffective &&
-        !managedCreateBlocked &&
-        !workspaceKernelCreateDeferred &&
-        sovereignCreateBlocked &&
-        (coordinationOnlyDev || (info.host.trim().length > 0 && createRelayTransportReady));
+    const relayHostAllowed = isQuickGroup
+        ? (selectedRelayOption?.selectable
+            ?? (createRelayTransportReady && info.host.trim().length > 0))
+        : coordinationOnlyDev
+            ? info.host.trim().length > 0 || coordinationGateSatisfied
+            : selectedRelayOption
+                ? selectedRelayOption.selectable
+                : createRelayTransportReady && info.host.trim().length > 0;
+    const workspaceCreateBlockedEffective = isTeamWorkspace && workspaceCreateBlocked;
+    const workspaceKernelCreateDeferred = isTeamWorkspace && !isWorkspaceCommunityCreateAllowed();
+    const sovereignCreateAllowed = isNewSovereignRoomCreationAllowed();
+    // CU-UX-5: honesty ack for Quiet host on Quick or Team.
+    const publicHonestyRequired = Boolean(
+        (isQuickGroup && quickGroupTrust.isPublicQuietHost)
+        || (isTeamWorkspace && (
+            managedCreateGate.requiresHonestyAck
+            || quickGroupTrust.isPublicQuietHost
+            || isPublicDefaultRelayHost(info.host)
+        )),
+    );
+    const isValid = info.groupId.trim().length > 0
+        && info.name.trim().length > 0
+        && relayHostAllowed
+        && info.host.trim().length > 0
+        && createRelayTransportReady
+        && !managedCreateBlocked
+        && (isQuickGroup
+            ? sovereignCreateAllowed
+                && quickGroupTrust.allowed
+                && (!publicHonestyRequired || publicLimitsAcked)
+            : coordinationGateSatisfied
+                && !workspaceCreateBlockedEffective
+                && !workspaceKernelCreateDeferred
+                && (coordinationOnlyDev || createRelayTransportReady)
+                && (!publicHonestyRequired || publicLimitsAcked));
     const createActionLabel = t("groups.createAction");
     const creatingActionLabel = t("groups.creatingAction");
     const isCreateBusy = Boolean(isCreating || isUploading);
+    useEscapeDismissLayer({
+        enabled: isOpen,
+        onClose,
+        blocked: Boolean(isCreating),
+    });
     const createWaitSteps: ReadonlyArray<CommunityActionWaitStep> = React.useMemo(() => buildCommunityActionWaitSteps([
         {
             id: "local",
@@ -224,9 +286,11 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
         ? "groups.workspaceTrust.relay_unreachable.userMessage"
         : `groups.workspaceTrust.${workspaceTrust.reasonCode}.userMessage`;
     const workspaceTrustSettingsHintKey = workspaceTrust.allowed
-        ? (isCoordinationOnlyWorkspaceDevMode() && !createRelayTransportReady
-            ? "groups.workspaceTrust.coordinationOnlyDev.settingsHint"
-            : "groups.workspaceTrust.allowed.settingsHint")
+        ? (workspaceTrust.reasonCode === "public_relay_honest"
+            ? "groups.workspaceTrust.public_relay_honest.settingsHint"
+            : isCoordinationOnlyWorkspaceDevMode() && !createRelayTransportReady
+                ? "groups.workspaceTrust.coordinationOnlyDev.settingsHint"
+                : "groups.workspaceTrust.allowed.settingsHint")
         : workspaceTrust.reasonCode === "relay_unconfigured" && info.host.trim().length > 0 && !createRelayTransportReady
             ? "groups.workspaceTrust.relay_unreachable.settingsHint"
             : `groups.workspaceTrust.${workspaceTrust.reasonCode}.settingsHint`;
@@ -237,7 +301,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
             : `groups.managedWorkspaceGate.${managedCreateGate.reasonCode}.userMessage`;
     if (!isOpen)
         return null;
-    return (<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in duration-200">
+    return (<div data-escape-layer="open" data-testid="create-group-dialog-layer" className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md animate-in fade-in duration-200">
             <div className="relative w-full max-w-3xl max-h-[90vh] bg-[#fafafa] dark:bg-[#121214] border border-zinc-200 dark:border-[#1a1a1c] shadow-2xl overflow-hidden rounded-[20px] flex flex-col">
                 {isCreating ? (<div className="absolute inset-0 z-20 flex items-center justify-center bg-[#fafafa]/95 dark:bg-[#121214]/95 backdrop-blur-sm" data-testid="create-group-wait-ring">
                         <CommunityActionWaitRing title={t("groups.createWaitTitle")} subtitle={t("groups.createWaitSubtitle")} steps={createWaitSteps}/>
@@ -250,7 +314,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                         </div>
                         <div>
                             <h2 className="text-lg font-black text-zinc-900 dark:text-white tracking-tight">{t("groups.createTitle")}</h2>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("groups.createDescription")}</p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t(isQuickGroup ? "groups.createDescriptionQuick" : "groups.createDescription")}</p>
                         </div>
                     </div>
                     <button type="button" onClick={onClose} disabled={isCreating} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-[#1a1a1c] transition-colors">
@@ -263,6 +327,58 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Left Column - Identity & Basics */}
                         <div className="space-y-5">
+                            {/* Where it runs — dual tier */}
+                            <div className="space-y-2" data-testid="create-group-hosting-tier">
+                                <Label className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">
+                                    {t("groups.create.tierLabel")}
+                                </Label>
+                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        data-testid="create-group-tier-quick"
+                                        onClick={() => {
+                                            setPublicLimitsAcked(false);
+                                            setInfo((prev) => ({
+                                                ...prev,
+                                                communityMode: "sovereign_room",
+                                                host: pickDefaultQuickGroupRelayHost(relayList.state.relays) || prev.host,
+                                                relayCapabilityTier: "public_default",
+                                            }));
+                                        }}
+                                        className={cn(
+                                            "rounded-xl border p-3 text-left transition-colors",
+                                            isQuickGroup
+                                                ? "border-primary/50 bg-primary/10"
+                                                : "border-zinc-200 dark:border-[#222224] hover:border-zinc-300 dark:hover:border-zinc-600",
+                                        )}
+                                    >
+                                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{t("groups.create.tier.public.title")}</p>
+                                        <p className="mt-1 text-[11px] leading-snug text-zinc-500">{t("groups.create.tier.public.hint")}</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        data-testid="create-group-tier-team"
+                                        onClick={() => {
+                                            setInfo((prev) => ({
+                                                ...prev,
+                                                communityMode: "managed_workspace",
+                                                host: "",
+                                                relayCapabilityTier: "managed_intranet",
+                                            }));
+                                        }}
+                                        className={cn(
+                                            "rounded-xl border p-3 text-left transition-colors",
+                                            isTeamWorkspace
+                                                ? "border-emerald-500/50 bg-emerald-500/10"
+                                                : "border-zinc-200 dark:border-[#222224] hover:border-zinc-300 dark:hover:border-zinc-600",
+                                        )}
+                                    >
+                                        <p className="text-sm font-bold text-zinc-900 dark:text-white">{t("groups.create.tier.team.title")}</p>
+                                        <p className="mt-1 text-[11px] leading-snug text-zinc-500">{t("groups.create.tier.team.hint")}</p>
+                                    </button>
+                                </div>
+                            </div>
+
                             {/* Avatar & Name - Horizontal Layout */}
                             <div className="flex gap-4">
                                 <button type="button" disabled={isUploading || isCreating} onClick={async () => {
@@ -405,25 +521,51 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                             </div>
                         </div>
 
-                        {/* Right Column - Community Mode & Advanced */}
+                        {/* Right Column - Mode honesty */}
                         <div className="space-y-4">
-                            {/* Relay Baseline Card */}
-                            {relayAssessment.tier === "public_default" ? (<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-950 dark:text-amber-100" role="status" data-testid="create-group-public-relay-honesty">
+                            {isQuickGroup || publicHonestyRequired ? (<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-[11px] leading-relaxed text-amber-950 dark:text-amber-100" role="status" data-testid="create-group-public-relay-honesty">
                                     <p className="font-semibold">
-                                        {t("groups.create.publicRelayRosterTitle")}
+                                        {t(isTeamWorkspace
+            ? "groups.create.tier.team.public.warningTitle"
+            : "groups.create.tier.public.warningTitle")}
+                                    </p>
+                                    <ul className="mt-2 list-disc space-y-1 pl-4 opacity-90">
+                                        <li>{t("groups.create.tier.public.limitDelete")}</li>
+                                        <li>{t("groups.create.tier.public.limitDirectory")}</li>
+                                        <li>{t("groups.create.tier.public.limitRoster")}</li>
+                                    </ul>
+                                    <p className="mt-2 opacity-80">
+                                        {t(isTeamWorkspace
+            ? "groups.create.tier.team.public.hint"
+            : "groups.create.tier.public.teamBetter")}
+                                    </p>
+                                    {publicHonestyRequired ? (<label className="mt-3 flex items-start gap-2 text-[11px] font-medium">
+                                            <input type="checkbox" className="mt-0.5" checked={publicLimitsAcked} onChange={(event) => setPublicLimitsAcked(event.target.checked)} data-testid="create-group-public-limits-ack"/>
+                                            <span>{t(isTeamWorkspace
+            ? "groups.create.tier.team.public.ack"
+            : "groups.create.tier.public.ack")}</span>
+                                        </label>) : null}
+                                </div>) : null}
+                            {isTeamWorkspace ? (<div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[11px] leading-relaxed text-sky-900 dark:text-sky-100" role="status" data-testid="create-group-workspace-trust-panel">
+                                    <p className="font-semibold">
+                                        {t("groups.create.workspaceTrustTitle")}
                                     </p>
                                     <p className="mt-1 opacity-90">
-                                        {t("groups.create.publicRelayRosterNostrHint")}
+                                        {workspaceTrust.allowed
+            ? t(workspaceTrustSettingsHintKey)
+            : t(workspaceTrustUserMessageKey)}
                                     </p>
-                                    <p className="mt-1 opacity-80">
-                                        {t("groups.create.publicRelayRosterCoordinationHint")}
-                                    </p>
-                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest opacity-90">
-                                        {t("groups.create.sovereignLegacyNote")}
-                                    </p>
+                                    {!workspaceTrust.allowed ? (<p className="mt-1 text-[10px] opacity-80">{t(workspaceTrustSettingsHintKey)}</p>) : null}
+                                    <button type="button" className="mt-2 text-[10px] font-bold uppercase tracking-widest underline" onClick={() => {
+            onClose();
+            router.push("/settings?tab=relays#membership-sync-settings");
+        }}>
+                                        {t("groups.create.openMembershipSyncSettings")}
+                                    </button>
                                 </div>) : null}
 
-                            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 dark:border-[#222224] dark:bg-[#121214]/50">
+                            {isTeamWorkspace ? (<>
+                            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 dark:border-[#222224] dark:bg-[#121214]/50" data-testid="create-group-relay-baseline">
                                 <div className="flex items-center justify-between gap-2">
                                     <p className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">
                                         {t("groups.relayBaselineLabel")}
@@ -442,32 +584,13 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                                 </p>
                             </div>
 
-                            <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[11px] leading-relaxed text-sky-900 dark:text-sky-100" role="status" data-testid="create-group-workspace-trust-panel">
-                                <p className="font-semibold">
-                                    {t("groups.create.workspaceTrustTitle")}
-                                </p>
-                                <p className="mt-1 opacity-90">
-                                    {workspaceTrust.allowed
-            ? t(workspaceTrustSettingsHintKey)
-            : t(workspaceTrustUserMessageKey)}
-                                </p>
-                                {!workspaceTrust.allowed ? (<p className="mt-1 text-[10px] opacity-80">{t(workspaceTrustSettingsHintKey)}</p>) : null}
-                                <button type="button" className="mt-2 text-[10px] font-bold uppercase tracking-widest underline" onClick={() => {
-            onClose();
-            router.push("/settings?tab=relays#membership-sync-settings");
-        }}>
-                                    {t("groups.create.openMembershipSyncSettings")}
-                                </button>
-                            </div>
-
-                            {/* Workspace mode (fixed) */}
-                            <div className="space-y-2">
+                            <div className="space-y-2" data-testid="create-group-mode-guarantees">
                                 <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 px-1">
                                     {t("groups.modeLabel")}
                                 </Label>
-                                <div className="w-full rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-3">
+                                <div className="w-full rounded-xl border p-3 border-emerald-500/40 bg-emerald-500/5">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-9 w-9 shrink-0 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                                        <div className="h-9 w-9 shrink-0 rounded-xl flex items-center justify-center bg-emerald-500/10">
                                             <Building2 className="h-4 w-4 text-emerald-500"/>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -478,17 +601,13 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                                                 {t("groups.mode.managedWorkspace.shortDescription")}
                                             </p>
                                         </div>
-                                        <Check className="h-4 w-4 text-emerald-500 shrink-0"/>
+                                        <Check className="h-4 w-4 shrink-0 text-emerald-500"/>
                                     </div>
                                 </div>
 
-                                {/* Selected Guarantees */}
                                 <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-[#222224] dark:bg-[#0f0f11]">
                                     <p className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                                         {t("groups.guaranteesLabel")}
-                                    </p>
-                                    <p className="mt-1 text-sm font-bold text-zinc-900 dark:text-white">
-                                        {t("groups.mode.managedWorkspace.label")}
                                     </p>
                                     <div className="mt-2 flex flex-wrap gap-1.5">
                                         {MANAGED_WORKSPACE_GUARANTEE_KEYS.map((guaranteeKey) => (<span key={guaranteeKey} className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-zinc-600 dark:border-zinc-700 dark:bg-[#161618] dark:text-zinc-300">
@@ -500,6 +619,7 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                                     </p>
                                 </div>
                             </div>
+                            </>) : null}
                         </div>
                     </div>
                 </div>
@@ -535,14 +655,18 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                     <Button variant="ghost" onClick={onClose} disabled={isCreating}>
                         {t("common.cancel")}
                     </Button>
-                    <Button type="button" aria-busy={isCreateBusy} onClick={() => {
+                    <Button type="button" aria-busy={isCreateBusy} data-testid="create-group-submit" onClick={() => {
             if (isCreateBusy) {
                 return;
             }
             onCreate({
                 ...info,
-                communityMode: "managed_workspace",
+                communityMode: info.communityMode,
                 relayCapabilityTier: relayAssessment.tier,
+                hostingTier: resolveHostingTierForCreate({
+                    communityMode: info.communityMode,
+                    isPublicQuietHost: quickGroupTrust.isPublicQuietHost,
+                }),
             });
         }} disabled={!isValid || managedCreateBlocked || workspaceCreateBlockedEffective} className={cn("min-w-[10.5rem] relative overflow-hidden", isCreateBusy && "!opacity-100 cursor-wait pointer-events-none !transform-none")}>
                         {isCreateBusy ? (<span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/25 to-white/0 animate-pulse"/>) : null}

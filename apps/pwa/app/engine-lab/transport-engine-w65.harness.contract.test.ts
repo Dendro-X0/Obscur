@@ -14,10 +14,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w65 — existence pin migration harness", () => {
   it("links W64 production deletion to W65 pin migration", () => {
     const w64 = readFromRepo(
-      "docs/program/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
     );
     const w65 = readFromRepo(
-      "docs/program/transport-engine-w65-standalone-legacy-existence-pin-migration.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w65-standalone-legacy-existence-pin-migration.md",
     );
     expect(w64).toContain("gate-closed existence contract pins");
     expect(w65).toContain("thin port");

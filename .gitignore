@@ -78,3 +78,6 @@ apps/relay-gateway/data/hide-registry.json
 .wrangler/
 .playwright-mcp
 .tools/
+
+# Business / GTM docs — local only (never push)
+docs/business/

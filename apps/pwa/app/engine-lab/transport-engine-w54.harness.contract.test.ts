@@ -12,7 +12,7 @@ describe("transport-engine w54 — sign-off template harness", () => {
   it("maps all eight W53 checklist rows in template", () => {
     const template = readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-template.md");
     const w53 = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
 
     expect(template.match(/\| [1-8] \|/g)?.length).toBe(8);
@@ -22,7 +22,7 @@ describe("transport-engine w54 — sign-off template harness", () => {
   it("blocks standalone deletion until PASS decision documented", () => {
     const template = readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-template.md");
     const charter = readFromRepo(
-      "docs/program/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
     );
 
     expect(template).toContain("deletion requires `Decision: PASS`");

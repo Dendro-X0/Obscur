@@ -8,18 +8,18 @@ import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import { Textarea } from "@/app/components/ui/textarea";
 import { cn } from "@/app/lib/cn";
-import { CommunityModeBadge } from "../../community-mode-badge";
 import { RelayCapabilityBadge } from "@/app/features/relays/components/relay-capability-badge";
 import {
     isManagedWorkspaceRelayGateBlocking,
     type ManagedWorkspaceRelayGate,
 } from "../../../services/community-mode-contract";
 import type { CommunityStewardPolicy } from "../../../services/community-steward-policy";
+import type { CommunityConvertAssessment } from "../../../services/community-mode-convert-policy";
 import { CommunityBotsSection } from "../community-bots-section";
 import { CommunityBotTriggersSection } from "../community-bot-triggers-section";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { CommunityBotTriggerEntry } from "../../../services/community-bot-triggers-policy";
-import type { GroupAccessMode } from "../../../types";
+import type { CommunityMode, GroupAccessMode } from "../../../types";
 import { mgmtFieldClass, mgmtSectionClass, mgmtCompactSectionClass, mgmtTextareaClass } from "../constants";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 
@@ -46,6 +46,15 @@ export function GroupManagementGeneralPanel({
     editBotTriggers,
     onEditBotTriggersChange,
     requiresGovernanceProposal,
+    canConvertDirect,
+    showStewardBootstrapHint,
+    editCommunityMode,
+    setEditCommunityMode,
+    editRelayHost,
+    setEditRelayHost,
+    convertHonestyAcked,
+    setConvertHonestyAcked,
+    convertAssessment,
 }: Readonly<{
     editName: string;
     setEditName: (value: string) => void;
@@ -70,6 +79,16 @@ export function GroupManagementGeneralPanel({
     onEditBotTriggersChange: (next: ReadonlyArray<CommunityBotTriggerEntry>) => void;
     /** When true, saving (including bots) goes through governance proposal. */
     requiresGovernanceProposal: boolean;
+    canConvertDirect: boolean;
+    /** Local admin / creator can claim steward when list is empty. */
+    showStewardBootstrapHint: boolean;
+    editCommunityMode: CommunityMode;
+    setEditCommunityMode: (mode: CommunityMode) => void;
+    editRelayHost: string;
+    setEditRelayHost: (host: string) => void;
+    convertHonestyAcked: boolean;
+    setConvertHonestyAcked: (acked: boolean) => void;
+    convertAssessment: CommunityConvertAssessment;
 }>): React.JSX.Element {
     const managedSettingsBlocked = isManagedWorkspaceRelayGateBlocking(managedWorkspaceRelayGate);
     const compact = useMobileCompactLayout();
@@ -179,19 +198,146 @@ export function GroupManagementGeneralPanel({
                 </div>
             </section>
 
+            {isAdmin ? (
+                <section className={sectionClass} data-testid="group-manage-convert-section">
+                    <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        {t("groups.manage.convert.title")}
+                    </Label>
+                    <p className="mt-1 text-xs text-zinc-500">
+                        {t("groups.manage.convert.hint")}
+                    </p>
+                    {!canConvertDirect ? (
+                        <p
+                            className="mt-3 rounded-lg border border-amber-500/35 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+                            data-testid="group-manage-convert-locked"
+                        >
+                            {t("groups.manage.convert.lockedBody")}
+                        </p>
+                    ) : showStewardBootstrapHint ? (
+                        <p
+                            className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-950 dark:text-sky-100"
+                            data-testid="group-manage-convert-bootstrap"
+                        >
+                            {t("groups.manage.convert.bootstrapHint")}
+                        </p>
+                    ) : null}
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <button
+                            type="button"
+                            data-testid="group-manage-convert-mode-interest"
+                            disabled={!canConvertDirect || managedSettingsBlocked}
+                            onClick={() => setEditCommunityMode("sovereign_room")}
+                            className={cn(
+                                "rounded-xl border p-3 text-left transition-colors disabled:opacity-50",
+                                editCommunityMode === "sovereign_room"
+                                    ? "border-primary/50 bg-primary/10"
+                                    : "border-zinc-200 dark:border-[#222224] hover:border-zinc-300 dark:hover:border-zinc-600",
+                            )}
+                        >
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                                {t("groups.manage.convert.mode.interest")}
+                            </p>
+                            <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                                {t("groups.manage.convert.mode.interestHint")}
+                            </p>
+                        </button>
+                        <button
+                            type="button"
+                            data-testid="group-manage-convert-mode-team"
+                            disabled={!canConvertDirect || managedSettingsBlocked}
+                            onClick={() => setEditCommunityMode("managed_workspace")}
+                            className={cn(
+                                "rounded-xl border p-3 text-left transition-colors disabled:opacity-50",
+                                editCommunityMode === "managed_workspace"
+                                    ? "border-primary/50 bg-primary/10"
+                                    : "border-zinc-200 dark:border-[#222224] hover:border-zinc-300 dark:hover:border-zinc-600",
+                            )}
+                        >
+                            <p className="text-sm font-bold text-zinc-900 dark:text-white">
+                                {t("groups.manage.convert.mode.team")}
+                            </p>
+                            <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                                {t("groups.manage.convert.mode.teamHint")}
+                            </p>
+                        </button>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                        <Label htmlFor="community-convert-host" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            {t("groups.manage.convert.hostLabel")}
+                        </Label>
+                        <Input
+                            id="community-convert-host"
+                            data-testid="group-manage-convert-host"
+                            value={editRelayHost}
+                            onChange={(event) => setEditRelayHost(event.target.value)}
+                            disabled={!canConvertDirect || managedSettingsBlocked}
+                            className={mgmtFieldClass}
+                            placeholder={t("groups.manage.convert.hostPlaceholder")}
+                        />
+                        <p className="text-[10px] text-zinc-500">
+                            {t("groups.manage.convert.hostExamples")}
+                        </p>
+                    </div>
+                    {canConvertDirect && (convertAssessment.requiresHonestyAck
+                        || convertAssessment.reasonCode === "demote_honesty_required"
+                        || convertAssessment.reasonCode === "public_honesty_required") ? (
+                        <div
+                            className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-[11px] leading-relaxed text-amber-950 dark:text-amber-100"
+                            role="status"
+                            data-testid="group-manage-convert-honesty"
+                        >
+                            <p className="font-semibold">
+                                {convertAssessment.reasonCode === "demote_honesty_required"
+                                    || (convertAssessment.modeChanged
+                                        && editCommunityMode === "sovereign_room"
+                                        && communityMode === "managed_workspace")
+                                    ? t("groups.manage.convert.demoteWarningTitle")
+                                    : t("groups.manage.convert.publicWarningTitle")}
+                            </p>
+                            <p className="mt-1 opacity-90">{convertAssessment.userMessage || t("groups.manage.convert.publicWarningBody")}</p>
+                            <label className="mt-3 flex items-start gap-2 text-[11px] font-medium">
+                                <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={convertHonestyAcked}
+                                    onChange={(event) => setConvertHonestyAcked(event.target.checked)}
+                                    data-testid="group-manage-convert-honesty-ack"
+                                />
+                                <span>
+                                    {convertAssessment.reasonCode === "demote_honesty_required"
+                                        || (editCommunityMode === "sovereign_room" && communityMode === "managed_workspace")
+                                        ? t("groups.manage.convert.demoteAck")
+                                        : t("groups.manage.convert.publicAck")}
+                                </span>
+                            </label>
+                        </div>
+                    ) : null}
+                    {canConvertDirect && !convertAssessment.allowed && convertAssessment.reasonCode !== "no_change"
+                        && convertAssessment.reasonCode !== "demote_honesty_required"
+                        && convertAssessment.reasonCode !== "public_honesty_required" ? (
+                        <p
+                            className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-900 dark:text-rose-100"
+                            data-testid="group-manage-convert-blocked"
+                        >
+                            {convertAssessment.userMessage}
+                        </p>
+                    ) : null}
+                </section>
+            ) : null}
+
             {communityMode === "managed_workspace" && isAdmin ? (
                 <>
                     <CommunityBotsSection
                         botPubkeys={editBotPubkeys}
                         onChange={onEditBotPubkeysChange}
-                        disabled={managedSettingsBlocked}
+                        disabled={managedSettingsBlocked || requiresMemberVote}
                         requiresGovernanceProposal={requiresGovernanceProposal}
                     />
                     <CommunityBotTriggersSection
                         botPubkeys={editBotPubkeys}
                         botTriggers={editBotTriggers}
                         onChange={onEditBotTriggersChange}
-                        disabled={managedSettingsBlocked}
+                        disabled={managedSettingsBlocked || requiresMemberVote}
                         requiresGovernanceProposal={requiresGovernanceProposal}
                     />
                 </>
@@ -210,37 +356,30 @@ export function GroupManagementGeneralPanel({
 
             <details className={cn(sectionClass, "px-4 py-3")}>
                 <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                    {compact ? t("groups.management.general.relayProtocol") : t("groups.management.general.relayProtocolDetails")}
+                    {compact ? t("groups.management.general.relayProtocol") : t("groups.management.general.relayHealthDetails")}
                 </summary>
                 <div className="mt-4 space-y-3">
+                    <p className="text-xs text-zinc-500">
+                        {t("groups.management.general.relayHealthHint")}
+                    </p>
                     {!compact ? (
-                        <>
-                            <CommunityModeBadge
-                                mode={communityMode}
-                                enabledRelayUrls={[relayUrl].filter(Boolean)}
-                                selectedRelayHost={relayUrl}
-                                className="w-full"
-                            />
-                            <RelayCapabilityBadge
-                                capabilities={relayCapabilities}
-                                relayUrl={relayUrl}
-                                isLoading={isRelayCapabilitiesLoading}
-                                className="w-full"
-                            />
-                        </>
+                        <RelayCapabilityBadge
+                            capabilities={relayCapabilities}
+                            relayUrl={relayUrl}
+                            isLoading={isRelayCapabilitiesLoading}
+                            className="w-full"
+                        />
                     ) : (
                         <p className="text-xs text-zinc-500 truncate" title={relayUrl}>
                             {t("groups.management.general.relayHostPrefix", { host: relayUrl.replace(/^wss?:\/\//, "") })}
                         </p>
                     )}
-                    {communityMode === "managed_workspace" ? (
-                        <p className="text-xs text-zinc-500">
-                            {t("groups.management.general.authorityPrefix", {
-                                mode: stewardPolicy.authorityMode.replace(/_/g, " "),
-                            })}
-                            {stewardPolicy.isDesignatedSteward ? ` ${t("groups.management.general.youAreSteward")}` : ""}
-                        </p>
-                    ) : null}
+                    <p className="text-xs text-zinc-500">
+                        {t("groups.management.general.authorityPrefix", {
+                            mode: stewardPolicy.authorityMode.replace(/_/g, " "),
+                        })}
+                        {stewardPolicy.isDesignatedSteward ? ` ${t("groups.management.general.youAreSteward")}` : ""}
+                    </p>
                 </div>
             </details>
         </div>

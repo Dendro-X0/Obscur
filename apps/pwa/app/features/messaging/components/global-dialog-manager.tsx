@@ -33,6 +33,7 @@ import { describeCoordinationFetchError } from "@/app/features/groups/services/c
 import { resolveUserFacingErrorMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import { dispatchGroupInviteReceived } from "@/app/features/profiles/services/profile-bus-dispatch";
 import { assessWorkspaceCommunityTrustAsync } from "@/app/features/groups/services/community-trust-policy";
+import { assessQuickGroupCreate } from "@/app/features/groups/services/community-quick-group-create";
 import { createWorkspaceActivationPublisher, prepareWorkspaceActivationTransport, publishWorkspaceCoordinationJoinEvidence, summarizeWorkspaceActivation, type WorkspaceActivationRelayEvidence, } from "@/app/features/groups/services/community-workspace-activation";
 import { ensureWorkspaceMembershipSyncMode } from "@/app/features/groups/services/community-workspace-membership";
 import { hasWritableCommunityRelayTransport } from "@/app/features/groups/services/community-relay-transport";
@@ -137,18 +138,19 @@ export function GlobalDialogManager() {
         toast.success(t("messaging.chatCreated"));
     }, [newChatPubkey, newChatDisplayName, createdConnections, myPublicKeyHex, setCreatedConnections, setSelectedConversation, setIsNewChatOpen, setNewChatPubkey, setNewChatDisplayName, t, unhideConversation, peerTrust]);
     const handleCreateGroup = useCallback(async (info: GroupCreateInfo) => {
-        if (!isWorkspaceCommunityCreateAllowed()) {
-            toast.error(WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE);
-            return;
-        }
         if (!myPrivateKeyHex || !myPublicKeyHex) {
             toast.error("Identity is locked. Unlock it, then create the community again.");
+            return;
+        }
+        const isQuickGroup = info.communityMode === "sovereign_room";
+        if (!isQuickGroup && !isWorkspaceCommunityCreateAllowed()) {
+            toast.error(WORKSPACE_KERNEL_CREATE_DEFERRED_MESSAGE);
             return;
         }
         setIsCreatingGroup(true);
         setCreateWaitPhase("local");
         try {
-            if (isWorkspaceKernelAuthority()) {
+            if (!isQuickGroup && isWorkspaceKernelAuthority()) {
                 const result = await createManagedWorkspaceMembership({
                     info,
                     myPublicKeyHex,
@@ -171,7 +173,7 @@ export function GlobalDialogManager() {
                 toast.success(t("groups.created"));
                 return;
             }
-            const { groupId, host, name, about, avatar, access, relayCapabilityTier } = info;
+            const { groupId, host, name, about, avatar, access, relayCapabilityTier, communityMode, hostingTier } = info;
             const rawRelayInput = (() => {
                 const trimmedHost = host.trim();
                 if (!trimmedHost && isCoordinationOnlyWorkspaceDevMode()) {
@@ -185,18 +187,31 @@ export function GlobalDialogManager() {
                 timeoutMs: 5000,
             });
             const relayUrl = calibration.canonicalUrl;
-            const communityMode = "managed_workspace" as const;
             const creatorPubkey = myPublicKeyHex;
-            const trust = await assessWorkspaceCommunityTrustAsync({
-                communityRelayUrl: relayUrl,
-                enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
-            });
-            if (!trust.allowed) {
-                toast.error(trust.userMessage);
-                return;
+            if (isQuickGroup) {
+                const quickTrust = assessQuickGroupCreate({
+                    communityRelayUrl: relayUrl,
+                    enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+                });
+                if (!quickTrust.allowed) {
+                    toast.error(quickTrust.userMessage);
+                    return;
+                }
+            }
+            else {
+                const trust = await assessWorkspaceCommunityTrustAsync({
+                    communityRelayUrl: relayUrl,
+                    enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+                });
+                if (!trust.allowed) {
+                    toast.error(trust.userMessage);
+                    return;
+                }
             }
             const relayTransportReady = hasWritableCommunityRelayTransport(relayUrl);
-            ensureWorkspaceMembershipSyncMode();
+            if (!isQuickGroup) {
+                ensureWorkspaceMembershipSyncMode();
+            }
             if (relayTransportReady) {
                 relayList.addRelay({ url: relayUrl });
                 const pool = relayPoolRef.current;
@@ -214,6 +229,7 @@ export function GlobalDialogManager() {
                     relayUrl,
                     access,
                     communityMode,
+                    hostingTier,
                     relayCapabilityTier,
                 },
             });
@@ -232,6 +248,7 @@ export function GlobalDialogManager() {
                 picture: avatar,
                 access,
                 communityMode,
+                hostingTier,
                 relayCapabilityTier,
                 ...(stewardPubkeys.length > 0 ? { stewardPubkeys } : {}),
             } as const;
@@ -314,9 +331,31 @@ export function GlobalDialogManager() {
                 adminPubkeys: [myPublicKeyHex],
                 avatar,
                 communityMode,
+                hostingTier,
                 relayCapabilityTier,
             };
             setCreateWaitPhase("directory");
+            if (isQuickGroup) {
+                if (isRelayAuthoritativeMembershipEnforced() && relayEvidence.status !== "synced") {
+                    toast.error("Relay did not confirm community creation. Nothing was saved locally.");
+                    return;
+                }
+                if (relayEvidence.status === "failed") {
+                    toast.error(relayEvidence.lastError
+                        ? `Relay publish failed: ${relayEvidence.lastError}`
+                        : "Relay did not confirm community creation.");
+                    return;
+                }
+                addGroup(newGroup, {
+                    allowRevive: true,
+                    relayConfirmed: relayEvidence.status === "synced",
+                });
+                dispatchGroupInviteReceived(newGroup);
+                setSelectedConversation(newGroup);
+                setIsNewGroupOpen(false);
+                toast.success(t("groups.createdQuick"));
+                return;
+            }
             const coordination = await publishWorkspaceCoordinationJoinEvidence({
                 communityId,
                 memberPubkey: myPublicKeyHex as PublicKeyHex,

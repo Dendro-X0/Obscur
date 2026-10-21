@@ -156,7 +156,7 @@ describe("dm-kernel-trust-assessment-port", () => {
     expect(result.tier).toBe("none");
   });
 
-  it("infos on msg.rate flood for accepted peer burst", () => {
+  it("soft-mutes msg.rate-only flood for accepted peer burst (ASE immature)", () => {
     const floodCount = resolveMsgRateThreshold({
       peerIncomingCountLastMinute: 0,
       msgRateThreshold: MSG_RATE_THRESHOLD,
@@ -173,9 +173,8 @@ describe("dm-kernel-trust-assessment-port", () => {
       peerIncomingCountLastMinute: floodCount,
       nowUnixMs: baseMs,
     });
-    expect(result.tier).toBe("info");
+    expect(result.tier).toBe("none");
     expect(result.activeSignals).toEqual(["msg.rate"]);
-    expect(result.copyKey).toBe("messaging.trust.msgRate");
   });
 
   it("elevates on invite.fanout from repeated connection requests", () => {
@@ -253,6 +252,48 @@ describe("dm-kernel-trust-assessment-port", () => {
     expect(result.bundleId).toBe(BUNDLE_SE_COLD);
     expect(result.tier).toBe("elevated");
     expect(result.activeSignals).toContain("thread.off_platform_redirect");
+  });
+
+  it("keeps accepted-peer off-platform+payment elevated", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "Move to WhatsApp so we can discuss payment details privately.",
+      messageTimestampUnixMs: baseMs + 120_000,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: baseMs + 120_000,
+    });
+    expect(result.tier).toBe("elevated");
+    expect(result.activeSignals).toContain("thread.off_platform_redirect");
+  });
+
+  it("downgrades accepted-peer off-platform without payment to info", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "Let's continue on Telegram when you have a minute.",
+      messageTimestampUnixMs: baseMs + 120_000,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: baseMs + 120_000,
+    });
+    expect(result.tier).toBe("info");
+    expect(result.activeSignals).toContain("thread.off_platform_redirect");
+  });
+
+  it("ignores casual messenger mentions for accepted peers", () => {
+    const result = assessDmTrustWarning({
+      peerPublicKeyHex: PEER,
+      isPeerAccepted: true,
+      messageContent: "I use Discord for game chat with friends.",
+      messageTimestampUnixMs: baseMs + 120_000,
+      threadFirstPeerMessageAtUnixMs: baseMs,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: baseMs + 120_000,
+    });
+    expect(result.tier).toBe("none");
+    expect(result.activeSignals).not.toContain("thread.off_platform_redirect");
   });
 
   it("fires critical SE for cold contact remote access install", () => {

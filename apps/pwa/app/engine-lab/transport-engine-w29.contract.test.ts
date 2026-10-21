@@ -23,7 +23,7 @@ const HARNESS_SLICES = [
 
 describe("transport-engine w29 — publish parity harness exit charter", () => {
   it("pins harness exit charter and W24–W28 slice inventory", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w29-publish-parity-harness-exit-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w29-publish-parity-harness-exit-charter.md");
     expect(charter).toContain("Publish Parity Harness Exit Charter");
     expect(charter).toContain("W24–W28");
     expect(charter).toContain("transport_publish_invalid_result");

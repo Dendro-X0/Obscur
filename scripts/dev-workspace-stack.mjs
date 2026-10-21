@@ -38,13 +38,22 @@ import {
   resolveReadyTimeoutMs,
   waitForReady,
 } from "./lib/dev-stack-probes.mjs";
+import { probeDockerDaemon } from "./lib/probe-docker.mjs";
+import { repairCargoCcIfNeeded } from "./lib/repair-cargo-cc.mjs";
+import { assertHostHasHeadroom } from "./lib/host-pressure.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const flags = new Set(process.argv.slice(2));
 const stackOnly = flags.has("--stack-only");
 const useLiveWebpack = flags.has("--live");
-const skipCoordination = flags.has("--skip-coordination")
+const light = flags.has("--light");
+const skipCoordination = light
+  || flags.has("--skip-coordination")
   || process.env.OBSCUR_SKIP_COORDINATION === "1";
+const skipRelay = light
+  || flags.has("--skip-relay")
+  || process.env.OBSCUR_SKIP_RELAY === "1";
+const coordinationOptional = light || process.env.OBSCUR_COORDINATION_OPTIONAL === "1";
 
 const log = (message) => {
   console.log(`[workspace-stack] ${message}`);
@@ -82,7 +91,8 @@ const COORDINATION_PORT = 8787;
 const TOR_GATEWAY_HEALTH_URL = "http://127.0.0.1:17950/v1/health";
 const TOR_GATEWAY_PORT = 17950;
 const DEFAULT_TOR_GATEWAY_READY_TIMEOUT_MS = 120_000;
-const skipTorGateway = flags.has("--skip-tor-gateway")
+const skipTorGateway = light
+  || flags.has("--skip-tor-gateway")
   || process.env.OBSCUR_SKIP_TOR_GATEWAY === "1";
 const torGatewayReadyTimeoutMs = resolveReadyTimeoutMs(
   env.OBSCUR_TOR_GATEWAY_READY_TIMEOUT_MS,
@@ -147,7 +157,7 @@ const spawnBackground = (label, command, args, extraEnv = {}, spawnOptions = {})
     cwd: repoRoot,
     env: { ...env, ...extraEnv },
     stdio: "inherit",
-    shell: spawnOptions.shell ?? true,
+    shell: spawnOptions.shell ?? false,
     detached: false,
   });
   child.on("exit", (code) => {
@@ -179,16 +189,21 @@ const ensureCoordination = async () => {
   }
 
   if (coordinationGraceMs > 0) {
-    log(
-      `coordination not healthy — waiting ${formatDuration(coordinationGraceMs)} for an external worker (e.g. pnpm dev:coordination) before spawning a new one`,
-    );
-    const graceOk = await waitForService(
-      "coordination (external grace)",
-      () => probeHttpOk(COORDINATION_HEALTH_URL, 5000),
-      coordinationGraceMs,
-    );
-    if (graceOk) {
-      return true;
+    const portOpen = await probeTcpOpen("127.0.0.1", COORDINATION_PORT);
+    if (portOpen) {
+      log(
+        `coordination not healthy — waiting ${formatDuration(coordinationGraceMs)} for an external worker (e.g. pnpm dev:coordination) before spawning a new one`,
+      );
+      const graceOk = await waitForService(
+        "coordination (external grace)",
+        () => probeHttpOk(COORDINATION_HEALTH_URL, 5000),
+        coordinationGraceMs,
+      );
+      if (graceOk) {
+        return true;
+      }
+    } else {
+      log("coordination port closed — skipping external grace, will spawn local worker");
     }
   }
 
@@ -224,6 +239,10 @@ const ensureCoordination = async () => {
 };
 
 const ensureRelay = async () => {
+  if (skipRelay) {
+    log("skipping relay spawn (--light / --skip-relay / OBSCUR_SKIP_RELAY=1)");
+    return true;
+  }
   if (await probeTcpOpen("127.0.0.1", 7000)) {
     log("relay already listening on :7000");
     return true;
@@ -274,10 +293,12 @@ const ensureTorGateway = async () => {
     );
   }
 
+  repairCargoCcIfNeeded({ repoRoot, log: (msg) => log(msg) });
+
   // Match package.json `dev:tor-gateway` (Windows needs bash -c for cargo env).
   const cargoCmd =
     "OBSCUR_TOR_GATEWAY_BIND=127.0.0.1:17950 OBSCUR_TOR_GATEWAY_TUNNEL_BIND=127.0.0.1:17951 exec cargo run -p obscur-tor-gateway";
-  spawnBackground(
+  const torChild = spawnBackground(
     "tor-gateway",
     process.platform === "win32" ? "bash" : "bash",
     ["-c", cargoCmd],
@@ -288,10 +309,25 @@ const ensureTorGateway = async () => {
     { shell: false },
   );
 
+  let torExited = false;
+  let torExitCode = null;
+  torChild.once("exit", (code) => {
+    torExited = true;
+    torExitCode = code;
+  });
+  if (torChild.exitCode != null || torChild.killed) {
+    torExited = true;
+    torExitCode = torChild.exitCode;
+  }
+
   return waitForService(
     "tor-gateway",
     () => probeHttpOk(TOR_GATEWAY_HEALTH_URL, 5000),
     torGatewayReadyTimeoutMs,
+    {
+      shouldAbort: () => torExited,
+      abortReason: `tor-gateway process exited (code ${torExitCode ?? "unknown"}) before :17950 opened`,
+    },
   );
 };
 
@@ -303,9 +339,17 @@ const runStaticShellBuild = () => new Promise((resolve) => {
   if (flags.has("--rebuild")) {
     args.push("--rebuild");
   }
+  // Honor CLI --skip-build (phase 1 previously ignored it and always rebuilt).
+  if (flags.has("--skip-build") && !flags.has("--rebuild")) {
+    args.push("--skip-build");
+  }
   args.push("--build-only");
 
-  log("building static shell in parallel with infrastructure…");
+  log(
+    flags.has("--skip-build") && !flags.has("--rebuild")
+      ? "phase 1: static shell --skip-build (set OBSCUR_ALLOW_STALE_SHELL=1 if stamp is stale)…"
+      : "building static shell in parallel with infrastructure…",
+  );
   const child = spawn(process.execPath, args, {
     cwd: repoRoot,
     env,
@@ -338,6 +382,13 @@ process.on("SIGTERM", () => {
 });
 
 const run = async () => {
+  const headroom = await assertHostHasHeadroom(log);
+  if (!headroom.allowed) {
+    process.exit(2);
+  }
+  if (light) {
+    log("light mode — desktop only; no coordination, relay, or tor-gateway spawn");
+  }
   if (useLiveWebpack) {
     log("online desktop — webpack live shell (expect route compile stalls; use for UI HMR only)");
   } else if (process.platform === "win32" && !skipCoordination) {
@@ -361,7 +412,9 @@ const run = async () => {
     shellBuildPromise,
   ]);
 
-  if (!coordinationOk) {
+  if (!coordinationOk && coordinationOptional) {
+    log("coordination is down — continuing in light/optional mode (groups that need :8787 will not work)");
+  } else if (!coordinationOk) {
     console.error("[workspace-stack] FATAL: coordination did not become healthy.");
     console.error(`  Waited up to ${formatDuration(coordinationReadyTimeoutMs)}. Options:`);
     console.error("  • Two-terminal (recommended on Windows):");

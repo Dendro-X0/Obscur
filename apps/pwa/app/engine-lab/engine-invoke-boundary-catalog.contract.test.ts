@@ -3,7 +3,8 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * engine_invoke boundary catalog — LEGACY_PARALLEL still present after TS dual-owner subtract.
+ * engine_invoke boundary catalog — bare db_* write IPC tombstoned (Track B 2026-10).
+ * @see specs/backend/db-insert-upsert-legacy-parallel-tombstone-design-2026-10.md
  * @see specs/backend/engine-invoke-boundary-subtract-design-2026-07.md
  * @see specs/backend/relay-publish-r1-inventory-design-2026-07.md
  */
@@ -42,10 +43,18 @@ describe("engine_invoke boundary catalog", () => {
     expect(engine).toContain('"upsertConversation"');
   });
 
-  it("desktop still registers db_insert_message alongside engine_invoke (LEGACY_PARALLEL)", () => {
+  it("desktop does not register bare db_insert_message / db_upsert_conversation (tombstoned)", () => {
     const lib = readRepo("apps/desktop/src-tauri/src/lib.rs");
     expect(lib).toContain("commands::engine::engine_invoke");
-    expect(lib).toContain("commands::db::db_insert_message");
+    expect(lib).not.toMatch(/commands::db::db_insert_message\b/);
+    expect(lib).not.toMatch(/commands::db::db_upsert_conversation\b/);
+    const db = readRepo("apps/desktop/src-tauri/src/commands/db.rs");
+    expect(db).not.toMatch(/#\[tauri::command\]\s*\npub fn db_insert_message\b/);
+    expect(db).not.toMatch(/#\[tauri::command\]\s*\npub fn db_upsert_conversation\b/);
+    expect(db).toContain("Message / conversation write IPC — tombstoned");
+    const client = readRepo("packages/db/src/client.ts");
+    expect(client).not.toMatch(/\bdbInsertMessage\b/);
+    expect(client).not.toMatch(/\bdbUpsertConversation\b/);
   });
 
   it("desktop registers transport async publish; raw publish_event IPC tombstoned (R3)", () => {
@@ -202,7 +211,7 @@ describe("engine_invoke boundary catalog", () => {
   it("DM tombstone/delete product path uses dm engine (Slice 20)", () => {
     const store = readRepo("apps/pwa/app/features/messaging/services/message-delete-tombstone-store.ts");
     expect(store).toContain("listDmTombstones");
-    expect(store).toContain("insertDmTombstone");
+    expect(store).toContain("insertDmTombstones");
     expect(store).toContain("@obscur/dm-engine");
     expect(store).not.toMatch(/\bdbGetTombstones\b/);
     expect(store).not.toMatch(/\bdbInsertTombstone\b/);
@@ -212,6 +221,7 @@ describe("engine_invoke boundary catalog", () => {
     const engine = readRepo("packages/libobscur/src/engine_invoke.rs");
     expect(engine).toContain('"listTombstones"');
     expect(engine).toContain('"insertTombstone"');
+    expect(engine).toContain('"insertTombstones"');
     expect(engine).toContain('"deleteMessages"');
     const contracts = readRepo("packages/obscur-engine-contracts/src/dm-engine-methods.ts");
     expect(contracts).toContain("listTombstones");
@@ -312,15 +322,13 @@ describe("engine_invoke boundary catalog", () => {
     expect(engine).toContain('"insertGroupTombstone"');
   });
 
-  it("remaining allow-db-commands is non-group LEGACY_PARALLEL + engine only", () => {
+  it("allow-db-commands is engine_invoke family only (bare db_* writes tombstoned)", () => {
     const permissions = readRepo("apps/desktop/src-tauri/permissions/app.toml");
     const dbBlock = permissions.match(
       /identifier = "allow-db-commands"[\s\S]*?(?=\n\[\[permission\]\]|\s*$)/,
     )?.[0] ?? "";
     const allowed = Array.from(dbBlock.matchAll(/"([a-z0-9_]+)"/g), (m) => m[1]).sort();
     expect(allowed).toEqual([
-      "db_insert_message",
-      "db_upsert_conversation",
       "engine_invoke",
       "engine_invoke_transport_configure_mesh_conduits",
       "engine_invoke_transport_export_offline_pack",
@@ -329,6 +337,8 @@ describe("engine_invoke boundary catalog", () => {
       "engine_invoke_transport_publish_mesh_envelope",
       "engine_invoke_transport_publish_relay_event",
     ].sort());
+    expect(dbBlock).not.toMatch(/"db_insert_message"/);
+    expect(dbBlock).not.toMatch(/"db_upsert_conversation"/);
   });
 
   it("product features do not invoke bare checkpoint db_* commands", () => {

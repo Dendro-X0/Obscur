@@ -16,7 +16,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w42 — Rust network publish lab gate", () => {
   it("pins network lab gate charter and env flag", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w42-rust-network-publish-lab-gate-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w42-rust-network-publish-lab-gate-charter.md");
     expect(charter).toContain("Rust Network Publish Lab Gate Charter");
     expect(charter).toContain("NEXT_PUBLIC_OBSCUR_TRANSPORT_HOST_PUBLISH_NETWORK");
     expect(charter).toContain("transport_publish_network_not_wired");

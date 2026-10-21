@@ -7,6 +7,7 @@ import { getScopedStorageKey } from "@/app/features/profiles/services/profile-sc
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
+import { syncTransportIdFromTorPreference } from "@/app/features/protocol-adaptation/apply-active-transport";
 import {
   AUTOLOCK_OVERLAY_RESET_EVENT,
   resetAutoLockOverlayState,
@@ -15,18 +16,22 @@ import {
 const AUTOLOCK_STORAGE_KEY: string = "obscur.autolock.lastActivity";
 const getAutolockStorageKey = (): string => getScopedStorageKey(AUTOLOCK_STORAGE_KEY, getResolvedProfileId());
 type TorRuntimeState = 'disconnected' | 'starting' | 'connected' | 'error' | 'stopped';
-type TorStatusSnapshot = Readonly<{
-    state: TorRuntimeState;
-    configured: boolean;
-    /** Dial-ready (mesh SOCKS). R4 P0: always false until Slice 4. */
-    ready: boolean;
-    /** Gateway Bootstrapped 100% — lifecycle only. */
-    lifecycleReady?: boolean;
-    usingExternalInstance: boolean;
-    proxyUrl: string;
-    /** R4: obscur-tor-gateway answered on loopback. */
-    gatewayReachable?: boolean;
-}>;
+	type TorStatusSnapshot = Readonly<{
+	    state: TorRuntimeState;
+	    configured: boolean;
+	    /** Dial-ready (mesh SOCKS). R4 P0: always false until Slice 4. */
+	    ready: boolean;
+	    /** Gateway Bootstrapped 100% — lifecycle only. */
+	    lifecycleReady?: boolean;
+	    usingExternalInstance: boolean;
+	    proxyUrl: string;
+	    /** R4: obscur-tor-gateway answered on loopback. */
+	    gatewayReachable?: boolean;
+	    /** Latest gateway detail (bootstrap progress / Stuck at / TLS_ERROR). */
+	    detail?: string | null;
+	    /** Parsed Bootstrapped N% while Starting — never implies Ready. */
+	    bootstrapPercent?: number | null;
+	}>;
 type TorLogSnapshot = string[];
 
 /**
@@ -282,6 +287,10 @@ export function useAutoLock() {
         }
 
         PrivacySettingsService.saveSettings(updated);
+        // C1: keep ProtocolAdaptationLayer transport plane in sync with Security Tor toggle.
+        if (newSettings.enableTorProxy !== undefined) {
+            syncTransportIdFromTorPreference(Boolean(updated.enableTorProxy));
+        }
         setSettings(updated);
     }, [isTauri]);
 

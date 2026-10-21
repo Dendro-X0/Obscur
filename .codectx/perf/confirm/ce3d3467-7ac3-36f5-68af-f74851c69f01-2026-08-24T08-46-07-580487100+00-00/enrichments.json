@@ -1,0 +1,14 @@
+{
+  "schema": "perf.confirm.enrichments@1.0.0",
+  "confirmId": "ce3d3467-7ac3-36f5-68af-f74851c69f01-2026-08-24T08-46-07-580487100+00-00",
+  "exploreId": "ce3d3467-7ac3-36f5-68af-f74851c69f01",
+  "provider": "http-health",
+  "enrichments": {
+    "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts": {
+      "provider": "http-health",
+      "confirmedAt": "2026-08-24T08:46:07.580487100+00:00",
+      "status": "error",
+      "detail": "HTTP probe failed for http://localhost:3000: http://localhost:3000/: Connection Failed: Connect error: No connection could be made because the target machine actively refused it. (os error 10061)"
+    }
+  }
+}

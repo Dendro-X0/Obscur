@@ -25,7 +25,7 @@ const QUARANTINE_PHASES = [
 describe("transport-engine w51 — quarantine phase harness matrix", () => {
   it("pins w51 design-era layout in charter (legacy module added in w52)", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w51-standalone-owner-quarantine-charter.md",
     );
     expect(charter).toContain("transport-kernel-standalone-publish-legacy.ts");
     expect(charter).toContain("W52");
@@ -33,7 +33,7 @@ describe("transport-engine w51 — quarantine phase harness matrix", () => {
 
   it("documents quarantine phases in charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w51-standalone-owner-quarantine-charter.md",
     );
     for (const entry of QUARANTINE_PHASES) {
       expect(charter).toContain(entry.standalonePath.split("/").pop() ?? entry.standalonePath);
@@ -43,7 +43,7 @@ describe("transport-engine w51 — quarantine phase harness matrix", () => {
 
   it("preserves shared mapper as semantics owner through quarantine plan", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w51-standalone-owner-quarantine-charter.md",
     );
     expect(charter).toContain("publish-outcome-mapper.ts");
 

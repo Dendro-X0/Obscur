@@ -1,0 +1,111 @@
+{
+  "schema": "studio.evidence.desk.live.loop@1.0.0",
+  "band": "H-ED8",
+  "residualStatus": "partial",
+  "title": "Evidence Desk live loop",
+  "id": "evidence.desk.live.loop",
+  "pathway": "pathways.evidenceDesk",
+  "summary": "Timed soak plan: host health → plane → CDP-optional capture → issues sink → static hop. Compose only — ≠ Soft L3 Fixed ≠ continuous APM.",
+  "windowSeconds": 45,
+  "preferCdp": false,
+  "planeHint": "chrome",
+  "actionLabel": "unlock → scroll settings (chrome)",
+  "uiRoute": "/verify/evidence",
+  "issuesRoute": "/verify/issues",
+  "citeAsSoftL3Fixed": false,
+  "citeAsObscurProductFixed": false,
+  "citeAsLiveCaptureClosed": false,
+  "citeAsContinuousApm": false,
+  "citeAsSubjectLaunched": false,
+  "citeAsCdpRequired": false,
+  "hubRel": ".codectx/verify/evidence-desk-live-loop-latest.json",
+  "doesNotProve": [
+    "soft_l3_fixed",
+    "obscur_product_fixed",
+    "cdp_required",
+    "obscur_heap_fixed",
+    "ghidra_replacement",
+    "rea_embed",
+    "game_trainer_sku",
+    "federated_multi_root_explore",
+    "portfolio_product",
+    "engagement_closed",
+    "org_memory_closed",
+    "living_prove_closed",
+    "shell_001_fixed",
+    "mcp_settings_listing_fixed",
+    "demo_gif_equals_product_fixed",
+    "product_fixed",
+    "live_capture_closed",
+    "continuous_apm",
+    "issues_closed"
+  ],
+  "nextMcpSequence": [
+    "studio_help → intentRoutes.evidenceDesk (liveLoop)",
+    "studio_repo { action: \"studio_evidence_desk_live_loop\" }",
+    "studio_repo { action: \"studio_evidence_desk_host_health\" }  # refuse if pegged",
+    "studio_repo { action: \"studio_evidence_desk_plane_plan\", profile: \"obscur\", plane: \"chrome\" }",
+    "Operator runs shellRecipe (citeAsSubjectLaunched=false)",
+    "Named action: unlock → scroll settings (chrome) · window=45s",
+    "Operator soak 45s CDP-off (journal/plane/exit accumulate)",
+    "studio_repo { action: \"studio_evidence_desk_export_bundle\", planeHint, planeProfile, exitCode?, journalPath? }",
+    "Optional: verify.fault.import from journal/digest path when available",
+    "studio_verify { action: \"verify_issues_latest\" }  # Partial — may be empty until import",
+    "studio_repo { action: \"studio_evidence_desk_static_hop\", cmd from journal/digest }",
+    "Studio shell: /verify/issues · /verify/evidence",
+    "Stop — citeAsSoftL3Fixed=false · citeAsLiveCaptureClosed=false · citeAsContinuousApm=false"
+  ],
+  "phases": [
+    {
+      "id": "host_health",
+      "tools": [
+        "studio_evidence_desk_host_health"
+      ]
+    },
+    {
+      "id": "plane",
+      "tools": [
+        "studio_evidence_desk_plane_plan"
+      ]
+    },
+    {
+      "id": "soak",
+      "tools": [],
+      "note": "operator 45s — Studio does not spawn"
+    },
+    {
+      "id": "capture",
+      "tools": [
+        "studio_evidence_desk_export_bundle"
+      ]
+    },
+    {
+      "id": "issues",
+      "tools": [
+        "verify_issues_latest"
+      ],
+      "note": "sink Partial until fault import lands"
+    },
+    {
+      "id": "static_hop",
+      "tools": [
+        "studio_evidence_desk_static_hop"
+      ]
+    },
+    {
+      "id": "stop",
+      "tools": [],
+      "note": "named residuals only"
+    }
+  ],
+  "operatorNotes": null,
+  "proves": [
+    "Returns a timed live-loop sequence into Verify issues without inventing Soft L3 Fixed",
+    "Composes host health / plane / bundle|digest / issues / static hop"
+  ],
+  "deferredTo": {
+    "H-ED9": "studio_evidence_desk_ticker — tick schedule (plan only)"
+  },
+  "persisted": true,
+  "persistPath": "E:\\Web Projects\\obscur\\.codectx\\verify\\evidence-desk-live-loop-latest.json"
+}

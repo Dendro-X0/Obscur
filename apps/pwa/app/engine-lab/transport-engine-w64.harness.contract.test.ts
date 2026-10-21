@@ -13,10 +13,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w64 — production deletion execution harness", () => {
   it("links W63 port rehearsal to W64 thin port subtraction", () => {
     const w63 = readFromRepo(
-      "docs/program/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
     );
     const w64 = readFromRepo(
-      "docs/program/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
     );
     expect(w63).toContain("relay-standalone-publish-port-subtracted");
     expect(w64).toContain("relay-standalone-publish-port-thin.ts");
@@ -25,7 +25,7 @@ describe("transport-engine w64 — production deletion execution harness", () =>
 
   it("documents maintainer subtraction steps in execution charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
     );
     expect(charter).toContain("STANDALONE_LEGACY_FILES_TO_DELETE");
     expect(charter).toContain("postSubtractionComplete");

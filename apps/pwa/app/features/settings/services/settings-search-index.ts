@@ -2,6 +2,7 @@ export type SettingsTabId =
     | "profile"
     | "identity"
     | "relays"
+    | "protocols"
     | "notifications"
     | "appearance"
     | "blocklist"
@@ -68,16 +69,57 @@ export const SETTINGS_SEARCH_INDEX: readonly SettingsSearchEntry[] = [
     {
         id: "security-auto-lock",
         tab: "security",
+        elementId: "security-auto-lock",
         title: "Auto-lock",
         description: "Lock the app after inactivity.",
         keywords: ["auto lock", "timeout", "idle", "lock screen"],
     },
     {
+        id: "security-tor",
+        tab: "security",
+        elementId: "security-tor-settings",
+        title: "Tor network privacy",
+        description: "Enable the Tor sidecar, bootstrap status, proxy URL, and network privacy routing.",
+        keywords: [
+            "tor",
+            "onion",
+            "socks",
+            "socks5",
+            "proxy",
+            "bootstrap",
+            "gateway",
+            "privacy routed",
+            "network privacy",
+            "anonymity",
+        ],
+    },
+    {
+        id: "tab-protocols",
+        tab: "protocols",
+        elementId: "protocols-selectors",
+        title: "Protocols/Network",
+        description: "Select messaging protocol (Nostr or Matrix) and network path (Clearnet, Tor, Quiet).",
+        keywords: [
+            "protocols",
+            "protocol",
+            "matrix",
+            "homeserver",
+            "access token",
+            "nostr",
+            "transport",
+            "clearnet",
+            "tor",
+            "quiet",
+            "adaptation",
+            "network path",
+        ],
+    },
+    {
         id: "tab-relays",
         tab: "relays",
         title: "Relay connections",
-        description: "Manage Nostr relay URLs, health, and publish readiness.",
-        keywords: ["relays", "nostr", "relay", "wss", "nos.lol", "fiatjaf", "connectivity"],
+        description: "Manage Nostr/mesh relay URLs, transport packs, health, and publish readiness. For Matrix, use Protocols.",
+        keywords: ["relays", "nostr", "relay", "wss", "nos.lol", "fiatjaf", "connectivity", "transport packs"],
     },
     {
         id: "operator-trust-setup",
@@ -124,24 +166,33 @@ export const SETTINGS_SEARCH_INDEX: readonly SettingsSearchEntry[] = [
     {
         id: "relay-advanced",
         tab: "relays",
+        elementId: "relay-advanced-settings",
         title: "Relay advanced settings",
-        description: "Bulk relay actions and DM / workspace endpoint list editing.",
-        keywords: ["advanced", "primary relay", "redundancy", "preset", "bulk"],
+        description: "Operator mode: offline packs, conduit mesh, community modes, metrics, bulk actions, per-node list.",
+        keywords: ["advanced", "primary relay", "redundancy", "preset", "bulk", "standard", "operator"],
     },
     {
         id: "relay-performance",
         tab: "relays",
         elementId: "relay-performance-metrics",
         title: "Network performance metrics",
-        description: "Per-relay Connect/RTT history and node health on the Relays page.",
+        description: "Advanced: per-relay Connect/RTT history and node health (open Advanced settings first).",
         keywords: ["latency", "rtt", "connect", "performance", "metrics", "quiet", "dashboard"],
+    },
+    {
+        id: "relay-conduit-mesh",
+        tab: "relays",
+        elementId: "conduit-mesh-settings",
+        title: "Conduit transport",
+        description: "Advanced: mesh pool owner, Tor-ready badge for conduits, and configured ciphertext endpoints.",
+        keywords: ["conduit", "mesh", "transport", "dialect", "tor ready", "tor not ready"],
     },
     {
         id: "relay-community-modes",
         tab: "relays",
         elementId: "relay-community-modes",
         title: "Community modes",
-        description: "Public default, sovereign room, and managed workspace relay tiers.",
+        description: "Advanced: public default, sovereign room, and managed workspace relay tiers.",
         keywords: ["community mode", "sovereign", "managed workspace", "public default"],
     },
     {
@@ -202,6 +253,60 @@ const normalizeSearchText = (value: string): string => (
     value.trim().toLowerCase().replace(/\s+/g, " ")
 );
 
+/** Whole-token match — avoids "tor" matching inside "operator" or "history". */
+export const settingsSearchTokenMatchesField = (token: string, field: string): boolean => {
+    const normalizedToken = normalizeSearchText(token);
+    const normalizedField = normalizeSearchText(field);
+    if (normalizedToken.length === 0 || normalizedField.length === 0) {
+        return false;
+    }
+    const escaped = normalizedToken.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`).test(` ${normalizedField} `);
+};
+
+const entrySearchFields = (entry: SettingsSearchEntry): ReadonlyArray<string> => [
+    entry.title,
+    entry.description,
+    entry.tab,
+    ...entry.keywords,
+];
+
+const entryMatchesAllTokens = (
+    entry: SettingsSearchEntry,
+    tokens: ReadonlyArray<string>,
+): boolean => (
+    tokens.every((token) => entrySearchFields(entry).some((field) => (
+        settingsSearchTokenMatchesField(token, field)
+    )))
+);
+
+const scoreSettingsSearchEntry = (
+    entry: SettingsSearchEntry,
+    tokens: ReadonlyArray<string>,
+): number => {
+    let score = 0;
+    for (const token of tokens) {
+        if (settingsSearchTokenMatchesField(token, entry.title)) {
+            score += 100;
+        }
+        for (const keyword of entry.keywords) {
+            if (settingsSearchTokenMatchesField(token, keyword)) {
+                score += 50;
+            }
+        }
+        if (settingsSearchTokenMatchesField(token, entry.description)) {
+            score += 10;
+        }
+        if (settingsSearchTokenMatchesField(token, entry.tab)) {
+            score += 5;
+        }
+    }
+    if (entry.elementId) {
+        score += 1;
+    }
+    return score;
+};
+
 export const filterSettingsSearchEntries = (
     query: string,
     entries: readonly SettingsSearchEntry[] = SETTINGS_SEARCH_INDEX,
@@ -211,13 +316,11 @@ export const filterSettingsSearchEntries = (
         return [];
     }
     const tokens = normalizedQuery.split(" ").filter(Boolean);
-    return entries.filter((entry) => {
-        const haystack = normalizeSearchText([
-            entry.title,
-            entry.description,
-            entry.tab,
-            ...entry.keywords,
-        ].join(" "));
-        return tokens.every((token) => haystack.includes(token));
-    });
+    return entries
+        .filter((entry) => entryMatchesAllTokens(entry, tokens))
+        .slice()
+        .sort((left, right) => (
+            scoreSettingsSearchEntry(right, tokens) - scoreSettingsSearchEntry(left, tokens)
+            || left.title.localeCompare(right.title)
+        ));
 };

@@ -19,7 +19,7 @@ vi.mock("@dweb/db", () => ({
 
 vi.mock("@obscur/dm-engine", () => ({
   listDmTombstones: vi.fn(async () => []),
-  insertDmTombstone: vi.fn(async () => undefined),
+  insertDmTombstones: vi.fn(async () => undefined),
   deleteAllDmTombstones: vi.fn(async () => undefined),
 }));
 

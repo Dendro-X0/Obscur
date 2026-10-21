@@ -1,0 +1,100 @@
+{
+  "exploreId": "9ee1cc94-cdcc-80f8-7618-daf0f2c994f4",
+  "findings": [
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:cc2d444ce9ae598a47e04d2195a5b7a79b9491f07a054663289dbfef745ff787",
+          "line": 3387,
+          "path": "apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+          "symbol": "api-fanout"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "obligation": "7 API-shaped call sites with no Promise.all batch — coalesce endpoints or parallelize with an explicit batch",
+      "oracle": "perf.explore.run: finding absent when unbatched API call sites < 3 or Promise.all present",
+      "proofTier": "static",
+      "rankScore": 868.5999755859375,
+      "rollupCount": 7,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "family:api_surface",
+        "apiKind:fetch",
+        "fanOutCount:7",
+        "parallelGroup:false"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:afa79a393a437b84194c60d073a92cb55378ab05f7cfc7f1951dc8c01c5171c4",
+          "line": 52,
+          "path": "apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+          "symbol": "api-fanout"
+        }
+      ],
+      "confidence": 0.800000011920929,
+      "id": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+      "obligation": "6 API-shaped call sites with no Promise.all batch — coalesce endpoints or parallelize with an explicit batch",
+      "oracle": "perf.explore.run: finding absent when unbatched API call sites < 3 or Promise.all present",
+      "proofTier": "static",
+      "rankScore": 846.5999755859375,
+      "rollupCount": 6,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "family:api_surface",
+        "apiKind:fetch",
+        "fanOutCount:6",
+        "parallelGroup:false"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6cb7bae23e8a5c7bd1576a7ef305acf961a12315a0cbad9e8239f7f9b4c502be",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
+          "symbol": "tauri"
+        },
+        {
+          "path": "apps/desktop/vite.config.ts",
+          "symbol": "vite"
+        }
+      ],
+      "confidence": 0.9200000166893005,
+      "id": "perf:dev:tauri-vite-shell:apps/desktop",
+      "obligation": "Tauri + Vite dev shell depends on localhost dev server — white window if Vite is down, IPv6/127.0.0.1 mismatch, or secondary window races daemon boot",
+      "oracle": "perf.confirm.run provider=studio-dev-probe attachMode=dev baseUrl=http://127.0.0.1:5173: measure paintMs and whiteScreen",
+      "probePath": "/jobs",
+      "proofTier": "static",
+      "rankScore": 641.0399780273438,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "shell_surface:studio-vite"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:cc2d444ce9ae598a47e04d2195a5b7a79b9491f07a054663289dbfef745ff787",
+          "path": "apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+          "symbol": "api-client-payload"
+        }
+      ],
+      "confidence": 0.7200000286102295,
+      "id": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "obligation": "3 `.json()` consumptions without zod/pick — verify client only needs a subset of the payload",
+      "oracle": "perf.explore.run: finding absent when .json() count < 3 or zod/pick present",
+      "proofTier": "static",
+      "rankScore": 379.6400146484375,
+      "rollupCount": 3,
+      "severity": "info",
+      "surfaceRefs": [
+        "family:api_surface",
+        "apiKind:fetch",
+        "jsonConsumeCount:3"
+      ]
+    }
+  ],
+  "schema": "perf.findings@1.0.0"
+}

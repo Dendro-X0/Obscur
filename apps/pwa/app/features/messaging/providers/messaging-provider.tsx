@@ -37,6 +37,7 @@ import {
     scheduleExperimentIdleWork,
     shouldDeferExperimentHeavyWork,
 } from "@/app/features/runtime/experiment-shell-policy";
+import { shouldSkipMountTombstoneHydrate } from "@/app/features/runtime/unlock-hydrate-policy";
 import {
     toPersistedDmConversation,
     fromPersistedDmConversation,
@@ -72,7 +73,7 @@ import {
     resolveNativeDmSidebarConnections,
     shouldNativeDmSkipChatStateSidebarConnectionHydrate,
 } from "../services/native-dm-conversation-list-owner";
-import { loadDmKernelSidebar } from "@/app/features/dm-kernel/dm-kernel-sidebar-port";
+import { listDmConversations } from "@/app/features/protocol-adaptation";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isTauri } from "@dweb/db";
 
@@ -210,14 +211,26 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [chatStateReplaceTick, setChatStateReplaceTick] = useState(0);
 
     const loadSidebarConversations = useCallback(async (profileId: string): Promise<ReadonlyArray<DmConversation>> => (
-        loadDmKernelSidebar(profileId)
+        listDmConversations(profileId)
     ), []);
 
+    /** Slice 3e: messages-index-rebuilt can fire per decrypt — coalesce sidebar SQLite reloads. */
+    const sidebarReloadTimerRef = React.useRef<number | null>(null);
     const reloadSqliteConversations = useCallback((): void => {
         if (!isTauri() || !activeProfileId) {
             return;
         }
-        void loadSidebarConversations(activeProfileId).then(setSqliteConversations).catch(() => {});
+        if (typeof window === "undefined") {
+            void loadSidebarConversations(activeProfileId).then(setSqliteConversations).catch(() => {});
+            return;
+        }
+        if (sidebarReloadTimerRef.current != null) {
+            return;
+        }
+        sidebarReloadTimerRef.current = window.setTimeout(() => {
+            sidebarReloadTimerRef.current = null;
+            void loadSidebarConversations(activeProfileId).then(setSqliteConversations).catch(() => {});
+        }, 1_500);
     }, [activeProfileId, loadSidebarConversations]);
 
     useEffect(() => {
@@ -236,6 +249,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         loadConversations();
         return (): void => {
             cancelled = true;
+            if (sidebarReloadTimerRef.current != null) {
+                window.clearTimeout(sidebarReloadTimerRef.current);
+                sidebarReloadTimerRef.current = null;
+            }
         };
     }, [activeProfileId, loadSidebarConversations]);
 
@@ -253,6 +270,10 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     useEffect(() => {
         if (typeof window === "undefined" || !isTauri() || !activeProfileId) {
+            return;
+        }
+        // Slice 1: desktop never listTombstones on MessagingProvider mount.
+        if (shouldSkipMountTombstoneHydrate()) {
             return;
         }
         const hydrateTombstones = (): void => {

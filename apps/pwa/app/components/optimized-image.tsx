@@ -41,10 +41,14 @@ export function OptimizedImage({
     const [isRecovering, setIsRecovering] = useState(false);
     const recoveryAttemptedForSrcRef = React.useRef<string | null>(null);
     const {
-        pendingLinkUrl,
-        cancelPendingLink,
-        confirmPendingLink,
-        requestOpenExternalLink,
+      pendingLinkUrl,
+      pendingLinkPhase,
+      reputationResult,
+      reputationChecking,
+      reputationProviderLabel,
+      cancelPendingLink,
+      confirmPendingLink,
+      requestOpenExternalLink,
     } = useGuardedExternalLinkOpen();
 
     const externalUrl = (openUrl ?? src).trim() || src;
@@ -147,10 +151,14 @@ export function OptimizedImage({
         </div>
         {!onRequestOpenExternalLink ? (
             <LinkOpenConfirmDialog
-                url={pendingLinkUrl}
-                onClose={cancelPendingLink}
-                onConfirm={() => confirmPendingLink()}
-            />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
         ) : null}
         </>
     );

@@ -1,0 +1,10 @@
+{
+  "schema": "studio.living.readiness@1.0.0",
+  "loopbackOnly": true,
+  "declaredBaseUrl": "http://tauri.localhost",
+  "cdpPort": 9230,
+  "provider": "webview2-cdp",
+  "subjectKind": "obscur",
+  "declaredAt": "2026-08-19T15:10:00.000Z",
+  "notes": "Release exe with CDP on port 9230. Asset server is embedded (tauri.localhost). No dev server required."
+}

@@ -49,6 +49,25 @@ describe("relay-readiness-copy", () => {
     expect(banner).toMatch(/queue/i);
   });
 
+  it("appends pool diagnosis honesty when remotes fail and local is disabled", () => {
+    const banner = getRelayReadinessBannerCopy(
+      createSnapshot({ readiness: "offline" }),
+      {
+        disabledCount: 1,
+        invalidSchemeCount: 0,
+        enabledRemoteDisconnectedCount: 2,
+        enabledLoopbackDisconnectedCount: 0,
+        openCount: 0,
+        connectingCount: 0,
+        loopbackDisabledCount: 1,
+        hypothesisCopy: "Public path unhealthy; local relay not tried — enable ws://localhost:7000 for private-trust.",
+        bannerSupplement: "1 disabled (incl. local) · 2 enabled remotes with no open socket · Suggested: Public path unhealthy; local relay not tried — enable ws://localhost:7000 for private-trust.",
+      },
+    );
+    expect(banner).toMatch(/disabled \(incl\. local\)/i);
+    expect(banner).toMatch(/localhost:7000/i);
+  });
+
   it("suppresses banner copy during startup warmup", () => {
     const banner = getRelayReadinessBannerCopy(createSnapshot({
       readiness: "offline",

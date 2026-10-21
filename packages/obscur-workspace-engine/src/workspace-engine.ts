@@ -74,9 +74,32 @@ export const upsertWorkspaceGroup = async (
   }
 };
 
+/** Slice 3g: sidebar preview storms share one listGroupMessages window per group. */
+const LIST_GROUP_MESSAGES_CACHE_TTL_MS = 30_000;
+const listWorkspaceGroupMessagesCache = new Map<string, Readonly<{
+  atMs: number;
+  rows: ReadonlyArray<GroupMessageRecord>;
+}>>();
+
+export const resetWorkspaceGroupMessagesCacheForTests = (): void => {
+  listWorkspaceGroupMessagesCache.clear();
+};
+
 export const listWorkspaceGroupMessages = async (
   params: ListWorkspaceGroupMessagesParams,
 ): Promise<ReadonlyArray<GroupMessageRecord>> => {
+  const cacheKey = [
+    params.profileId.trim(),
+    params.windowLabel?.trim() ?? "",
+    params.groupId.trim(),
+    typeof params.limit === "number" ? String(params.limit) : "",
+    typeof params.beforeReceivedAt === "number" ? String(params.beforeReceivedAt) : "",
+  ].join(":");
+  const cached = listWorkspaceGroupMessagesCache.get(cacheKey);
+  const nowMs = Date.now();
+  if (cached && nowMs - cached.atMs < LIST_GROUP_MESSAGES_CACHE_TTL_MS) {
+    return cached.rows;
+  }
   const result = await params.host.invoke(
     buildWorkspaceListGroupMessagesRequest({
       profileId: params.profileId,
@@ -93,7 +116,9 @@ export const listWorkspaceGroupMessages = async (
   if (!result.ok) {
     throw new Error(result.errorMessage ?? result.errorCode ?? "workspace.listGroupMessages failed");
   }
-  return (result.data ?? []) as GroupMessageRecord[];
+  const rows = (result.data ?? []) as GroupMessageRecord[];
+  listWorkspaceGroupMessagesCache.set(cacheKey, { atMs: nowMs, rows });
+  return rows;
 };
 
 export const insertWorkspaceGroupMessage = async (
@@ -108,6 +133,12 @@ export const insertWorkspaceGroupMessage = async (
   );
   if (!result.ok) {
     throw new Error(result.errorMessage ?? result.errorCode ?? "workspace.insertGroupMessage failed");
+  }
+  const prefix = `${params.profileId.trim()}:${params.windowLabel?.trim() ?? ""}:${params.message.group_id.trim()}:`;
+  for (const key of listWorkspaceGroupMessagesCache.keys()) {
+    if (key.startsWith(prefix)) {
+      listWorkspaceGroupMessagesCache.delete(key);
+    }
   }
 };
 

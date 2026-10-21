@@ -218,6 +218,57 @@ export const TRANSPORT_PRESET_GROUPS: ReadonlyArray<TransportPresetGroup> = [
   },
 ];
 
+/**
+ * Standard Relays catalog — four distinct paths (threat-model oriented).
+ * Advanced packs stay in TRANSPORT_PRESET_GROUPS / full catalog.
+ * @see specs/ui/relays-transport-paths-2026-10.md
+ */
+export const STANDARD_TRANSPORT_PRESET_IDS: ReadonlyArray<TransportPresetId> = [
+  "default_stable",
+  "hybrid_public_http",
+  "local_dev_mesh",
+  "tor_onion_mesh",
+] as const;
+
+export const STANDARD_TRANSPORT_PRESET_GROUPS: ReadonlyArray<TransportPresetGroup> = [
+  {
+    category: "public_nostr",
+    titleKey: "settings.relays.presetPath.everyday",
+    descriptionKey: "settings.relays.presetPath.everydayDesc",
+    presetIds: ["default_stable"],
+  },
+  {
+    category: "hybrid_adapters",
+    titleKey: "settings.relays.presetPath.hybrid",
+    descriptionKey: "settings.relays.presetPath.hybridDesc",
+    presetIds: ["hybrid_public_http"],
+  },
+  {
+    category: "private_mesh",
+    titleKey: "settings.relays.presetPath.local",
+    descriptionKey: "settings.relays.presetPath.localDesc",
+    presetIds: ["local_dev_mesh"],
+  },
+  {
+    category: "tor",
+    titleKey: "settings.relays.presetPath.tor",
+    descriptionKey: "settings.relays.presetPath.torDesc",
+    presetIds: ["tor_onion_mesh"],
+  },
+];
+
+export type TransportPresetCatalogDepth = "standard" | "advanced";
+
+export const isStandardTransportPresetId = (id: TransportPresetId): boolean => (
+  STANDARD_TRANSPORT_PRESET_IDS.includes(id)
+);
+
+export const getTransportPresetGroupsForDepth = (
+  depth: TransportPresetCatalogDepth,
+): ReadonlyArray<TransportPresetGroup> => (
+  depth === "advanced" ? TRANSPORT_PRESET_GROUPS : STANDARD_TRANSPORT_PRESET_GROUPS
+);
+
 /** @deprecated Use TRANSPORT_PRESET_CATALOG — kept for settings re-exports */
 export const RELAY_PRESETS = TRANSPORT_PRESET_CATALOG;
 

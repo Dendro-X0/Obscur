@@ -24,6 +24,7 @@ import {
 } from "@/app/features/relays/services/relay-publish-scope";
 import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { upsertDevicePeerDisplay } from "@/app/features/search/services/device-peer-display-cache";
 import { seedProfileMetadataCache } from "./use-profile-metadata";
 import { encryptedAccountBackupService } from "@/app/features/account-sync/services/encrypted-account-backup-service";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
@@ -135,6 +136,11 @@ const syncPublishedProfileCaches = (pubkey: string, params: PublishProfileParams
         avatarUrl: params.avatarUrl?.trim() || undefined,
         about: params.about?.trim() || undefined,
         nip05: params.nip05?.trim() || undefined,
+    });
+    void upsertDevicePeerDisplay({
+        pubkey,
+        displayName: params.username.trim() || undefined,
+        avatarUrl: params.avatarUrl?.trim() || undefined,
     });
 };
 

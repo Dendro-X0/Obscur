@@ -107,9 +107,10 @@ const upsertProfile = (input: Readonly<{
 }>): DiscoveryProfileRecord => {
     const state = readState();
     const now = Date.now();
+    const pubkey = (normalize(input.pubkey) ?? input.pubkey).toLowerCase();
     const normalizedInviteCode = toInviteCode(input.inviteCode) ?? extractInviteCode(input.about);
     const nextRecord: DiscoveryProfileRecord = {
-        pubkey: input.pubkey,
+        pubkey,
         name: normalize(input.name),
         displayName: normalize(input.displayName),
         about: normalize(input.about),
@@ -119,7 +120,9 @@ const upsertProfile = (input: Readonly<{
         updatedAtUnixMs: now,
     };
 
-    const withoutExisting = state.profiles.filter((profile) => profile.pubkey !== input.pubkey);
+    const withoutExisting = state.profiles.filter(
+        (profile) => profile.pubkey.trim().toLowerCase() !== pubkey,
+    );
     const nextProfiles = [nextRecord, ...withoutExisting].slice(0, MAX_PROFILE_COUNT);
     writeState({ version: 1, profiles: nextProfiles });
     return nextRecord;
@@ -147,10 +150,10 @@ const getProfiles = (limit = 100): ReadonlyArray<DiscoveryProfileRecord> => {
 };
 
 const getProfile = (pubkey: string): DiscoveryProfileRecord | null => {
-    const normalized = normalize(pubkey);
+    const normalized = normalize(pubkey)?.toLowerCase();
     if (!normalized) return null;
     const state = readState();
-    return state.profiles.find((profile) => profile.pubkey === normalized) ?? null;
+    return state.profiles.find((profile) => profile.pubkey.trim().toLowerCase() === normalized) ?? null;
 };
 
 export const discoveryCache = {

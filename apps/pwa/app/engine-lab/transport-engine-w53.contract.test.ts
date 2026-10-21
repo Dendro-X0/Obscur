@@ -26,7 +26,7 @@ const SMOKE_ENV_FLAGS = [
 describe("transport-engine w53 — live desktop publish smoke charter", () => {
   it("pins manual smoke charter with authority + network env matrix", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
     expect(charter).toContain("Live Desktop Publish Smoke Charter");
     expect(charter).toContain("design-only");
@@ -38,7 +38,7 @@ describe("transport-engine w53 — live desktop publish smoke charter", () => {
 
   it("references W46 async routing and W50 authority port wiring", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
     expect(charter).toContain("Phase D port host routing");
 
@@ -61,7 +61,7 @@ describe("transport-engine w53 — live desktop publish smoke charter", () => {
 
   it("does not add automated smoke tests in w53 wave", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
     expect(charter).toContain("no Playwright");
     expect(charter).not.toContain("transport-engine-w53.smoke.test.ts");

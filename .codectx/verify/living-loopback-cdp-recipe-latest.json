@@ -1,0 +1,243 @@
+{
+  "schema": "studio.living.loopbackCdpRecipe@1.0.0",
+  "pathway": {
+    "id": "pathways.livingLoopbackCdpRecipe",
+    "title": "Living loopback CDP recipe (H-LP2)",
+    "steps": [
+      "studio_help → livingLoopbackCdpRecipe / pathways.livingLoopbackCdpRecipe",
+      "studio_repo { action: \"studio_living_loopback_cdp_recipe\" }",
+      "Confirm living-readiness loopbackOnly=true (127.0.0.1 / localhost)",
+      "Follow recipe.recipeSteps — live attach is operator-owned",
+      "citeAsLiveCdp=false on this pack — Soft L3 / living Closed still forbidden"
+    ]
+  },
+  "readiness": {
+    "present": false,
+    "declaredBaseUrl": null,
+    "loopbackOnly": true,
+    "notes": [
+      "No living-readiness.json — declare loopback URL before live CDP recipe"
+    ]
+  },
+  "recipe": {
+    "mode": "operator_pending",
+    "loopbackRequired": true,
+    "citeAsLiveCdp": false,
+    "recipeSteps": [
+      "Ensure subject serves on 127.0.0.1 / localhost only",
+      "Write .codectx/verify/living-readiness.json with loopbackOnly=true",
+      "studio_client { action: \"client_stack_preflight\" }",
+      "studio_client { action: \"client_session_connect\", provider: \"playwright-chromium\"|\"webview2-cdp\", url: loopback }",
+      "studio_client interact → validate.assert (user-visible tags)",
+      "studio_client { action: \"client_validation_ladder\" } — require clientSatisfied",
+      "Optional: studio_living_prove_deepen after live session (still Partial)",
+      "Never cite stub://fixture or CLIENT_CDP_FORCE_STUB as Soft L3 / live attach"
+    ],
+    "forbiddenHosts": [
+      "production / public hostnames",
+      "non-loopback LAN IPs without maintainer exception",
+      "stub://fixture CDP endpoints (FZD1)"
+    ],
+    "notes": [
+      "H-LP2 documents the loopback CDP recipe — does not auto-run CDP in this pack",
+      "recipe.mode=operator_pending",
+      "citeAsLiveCdp=false — recipe evidence ≠ Soft L3 Fixed ≠ living prove Closed"
+    ],
+    "doesNotProve": [
+      "soft_l3_fixed",
+      "living_prove_closed",
+      "recipe_equals_live_cdp",
+      "cite_as_live_cdp_from_recipe_alone",
+      "stub_cdp_equals_live",
+      "offline_fixture_equals_cdp"
+    ]
+  },
+  "marketplaceProve": {
+    "schema": "studio.living.marketplaceProve@1.0.0",
+    "subjectShape": "offline_fixture",
+    "proveTiers": [
+      {
+        "id": "offline_marketplace_fixture",
+        "title": "Offline marketplace / vibe-ruin fixture",
+        "status": "available",
+        "tool": "studio_repo { action: \"studio_portfolio_dogfood\" }",
+        "notes": [
+          "FS6 offline dogfood names residual gaps — never closes user-visible prove"
+        ]
+      },
+      {
+        "id": "living_readiness_declared",
+        "title": "Thin living readiness declaration",
+        "status": "missing",
+        "tool": "(operator) write .codectx/verify/living-readiness.json",
+        "notes": [
+          "No .codectx/verify/living-readiness.json — treat as offline fixture until declared"
+        ]
+      },
+      {
+        "id": "client_validation_ladder",
+        "title": "OFP2 client validation ladder",
+        "status": "blocked",
+        "tool": "studio_client { action: \"client_validation_ladder\" }",
+        "notes": [
+          "currentRung=blocked",
+          "subjectKind=obscur"
+        ]
+      },
+      {
+        "id": "cdp_client_satisfied",
+        "title": "CDP / interact path → clientSatisfied",
+        "status": "unsatisfied",
+        "tool": "studio_client (session_connect → interact → validate.assert)",
+        "notes": [
+          "Required to advance living_prove residual beyond Partial",
+          "Offline fixtures and readiness markers alone cannot set satisfied"
+        ]
+      }
+    ],
+    "readiness": {
+      "present": false,
+      "path": null,
+      "declaredBaseUrl": null,
+      "loopbackOnly": true,
+      "notes": [
+        "No .codectx/verify/living-readiness.json — treat as offline fixture until declared"
+      ]
+    },
+    "ladder": {
+      "present": true,
+      "currentRung": "blocked",
+      "clientSatisfied": false,
+      "blocked": true,
+      "ladderComplete": false,
+      "subjectKind": "obscur"
+    },
+    "pathway": {
+      "id": "pathways.livingMarketplaceProve",
+      "title": "Living prove on marketplace shape (RG3)",
+      "steps": [
+        "studio_help → livingMarketplaceProve / pathways.livingMarketplaceProve",
+        "studio_repo { action: \"studio_living_marketplace_prove\" }",
+        "If offline fixture only: declare living-readiness or attach living subject — do not cite Soft L3",
+        "studio_client { action: \"client_validation_ladder\" } on a living loopback subject",
+        "CDP interact / assert only after ladder rungs allow — offline ≠ client_satisfied"
+      ]
+    },
+    "nextMcpSequence": [
+      {
+        "order": 1,
+        "tool": "studio_help",
+        "purpose": "Read pathways.livingMarketplaceProve + honesty"
+      },
+      {
+        "order": 2,
+        "tool": "studio_repo { action: \"studio_living_marketplace_prove\" }",
+        "purpose": "Classify subject shape + prove tiers"
+      },
+      {
+        "order": 3,
+        "tool": "(operator) add living-readiness.json or open living subject",
+        "purpose": "Leave offline-only before citing user-visible prove",
+        "when": "offline_fixture"
+      },
+      {
+        "order": 4,
+        "tool": "studio_client { action: \"client_validation_ladder\" }",
+        "purpose": "Fail-closed ladder on living loopback subject",
+        "when": "after living subject available"
+      },
+      {
+        "order": 5,
+        "tool": "studio_repo { action: \"studio_portfolio_dogfood\" }",
+        "purpose": "Optional: refresh FS6 residualGaps after ladder work",
+        "when": "when updating portfolio honesty"
+      }
+    ],
+    "residualGapId": "living_prove_thin_on_marketplace_fixtures",
+    "residualStatus": "open",
+    "emptyGreen": false,
+    "openQuestions": [
+      "Offline marketplace fixture — declare living-readiness or attach living subject before user-visible cite",
+      "Ladder blocked (rung=blocked) — follow OFP2 recovery recipes"
+    ],
+    "doesNotProve": [
+      "living_prove_closed",
+      "soft_l3_fixed",
+      "offline_fixture_equals_cdp",
+      "readiness_equals_client_satisfied",
+      "obscur_product_fixed",
+      "mcp_settings_listing_fixed",
+      "organizational_memory_closed",
+      "product_fixed"
+    ],
+    "proves": [
+      "prove_tier_map_documented"
+    ],
+    "notes": [
+      "RG3 living marketplace prove — documents tiers; does not run CDP",
+      "subjectShape=offline_fixture",
+      "residualStatus=open"
+    ]
+  },
+  "priorBand": "H-LP1",
+  "residualGapId": "living_prove_thin_on_marketplace_fixtures",
+  "residualStatus": "open",
+  "emptyGreen": false,
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.livingLoopbackCdpRecipe + honesty"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_living_loopback_cdp_recipe\" }",
+      "purpose": "Load loopback CDP recipe pack"
+    },
+    {
+      "order": 3,
+      "tool": "(operator) declare living-readiness.json loopbackOnly=true",
+      "purpose": "Unlock documented recipe mode",
+      "when": "operator_pending"
+    },
+    {
+      "order": 4,
+      "tool": "studio_client { action: \"client_session_connect\" }",
+      "purpose": "Live loopback attach (operator) — not claimed by this pack",
+      "when": "after readiness documented"
+    },
+    {
+      "order": 5,
+      "tool": "studio_repo { action: \"studio_living_prove_deepen\" }",
+      "purpose": "Optional: refresh H-LP1 deepen after live session",
+      "when": "when composing fixture+live honesty"
+    }
+  ],
+  "openQuestions": [
+    "Declare living-readiness with loopbackOnly=true before citing H-LP2 recipe"
+  ],
+  "doesNotProve": [
+    "living_prove_closed",
+    "soft_l3_fixed",
+    "offline_fixture_equals_cdp",
+    "readiness_equals_client_satisfied",
+    "obscur_product_fixed",
+    "mcp_settings_listing_fixed",
+    "organizational_memory_closed",
+    "product_fixed",
+    "recipe_equals_live_cdp",
+    "cite_as_live_cdp_from_recipe_alone",
+    "stub_cdp_equals_live"
+  ],
+  "proves": [
+    "living_loopback_cdp_recipe_documented",
+    "hlp1_prior_band_composed"
+  ],
+  "notes": [
+    "H-LP2 living loopback CDP recipe — documents attach path; does not auto-run CDP",
+    "recipe.mode=operator_pending",
+    "citeAsLiveCdp=false",
+    "residualStatus=open",
+    "Prior: H-LP1 fixture dogfood (v0.65.0) — fixture ≠ this recipe"
+  ]
+}

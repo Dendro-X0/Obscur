@@ -23,7 +23,9 @@ type MaybeTlsStream = tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>;
 // Keep native connect command completion bounded below frontend invoke timeout.
 // JS connect_relay timeout is 120_000ms (Tor tunnel headroom; dials serialize).
 const CONNECT_COMMAND_BUDGET_MS: u64 = 18_000;
-const CONNECT_ATTEMPT_TIMEOUT_MS: u64 = 8_000;
+// Clearnet connect attempt cap (non-Tor path); Tor uses TOR_TUNNEL_ATTEMPT_TIMEOUT_MS.
+const _CLEARNET_CONNECT_ATTEMPT_TIMEOUT_MS: u64 = 8_000;
+const _: () = assert!(_CLEARNET_CONNECT_ATTEMPT_TIMEOUT_MS > 0);
 /// Tor tunnel path needs headroom for SOCKS + TLS + WS (serialized dials).
 const TOR_TUNNEL_CONNECT_BUDGET_MS: u64 = 50_000;
 const TOR_TUNNEL_ATTEMPT_TIMEOUT_MS: u64 = 25_000;
@@ -31,11 +33,124 @@ const TOR_TUNNEL_ATTEMPT_TIMEOUT_MS: u64 = 25_000;
 const TOR_CONNECT_RETRY_DELAY_MS: u64 = 3_000;
 /// After CF/edge 403/429/5xx, pause all Tor tunnel dials so the pool cannot stampede.
 const TOR_HARD_REJECT_COOLDOWN_MS: u64 = 45_000;
-const RELAY_WRITE_SEND_TIMEOUT_MS: u64 = 4_000;
+	const RELAY_WRITE_SEND_TIMEOUT_MS: u64 = 4_000;
+	/// Batch high-frequency EVENT frames before webview emit (Slice 1–2 lag / PostMessage).
+	const RELAY_EVENT_COALESCE_MS: u64 = 50;
+	const RELAY_EVENT_COALESCE_MAX: usize = 24;
+	/// Hard bound — drop oldest EVENTs when JS cannot keep up (Slice 2).
+	const RELAY_EVENT_HARD_CAP: usize = 72;
 
 fn tor_tunnel_dial_gate() -> &'static AsyncMutex<()> {
     static GATE: OnceLock<AsyncMutex<()>> = OnceLock::new();
     GATE.get_or_init(|| AsyncMutex::new(()))
+}
+
+/// Serialize all relay dials (clearnet + Tor) so unlock cannot stampede WebView2 / heap.
+fn relay_dial_gate() -> &'static AsyncMutex<()> {
+    static GATE: OnceLock<AsyncMutex<()>> = OnceLock::new();
+    GATE.get_or_init(|| AsyncMutex::new(()))
+}
+
+/// v2.0.0-beta: capped Quiet public dials (nos/primal/damus/…).
+/// Cap was 0 after pre-thin L2 heap soaks; thin shell + serial dial + EVENT coalesce
+/// make a small clearnet pool viable again. Keep ≤2 — not uncapped fan-in.
+const QUIET_PUBLIC_DIAL_CAP: usize = 2;
+const QUIET_PUBLIC_RELAY_HOSTS: &[&str] = &[
+    "relay.damus.io",
+    "nos.lol",
+    "relay.primal.net",
+    "relay.snort.social",
+    "relay.nostr.band",
+    "groups.fiatjaf.com",
+];
+
+fn quiet_public_relay_host(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    let host = parsed.host_str()?.to_ascii_lowercase();
+    QUIET_PUBLIC_RELAY_HOSTS
+        .iter()
+        .any(|candidate| host == *candidate)
+        .then_some(host)
+}
+
+/// Host → open Quiet connection refcount (process-wide).
+fn quiet_public_host_claims() -> &'static Mutex<HashMap<String, usize>> {
+    static CLAIMS: OnceLock<Mutex<HashMap<String, usize>>> = OnceLock::new();
+    CLAIMS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn release_quiet_public_host(host: &str) {
+    if let Ok(mut claims) = quiet_public_host_claims().lock() {
+        if let Some(count) = claims.get_mut(host) {
+            if *count <= 1 {
+                claims.remove(host);
+            } else {
+                *count -= 1;
+            }
+        }
+    }
+}
+
+fn release_quiet_public_dial_url(url: &str) {
+    if let Some(host) = quiet_public_relay_host(url) {
+        release_quiet_public_host(&host);
+    }
+}
+
+/// Quiet host claim — Drop releases unless `commit` (success path holds until disconnect).
+struct QuietPublicDialClaim {
+    host: Option<String>,
+}
+
+impl QuietPublicDialClaim {
+    fn try_acquire(url: &str) -> Result<Self, String> {
+        let Some(host) = quiet_public_relay_host(url) else {
+            return Ok(Self { host: None });
+        };
+        if QUIET_PUBLIC_DIAL_CAP == 0 {
+            println!(
+                "[NativeRelay] quiet_dial_cap refused url={} (cap=0 host={})",
+                url, host
+            );
+            return Err("quiet_dial_cap".to_string());
+        }
+        let mut claims = quiet_public_host_claims()
+            .lock()
+            .map_err(|_| "quiet_dial_cap_lock".to_string())?;
+        if let Some(count) = claims.get_mut(&host) {
+            *count = count.saturating_add(1);
+            println!(
+                "[NativeRelay] quiet_dial_cap reuse host={} refs={}",
+                host, count
+            );
+            return Ok(Self { host: Some(host) });
+        }
+        if claims.len() >= QUIET_PUBLIC_DIAL_CAP {
+            println!(
+                "[NativeRelay] quiet_dial_cap refused url={} (cap={} hosts={:?})",
+                url,
+                QUIET_PUBLIC_DIAL_CAP,
+                claims.keys().collect::<Vec<_>>()
+            );
+            return Err("quiet_dial_cap".to_string());
+        }
+        println!("[NativeRelay] quiet_dial_cap chose host={}", host);
+        claims.insert(host.clone(), 1);
+        Ok(Self { host: Some(host) })
+    }
+
+    /// Keep claim until `release_quiet_public_dial_url` on disconnect.
+    fn commit(self) {
+        std::mem::forget(self);
+    }
+}
+
+impl Drop for QuietPublicDialClaim {
+    fn drop(&mut self) {
+        if let Some(host) = self.host.take() {
+            release_quiet_public_host(&host);
+        }
+    }
 }
 
 fn tor_hard_reject_cooldown_until_ms() -> &'static AtomicU64 {
@@ -140,6 +255,10 @@ pub async fn probe_relay(
     net_runtime: State<'_, NativeNetworkRuntime>,
     url: String,
 ) -> Result<RelayProbeReport, String> {
+    if crate::perf_plane::is_local() {
+        crate::invoke_pressure::note_invoke("perf_plane:reject:probe_relay");
+        return Err(crate::perf_plane::reject_message("probe_relay"));
+    }
     let parsed = url::Url::parse(&url).map_err(|e| e.to_string())?;
     let scheme = parsed.scheme().to_string();
     let host = parsed.host_str().map(|s| s.to_string());
@@ -259,6 +378,79 @@ pub struct RelayMessage {
     pub payload: Value, // Raw JSON message from relay
 }
 
+/// Batched EVENT frames — one PostMessage for many relay EVENTs (JS fans out).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct RelayEventBatch {
+    pub relay_url: String,
+    pub payloads: Vec<Value>,
+}
+
+fn relay_payload_type(value: &Value) -> Option<&str> {
+    value
+        .as_array()
+        .and_then(|array| array.first())
+        .and_then(Value::as_str)
+}
+
+/// EVENT frames coalesce; OK / EOSE / NOTICE / other flush immediately.
+fn should_coalesce_relay_payload(value: &Value) -> bool {
+    matches!(relay_payload_type(value), Some("EVENT"))
+}
+
+fn emit_relay_event_to_window(
+    app: &AppHandle,
+    window_label: &str,
+    relay_url: &str,
+    payload: Value,
+) {
+    if let Some(window) = app.get_webview_window(window_label) {
+        crate::emit_pressure::note_webview_emit("relay-event");
+        let _ = window.emit(
+            "relay-event",
+            RelayMessage {
+                relay_url: relay_url.to_string(),
+                payload,
+            },
+        );
+    }
+}
+
+fn flush_coalesced_relay_events(
+    app: &AppHandle,
+    window_label: &str,
+    relay_url: &str,
+    pending: &mut Vec<Value>,
+) {
+    if pending.is_empty() {
+        return;
+    }
+    let Some(window) = app.get_webview_window(window_label) else {
+        pending.clear();
+        return;
+    };
+    if pending.len() == 1 {
+        let payload = pending.pop().expect("len checked");
+        crate::emit_pressure::note_webview_emit("relay-event");
+        let _ = window.emit(
+            "relay-event",
+            RelayMessage {
+                relay_url: relay_url.to_string(),
+                payload,
+            },
+        );
+        return;
+    }
+    let payloads = std::mem::take(pending);
+    crate::emit_pressure::note_webview_emit("relay-event-batch");
+    let _ = window.emit(
+        "relay-event-batch",
+        RelayEventBatch {
+            relay_url: relay_url.to_string(),
+            payloads,
+        },
+    );
+}
+
 // Persistent state for a relay (survives disconnections)
 #[derive(Default)]
 struct RelayState {
@@ -270,12 +462,27 @@ struct RelayConnection {
     tx: Sender<Message>,
 }
 
+struct DialInFlightGuard {
+    connecting: Arc<Mutex<HashSet<(String, String)>>>,
+    key: (String, String),
+}
+
+impl Drop for DialInFlightGuard {
+    fn drop(&mut self) {
+        if let Ok(mut connecting) = self.connecting.lock() {
+            connecting.remove(&self.key);
+        }
+    }
+}
+
 // Manage all relay connections and their persistent states
 pub struct RelayPool {
     // Keys are (window_label, relay_url)
     connections: Arc<Mutex<HashMap<(String, RelayUrl), RelayConnection>>>,
     states: Arc<Mutex<HashMap<(String, RelayUrl), RelayState>>>,
     pending_acks: Arc<Mutex<HashMap<PendingAckKey, PendingRelayAck>>>,
+    /// In-flight dials — blocks concurrent duplicate connect_relay for same key.
+    connecting: Arc<Mutex<HashSet<(String, String)>>>,
 }
 
 impl RelayPool {
@@ -284,6 +491,7 @@ impl RelayPool {
             connections: Arc::new(Mutex::new(HashMap::new())),
             states: Arc::new(Mutex::new(HashMap::new())),
             pending_acks: Arc::new(Mutex::new(HashMap::new())),
+            connecting: Arc::new(Mutex::new(HashSet::new())),
         }
     }
 
@@ -438,6 +646,7 @@ pub(crate) async fn connect_relay_internal(
         let connections = state.connections.lock().unwrap();
         if connections.contains_key(&key) {
             if let Some(window) = app.get_webview_window(&window_label) {
+                crate::emit_pressure::note_webview_emit("relay-status");
                 let _ = window.emit(
                     "relay-status",
                     serde_json::json!({
@@ -449,6 +658,22 @@ pub(crate) async fn connect_relay_internal(
             return Ok("Already connected".to_string());
         }
     }
+
+    {
+        let mut connecting = state.connecting.lock().unwrap();
+        if connecting.contains(&key) {
+            return Ok("Connect already in progress".to_string());
+        }
+        connecting.insert(key.clone());
+    }
+    let _dial_guard = DialInFlightGuard {
+        connecting: state.connecting.clone(),
+        key: key.clone(),
+    };
+    // Slice 2: one dial at a time — parallel public Quiet dials correlated with heap corruption.
+    let _dial_serial = relay_dial_gate().lock().await;
+    // Cap Quiet public-default hosts process-wide (JS multi-mount cannot bypass).
+    let quiet_claim = QuietPublicDialClaim::try_acquire(&url)?;
 
     // Parse URL
     let relay_url = url::Url::parse(&url).map_err(|e| e.to_string())?;
@@ -485,6 +710,7 @@ pub(crate) async fn connect_relay_internal(
 
     let emit_error = |message: &str| {
         if let Some(window) = app.get_webview_window(&window_label) {
+            crate::emit_pressure::note_webview_emit("relay-status");
             let _ = window.emit(
                 "relay-status",
                 serde_json::json!({
@@ -524,6 +750,7 @@ pub(crate) async fn connect_relay_internal(
                 return Err(message);
             }
             if let Some(window) = app.get_webview_window(&window_label) {
+                crate::emit_pressure::note_webview_emit("relay-status");
                 let _ = window.emit(
                     "relay-status",
                     serde_json::json!({
@@ -662,7 +889,31 @@ pub(crate) async fn connect_relay_internal(
 
     tokio::spawn(async move {
         let mut read_stream = read;
-        while let Some(msg) = read_stream.next().await {
+        let mut pending_events: Vec<Value> = Vec::new();
+        let coalesce = Duration::from_millis(RELAY_EVENT_COALESCE_MS);
+
+        loop {
+            let next_msg = if pending_events.is_empty() {
+                read_stream.next().await
+            } else {
+                tokio::select! {
+                    msg = read_stream.next() => msg,
+                    _ = sleep(coalesce) => {
+                        flush_coalesced_relay_events(
+                            &app_handle,
+                            &win_label_loop,
+                            &read_url,
+                            &mut pending_events,
+                        );
+                        continue;
+                    }
+                }
+            };
+
+            let Some(msg) = next_msg else {
+                break;
+            };
+
             match msg {
                 Ok(Message::Text(text)) => {
                     if let Ok(json) = serde_json::from_str::<Value>(&text) {
@@ -676,13 +927,36 @@ pub(crate) async fn connect_relay_internal(
                                 message,
                             );
                         }
-                        if let Some(window) = app_handle.get_webview_window(&win_label_loop) {
-                            let _ = window.emit(
-                                "relay-event",
-                                RelayMessage {
-                                    relay_url: read_url.clone(),
-                                    payload: json,
-                                },
+                        if should_coalesce_relay_payload(&json) {
+                            pending_events.push(json);
+                            if pending_events.len() >= RELAY_EVENT_COALESCE_MAX {
+                                flush_coalesced_relay_events(
+                                    &app_handle,
+                                    &win_label_loop,
+                                    &read_url,
+                                    &mut pending_events,
+                                );
+                            }
+                            if pending_events.len() >= RELAY_EVENT_HARD_CAP {
+                                let drop_n = pending_events.len() / 2;
+                                pending_events.drain(0..drop_n);
+                                eprintln!(
+                                    "[NativeRelay] dropped {} coalesced EVENTs under emit pressure url={}",
+                                    drop_n, read_url
+                                );
+                            }
+                        } else {
+                            flush_coalesced_relay_events(
+                                &app_handle,
+                                &win_label_loop,
+                                &read_url,
+                                &mut pending_events,
+                            );
+                            emit_relay_event_to_window(
+                                &app_handle,
+                                &win_label_loop,
+                                &read_url,
+                                json,
                             );
                         }
                     }
@@ -703,6 +977,13 @@ pub(crate) async fn connect_relay_internal(
             }
         }
 
+        flush_coalesced_relay_events(
+            &app_handle,
+            &win_label_loop,
+            &read_url,
+            &mut pending_events,
+        );
+
         // Cleanup on disconnect
         fail_pending_acks_for_scope_relay(
             &pending_acks_clone,
@@ -712,6 +993,7 @@ pub(crate) async fn connect_relay_internal(
         );
 
         if let Some(window) = app_handle.get_webview_window(&win_label_loop) {
+            crate::emit_pressure::note_webview_emit("relay-status");
             let _ = window.emit(
                 "relay-status",
                 serde_json::json!({
@@ -724,6 +1006,7 @@ pub(crate) async fn connect_relay_internal(
         // Remove from pool
         let mut connections = connections_clone.lock().unwrap();
         connections.remove(&(win_label_loop.clone(), read_url.clone()));
+        release_quiet_public_dial_url(&read_url);
     });
 
     // Add to pool
@@ -734,6 +1017,8 @@ pub(crate) async fn connect_relay_internal(
             RelayConnection { tx: tx.clone() },
         );
     }
+    // Keep Quiet slot until disconnect / read-loop exit.
+    quiet_claim.commit();
 
     // Auto-resubscribe from persistent state
     let subs_to_re = {
@@ -751,6 +1036,7 @@ pub(crate) async fn connect_relay_internal(
     }
 
     if let Some(window) = app.get_webview_window(&window_label) {
+        crate::emit_pressure::note_webview_emit("relay-status");
         let _ = window.emit(
             "relay-status",
             serde_json::json!({
@@ -772,6 +1058,10 @@ pub async fn connect_relay(
     tor_state: State<'_, TorState>,
     url: String,
 ) -> Result<String, String> {
+    if crate::perf_plane::is_local() {
+        crate::invoke_pressure::note_invoke("perf_plane:reject:connect_relay");
+        return Err(crate::perf_plane::reject_message("connect_relay"));
+    }
     connect_relay_internal(
         app,
         window.label().to_string(),
@@ -806,9 +1096,11 @@ pub async fn disconnect_relay(
             &url,
             "Relay disconnected before OK response",
         );
-        // Sending Close message will terminate the read loop eventually
+        // Sending Close message will terminate the read loop eventually;
+        // Quiet host claim is released in the read-loop cleanup (not here).
         let _ = tx.send(Message::Close(None)).await;
         if let Some(window) = app.get_webview_window(&window_label) {
+            crate::emit_pressure::note_webview_emit("relay-status");
             let _ = window.emit(
                 "relay-status",
                 serde_json::json!({
@@ -884,6 +1176,7 @@ pub async fn recycle_relays(
         );
         let _ = tx.send(Message::Close(None)).await;
         if let Some(window) = app.get_webview_window(&window_label) {
+            crate::emit_pressure::note_webview_emit("relay-status");
             let _ = window.emit(
                 "relay-status",
                 serde_json::json!({
@@ -994,5 +1287,70 @@ pub async fn send_relay_message(
         Ok("Sent".to_string())
     } else {
         Err("Not connected".to_string())
+    }
+}
+
+#[cfg(test)]
+mod lag_slice1_tests {
+    use super::{relay_payload_type, should_coalesce_relay_payload};
+    use serde_json::json;
+
+    #[test]
+    fn event_payloads_coalesce() {
+        let event = json!(["EVENT", "sub", {"id": "abc"}]);
+        assert_eq!(relay_payload_type(&event), Some("EVENT"));
+        assert!(should_coalesce_relay_payload(&event));
+    }
+
+    #[test]
+    fn ok_eose_notice_do_not_coalesce() {
+        assert!(!should_coalesce_relay_payload(&json!(["OK", "id", true, ""])));
+        assert!(!should_coalesce_relay_payload(&json!(["EOSE", "sub"])));
+        assert!(!should_coalesce_relay_payload(&json!(["NOTICE", "hi"])));
+    }
+
+    #[test]
+    fn slice2_coalesce_bounds_are_tighter_than_slice1() {
+        assert!(super::RELAY_EVENT_COALESCE_MAX <= 24);
+        assert!(super::RELAY_EVENT_HARD_CAP > super::RELAY_EVENT_COALESCE_MAX);
+        assert!(super::RELAY_EVENT_COALESCE_MS >= 50);
+    }
+
+    #[test]
+    fn quiet_public_host_detection() {
+        assert_eq!(
+            super::quiet_public_relay_host("wss://nos.lol"),
+            Some("nos.lol".to_string())
+        );
+        assert_eq!(
+            super::quiet_public_relay_host("wss://relay.primal.net/"),
+            Some("relay.primal.net".to_string())
+        );
+        assert_eq!(super::quiet_public_relay_host("ws://localhost:7000"), None);
+        assert_eq!(super::quiet_public_relay_host("wss://example.com"), None);
+    }
+
+    #[test]
+    fn quiet_public_dial_cap_is_two_for_beta() {
+        assert_eq!(super::QUIET_PUBLIC_DIAL_CAP, 2);
+    }
+
+    #[test]
+    fn quiet_public_cap_allows_two_hosts_refuses_third_allows_private() {
+        if let Ok(mut claims) = super::quiet_public_host_claims().lock() {
+            claims.clear();
+        }
+        let a = super::QuietPublicDialClaim::try_acquire("wss://nos.lol").expect("slot 1");
+        let b = super::QuietPublicDialClaim::try_acquire("wss://relay.primal.net").expect("slot 2");
+        assert!(super::QuietPublicDialClaim::try_acquire("wss://relay.damus.io").is_err());
+        assert!(super::QuietPublicDialClaim::try_acquire("ws://localhost:7000").is_ok());
+        // Same host while slots full still reuses.
+        let a2 = super::QuietPublicDialClaim::try_acquire("wss://nos.lol").expect("reuse nos");
+        drop(a2);
+        drop(b);
+        drop(a);
+        if let Ok(mut claims) = super::quiet_public_host_claims().lock() {
+            claims.clear();
+        }
     }
 }

@@ -33,42 +33,12 @@ export const mergeLegacyOrphanRequestsInboxItems = (params: Readonly<{
   isPeerAcceptedByTrust: (peerPublicKeyHex: PublicKeyHex) => boolean;
   getRequestStatus: (peerPublicKeyHex: PublicKeyHex) => DmPeerRequestStatusSnapshot;
 }>): ReadonlyArray<RequestsInboxItem> => {
-  const merged = [...params.inboxItems];
-  const inboxPeers = new Set(merged.map((item) => item.peerPublicKeyHex));
-
-  params.createdConnections.forEach((connection) => {
-    if (connection.kind !== "dm") {
-      return;
-    }
-    const peerPublicKeyHex = connection.pubkey;
-    if (inboxPeers.has(peerPublicKeyHex)) {
-      return;
-    }
-    if (!isLegacyOrphanDmThread({
-      peerPublicKeyHex,
-      isPeerAcceptedByTrust: params.isPeerAcceptedByTrust(peerPublicKeyHex),
-      requestStatus: params.getRequestStatus(peerPublicKeyHex),
-      hasDmThreadRow: true,
-    })) {
-      return;
-    }
-
-    merged.push({
-      peerPublicKeyHex,
-      lastMessagePreview: connection.lastMessage || "Connection request",
-      lastReceivedAtUnixSeconds: Math.max(
-        1,
-        Math.floor(connection.lastMessageTime.getTime() / 1000),
-      ),
-      unreadCount: connection.unreadCount,
-      status: "pending",
-      isRequest: true,
-      isOutgoing: false,
-    });
-    inboxPeers.add(peerPublicKeyHex);
-  });
-
-  return merged.sort((left, right) => right.lastReceivedAtUnixSeconds - left.lastReceivedAtUnixSeconds);
+  void params.createdConnections;
+  void params.isPeerAcceptedByTrust;
+  void params.getRequestStatus;
+  return [...params.inboxItems].sort(
+    (left, right) => right.lastReceivedAtUnixSeconds - left.lastReceivedAtUnixSeconds,
+  );
 };
 
 export const resolveEffectiveContactRequestStatus = (params: Readonly<{
@@ -77,6 +47,14 @@ export const resolveEffectiveContactRequestStatus = (params: Readonly<{
   requestStatus: DmPeerRequestStatusSnapshot;
   hasDmThreadRow: boolean;
 }>): DmPeerRequestStatusSnapshot => {
+  // Explicit Accept is sticky. Stale pending/declined inbox rows must not undo it
+  // after restart when peer trust (or accept evidence) still says accepted.
+  if (params.isPeerAcceptedByTrust) {
+    return {
+      status: "accepted",
+      isOutgoing: params.requestStatus?.isOutgoing ?? false,
+    };
+  }
   if (params.requestStatus?.status) {
     return params.requestStatus;
   }
@@ -89,14 +67,6 @@ export const resolveEffectiveContactRequestStatus = (params: Readonly<{
     return resolveLegacyOrphanRequestStatus({
       isOutgoing: params.requestStatus?.isOutgoing,
     });
-  }
-  // Open DM thread without an inbox row still uses sandbox request UI (ASE-1d).
-  if (
-    params.hasDmThreadRow
-    && !params.isPeerAcceptedByTrust
-    && params.requestStatus?.isOutgoing !== true
-  ) {
-    return resolveLegacyOrphanRequestStatus({ isOutgoing: false });
   }
   return params.requestStatus;
 };

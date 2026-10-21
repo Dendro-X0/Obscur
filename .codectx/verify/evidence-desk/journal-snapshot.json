@@ -1,0 +1,214 @@
+{
+  "wall_ms": 1792051727602,
+  "elapsed_ms": 1140264,
+  "total": 48,
+  "perf_plane": "full",
+  "top": [
+    "desktop_list_active_session_leases=20",
+    "desktop_get_profile_isolation_snapshot=5",
+    "desktop_harvest_profile_web_storage=5",
+    "auth_boot_snapshot=2",
+    "fetch_remote_text=2",
+    "desktop_scan_local_saves=2",
+    "desktop_bind_window_profile=2",
+    "desktop_get_save_library_context=2",
+    "desktop_find_active_session_lease=1",
+    "window_minimize=1",
+    "auth_login_assist_read=1",
+    "window_is_maximized=1"
+  ],
+  "recent": [
+    {
+      "t_ms": 1792050587297,
+      "cmd": "desktop_bind_window_profile"
+    },
+    {
+      "t_ms": 1792050587298,
+      "cmd": "desktop_harvest_profile_web_storage"
+    },
+    {
+      "t_ms": 1792050587298,
+      "cmd": "desktop_harvest_profile_web_storage"
+    },
+    {
+      "t_ms": 1792050587298,
+      "cmd": "window_is_maximized"
+    },
+    {
+      "t_ms": 1792050587300,
+      "cmd": "desktop_get_obscur_data_root_config"
+    },
+    {
+      "t_ms": 1792050587303,
+      "cmd": "desktop_get_save_library_context"
+    },
+    {
+      "t_ms": 1792050587322,
+      "cmd": "desktop_get_profile_isolation_snapshot"
+    },
+    {
+      "t_ms": 1792050587337,
+      "cmd": "desktop_harvest_profile_web_storage"
+    },
+    {
+      "t_ms": 1792050587365,
+      "cmd": "desktop_harvest_profile_web_storage"
+    },
+    {
+      "t_ms": 1792050587366,
+      "cmd": "desktop_get_save_library_context"
+    },
+    {
+      "t_ms": 1792050587373,
+      "cmd": "auth_login_assist_read"
+    },
+    {
+      "t_ms": 1792050587376,
+      "cmd": "desktop_get_profile_isolation_snapshot"
+    },
+    {
+      "t_ms": 1792050587476,
+      "cmd": "desktop_scan_local_saves"
+    },
+    {
+      "t_ms": 1792050587493,
+      "cmd": "auth_boot_snapshot"
+    },
+    {
+      "t_ms": 1792050587503,
+      "cmd": "check_for_updates"
+    },
+    {
+      "t_ms": 1792050587503,
+      "cmd": "fetch_remote_text"
+    },
+    {
+      "t_ms": 1792050588378,
+      "cmd": "fetch_remote_text"
+    },
+    {
+      "t_ms": 1792050588378,
+      "cmd": "desktop_scan_local_saves"
+    },
+    {
+      "t_ms": 1792050588378,
+      "cmd": "desktop_harvest_profile_web_storage"
+    },
+    {
+      "t_ms": 1792050588379,
+      "cmd": "desktop_bind_window_profile"
+    },
+    {
+      "t_ms": 1792050588380,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050588386,
+      "cmd": "desktop_get_profile_isolation_snapshot"
+    },
+    {
+      "t_ms": 1792050588389,
+      "cmd": "desktop_force_session_restore"
+    },
+    {
+      "t_ms": 1792050588394,
+      "cmd": "desktop_find_active_session_lease"
+    },
+    {
+      "t_ms": 1792050588543,
+      "cmd": "desktop_storage_at_rest_restore_keychain"
+    },
+    {
+      "t_ms": 1792050588547,
+      "cmd": "auth_boot_snapshot"
+    },
+    {
+      "t_ms": 1792050647532,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050707538,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050767536,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050827534,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050887531,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050947534,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792050951578,
+      "cmd": "desktop_get_profile_isolation_snapshot"
+    },
+    {
+      "t_ms": 1792051007536,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051067535,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051127547,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051187530,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051247541,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051307544,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051367537,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051427536,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051487542,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051547533,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051607528,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051667538,
+      "cmd": "desktop_list_active_session_leases"
+    },
+    {
+      "t_ms": 1792051689824,
+      "cmd": "desktop_get_profile_isolation_snapshot"
+    },
+    {
+      "t_ms": 1792051690607,
+      "cmd": "window_minimize"
+    },
+    {
+      "t_ms": 1792051727541,
+      "cmd": "desktop_list_active_session_leases"
+    }
+  ]
+}

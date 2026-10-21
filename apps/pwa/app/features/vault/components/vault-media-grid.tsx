@@ -33,6 +33,8 @@ type VaultMediaGridProps = Readonly<{
     downloadToLocalPath: (item: VaultMediaItem) => Promise<boolean>;
     deleteLocalCopy: (remoteUrl: string) => Promise<void>;
     openLocalFileLocation?: (remoteUrl: string) => Promise<boolean>;
+    /** Decrypt heavy LES objects (audio/video/file) when opening preview. */
+    ensurePreview?: (remoteUrl: string) => Promise<boolean>;
 }>;
 type VisibilityFilter = "all" | "local" | "remote" | "favorites" | "removed";
 type SortMode = "newest" | "oldest" | "file_name";
@@ -162,10 +164,14 @@ const resolveVaultSourceKind = (item: VaultMediaItem): VaultSourceKind => {
 export function VaultMediaGrid(props: VaultMediaGridProps) {
     const { t } = useTranslation();
     const {
-        pendingLinkUrl,
-        cancelPendingLink,
-        confirmPendingLink,
-        requestOpenExternalLink,
+      pendingLinkUrl,
+      pendingLinkPhase,
+      reputationResult,
+      reputationChecking,
+      reputationProviderLabel,
+      cancelPendingLink,
+      confirmPendingLink,
+      requestOpenExternalLink,
     } = useGuardedExternalLinkOpen();
     const router = useRouter();
     const compact = useMobileCompactLayout();
@@ -349,6 +355,12 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
         // object URL for thumbnails. Lifecycle belongs to the media data hook.
         setSelectedItemId(null);
     }, []);
+    const openPreview = React.useCallback((item: VaultMediaItem): void => {
+        setSelectedItemId(item.id);
+        if (props.ensurePreview && isLesPreviewPendingUrl(item.attachment.url)) {
+            void props.ensurePreview(item.remoteUrl);
+        }
+    }, [props.ensurePreview]);
     const getSourceLabel = React.useCallback((item: VaultMediaItem): string => {
         const sourceKind = resolveVaultSourceKind(item);
         if (sourceKind === "community") {
@@ -419,20 +431,26 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
             if (event.key === "ArrowLeft" && hasPreviewPrevious) {
                 event.preventDefault();
                 event.stopPropagation();
-                setSelectedItemId(visibleItems[selectedItemIndex - 1]?.id ?? selectedItemId);
+                const previous = visibleItems[selectedItemIndex - 1];
+                if (previous) {
+                    openPreview(previous);
+                }
                 return;
             }
             if (event.key === "ArrowRight" && hasPreviewNext) {
                 event.preventDefault();
                 event.stopPropagation();
-                setSelectedItemId(visibleItems[selectedItemIndex + 1]?.id ?? selectedItemId);
+                const next = visibleItems[selectedItemIndex + 1];
+                if (next) {
+                    openPreview(next);
+                }
             }
         };
         window.addEventListener("keydown", handleKeyboardControls);
         return () => {
             window.removeEventListener("keydown", handleKeyboardControls);
         };
-    }, [closePreview, hasPreviewNext, hasPreviewPrevious, selectedItem, selectedItemIndex, visibleItems]);
+    }, [closePreview, hasPreviewNext, hasPreviewPrevious, openPreview, selectedItem, selectedItemIndex, visibleItems]);
     if (props.isLoading && props.mediaItems.length === 0) {
         return (<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
                 {Array.from({ length: 8 }).map((_, i) => (<div key={i} className="aspect-square rounded-[24px] bg-muted animate-pulse border border-border/50 overflow-hidden relative">
@@ -594,14 +612,14 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
                             toggleSelect(item.id);
                             return;
                         }
-                        setSelectedItemId(item.id);
+                        openPreview(item);
                     }} onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             if (selectionMode)
                                 toggleSelect(item.id);
                             else
-                                setSelectedItemId(item.id);
+                                openPreview(item);
                         }
                     }} className={cn("group relative aspect-square rounded-[24px] bg-muted border border-border/50 hover:shadow-2xl hover:shadow-primary/5 transition-all text-left outline-none focus-visible:ring-2 focus-visible:ring-primary overflow-visible", isSelected && "ring-2 ring-primary border-primary/50")}>
                                 <div className="absolute inset-0 overflow-hidden rounded-[24px]">
@@ -833,10 +851,14 @@ export function VaultMediaGrid(props: VaultMediaGridProps) {
             </AnimatePresence>
         </div>
         <LinkOpenConfirmDialog
-            url={pendingLinkUrl}
-            onClose={cancelPendingLink}
-            onConfirm={() => confirmPendingLink()}
-        />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
     </>);
 }
 function VaultImageTile({ item }: {

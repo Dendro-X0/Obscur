@@ -1,26 +1,29 @@
 import { nativeLocalMediaAdapter } from "@/app/features/vault/services/native-local-media-adapter";
 import { getObscurDataRootConfig } from "@/app/features/profiles/services/obscur-data-root-service";
 import type { VaultMediaItem } from "@/app/features/vault/types/vault-media-item";
+import type { DownloadAttachmentToUserPathResult } from "@/app/features/vault/services/local-media-store";
 import { parseLesRemoteUrl } from "./les-vault-media-adapter";
 import { readLesObjectDecrypted } from "./les-native-sdk";
 
 /** Export plaintext bytes from LES via the existing save-dialog adapter (not local-media-store index). */
-export const exportLesVaultItemToUserPath = async (item: VaultMediaItem): Promise<boolean> => {
+export const exportLesVaultItemToUserPath = async (
+  item: VaultMediaItem,
+): Promise<DownloadAttachmentToUserPathResult> => {
   const parsed = parseLesRemoteUrl(item.remoteUrl);
   if (!parsed) {
-    return false;
+    return "failed";
   }
   const bytes = await readLesObjectDecrypted(parsed.lesObjectId, parsed.profileId);
   if (bytes.byteLength === 0) {
-    return false;
+    return "failed";
   }
   const fileName = item.attachment.fileName?.trim() || `${parsed.lesObjectId}.bin`;
   const targetPath = await nativeLocalMediaAdapter.pickSavePath({ defaultPath: fileName });
   if (!targetPath) {
-    return false;
+    return "cancelled";
   }
   await nativeLocalMediaAdapter.writeBytes({ path: targetPath, bytes });
-  return true;
+  return "saved";
 };
 
 export const revealLesVaultItemFolder = async (item: VaultMediaItem): Promise<boolean> => {

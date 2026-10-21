@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => {
   const unsubscribe = vi.fn();
   return {
     useRelay: vi.fn(),
-    getConnectionByPublicKey: vi.fn(),
     getProfile: vi.fn(),
     upsertProfile: vi.fn(),
     fetchLatestEventFromRelayUrls: vi.fn(),
@@ -18,12 +17,6 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("../../relays/providers/relay-provider", () => ({
   useRelay: mocks.useRelay,
-}));
-
-vi.mock("../../invites/utils/connection-store", () => ({
-  connectionStore: {
-    getConnectionByPublicKey: mocks.getConnectionByPublicKey,
-  },
 }));
 
 vi.mock("@/app/features/search/services/discovery-cache", () => ({
@@ -51,7 +44,6 @@ describe("useProfileMetadata", () => {
       },
       enabledRelayUrls: ["wss://relay.example"],
     });
-    mocks.getConnectionByPublicKey.mockResolvedValue(null);
     mocks.getProfile.mockReturnValue(null);
     mocks.fetchLatestEventFromRelayUrls.mockResolvedValue(null);
   });
@@ -138,7 +130,6 @@ describe("useProfileMetadata", () => {
 
     expect(mocks.subscribe).not.toHaveBeenCalled();
     expect(mocks.fetchLatestEventFromRelayUrls).not.toHaveBeenCalled();
-    expect(mocks.getConnectionByPublicKey).not.toHaveBeenCalled();
   });
 
   it("does not rewrite discovery cache when metadata is unchanged on rerender", async () => {

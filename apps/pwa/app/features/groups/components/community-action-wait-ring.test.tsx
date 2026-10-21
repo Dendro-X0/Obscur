@@ -38,8 +38,22 @@ describe("CommunityActionWaitRing", () => {
       />,
     );
     expect(screen.getByRole("status")).toBeTruthy();
+    expect(screen.getByTestId("community-action-wait-steps")).toBeTruthy();
     expect(screen.getByText("Leaving community")).toBeTruthy();
     expect(screen.getByText("Local exit")).toBeTruthy();
     expect(screen.getByText("Relay proof")).toBeTruthy();
+  });
+
+  it("keeps step copy in an upright list, not on a rotating orbit container", () => {
+    const steps = buildCommunityActionWaitSteps(
+      [{ id: "local", label: "Local keys" }],
+      "local",
+    );
+    const { container } = render(
+      <CommunityActionWaitRing title="Creating workspace" steps={steps} />,
+    );
+    expect(container.querySelector(".obscur-community-action-orbit-ring")).toBeTruthy();
+    expect(container.querySelector(".obscur-community-action-orbit")).toBeNull();
+    expect(container.querySelector('[data-testid="community-action-wait-steps"]')).toBeTruthy();
   });
 });

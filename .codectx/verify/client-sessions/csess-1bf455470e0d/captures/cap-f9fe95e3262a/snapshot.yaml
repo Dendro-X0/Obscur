@@ -1,0 +1,31 @@
+- main:
+  - img "Obscur"
+  - text: Obscur
+  - button "Switch profile before sign-in":
+    - img "Tester1"
+    - text: Tester1 Switch profile
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Change Language"
+  - alert "Manual lock active":
+    - paragraph: Profile locked
+    - paragraph: You locked Obscur on this profile window. Unlock with your device password or private key to continue.
+    - paragraph: Locking only affects this profile window — your keys and account data stay on this device.
+  - button "Back"
+  - heading "Welcome Back" [level=2]
+  - paragraph: Enter your device login password to unlock DemoUser.
+  - text: Protect your identity
+  - paragraph: Obscur will never ask for your passphrase or private key in chat, email, or support messages. Only enter secrets on the lock screen or Import Key flow inside this app.
+  - button "Log In"
+  - button "Import Key"
+  - text: Private Key
+  - paragraph: Use when switching accounts in this profile window.
+  - textbox "nsec1..."
+  - text: Master password (optional)
+  - textbox "Set to enable username login"
+  - button
+  - paragraph: Leave blank to unlock with key only. Setting a password enables the Log In tab next time.
+  - button "Unlock" [disabled]
+  - text: Self-Custody Anonymous
+- alert: Obscur

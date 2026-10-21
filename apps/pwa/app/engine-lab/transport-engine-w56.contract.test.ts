@@ -21,7 +21,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w56 — standalone legacy deletion execution gate", () => {
   it("pins deletion execution charter with gate policy", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w56-standalone-legacy-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w56-standalone-legacy-deletion-execution.md",
     );
     expect(charter).toContain("Standalone Legacy Deletion Execution");
     expect(charter).toContain("isStandaloneLegacyDeletionApproved");

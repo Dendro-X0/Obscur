@@ -1,0 +1,5 @@
+- dialog "Replace your endpoint list?":
+  - heading "Replace your endpoint list?" [level=2]
+  - paragraph: Applying Local Dev Mesh replaces all 5 configured endpoint(s). Your current list will be overwritten.
+  - button "Cancel"
+  - button "Replace and apply"

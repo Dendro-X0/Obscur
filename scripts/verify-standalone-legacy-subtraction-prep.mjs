@@ -27,7 +27,7 @@ const pwaRequiredPaths = [
 ];
 
 const repoRequiredPaths = [
-  "docs/program/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md",
+  "docs/archive/program/inactive-2026-08/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md",
 ];
 
 const artifactsPresent = (

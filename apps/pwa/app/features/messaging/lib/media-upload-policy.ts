@@ -78,16 +78,9 @@ export const shouldSkipPreprocessForRuntimeSafety = (file: File): boolean => {
     return false;
 };
 
-export const shouldPreferBrowserUploadForRuntimeSafety = (file: File, isNativeRuntime: boolean): boolean => {
-    if (!isNativeRuntime) {
-        return false;
-    }
-    const kind = getMediaKindForPolicy(file);
-    return (
-        (kind === "video" || kind === "audio" || kind === "file")
-        && file.size > MEDIA_RUNTIME_SAFETY_LIMITS.nativeDirectUploadBytes
-    );
-};
+// Track B5–B7 — shouldPreferBrowserUploadForRuntimeSafety removed (always-false stub).
+// Oversized Tauri uploads stay on native nip96_upload_v2.
+// @see specs/backend/media-prefer-browser-stub-subtract-design-2026-10.md
 
 export const shouldAvoidInMemoryAttachmentCaching = (file: File): boolean => {
     const kind = getMediaKindForPolicy(file);

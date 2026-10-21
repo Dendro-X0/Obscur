@@ -1,0 +1,238 @@
+{
+  "schema": "studio.obscur.fieldResidual@1.0.0",
+  "pathway": {
+    "id": "pathways.obscurFieldResidual",
+    "title": "Obscur-field residual — post-OXD honesty (H-OX1)",
+    "steps": [
+      "studio_help → obscurFieldResidual / pathways.obscurFieldResidual",
+      "studio_repo { action: \"studio_obscur_field_residual\" }",
+      "Read classes[] — covered ≠ Obscur Fixed",
+      "Subject-gated rows need Part D emits (digest / CDP / stepLabels)",
+      "citeAsProductFixed=false always"
+    ]
+  },
+  "oxd": {
+    "release": "0.7.2",
+    "tag": "v0.7.2",
+    "gate": "pnpm run verify:oxd",
+    "bandsClosed": [
+      "OXD0",
+      "OXD1",
+      "OXD2",
+      "OXD3",
+      "OXD4",
+      "OXD5",
+      "OXD6",
+      "OXD7",
+      "OXD8",
+      "OXD9",
+      "OXD10"
+    ],
+    "citeAsProductFixed": false,
+    "notes": [
+      "OXD closed detect→fingerprint→chain coverage for Part C priority build order",
+      "Patterns generalize — Obscur is case study, not product scope"
+    ]
+  },
+  "classes": [
+    {
+      "id": "A3_soft_l3_catalog",
+      "title": "Soft L3 / stress catalog soft-fail",
+      "status": "covered",
+      "oxdBand": "OXD1",
+      "notes": [
+        "Missing fault soft-fails; citeAsShipProof=false"
+      ]
+    },
+    {
+      "id": "A1_ladder_blocked_stale",
+      "title": "Ladder blocked + stale-session prune",
+      "status": "covered",
+      "oxdBand": "OXD2",
+      "notes": [
+        "currentRung=blocked distinct from interact Fail"
+      ]
+    },
+    {
+      "id": "B1_hang_remount",
+      "title": "Hang / remount kind-aware fingerprints",
+      "status": "covered",
+      "oxdBand": "OXD3",
+      "notes": [
+        "uiHang / remount ≠ Tor-only promote"
+      ]
+    },
+    {
+      "id": "A2_digest_promote",
+      "title": "Digest clustering + kind-aware promote",
+      "status": "covered",
+      "oxdBand": "OXD4",
+      "notes": [
+        "Count-hash collapse; class titles"
+      ]
+    },
+    {
+      "id": "A1_assert_kinds",
+      "title": "Assert kinds + Settings stepLabel",
+      "status": "covered",
+      "oxdBand": "OXD5",
+      "notes": [
+        "notTextVisible / notElementVisible + pack @2.1.0"
+      ]
+    },
+    {
+      "id": "A6_false_green",
+      "title": "Expanded false-green scan",
+      "status": "covered",
+      "oxdBand": "OXD6",
+      "notes": [
+        "Freshness+freeze · op.prove+interact composite"
+      ]
+    },
+    {
+      "id": "A10_handoff_paused",
+      "title": "Handoff STOP/PAUSED prove refusal",
+      "status": "covered",
+      "oxdBand": "OXD7",
+      "notes": [
+        "Ladder Blocked + prove Err when PAUSED"
+      ]
+    },
+    {
+      "id": "A5_owner_conflicts",
+      "title": "Owner-conflict exe filter + dualOwnerCount",
+      "status": "covered",
+      "oxdBand": "OXD8",
+      "notes": [
+        "Shape/conflicts sync"
+      ]
+    },
+    {
+      "id": "B3_B4_dual_profile",
+      "title": "Dual-profile Soft L3 / group chain templates",
+      "status": "covered",
+      "oxdBand": "OXD9",
+      "notes": [
+        "Templates exist; live dual-window L3 still subject-gated"
+      ]
+    },
+    {
+      "id": "A4_orphan_mint",
+      "title": "Orphan pack mint + rollup freshness",
+      "status": "covered",
+      "oxdBand": "OXD10",
+      "notes": [
+        "mintOrphans; open ≠ Fixed"
+      ]
+    },
+    {
+      "id": "A7_process_observability",
+      "title": "Native / Tor / WebView process observability depth",
+      "status": "open",
+      "oxdBand": null,
+      "notes": [
+        "Dial-storm counter / WebView stall metric still thin",
+        "Do not reopen SHELL-001 without freeze repro"
+      ]
+    },
+    {
+      "id": "A8_messaging_soft_l3_depth",
+      "title": "Messaging / relay Soft L3 end-to-end depth",
+      "status": "subject_gated",
+      "oxdBand": "OXD9",
+      "notes": [
+        "Templates covered; publish ACK / peer-receive L3 needs dual sessions"
+      ]
+    },
+    {
+      "id": "A9_auth_cold_restart",
+      "title": "Auth / keychain / cold-restart ladder depth",
+      "status": "subject_gated",
+      "oxdBand": null,
+      "notes": [
+        "Needs stable unlock recipe + subject auth emits"
+      ]
+    },
+    {
+      "id": "B5_B7_relay_projection_auth",
+      "title": "Relay rate / projection authority / auth nav probes",
+      "status": "open",
+      "oxdBand": null,
+      "notes": [
+        "Digest thresholds + subject authority fields still thin"
+      ]
+    },
+    {
+      "id": "SHELL_MCP_operator",
+      "title": "SHELL-001 / MCP-001 operator residuals",
+      "status": "mitigated_operator",
+      "oxdBand": null,
+      "notes": [
+        "SHELL-001 mitigated — no reopen without Not Responding repro",
+        "MCP-001 listing = operator checklist (H-OR1)"
+      ]
+    }
+  ],
+  "subjectMustProvide": [
+    "Stable test profiles + unlock password recipe",
+    "Structured runtime digest events (relay / hydrate / remount / authority)",
+    "Selector / stepLabel pack for Profiles, Chats, Settings, Relays",
+    "Dual-window actor map when Soft L3 peer-receive claimed",
+    "Handoff with honest STOP / PAUSED / Fixed language",
+    "Running desktop with CDP when interactive prove is claimed"
+  ],
+  "residualGapId": "obscur_field_residual_partial",
+  "residualStatus": "partial",
+  "emptyGreen": false,
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.obscurFieldResidual + honesty"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_obscur_field_residual\" }",
+      "purpose": "Compose post-OXD field residual pack"
+    },
+    {
+      "order": 3,
+      "tool": "pnpm run verify:oxd",
+      "purpose": "Reconfirm OXD band gate when citing covered classes",
+      "when": "when claiming OXD coverage"
+    },
+    {
+      "order": 4,
+      "tool": "studio_repo { action: \"studio_operator_residual\" }",
+      "purpose": "SHELL/MCP operator residuals (H-OR1)",
+      "when": "when operator friction cited"
+    }
+  ],
+  "openQuestions": [
+    "4 field classes remain open or subject_gated",
+    "Do not claim Obscur product Fixed from OXD coverage or this pack",
+    "A7 process observability deepen is optional H-OX2 — still ≠ SHELL-001 Fixed"
+  ],
+  "doesNotProve": [
+    "obscur_product_fixed",
+    "soft_l3_fixed",
+    "living_prove_closed",
+    "organizational_memory_closed",
+    "mcp_settings_listing_fixed",
+    "shell_001_fixed",
+    "oxd_coverage_equals_product_fixed",
+    "subject_gated_equals_client_satisfied",
+    "product_fixed"
+  ],
+  "proves": [
+    "obscur_field_residual_documented",
+    "oxd_coverage_cited_honestly",
+    "open_and_subject_gated_classes_listed"
+  ],
+  "notes": [
+    "H-OX1 Obscur-field residual — post-OXD honesty pack",
+    "residualStatus=partial",
+    "citeAsProductFixed=false",
+    "Case study ≠ product scope"
+  ]
+}

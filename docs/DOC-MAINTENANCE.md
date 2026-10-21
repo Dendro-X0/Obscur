@@ -19,12 +19,24 @@ _Last updated: 2026-06-26_
 |------|--------|
 | 1 | Prefer updating [CURRENT.md](./CURRENT.md) or handoff before adding files |
 | 2 | If new spec needed → `program/` + link from [program/README.md](./program/README.md) |
+| 2b | Commercial / productization / hitch strategy → `business/` + link from [business/README.md](./business/README.md) — **do not** stuff into `program/` (shelf cap) |
 | 3 | Supersede old doc → move to `archive/program/inactive-YYYY-MM/` |
 | 4 | Run `pnpm docs:check` |
 
 **Transport verify (w0–w68):** all `verify:transport-engine-w*` aliases resolve to `scripts/verify-transport-engine.mjs` (flat gate). Canonical: `pnpm verify:transport-engine-w68`.
 
 Do **not** add loose `.md` at `docs/` root except `README.md`, `START-HERE.md`, `CURRENT.md`, `DOC-MAINTENANCE.md`.
+
+## Feature demos (GIFs + guides)
+
+Agents: [program/agent-docs-gif-standard.md](./program/agent-docs-gif-standard.md).
+
+| Shelf | Role |
+|-------|------|
+| `docs/assets/gifs/` | Silent feature GIFs · **20–30 FPS** · replace in place |
+| `docs/assets/demo/<version>/` | Usage MD · `gif-inventory.md` · segment scripts |
+
+Do **not** publish aimless short recordings or simulated stub demos as the shelf.
 
 ---
 

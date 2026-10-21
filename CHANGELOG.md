@@ -4,8 +4,37 @@ All notable changes to Obscur are documented here.
 
 **Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
 
-**Current tree version:** **1.9.16** ([release notes](docs/releases/v1.9.16-release.md)).  
-**Tagged:** **v1.9.16** — clearnet ship · Tor silo · dialect research pause. **Next:** research charter for a dialect ≠ Nostr / VPS / Tor.
+**Current tree version:** **1.9.16** · **Open beta candidate:** [v2.0.0-beta-release.md](docs/releases/v2.0.0-beta-release.md) · cut [v2.0.0-beta-cut-plan-2026-10.md](docs/program/v2.0.0-beta-cut-plan-2026-10.md).  
+**Tagged:** **v1.9.16** — clearnet ship · Tor silo. **Next:** **v2.0.0-beta.1** — B1 packaged · B2 smoke → tag.
+
+---
+
+## [2.0.0-beta.1] — 2026-10-21 (Trustworthy crypto open beta · pre-tag)
+
+**Pre-tag open beta.** NSIS stamp `shell-2026-10-21T12:45:13Z` · SHA256 `9c8bc09d373166bdce59e70aca22af66b56315dc0d547d4f13d653c9fa47288a` · B2 smoke next.
+
+### Changed
+
+- **Outbound DM default** — NIP-17 gift wrap (NIP-44); NIP-04 legacy receive-only.
+- **Room-key coordination wraps** — NIP-44 scheme `obscur.nip44_room_key_wrap.v2` (v1 NIP-04 wraps still decrypt).
+- **Portable profile export** — NIP-44 with `encryptionScheme: "nip44"`; legacy bundles import as NIP-04.
+- **Public copy** — features/download pages: honest routing-metadata language; limitations crypto table.
+- **Communities (CU-UX-2b…6 L1)** — Interest/Team create · Quiet honesty · steward roles · Manage mode & hosting convert.
+
+### Security
+
+- DM send-pipeline: removed plaintext from debug logs.
+- `verify-e2ee-boundaries.mjs`: gate NIP-17 default + NIP-44 room-key owner.
+
+### Unchanged (honesty)
+
+- Relay-published account backup still NIP-04.
+- Tor optional · not Verified.
+- 1:1 voice shipped · **video not usable** in this beta.
+- ACC-01 / ACC-02 / SEC-V4 accepted limitations.
+- CU-UX dual-profile L3 optional (not a tag blocker).
+
+**Release notes:** [v2.0.0-beta-release.md](docs/releases/v2.0.0-beta-release.md). **Limitations:** [obscur-v2-known-limitations.md](docs/program/obscur-v2-known-limitations.md).
 
 ---
 

@@ -10,7 +10,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 
 describe("transport-engine w31 — Rust publish payload validation (validation-only)", () => {
   it("pins validation charter and invalid_payload semantics", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w31-rust-publish-payload-validation-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w31-rust-publish-payload-validation-charter.md");
     expect(charter).toContain("Rust Publish Payload Validation Charter");
     expect(charter).toContain("invalid_payload");
     expect(charter).toContain("transport_publish_not_wired");

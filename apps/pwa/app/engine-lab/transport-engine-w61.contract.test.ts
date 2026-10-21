@@ -28,7 +28,7 @@ const LEGACY_SEMANTIC_TOKENS = [
 describe("transport-engine w61 — standalone legacy production deletion execution", () => {
   it("pins production deletion execution charter with archive-aware contract reads", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
     );
     expect(charter).toContain("Standalone Legacy Production Deletion Execution");
     expect(charter).toContain("resolveTransportEngineStandaloneLegacyReadPath");

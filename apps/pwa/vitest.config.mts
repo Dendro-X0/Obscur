@@ -19,6 +19,7 @@ export default defineConfig({
       '../../packages/obscur-engine-host/src/**/*.test.ts',
       '../../packages/obscur-conduit-mesh-contracts/src/**/*.test.ts',
       '../../packages/obscur-conduit-mesh/src/**/*.test.ts',
+      '../../packages/obscur-protocol-nostr/src/**/*.test.ts',
     ],
     pool: 'forks',
     maxWorkers: 1,
@@ -29,7 +30,7 @@ export default defineConfig({
     server: {
       deps: {
         // Workspace ESM packages must not be loaded via CJS require() in hoisted mocks.
-        inline: ['@dweb/core', '@dweb/core/profile-message-bus', '@dweb/auth', '@obscur/transport-engine', '@obscur/engine-contracts', '@obscur/dm-engine', '@obscur/engine-host', '@obscur/workspace-engine', '@obscur/auth-engine', '@obscur/conduit-mesh-contracts', '@obscur/conduit-mesh'],
+        inline: ['@dweb/core', '@dweb/core/profile-message-bus', '@dweb/auth', '@obscur/transport-engine', '@obscur/engine-contracts', '@obscur/dm-engine', '@obscur/engine-host', '@obscur/workspace-engine', '@obscur/auth-engine', '@obscur/conduit-mesh-contracts', '@obscur/conduit-mesh', '@obscur/protocol-nostr'],
       },
     },
     // Property-based testing configuration

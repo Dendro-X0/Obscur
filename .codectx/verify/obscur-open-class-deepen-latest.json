@@ -1,0 +1,148 @@
+{
+  "schema": "studio.obscur.openClassDeepen@1.0.0",
+  "pathway": {
+    "id": "pathways.obscurOpenClassDeepen",
+    "title": "Obscur open-class deepen — B5_B7 + continuous metrics (H-OX4)",
+    "steps": [
+      "studio_help → obscurOpenClassDeepen / pathways.obscurOpenClassDeepen",
+      "studio_repo { action: \"studio_obscur_subject_gated_deepen\" }  # H-OX3",
+      "studio_repo { action: \"studio_obscur_open_class_deepen\" }",
+      "citeAsProductFixed=false · citeAsContinuousApm=false"
+    ]
+  },
+  "priorBands": [
+    "H-OX1",
+    "H-OX2",
+    "H-OX3"
+  ],
+  "recipes": [
+    {
+      "id": "recipe.b5-relay-rate",
+      "title": "Relay rate / flood digest thresholds",
+      "status": "open",
+      "detect": [
+        "Digest groups mention relay flood / rate without stable threshold",
+        "H-OX1 class B5_B7_relay_projection_auth still open"
+      ],
+      "operatorSteps": [
+        "Bound claims to subject-emitted rate digests — no invented Fixed",
+        "Prefer kind-aware promote over Tor-only collapse"
+      ],
+      "subjectMustProvide": [
+        "Structured relay rate / flood fields in runtime digests"
+      ],
+      "doesNotClaim": [
+        "obscur_product_fixed",
+        "soft_l3_fixed"
+      ]
+    },
+    {
+      "id": "recipe.b7-projection-auth",
+      "title": "Projection authority / auth nav probes",
+      "status": "open",
+      "detect": [
+        "Authority / projection digests thin or mis-titled",
+        "Auth nav probes without subject unlock recipe"
+      ],
+      "operatorSteps": [
+        "Require subject authority fields before Fixed language",
+        "Cross-cite A9 cold-restart when unlock involved"
+      ],
+      "subjectMustProvide": [
+        "Subject authority fields + unlock recipe when claimed"
+      ],
+      "doesNotClaim": [
+        "obscur_product_fixed",
+        "product_fixed"
+      ]
+    },
+    {
+      "id": "recipe.continuous-dial-rate",
+      "title": "Continuous dial-rate metric (still open)",
+      "status": "recipe_documented",
+      "detect": [
+        "Dial-storm recipes exist (H-OX2) without continuous product metric"
+      ],
+      "operatorSteps": [
+        "Use pathways.obscurProcessObservability for storm triage",
+        "Do not claim continuous_dial_rate_metric_product"
+      ],
+      "subjectMustProvide": [
+        "Live dial rate series when claiming continuous metric"
+      ],
+      "doesNotClaim": [
+        "continuous_dial_rate_metric_product",
+        "shell_001_fixed"
+      ]
+    },
+    {
+      "id": "recipe.webview-stall-metric",
+      "title": "WebView stall metric (still open)",
+      "status": "recipe_documented",
+      "detect": [
+        "ui-hang recipes exist (H-OX2) without continuous stall metric product"
+      ],
+      "operatorSteps": [
+        "Prefer hang assert over click-harder",
+        "Do not reopen SHELL-001 without freeze / Not Responding repro"
+      ],
+      "subjectMustProvide": [
+        "Live stall samples when claiming continuous metric"
+      ],
+      "doesNotClaim": [
+        "webview_stall_metric_product",
+        "shell_001_fixed",
+        "continuous_process_watch_product"
+      ]
+    }
+  ],
+  "citeAsProductFixed": false,
+  "citeAsContinuousApm": false,
+  "residualGapId": "obscur_field_residual_partial",
+  "residualStatus": "partial",
+  "emptyGreen": false,
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.obscurOpenClassDeepen + honesty"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_obscur_subject_gated_deepen\" }",
+      "purpose": "H-OX3 gated class context"
+    },
+    {
+      "order": 3,
+      "tool": "studio_repo { action: \"studio_obscur_open_class_deepen\" }",
+      "purpose": "Compose open-class deepen recipes"
+    }
+  ],
+  "openQuestions": [
+    "Open-class recipes document gaps — living subject digests still required",
+    "Do not claim continuous APM product or Obscur Fixed from this pack"
+  ],
+  "doesNotProve": [
+    "obscur_product_fixed",
+    "soft_l3_fixed",
+    "shell_001_fixed",
+    "continuous_process_watch_product",
+    "continuous_dial_rate_metric_product",
+    "webview_stall_metric_product",
+    "oxd_coverage_equals_product_fixed",
+    "living_prove_closed",
+    "organizational_memory_closed",
+    "product_fixed"
+  ],
+  "proves": [
+    "open_class_recipes_documented",
+    "b5_b7_and_continuous_metrics_honest",
+    "deepen_without_product_fixed_claim"
+  ],
+  "notes": [
+    "H-OX4 open-class deepen — B5_B7 + continuous metrics after H-OX3",
+    "residualStatus=partial",
+    "recipes=4",
+    "citeAsProductFixed=false · citeAsContinuousApm=false"
+  ]
+}

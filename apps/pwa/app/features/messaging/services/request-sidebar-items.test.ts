@@ -31,7 +31,7 @@ describe("buildSidebarRequestsInboxItems", () => {
     ]);
   });
 
-  it("backfills legacy orphan DM threads into the requests tab", () => {
+  it("does not backfill legacy address-book threads into the requests tab", () => {
     const peer = "b".repeat(64) as any;
     const items = buildSidebarRequestsInboxItems({
       inboxItems: [],
@@ -48,8 +48,6 @@ describe("buildSidebarRequestsInboxItems", () => {
       getRequestStatus: () => ({ status: undefined, isOutgoing: false }),
     });
 
-    expect(items).toHaveLength(1);
-    expect(items[0]?.peerPublicKeyHex).toBe(peer);
-    expect(items[0]?.isOutgoing).toBe(false);
+    expect(items).toHaveLength(0);
   });
 });

@@ -14,9 +14,11 @@ use crate::models::tor::TorRuntimeStatus;
 /// Canonical R4 loopback control plane (must match `obscur-tor-gateway` DEFAULT_BIND).
 pub const DEFAULT_GATEWAY_BASE: &str = "http://127.0.0.1:17950";
 pub const CANONICAL_GATEWAY_PORT: u16 = 17950;
+const _: () = assert!(CANONICAL_GATEWAY_PORT == 17_950);
 /// Slice 4b-1 tunnel listener (must match gateway DEFAULT_TUNNEL_BIND).
 pub const DEFAULT_TUNNEL_ADDR: &str = "127.0.0.1:17951";
 pub const CANONICAL_TUNNEL_PORT: u16 = 17951;
+const _: () = assert!(CANONICAL_TUNNEL_PORT == 17_951);
 const REQUEST_TIMEOUT: Duration = Duration::from_millis(2_000);
 const CONNECT_TIMEOUT: Duration = Duration::from_millis(800);
 /// Slice 4a dial proxy — must cover gateway SOCKS connect + upstream.

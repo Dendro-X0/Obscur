@@ -33,6 +33,7 @@ import {
 } from "@/app/features/security/services/identity-passphrase-policy";
 import { UnlockRateLimitError } from "@/app/features/auth/services/unlock-attempt-rate-limit";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
+import { isProfileWindowUnlockedForAppShell } from "@/app/features/runtime/services/window-runtime-contracts";
 import { shouldEnterLoginModeOnStartup, startupAuthStateHasPrivateKeyMismatch, startupAuthStateHasStoredIdentity, } from "@/app/features/auth/services/startup-auth-state-contracts";
 import { generateRandomInviteCode } from "@/app/features/invites/utils/invite-code-format";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -54,8 +55,12 @@ import { ProfileArchiveResultInline } from "@/app/features/profiles/components/p
 import { hasPasswordProtectedUnlockOnDevice } from "@/app/features/profiles/services/identity-passphrase-unlock";
 import { isPasswordlessNativeOnlyIdentity } from "@/app/features/auth/services/passwordless-native-only-identity";
 import { useAuthKernelSurfaceActions } from "@/app/features/auth-kernel/hooks/use-auth-kernel-surface-actions";
+import { isAuthKernelManualLockActive } from "@/app/features/auth-kernel/auth-kernel-manual-lock-state";
 import { AuthAssistantPanel } from "@/app/features/auth-kernel/components/auth-assistant-panel";
 import { AuthAssistantSavePrompt } from "@/app/features/auth-kernel/components/auth-assistant-save-prompt";
+import { AuthNativeMismatchBannerActions, AuthSurfaceConflictBanner } from "./auth-surface-conflict-banner";
+import { resolveAuthSurfaceConflicts } from "@/app/features/auth/services/resolve-auth-surface-conflict";
+import { readIdentityRecordFromLocalStorage } from "@/app/features/auth/utils/identity-persistence";
 import type { AuthAssistantEntry } from "@dweb/auth";
 const authPrimaryButtonClass = "w-full h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-base font-bold shadow-lg shadow-purple-500/20";
 const resolveAuthSecurityErrorMessage = (error: unknown, t: (key: string, options?: Record<string, unknown>) => string): string | null => {
@@ -106,12 +111,12 @@ export function AuthScreen() {
     const profile = useProfile();
     const boundProfileId = runtime.snapshot.session.profileId;
     const boundProfileLabel = runtime.snapshot.session.profileLabel ?? boundProfileId;
-    const hasNativeMismatch = startupState.mismatchReason === "native_mismatch";
+    const manualLockActive = isAuthKernelManualLockActive(boundProfileId);
     const hasStoredIdentity = startupAuthStateHasStoredIdentity(startupState)
         || Boolean(identity.state.stored?.publicKeyHex);
     const hasLocalAccountEvidence = hasStoredIdentity
         || profileWindowHasLocalAccountEvidence(boundProfileId);
-    const authSurfaceReady = startupState.kind !== "pending" && identity.state.status !== "loading";
+    const authLoginFormReady = identity.state.status !== "loading";
     const isPasswordlessNativeOnly = isPasswordlessNativeOnlyIdentity(identity.state.stored);
     const passwordLoginAvailable = hasStoredIdentity || hasLocalAccountEvidence;
     const [mode, setMode] = useState<AuthMode>("welcome");
@@ -128,6 +133,23 @@ export function AuthScreen() {
         status: "blocked_different_account";
     }> | null>(null);
     const [activeSessionConflict, setActiveSessionConflict] = useState<AccountActiveInOtherProfileWindowError["detail"] | null>(null);
+    const authSurfaceConflicts = React.useMemo(() => (
+        resolveAuthSurfaceConflicts({
+            manualLockActive,
+            startupState,
+            hasPrivateKeyMismatch,
+            authErrorMessage: authError,
+            activeSessionConflict: Boolean(activeSessionConflict),
+            profileSlotConflict: Boolean(accountConflict),
+        })
+    ), [
+        accountConflict,
+        activeSessionConflict,
+        authError,
+        hasPrivateKeyMismatch,
+        manualLockActive,
+        startupState,
+    ]);
     const [pendingAuthAction, setPendingAuthAction] = useState<PendingAuthAction | null>(null);
     const [isConflictBusy, setIsConflictBusy] = useState(false);
     const [lastArchiveResult, setLastArchiveResult] = useState<{
@@ -174,7 +196,20 @@ export function AuthScreen() {
         ? isRetiredIdentityPublicKey(importCandidatePublicKeyHex)
         : false;
     const hasAppliedInitialEntryRouteRef = useRef(false);
-    const storedUsernameHint = identity.state.stored?.username?.trim();
+    const storedUsernameHint = React.useMemo(() => {
+        const fromLocalStorage = readIdentityRecordFromLocalStorage(boundProfileId)?.username?.trim();
+        return fromLocalStorage || identity.state.stored?.username?.trim();
+    }, [boundProfileId, identity.state.stored?.username]);
+    const occupantUsernameForConflict = React.useMemo(() => {
+        const identityUsername = identity.state.stored?.username?.trim();
+        if (!accountConflict) {
+            return identityUsername;
+        }
+        // Prefer slot-local evidence so the warning can name the occupant even when
+        // identity.state.stored is empty/unnamed on some lock-screen bands.
+        const fromLocalStorage = readIdentityRecordFromLocalStorage(boundProfileId)?.username?.trim();
+        return fromLocalStorage || identityUsername;
+    }, [accountConflict, boundProfileId, identity.state.stored?.username]);
     const previousIdentityStatusRef = useRef(identity.state.status);
     React.useEffect(() => {
         if (identity.state.status !== "locked" || !isPasswordlessNativeOnlyIdentity(identity.state.stored)) {
@@ -404,6 +439,15 @@ export function AuthScreen() {
         toast.info(message);
     };
     const handleContinueImportKey = async (): Promise<void> => {
+        const identitySnapshot = getIdentitySnapshot();
+        const appShellUnlocked = isProfileWindowUnlockedForAppShell({
+            identityStatus: identitySnapshot.status,
+            publicKeyHex: identitySnapshot.publicKeyHex,
+            runtimePhase: runtime.snapshot.phase,
+        });
+        if (isLoading || appShellUnlocked) {
+            return;
+        }
         setAuthError(null);
         const keyToUse = decodedImportPrivateKey;
         if (!keyToUse) {
@@ -418,21 +462,14 @@ export function AuthScreen() {
             setAuthError(t("security.passphrase.policy.too_short"));
             return;
         }
-        if (needsDevicePasswordSetupGuide
-            && importKeyGuideStep === "enter_key"
-            && password.trim().length === 0
-            && hasStoredIdentity) {
-            const storedPubkey = identity.state.stored?.publicKeyHex;
-            if (!storedPubkey || importCandidatePublicKeyHex !== storedPubkey) {
-                if (surfaceIncomingImportKeySlotConflict(keyToUse as PrivateKeyHex)) {
-                    return;
-                }
-                setAuthError(t("auth.error.privateKeyMismatch"));
+        const storedPubkey = identity.state.stored?.publicKeyHex;
+        if (hasStoredIdentity
+            && storedPubkey
+            && importCandidatePublicKeyHex !== storedPubkey) {
+            if (surfaceIncomingImportKeySlotConflict(keyToUse as PrivateKeyHex)) {
                 return;
             }
-            setImportKeyGuideStep("set_device_password");
-            setPassword("");
-            setConfirmPassword("");
+            setAuthError(t("auth.error.privateKeyMismatch"));
             return;
         }
         if (importKeyGuideStep === "set_device_password") {
@@ -670,12 +707,18 @@ export function AuthScreen() {
     };
     const handleLoginUsername = async (e?: React.FormEvent, passwordOverride?: string) => {
         e?.preventDefault();
-        if (isLoading || identity.state.status === "unlocked" || getIdentitySnapshot().status === "unlocked") {
+        const identitySnapshot = getIdentitySnapshot();
+        const appShellUnlocked = isProfileWindowUnlockedForAppShell({
+            identityStatus: identitySnapshot.status,
+            publicKeyHex: identitySnapshot.publicKeyHex,
+            runtimePhase: runtime.snapshot.phase,
+        });
+        if (isLoading || appShellUnlocked) {
             return;
         }
         const loginPassword = resolveLoginPassword(e, passwordOverride);
         if (!loginPassword) {
-            if (getIdentitySnapshot().status === "unlocked") {
+            if (appShellUnlocked) {
                 return;
             }
             const message = t("auth.error.enterPassword");
@@ -752,6 +795,15 @@ export function AuthScreen() {
     };
     const handleLoginFinal = async (e?: React.FormEvent, skipPassword = false) => {
         e?.preventDefault();
+        const identitySnapshot = getIdentitySnapshot();
+        const appShellUnlocked = isProfileWindowUnlockedForAppShell({
+            identityStatus: identitySnapshot.status,
+            publicKeyHex: identitySnapshot.publicKeyHex,
+            runtimePhase: runtime.snapshot.phase,
+        });
+        if (isLoading || appShellUnlocked) {
+            return;
+        }
         const providedPassword = skipPassword ? "" : password;
         const importPassphrase = providedPassword;
         if (!privateKey) {
@@ -787,6 +839,29 @@ export function AuthScreen() {
                 (importPassphrase || "") as Passphrase,
             )) {
                 setIsLoading(false);
+                return;
+            }
+            const storedPubkey = identity.state.stored?.publicKeyHex;
+            const isReturningAccountUnlock = hasStoredIdentity
+                && Boolean(storedPubkey)
+                && importPublicKeyHex === storedPubkey;
+            if (isReturningAccountUnlock) {
+                await runtime.unlockBoundProfileWithPrivateKeyHex({
+                    privateKeyHex: keyToUse as PrivateKeyHex,
+                    ...sessionUnlockOptions,
+                });
+                if (importPassphrase && isIdentityPassphrasePolicyCompliant(importPassphrase as Passphrase)) {
+                    try {
+                        await identity.resetPassphraseWithPrivateKey({
+                            privateKeyHex: keyToUse as PrivateKeyHex,
+                            newPassphrase: importPassphrase as Passphrase,
+                        });
+                    }
+                    catch (upgradeError) {
+                        console.warn("[AuthScreen] optional device password upgrade failed:", upgradeError);
+                    }
+                }
+                toast.success(t("auth.welcomeBackToast"));
                 return;
             }
             const pending: PendingAuthAction = {
@@ -863,7 +938,7 @@ export function AuthScreen() {
             scale: 0.98
         })
     };
-    if (mode === "login" && !authSurfaceReady) {
+    if (mode === "login" && !authLoginFormReady) {
         return (<div className="relative flex flex-1 items-center justify-center p-4">
                 <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                     Loading profile auth ({AUTH_CLIENT_REVISION})…
@@ -889,47 +964,18 @@ export function AuthScreen() {
 
             <Card className={cn("w-full relative bg-white/40 dark:bg-zinc-900/40 backdrop-blur-3xl border-0 ring-1 ring-black/[0.05] dark:ring-white/[0.05] rounded-[32px] shadow-2xl overflow-hidden p-0", mode === "create" && step === 2 ? "max-w-lg md:max-w-4xl" : "max-w-lg")}>
                 <div className="p-6 sm:p-8 min-h-0 flex flex-col justify-center">
-                    {hasNativeMismatch && (<div className="mb-6 rounded-[28px] border border-amber-500/20 bg-amber-500/10 p-5">
-                            <div className="flex items-start gap-4">
-                                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500"/>
-                                <div className="min-w-0 flex-1 space-y-3">
-                                    <div>
-                                        <p className="text-sm font-black uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
-                                            {t("auth.secureStorageRecoveryTitle")}
-                                        </p>
-                                        <p className="mt-2 text-sm font-medium leading-relaxed text-amber-700 dark:text-amber-200">
-                                            {startupState.message ?? t("auth.secureStorageRecoveryDesc")}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-wrap gap-3">
-                                        <Button type="button" variant="outline" onClick={handleResetNativeSecureStorage} disabled={isLoading} className="rounded-2xl border-amber-500/30 bg-white/70 text-amber-700 hover:bg-white dark:bg-zinc-950/30 dark:text-amber-300">
-                                            {t("auth.resetSecureStorage")}
-                                        </Button>
-                                        <p className="self-center text-xs font-semibold text-amber-700/80 dark:text-amber-300/80">
-                                            {t("auth.secureStorageRecoveryHint")}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>)}
-                    {mode === "login" && hasPrivateKeyMismatch && (<div className="mb-6 rounded-[28px] border border-orange-500/20 bg-orange-500/10 p-5">
-                            <div className="flex items-start gap-4">
-                                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-orange-500"/>
-                                <div className="min-w-0 flex-1 space-y-3">
-                                    <div>
-                                        <p className="text-sm font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400">
-                                            {t("auth.privateKeyMismatchTitle")}
-                                        </p>
-                                        <p className="mt-2 text-sm font-medium leading-relaxed text-orange-700 dark:text-orange-200">
-                                            {startupState.message ?? authError ?? t("auth.privateKeyMismatchDesc")}
-                                        </p>
-                                    </div>
-                                    <p className="text-xs font-semibold text-orange-700/80 dark:text-orange-300/80">
-                                        {t("auth.privateKeyMismatchHint")}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>)}
+                    {authSurfaceConflicts.map((conflict) => (
+                        <AuthSurfaceConflictBanner
+                            key={conflict.kind}
+                            conflict={conflict}
+                            actions={conflict.kind === "native_mismatch" ? (
+                                <AuthNativeMismatchBannerActions
+                                    onResetSecureStorage={() => { void handleResetNativeSecureStorage(); }}
+                                    disabled={isLoading}
+                                />
+                            ) : undefined}
+                        />
+                    ))}
                     <AnimatePresence mode="wait">
                         {mode !== "welcome" && (<motion.button key="back-button" type="button" aria-label={t("common.back")} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} onClick={handleBack} className="absolute top-8 left-8 z-20 p-3 rounded-2xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 group">
                                 <ChevronLeft className="h-6 w-6 group-hover:-translate-x-0.5 transition-transform"/>
@@ -961,14 +1007,14 @@ export function AuthScreen() {
                                         <div className="w-full max-w-md space-y-4 pt-2 text-left">
                                             <AuthSessionPolicyNotice variant="card"/>
                                             {hasNativeRuntime() ? <DesktopAtRestEncryptionNotice variant="lock"/> : null}
-                                            <Button onClick={() => {
+                                            <Button disabled={!authLoginFormReady} onClick={() => {
                     setLoginTab("username");
                     setMode("login");
                 }} className={authSecondaryPrimaryButtonClass}>
-                                                {t("auth.welcome.returning.unlock")}
-                                                <ArrowRight className="h-5 w-5 ml-2"/>
+                                                {authLoginFormReady ? t("auth.welcome.returning.unlock") : t("common.loading")}
+                                                {authLoginFormReady ? <ArrowRight className="h-5 w-5 ml-2"/> : null}
                                             </Button>
-                                            <Button variant="outline" onClick={() => {
+                                            <Button variant="outline" disabled={!authLoginFormReady} onClick={() => {
                     setLoginTab("key");
                     setMode("login");
                 }} className="h-14 w-full rounded-[24px] border-black/10 dark:border-white/10 bg-white/50 hover:bg-black/5 dark:bg-zinc-900/50 dark:hover:bg-white/5 text-base font-bold">
@@ -1244,7 +1290,7 @@ export function AuthScreen() {
                     }} className={cn("flex w-full border ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50", authCompactInputClass, authInputFocusRingClass)}/>
                                                     </div>
                                                 </div>
-                                                {hasStoredIdentity && !(needsDevicePasswordSetupGuide && importKeyGuideStep === "enter_key") ? (<div className="space-y-2">
+                                                {hasStoredIdentity && importKeyGuideStep === "enter_key" ? (<div className="space-y-2">
                                                         <Label className="pl-1 text-[11px] font-black uppercase tracking-widest text-zinc-500">
                                                             {t("auth.login.optionalMasterPassword")}
                                                         </Label>
@@ -1284,9 +1330,7 @@ export function AuthScreen() {
                                                     {isLoading ? (<motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
                                                             <Sparkles className="h-5 w-5"/>
                                                         </motion.div>) : (<>
-                                                            {needsDevicePasswordSetupGuide
-                            ? t("auth.login.continueWithKey")
-                            : hasStoredIdentity
+                                                            {hasStoredIdentity
                                 ? t("auth.login.unlockWithKey")
                                 : t("common.continue")}
                                                             <ArrowRight className="h-5 w-5 ml-2"/>
@@ -1352,7 +1396,7 @@ export function AuthScreen() {
                 setAuthError(null);
             }}/>) : null}
 
-                    {accountConflict && pendingAuthAction ? (<ProfileSlotAccountConflictInline profileLabel={boundProfileLabel} occupantUsername={identity.state.stored?.username} occupantPublicKeyHex={accountConflict.occupantPublicKeyHex} incomingPublicKeyHex={pendingAuthAction.kind === "import_key"
+                    {accountConflict && pendingAuthAction ? (<ProfileSlotAccountConflictInline profileLabel={boundProfileLabel} occupantUsername={occupantUsernameForConflict} occupantPublicKeyHex={accountConflict.occupantPublicKeyHex} incomingPublicKeyHex={pendingAuthAction.kind === "import_key"
                 ? derivePublicKeyHex(pendingAuthAction.privateKeyHex)
                 : accountConflict.occupantPublicKeyHex} intent={pendingAuthAction.kind === "create" ? "create_account" : "import_account"} isBusy={isConflictBusy || isLoading} canOpenAnotherWindow={hasNativeRuntime()} onOpenAnotherWindow={() => { void handleOpenAnotherProfileWindow(); }} onClearWindow={() => { void clearWindowAndRetryLogin(false); }} onExportAndClear={() => { void clearWindowAndRetryLogin(true); }} onClose={() => {
                 setAccountConflict(null);

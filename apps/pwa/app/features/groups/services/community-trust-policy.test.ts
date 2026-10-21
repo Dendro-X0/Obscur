@@ -11,13 +11,13 @@ describe("assessWorkspaceCommunityTrust", () => {
         vi.stubEnv("NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE", "");
     });
 
-    it("blocks public default relay hosts", () => {
+    it("allows public Quiet with honesty reason when coordination is healthy (CU-UX-5)", () => {
         const result = assessWorkspaceCommunityTrust({
             communityRelayUrl: "wss://nos.lol",
             coordinationHealthy: true,
         });
-        expect(result.allowed).toBe(false);
-        expect(result.reasonCode).toBe("public_relay_blocked");
+        expect(result.allowed).toBe(true);
+        expect(result.reasonCode).toBe("public_relay_honest");
     });
 
     it("allows private intranet relay when coordination is healthy", () => {

@@ -28,7 +28,7 @@ const createPwaFilesystem = (): StandaloneLegacySubtractionDryRunFilesystem => (
 describe("transport-engine w65 — standalone legacy existence pin migration", () => {
   it("pins existence pin migration charter with w55–w64 inventory", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w65-standalone-legacy-existence-pin-migration.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w65-standalone-legacy-existence-pin-migration.md",
     );
     expect(charter).toContain("Existence Pin Migration");
     expect(charter).toContain("STANDALONE_LEGACY_GATE_CLOSED_EXISTENCE_PIN_CONTRACTS");

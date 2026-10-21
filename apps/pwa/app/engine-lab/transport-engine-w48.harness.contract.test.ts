@@ -9,10 +9,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 );
 
 const REQUIRED_EVIDENCE_CHARTERS = [
-  "docs/program/transport-engine-w41-pre-authority-flip-exit-charter.md",
-  "docs/program/transport-engine-w47-network-publish-parity-harness-charter.md",
-  "docs/program/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
-  "docs/program/transport-engine-w30-host-publish-owner-migration-charter.md",
+  "docs/archive/program/inactive-2026-08/transport-engine-w41-pre-authority-flip-exit-charter.md",
+  "docs/archive/program/inactive-2026-08/transport-engine-w47-network-publish-parity-harness-charter.md",
+  "docs/archive/program/inactive-2026-08/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
+  "docs/archive/program/inactive-2026-08/transport-engine-w30-host-publish-owner-migration-charter.md",
 ] as const;
 
 const REQUIRED_HARNESS_TESTS = [
@@ -37,7 +37,7 @@ describe("transport-engine w48 — exit evidence harness matrix", () => {
 
   it("documents subtraction plan without deleting standalone owner", () => {
     const review = readFromRepo(
-      "docs/program/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
     );
     expect(review).toContain("Subtraction plan");
     expect(review).toContain("not executed in W48");

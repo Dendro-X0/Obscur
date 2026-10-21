@@ -35,6 +35,16 @@ Do **not** block desktop feature work on Android-only crashes. Log Android issue
 pnpm dev:desktop:online
 ```
 
+**When the machine is already warm or disk-sensitive:**
+
+```bash
+pnpm dev:host-check          # exits 2 if CPU or disk is pegged
+pnpm dev:desktop:light       # desktop only — no coordination, Docker relay, or tor-gateway
+pnpm kill:dev-stack          # stop leftover Obscur processes before starting another terminal
+```
+
+Do not run `dev:desktop:online` and `dev:mobile-shell:online` at the same time. Both compile the PWA and watch the repo. Override a refused start only with `OBSCUR_ALLOW_HOST_PRESSURE=1`.
+
 **Automated gates:**
 
 ```bash

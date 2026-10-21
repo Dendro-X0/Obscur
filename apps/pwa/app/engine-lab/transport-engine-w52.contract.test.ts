@@ -21,7 +21,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w52 — standalone owner quarantine execution", () => {
   it("pins quarantine execution charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w52-standalone-owner-quarantine-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w52-standalone-owner-quarantine-execution.md",
     );
     expect(charter).toContain("Standalone Owner Quarantine Execution");
     expect(charter).toContain("transport-kernel-standalone-publish-legacy.ts");

@@ -1,0 +1,59 @@
+{
+  "schema": "perf.baseline.record@1.0.0",
+  "baselineId": "d9c378d2-eedf-0746-a87a-09126679a7a1",
+  "exploreId": "d9c378d2-eedf-0746-a87a-09126679a7a1",
+  "graphHash": "sha256:d36049039c1d34cc9bffbf46f2cb94ea70970ddc67982768483f14626dd45b8b",
+  "pinnedAt": "2026-08-24T06:17:06.054459700+00:00",
+  "appRoot": "apps/pwa",
+  "exploreScope": "single-app",
+  "findingCount": 8,
+  "severityCounts": {
+    "red": 0,
+    "yellow": 6,
+    "info": 2
+  },
+  "findingIds": [
+    "perf:api:client-payload-suspect:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+    "perf:api:waterfall:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+    "perf:dev:tauri-vite-shell:apps/desktop",
+    "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/security/index.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+    "perf:stack:next:apps/pwa"
+  ],
+  "findings": [
+    {
+      "id": "perf:api:client-payload-suspect:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+      "severity": "info"
+    },
+    {
+      "id": "perf:api:waterfall:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+      "severity": "yellow"
+    },
+    {
+      "id": "perf:dev:tauri-vite-shell:apps/desktop",
+      "severity": "yellow"
+    },
+    {
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "severity": "yellow"
+    },
+    {
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "severity": "yellow"
+    },
+    {
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/security/index.ts",
+      "severity": "yellow"
+    },
+    {
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "severity": "yellow"
+    },
+    {
+      "id": "perf:stack:next:apps/pwa",
+      "severity": "info"
+    }
+  ]
+}

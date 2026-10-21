@@ -28,6 +28,8 @@ describe("LES R6 VaultMediaGrid reuse", () => {
     expect(hook).toContain("listLesObjects");
     expect(hook).toContain("readLesObjectDecrypted");
     expect(hook).toContain("mapLesMetaToVaultMediaItem");
+    expect(hook).toContain("ensurePreview");
+    expect(hook).toContain("shouldEagerDecryptMeta");
     expect(hook).not.toContain("vault-media-aggregator");
     expect(hook).not.toContain("scanMessagesForVaultMedia");
     expect(hook).not.toMatch(/\buseVaultMedia\b/);

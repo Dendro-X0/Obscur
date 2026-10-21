@@ -83,7 +83,7 @@ Each module is a **single owner** service consumed by feature UI — no duplicat
 
 | Field | Value |
 |-------|-------|
-| **Owner** | `secret-input-firewall.ts` (planned) |
+| **Owner** | `secret-input-firewall.ts` |
 | **Level** | L4 block / L1 warn |
 | **Surfaces** | Discovery, chat compose, import, profile fields, export |
 | **Behavior** | Reject `nsec`/`ncryptsec`; relay-disambiguate hex; warn on clipboard paste of secrets |
@@ -119,20 +119,20 @@ Each module is a **single owner** service consumed by feature UI — no duplicat
 
 | Field | Value |
 |-------|-------|
-| **Owner** | `contact-request-sandbox-policy.ts` (planned) · `request-transport-service.ts` · `use-requests-inbox.ts` · `dm-receive-pipeline` |
+| **Owner** | `contact-request-sandbox-policy.ts` · `request-transport-service.ts` · `use-requests-inbox.ts` · `dm-receive-pipeline` |
 | **Level** | L2 confirm on accept · L4 block on attachments/scripts in pending |
 | **When** | Any first contact; entire `pending` handshake |
 | **Shows** | Requests tab only; identity binding; Accept / Decline; sandbox Q&A thread |
 
-**Status (2026-07-11):** **Design** — [dm-contact-request-sandbox-2026-07.md](../../specs/backend/dm-contact-request-sandbox-2026-07.md)
+**Status (2026-10-13):** **Implemented** — policy + receive classifier + thread banners; design [dm-contact-request-sandbox-2026-07.md](../../specs/backend/dm-contact-request-sandbox-2026-07.md)
 
 ### 4.4 M4 — Link and domain safety
 
 | Field | Value |
 |-------|-------|
-| **Owner** | `link-safety-analyzer.ts` (planned) |
-| **Level** | L1 warn → L2 for credential-shaped URLs |
-| **Behavior** | Flag off-platform “unlock,” “seed,” “wallet verify” paths; never auto-open external auth |
+| **Owner** | `dm-kernel-trust-link-action-gate` (local) · `link-safety-policy` / `link-safety-reputation-client` (PB2 opt-in URLHaus) · `useGuardedExternalLinkOpen` |
+| **Level** | L1 warn → L2 for credential-shaped URLs · opt-in outbound reputation (default off) |
+| **Behavior** | Flag off-platform “unlock,” “seed,” “wallet verify” paths; never auto-open external auth; never silent phone-home |
 
 ### 4.5 M5 — Impersonation / urgency heuristics
 

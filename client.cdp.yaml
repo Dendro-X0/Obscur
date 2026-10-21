@@ -8,7 +8,8 @@ probePorts: [9230, 9231, 9229, 9333]
 profileCdpPorts: [9230, 9231, 9229]
 
 # Dev stack listeners used by client_stack_preflight.
-devServerPorts: [1430, 8787, 7000]
+# Release exe: no dev server needed (assets embedded); use empty list for release runs.
+devServerPorts: []
 
 # Studio Vite — never attach as subject app.
 excludeProbePorts: [9222]

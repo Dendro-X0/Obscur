@@ -1,0 +1,138 @@
+- text: Relay connection issue
+- button "Dismiss"
+- paragraph: Couldn't reach relay.damus.io. The network or that relay may be temporarily unavailable.
+- group: Technical details
+- button "Retry"
+- main:
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher": D DemoUser Obscur / 860b15c3...e8757c8c
+  - button "Minimize window"
+  - button "Restore window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": D
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Chat"
+  - button "Direct Messages"
+  - button "View Profile Tester2 No messages yet Offline Active 1d ago Viewed 2m ago 2d ago":
+    - button "View Profile":
+      - img "Tester2"
+    - text: Tester2
+    - paragraph: No messages yet
+    - button
+    - text: Offline Active 1d ago Viewed 2m ago 2d ago
+  - text: Connected 3/3 active relays Obscur Preview
+  - main:
+    - button "View Profile":
+      - img "Tester2"
+    - heading "Tester2" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: Offline Last active 1d ago | Last viewed 2m ago
+    - button "Voice call"
+    - button "Media"
+    - button "Defense sensitivity for this contact": Standard
+    - button "Search Messages"
+    - text: DE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - paragraph: DM-Test_1
+    - text: 3d ago
+    - img "Tester2"
+    - text: Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - button "Save to Vault"
+    - img "dan-freeman-wAn4RfmXtxU-unsplash.jpg"
+    - button "Save to Vault"
+    - img "pexels-joshuaworoniecki-8044656.jpg"
+    - button "Show relay URLs"
+    - text: 3d ago Tester2
+    - button "Open reactions"
+    - button "Open message menu"
+    - text: Audio bransboynd-night-summer-lounge-473222.mp3 cdn.nostrcheck.me
+    - link "Open in new tab":
+      - /url: https://cdn.nostrcheck.me/3db055b47e05bdfb9083efec0b7aecd2a045dbf7d865cf4d95d98817d946830f/448abcddde27d8e406a0063c58e17e701896020d617c09f6da93d770308f5c40.mp3
+    - button
+    - slider "Audio waveform"
+    - text: 0:00 1:41
+    - slider "Audio progress": "0"
+    - slider "Audio volume": "1"
+    - text: vol 100%
+    - button "Open Externally"
+    - text: Audio kontraa-no-sleep-hiphop-music-473847.mp3 cdn.nostrcheck.me
+    - link "Open in new tab":
+      - /url: https://cdn.nostrcheck.me/3db055b47e05bdfb9083efec0b7aecd2a045dbf7d865cf4d95d98817d946830f/896a95670f2e756d9e8a8a46971f7972dccf9081cfafcfdfab49737258e3b0dc.mp3
+    - button
+    - slider "Audio waveform"
+    - text: 0:00 2:46
+    - slider "Audio progress": "0"
+    - slider "Audio volume": "1"
+    - text: vol 100%
+    - button "Open Externally"
+    - button "Show relay URLs"
+    - text: 3d ago
+    - img "Tester2"
+    - button "Open reactions"
+    - button "Open message menu"
+    - button "Save to Vault"
+    - button
+    - slider "Video progress": "0"
+    - button
+    - text: 0:00 | 0:05
+    - button
+    - slider: "1"
+    - button
+    - button "Show relay URLs"
+    - text: 3d ago You
+    - button "Open reactions"
+    - button "Open message menu"
+    - button "Play voice note"
+    - slider "Voice note progress"
+    - text: 0:07 2d ago DE
+    - button "Open reactions"
+    - button "Open message menu"
+    - text: Call ended Ended normally Invited 8/21/2026, 3:07:39 AM Expires 8/21/2026, 3:12:39 AM Ended 8/21/2026, 3:08:06 AM Duration 0:14 Call completed 2d ago DE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - heading "DemoGroup" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - status:
+      - text: Acceptance recorded
+      - paragraph: They accepted in chat. Participant lists come from relays and may lag—check Community participants when it matters.
+    - text: 1d ago DE You
+    - button "Open reactions"
+    - button "Open message menu"
+    - text: Invitation sent
+    - heading "DemoGroup" [level=4]
+    - paragraph: This resilient community is built on decentralized protocols. Privacy first, always.
+    - text: Encrypted Private
+    - paragraph: Roster hidden until join
+    - text: Pending Response
+    - button "Cancel Invitation"
+    - text: 1d ago
+    - button "Media"
+    - textbox "Type a message...": beta-smoke-20260823-t1-nip17
+    - button "Search emojis..."
+    - button "Send"
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.16
+- alert

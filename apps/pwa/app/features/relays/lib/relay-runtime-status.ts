@@ -1,6 +1,10 @@
 import type { RelayHealthMetrics } from "@/app/features/relays/hooks/relay-health-monitor";
 import type { RelayConnection } from "@/app/features/relays/hooks/relay-connection";
 import type { RelayRuntimePhase, RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
+import {
+  classifyRelayPathDiagnosis,
+  relayPathReasonDetailCopy,
+} from "@/app/features/relays/services/relay-path-diagnosis";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 
 export type RelayUiStatus = "healthy" | "degraded" | "recovering" | "unavailable";
@@ -250,7 +254,25 @@ export const deriveRelayNodeStatus = (params: Readonly<{
     return {
       status: "unavailable",
       badge: "Disabled",
-      detail: "This relay is configured for the profile but currently disabled.",
+      detail: relayPathReasonDetailCopy("disabled"),
+      roleLabel,
+      successLabel,
+      confidenceLabel,
+    };
+  }
+
+  const pathDiagnosis = classifyRelayPathDiagnosis({
+    url: params.url,
+    enabled: true,
+    connectionStatus: connection?.status ?? null,
+    circuitOpen: metrics?.circuitBreakerState === "open",
+    lastErrorClass: metrics?.lastError ?? null,
+  });
+  if (pathDiagnosis.reason === "invalid_scheme") {
+    return {
+      status: "unavailable",
+      badge: "Invalid URL",
+      detail: relayPathReasonDetailCopy("invalid_scheme"),
       roleLabel,
       successLabel,
       confidenceLabel,

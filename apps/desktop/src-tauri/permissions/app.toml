@@ -81,7 +81,8 @@ commands.allow = [
     "restart_app",
     "reset_app_storage",
     "desktop_open_storage_path",
-    "mine_pow"
+    "mine_pow",
+    "account_sync_snapshot"
 ]
 
 [[permission]]
@@ -123,12 +124,24 @@ commands.allow = [
     "desktop_storage_at_rest_unlock",
     "desktop_storage_at_rest_restore_keychain",
     "desktop_storage_at_rest_lock",
+    "desktop_db_ensure_open",
     "encrypt_nip04",
     "decrypt_nip04",
     "encrypt_nip44",
     "decrypt_nip44",
     "encrypt_gift_wrap",
     "decrypt_gift_wrap",
+    "generate_group_room_key",
+    "encrypt_group_message",
+    "decrypt_group_message",
+    "encrypt_invite_data",
+    "decrypt_invite_data",
+    "derive_rumor_event_id",
+    "sign_invite_data",
+    "verify_invite_signature",
+    "derive_shared_secret",
+    "generate_secure_random",
+    "verify_nostr_event",
     "get_session_nsec",
     "get_session_status",
     "desktop_force_session_restore",
@@ -142,14 +155,15 @@ commands.allow = [
 identifier = "allow-db-commands"
 description = "Native SQLite persistence commands"
 commands.allow = [
-    "db_insert_message",
+    # Track B 2026-10 — db_insert_message / db_upsert_conversation tombstoned;
+    # product uses engine_invoke dm.insertMessage / upsertConversation.
+    # @see specs/backend/db-insert-upsert-legacy-parallel-tombstone-design-2026-10.md
     # Slice 15 — DM read IPC tombstoned; product uses engine_invoke
     # dm.getThread / dm.listConversations (Slices 6–14).
     # @see specs/backend/r-dm-read-tombstone-slice15-design-2026-07.md
     # Slice 21 — DM delete/tombstone IPC tombstoned; product uses engine_invoke
     # dm.deleteMessages / insertTombstone / listTombstones / deleteAllTombstones (Slice 20).
     # @see specs/backend/r-dm-delete-tombstone-ipc-slice21-design-2026-07.md
-    "db_upsert_conversation",
     # Group list/message/tombstone IPC tombstoned; product uses engine_invoke
     # workspace.listGroups / upsertGroup / listGroupMessages / insertGroupMessage /
     # insertGroupTombstone (U2 + community-group-db-ipc-tombstone).

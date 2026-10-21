@@ -13,10 +13,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w59 — physical deletion execution harness", () => {
   it("links W58 manifest execution to W59 dry-run baseline", () => {
     const w58 = readFromRepo(
-      "docs/program/transport-engine-w58-standalone-legacy-file-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w58-standalone-legacy-file-deletion-execution.md",
     );
     const w59 = readFromRepo(
-      "docs/program/transport-engine-w59-standalone-legacy-physical-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w59-standalone-legacy-physical-deletion-execution.md",
     );
     expect(w58).toContain("transport-kernel-standalone-deletion-subtraction-manifest.ts");
     expect(w59).toContain("evaluateStandaloneLegacySubtractionDryRun");
@@ -25,7 +25,7 @@ describe("transport-engine w59 — physical deletion execution harness", () => {
 
   it("documents W60+ mechanical deletion in execution charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w59-standalone-legacy-physical-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w59-standalone-legacy-physical-deletion-execution.md",
     );
     expect(charter).toContain("STANDALONE_LEGACY_FILES_TO_DELETE");
     expect(charter).toContain("No deletion of");

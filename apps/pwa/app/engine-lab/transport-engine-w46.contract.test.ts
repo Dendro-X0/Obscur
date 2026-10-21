@@ -16,7 +16,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w46 — TS host async publish routing", () => {
   it("pins async publish routing charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w46-ts-host-async-publish-routing-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w46-ts-host-async-publish-routing-charter.md",
     );
     expect(charter).toContain("TS Host Async Publish Routing Charter");
     expect(charter).toContain("engine_invoke_transport_publish_relay_event");

@@ -1,19 +1,20 @@
 # Transport Engine — Standalone Legacy Subtraction Index
 
-**Status:** Prep band **complete** (w55–w68); execution **PAUSED** — sign-off `Decision: BLOCKED`  
-**Last updated:** 2026-06-26  
+**Status:** Prep band **complete** (w55–w68); mechanical deletion **EXECUTED** (2026-08-04)  
+**Last updated:** 2026-10-15  
 **Band:** ENGINE-LAB / transport-engine post-B5
 
 ## Summary
 
-Gate-closed preparation for deleting `transport-kernel-standalone-publish-legacy.ts` is **complete**. Physical deletion and contract pin flips remain **maintainer-only** until W53 desktop smoke sign-off.
+Standalone legacy production files are **absent**. Thin port live. Sign-off `Decision: PASS`.  
+2026-10-15: engine-lab charter pins retargeted to this archive folder (docs/program → inactive-2026-08).
 
 | State | Value |
 |-------|-------|
 | Prep band | w55–w68 **closed** |
-| Sign-off | `docs/handoffs/transport-engine-smoke-sign-off-recorded.md` → `BLOCKED` |
-| Production legacy | **On disk** (required while gate closed) |
-| Next action | W53 smoke → `PASS` + deletion env → W66 commit → W67 B5 exit |
+| Sign-off | `docs/handoffs/transport-engine-smoke-sign-off-recorded.md` → **PASS** |
+| Production legacy | **Deleted** (archive fixture retained) |
+| Next action | Keep `verify:transport-engine-w68` green · next Track B migration slice |
 | Runbook | [transport-engine-w53-maintainer-smoke-runbook.md](./transport-engine-w53-maintainer-smoke-runbook.md) |
 
 ## Verify gates

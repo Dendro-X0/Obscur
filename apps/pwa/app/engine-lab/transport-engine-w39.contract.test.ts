@@ -11,7 +11,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 
 describe("transport-engine w39 — host shim + dry-run integration charter", () => {
   it("pins integration charter for shim → host → dry-run → mapper chain", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w39-host-shim-dry-run-integration-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w39-host-shim-dry-run-integration-charter.md");
     expect(charter).toContain("Host Shim + Dry-Run Integration Charter");
     expect(charter).toContain("publishHostTransportShimToRelayUrls");
     expect(charter).toContain("mapLegacyPublishResultToRelayPublishResult");

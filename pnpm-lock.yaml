@@ -139,6 +139,9 @@ importers:
       '@obscur/persistence-engine':
         specifier: workspace:*
         version: link:../../packages/obscur-persistence-engine
+      '@obscur/protocol-nostr':
+        specifier: workspace:*
+        version: link:../../packages/obscur-protocol-nostr
       '@obscur/transport-engine':
         specifier: workspace:*
         version: link:../../packages/obscur-transport-engine
@@ -535,6 +538,8 @@ importers:
       '@obscur/engine-contracts':
         specifier: workspace:*
         version: link:../obscur-engine-contracts
+
+  packages/obscur-protocol-nostr: {}
 
   packages/obscur-transport-engine:
     dependencies:

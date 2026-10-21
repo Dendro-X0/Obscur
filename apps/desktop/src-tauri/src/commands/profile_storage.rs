@@ -23,6 +23,16 @@ pub async fn desktop_harvest_profile_web_storage(
     app: AppHandle,
     include_default_app_data: Option<bool>,
 ) -> Result<ProfileWebStorageHarvestResult, String> {
+    if crate::perf_plane::stubs_hydrate() {
+        crate::invoke_pressure::note_invoke("perf_plane:stub:desktop_harvest_profile_web_storage");
+        // Soft-empty — Err rejects into JS and can fault unlock shell (E34).
+        return Ok(ProfileWebStorageHarvestResult {
+            ledgers: Vec::new(),
+            directories: Vec::new(),
+            identities: Vec::new(),
+            scanned_file_count: 0,
+        });
+    }
     let roots = collect_harvest_roots(&app, include_default_app_data.unwrap_or(true))?;
     harvest_profile_web_storage_from_roots(&roots)
 }

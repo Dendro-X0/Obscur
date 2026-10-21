@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-07-31T03:47:49.966Z",
+  "capturedAt": "2026-08-23T17:55:55.423Z",
   "surface": "release-exe",
   "exe": "apps/desktop/src-tauri/target/release/obscur_desktop_app.exe",
   "cdp": "http://127.0.0.1:9230",
@@ -8,14 +8,14 @@
     "url": "http://tauri.localhost/",
     "shell": true,
     "gate": false,
-    "text": "OBSCUR D DEMOUSER Obscur / e07f67dc...c191ea56 D Chats Requests Junk Chat Group DIRECT MESSAGES Offline 0/0 active relays OBSCUR PREVIEW Relay transport is offline. You can still read messages; sends are queued until relays return. MISSING CONTACTS OR CHAT HISTORY? If you do not see contacts or chat history yet, please wait a few minutes while loading and account data synchronization completes. + "
+    "text": "Relay connection issue Couldn't reach relay.damus.io. The network or that relay may be temporarily unavailable. Technical details Retry OBSCUR D DEMOUSER Obscur / 860b15c3...e8757c8c D Chats Requests Junk Chat Group DIRECT MESSAGES Tester2 No messages yet OFFLINE Active 1d ago Viewed 2m ago 2d ago Connected 3/3 active relays OBSCUR PREVIEW Tester2 OFFLINE Last active 1d ago | Last viewed 2m ago Vo"
   },
   "afterUnlock": {
     "url": "http://tauri.localhost/",
     "shell": true,
     "gate": false,
     "settle": "shell",
-    "text": "OBSCUR D DEMOUSER Obscur / e07f67dc...c191ea56 D Chats Requests Junk Chat Group DIRECT MESSAGES Offline 0/0 active relays OBSCUR PREVIEW Relay transport is offline. You can still read messages; sends are queued until relays return. MISSING CONTACTS OR CHAT HISTORY? If you do not see contacts or chat history yet, please wait a few minutes while loading and account data synchronization completes. + ",
+    "text": "Relay connection issue Couldn't reach relay.damus.io. The network or that relay may be temporarily unavailable. Technical details Retry OBSCUR D DEMOUSER Obscur / 860b15c3...e8757c8c D Chats Requests Junk Chat Group DIRECT MESSAGES Tester2 No messages yet OFFLINE Active 1d ago Viewed 2m ago 2d ago Connected 3/3 active relays OBSCUR PREVIEW Tester2 OFFLINE Last active 1d ago | Last viewed 2m ago Vo",
     "hasTester1": false,
     "hasDemoUser": true
   },
@@ -23,7 +23,7 @@
     "ok": true,
     "value": {
       "is_active": true,
-      "npub": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "npub": "860b15c354f353a18c431de38cc661705c87fedc4716bfd7278104dbe8757c8c",
       "is_native": true
     }
   },
@@ -33,10 +33,10 @@
       "profileId": "default",
       "phase": "unlocked",
       "storedPublicKeyHex": null,
-      "sessionPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+      "sessionPublicKeyHex": "860b15c354f353a18c431de38cc661705c87fedc4716bfd7278104dbe8757c8c",
       "keychainPresent": true,
       "restoreEligible": true,
-      "atUnixMs": 1785469669962
+      "atUnixMs": 1787507755414
     }
   },
   "digestSample": null,

@@ -9,6 +9,7 @@ import {
   RefreshCcw,
   Bell,
   ShieldAlert,
+  Layers,
 } from "lucide-react";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
 
@@ -20,6 +21,7 @@ export const SETTINGS_VALID_TABS: ReadonlyArray<SettingsTabType> = [
   "profile",
   "identity",
   "relays",
+  "protocols",
   "notifications",
   "appearance",
   "blocklist",
@@ -51,6 +53,7 @@ export const SETTINGS_NAV_GROUPS = [
     id: "network",
     labelKey: "settings.groups.network",
     items: [
+      { id: "protocols", labelKey: "settings.tabs.protocols", icon: Layers },
       { id: "relays", labelKey: "settings.tabs.relays", icon: Network },
       { id: "storage", labelKey: "settings.tabs.storage", icon: Database },
     ],

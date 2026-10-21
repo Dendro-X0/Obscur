@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, ImageIcon, Info, MoreVertical, PhoneCall, User } from "lucide-react";
+import { ChevronLeft, ImageIcon, Info, MoreVertical, PhoneCall, User, Video } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type React from "react";
 import type { Conversation } from "@/app/features/messaging/types";
@@ -17,6 +17,8 @@ export type MobileDmThreadHeaderProps = Readonly<{
     onOpenInfo?: () => void;
     onSendVoiceCallInvite?: () => void;
     canSendVoiceCallInvite?: boolean;
+    onSendVideoCallInvite?: () => void;
+    canSendVideoCallInvite?: boolean;
 }>;
 function resolveSubtitle(conversation: Conversation, params: Readonly<{
     isPeerOnline?: boolean;
@@ -39,7 +41,7 @@ function resolveSubtitle(conversation: Conversation, params: Readonly<{
     }
     return null;
 }
-export function MobileDmThreadHeader({ conversation, onBack, displayNameHint, isPeerOnline, groupMemberCount, onOpenMedia, onOpenProfile, onOpenInfo, onSendVoiceCallInvite, canSendVoiceCallInvite = false, }: MobileDmThreadHeaderProps): React.JSX.Element {
+export function MobileDmThreadHeader({ conversation, onBack, displayNameHint, isPeerOnline, groupMemberCount, onOpenMedia, onOpenProfile, onOpenInfo, onSendVoiceCallInvite, canSendVoiceCallInvite = false, onSendVideoCallInvite, canSendVideoCallInvite = false, }: MobileDmThreadHeaderProps): React.JSX.Element {
     const { t } = useTranslation();
     const profileMetadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
     const title = resolveMobileThreadTitle({
@@ -84,14 +86,9 @@ export function MobileDmThreadHeader({ conversation, onBack, displayNameHint, is
             onSelect: onOpenMedia,
         });
     }
-    if (conversation.kind === "dm" && onSendVoiceCallInvite && canSendVoiceCallInvite) {
-        menuItems.push({
-            id: "voice",
-            label: t("messaging.voiceCall"),
-            icon: <PhoneCall className="h-4 w-4" aria-hidden/>,
-            onSelect: onSendVoiceCallInvite,
-        });
-    }
+    const showVoiceCall = conversation.kind === "dm" && Boolean(onSendVoiceCallInvite) && canSendVoiceCallInvite;
+    const showVideoCall = conversation.kind === "dm" && Boolean(onSendVideoCallInvite) && canSendVideoCallInvite;
+    const iconButtonClass = "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 dark:border-white/10 dark:text-zinc-200";
     return (<header className="flex shrink-0 items-center gap-2 border-b border-black/10 bg-gradient-sidebar/90 px-2 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] backdrop-blur dark:border-white/10" data-testid="mobile-thread-header">
       <button type="button" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 dark:border-white/10 dark:text-zinc-200" onClick={onBack} aria-label={t("common.back")}>
         <ChevronLeft className="h-5 w-5"/>
@@ -104,9 +101,19 @@ export function MobileDmThreadHeader({ conversation, onBack, displayNameHint, is
             {subtitle}
           </div>) : null}
       </div>
+      {showVoiceCall ? (
+        <button type="button" className={iconButtonClass} onClick={onSendVoiceCallInvite} aria-label={t("messaging.voiceCall")} data-testid="mobile-thread-voice-call">
+          <PhoneCall className="h-5 w-5" aria-hidden/>
+        </button>
+      ) : null}
+      {showVideoCall ? (
+        <button type="button" className={iconButtonClass} onClick={onSendVideoCallInvite} aria-label={t("messaging.videoCall")} data-testid="mobile-thread-video-call">
+          <Video className="h-5 w-5" aria-hidden/>
+        </button>
+      ) : null}
       {menuItems.length > 0 ? (<DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-gradient-card text-zinc-700 dark:border-white/10 dark:text-zinc-200" aria-label={t("common.moreActions")}>
+            <button type="button" className={iconButtonClass} aria-label={t("common.moreActions")}>
               <MoreVertical className="h-5 w-5"/>
             </button>
           </DropdownMenuTrigger>
@@ -116,6 +123,6 @@ export function MobileDmThreadHeader({ conversation, onBack, displayNameHint, is
                 {item.label}
               </DropdownMenuItem>))}
           </DropdownMenuContent>
-        </DropdownMenu>) : (<div className="h-11 w-11 shrink-0" aria-hidden="true"/>)}
+        </DropdownMenu>) : (!showVoiceCall && !showVideoCall ? (<div className="h-11 w-11 shrink-0" aria-hidden="true"/>) : null)}
     </header>);
 }

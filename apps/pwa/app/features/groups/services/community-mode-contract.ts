@@ -202,15 +202,21 @@ export const getCommunityModeDefinition = (mode: CommunityMode): CommunityModeDe
 export type ManagedWorkspaceRelayGateReason =
     | "allowed"
     | "not_managed"
+    | "public_default_honest"
     | "relay_tier_insufficient";
 
-/** Phase 3.1: block managed-workspace management when relay baseline cannot support it. */
+/**
+ * CU-UX-5: managed workspace may use public Quiet with honesty ack.
+ * Hard-block only when the selected host is unconfigured / not workspace-capable.
+ */
 export type ManagedWorkspaceRelayGate = Readonly<{
     allowed: boolean;
     reasonCode: ManagedWorkspaceRelayGateReason;
     userMessage: string;
     settingsHint: string;
     assessment: RelayCapabilityAssessment;
+    /** Public Quiet team path — UI must require honesty ack before create/manage mutations. */
+    requiresHonestyAck: boolean;
 }>;
 
 export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
@@ -235,16 +241,18 @@ export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
             userMessage: "",
             settingsHint: assessment.settingsHint,
             assessment,
+            requiresHonestyAck: false,
         };
     }
 
     if (assessment.tier === "public_default") {
         return {
-            allowed: false,
-            reasonCode: "relay_tier_insufficient",
-            userMessage: "Managed Workspace cannot use public default relays (nos.lol, damus.io, etc.). Use a trusted private or intranet relay with coordination.",
-            settingsHint: assessment.settingsHint,
+            allowed: true,
+            reasonCode: "public_default_honest",
+            userMessage: "Team workspace on a public Quiet relay: encrypted chat works; full delete-for-all and enterprise directory need a team-hosted private relay.",
+            settingsHint: "You can keep Quiet for trial teams, or Save a private wss:// under Settings → Relays → Team workspace.",
             assessment,
+            requiresHonestyAck: true,
         };
     }
 
@@ -255,6 +263,7 @@ export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
             userMessage: "",
             settingsHint: assessment.settingsHint,
             assessment,
+            requiresHonestyAck: false,
         };
     }
 
@@ -264,9 +273,11 @@ export const resolveManagedWorkspaceRelayGate = (params: Readonly<{
         userMessage: `Managed Workspace settings are paused because your relay setup (${assessment.label}) does not meet workspace requirements. ${assessment.summary}`,
         settingsHint: assessment.settingsHint,
         assessment,
+        requiresHonestyAck: false,
     };
 };
 
+/** Hard-block only — public Quiet honesty is allowed with ack (CU-UX-5). */
 export const isManagedWorkspaceRelayGateBlocking = (
     gate: ManagedWorkspaceRelayGate,
 ): boolean => !gate.allowed && gate.reasonCode === "relay_tier_insufficient";

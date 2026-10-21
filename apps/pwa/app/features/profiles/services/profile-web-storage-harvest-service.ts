@@ -1,6 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { shouldSkipProfileWebStorageHarvest } from "@/app/features/runtime/unlock-hydrate-policy";
 
 export type HarvestedLedgerSnapshot = Readonly<{
   profileSlot: string;
@@ -38,6 +39,18 @@ const EMPTY_HARVEST: ProfileWebStorageHarvestResult = {
   scannedFileCount: 0,
 };
 
+/** N1b / E20: picker preview reload must not re-harvest on every isolation snapshot. */
+const HARVEST_CACHE_TTL_MS = 60_000;
+let harvestCache: Readonly<{
+  atMs: number;
+  includeDefaultAppData: boolean;
+  value: ProfileWebStorageHarvestResult;
+}> | null = null;
+
+export const invalidateProfileWebStorageHarvestCache = (): void => {
+  harvestCache = null;
+};
+
 const parseLedgerEntries = (value: unknown): ReadonlyArray<Record<string, unknown>> => (
   Array.isArray(value)
     ? value.filter((entry): entry is Record<string, unknown> => (
@@ -66,16 +79,29 @@ export const harvestProfileWebStorage = async (
   if (!hasNativeRuntime()) {
     return EMPTY_HARVEST;
   }
+  // Desktop thin shell: harvest is dual-bridged unlock tax — skip until Rust-owned job exists.
+  if (shouldSkipProfileWebStorageHarvest()) {
+    return EMPTY_HARVEST;
+  }
+  const includeDefaultAppData = options?.includeDefaultAppData ?? true;
+  const nowMs = Date.now();
+  if (
+    harvestCache
+    && harvestCache.includeDefaultAppData === includeDefaultAppData
+    && nowMs - harvestCache.atMs < HARVEST_CACHE_TTL_MS
+  ) {
+    return harvestCache.value;
+  }
   const result = await invokeNativeCommand<ProfileWebStorageHarvestResult>(
     "desktop_harvest_profile_web_storage",
     {
-      includeDefaultAppData: options?.includeDefaultAppData ?? true,
+      includeDefaultAppData,
     },
   );
   if (!result.ok || !result.value) {
     return EMPTY_HARVEST;
   }
-  return {
+  const value: ProfileWebStorageHarvestResult = {
     scannedFileCount: result.value.scannedFileCount ?? 0,
     ledgers: (result.value.ledgers ?? []).map((snapshot) => ({
       profileSlot: snapshot.profileSlot,
@@ -103,6 +129,8 @@ export const harvestProfileWebStorage = async (
       }];
     }),
   };
+  harvestCache = { atMs: nowMs, includeDefaultAppData, value };
+  return value;
 };
 
 export const listHarvestedLedgerEntriesForPubkey = (

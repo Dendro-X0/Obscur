@@ -18,6 +18,7 @@ fn append_tor_log(state: &TorState, line: impl Into<String>) -> Result<(), Strin
     Ok(())
 }
 
+#[cfg(test)]
 fn parse_socks_port(proxy_url: &str) -> u16 {
     let addr = proxy_url
         .trim_start_matches("socks5h://")
@@ -26,6 +27,115 @@ fn parse_socks_port(proxy_url: &str) -> u16 {
         .rsplit_once(':')
         .and_then(|(_, port)| port.parse::<u16>().ok())
         .unwrap_or(9050)
+}
+
+fn parse_bootstrap_percent_from_detail(detail: &str) -> Option<u8> {
+    // Prefer explicit Stuck at N% (common when TLS_ERROR stalls bootstrap).
+    if let Some(idx) = detail.find("Stuck at ") {
+        let rest = &detail[idx + "Stuck at ".len()..];
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(pct) = digits.parse::<u8>() {
+            return Some(pct.min(99));
+        }
+    }
+    // Ignore "waiting for Bootstrapped 100%" — that is a wait message, not progress.
+    if detail.to_ascii_lowercase().contains("waiting for bootstrapped") {
+        return None;
+    }
+    if let Some(idx) = detail.find("Bootstrapped ") {
+        let rest = &detail[idx + "Bootstrapped ".len()..];
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(pct) = digits.parse::<u8>() {
+            // Never treat <100 lifecycle as dial-ready percent 100.
+            return Some(pct.min(99));
+        }
+    }
+    // Gateway may emit lowercase "bootstrapped N%" progress lines.
+    if let Some(idx) = detail.to_ascii_lowercase().find("bootstrapped ") {
+        let rest = &detail[idx + "bootstrapped ".len()..];
+        let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(pct) = digits.parse::<u8>() {
+            return Some(pct.min(99));
+        }
+    }
+    None
+}
+
+fn detail_is_bootstrap_problem(detail: &str) -> bool {
+    let lower = detail.to_ascii_lowercase();
+    lower.contains("problem bootstrapping")
+        || lower.contains("stuck at ")
+        || lower.contains("tls_error")
+        || lower.contains("wsaetimedout")
+        || lower.contains("timeout")
+}
+
+fn detail_is_weak_progress(detail: &str) -> bool {
+    let lower = detail.to_ascii_lowercase();
+    lower.contains("waiting for bootstrapped")
+        || (lower.starts_with("bootstrapped ") && !detail_is_bootstrap_problem(detail))
+}
+
+fn remember_gateway_progress(
+    state: &TorState,
+    gw: &GatewayTorStatus,
+) -> Result<(), String> {
+    let incoming = gw
+        .detail
+        .as_ref()
+        .map(|d| d.trim().to_string())
+        .filter(|d| !d.is_empty());
+    {
+        let mut guard = state.last_gateway_detail.lock().map_err(|e| e.to_string())?;
+        match (&*guard, &incoming) {
+            // Prefer explicit failure detail over "waiting…" / "bootstrapped N%" churn.
+            (Some(prev), Some(next))
+                if detail_is_bootstrap_problem(prev) && detail_is_weak_progress(next) => {}
+            (_, next) => {
+                *guard = next.clone();
+            }
+        }
+    }
+    let retained = state
+        .last_gateway_detail
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or(None);
+    let percent = retained
+        .as_ref()
+        .and_then(|d| parse_bootstrap_percent_from_detail(d));
+    {
+        let mut guard = state
+            .last_bootstrap_percent
+            .lock()
+            .map_err(|e| e.to_string())?;
+        *guard = if gw.bootstrap_ready {
+            Some(100)
+        } else {
+            // Keep percent < 100 while not Ready so UI soft-stall can fire.
+            percent.filter(|p| *p < 100)
+        };
+    }
+    Ok(())
+}
+
+fn clear_gateway_progress(state: &TorState) -> Result<(), String> {
+    {
+        let mut guard = state.last_gateway_detail.lock().map_err(|e| e.to_string())?;
+        // Keep last Stuck/TIMEOUT reason across stop/restart so UI honesty survives churn.
+        if guard.as_ref().is_some_and(|d| detail_is_bootstrap_problem(d)) {
+            return Ok(());
+        }
+        *guard = None;
+    }
+    {
+        let mut guard = state
+            .last_bootstrap_percent
+            .lock()
+            .map_err(|e| e.to_string())?;
+        *guard = None;
+    }
+    Ok(())
 }
 
 fn build_tor_status_snapshot(
@@ -40,6 +150,16 @@ fn build_tor_status_snapshot(
         .lock()
         .map(|guard| *guard)
         .unwrap_or(false);
+    let detail = state
+        .last_gateway_detail
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or(None);
+    let bootstrap_percent = state
+        .last_bootstrap_percent
+        .lock()
+        .map(|guard| *guard)
+        .unwrap_or(None);
 
     // Slice 4a: dial-ready means gateway can perform SOCKS HTTP (UI never opens SOCKS).
     let ready = GATEWAY_OWNS_HTTP_DIALS && lifecycle_ready && !UI_PROCESS_MAY_DIAL_VIA_SOCKS;
@@ -52,6 +172,8 @@ fn build_tor_status_snapshot(
         using_external_instance: using_external,
         proxy_url: settings.proxy_url.clone(),
         gateway_reachable,
+        detail,
+        bootstrap_percent,
     })
 }
 
@@ -79,6 +201,7 @@ fn set_tor_runtime_status(
         *guard = ext;
     }
     if status_changed {
+        crate::emit_pressure::note_webview_emit("tor-status");
         let _ = app.emit("tor-status", status);
     }
     Ok(())
@@ -94,6 +217,7 @@ fn apply_gateway_status(
         let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
         settings.proxy_url = gw.socks.clone();
     }
+    remember_gateway_progress(state, gw)?;
     // Gateway owns Tor → "external" from the UI process perspective.
     set_tor_runtime_status(app, state, status, Some(true))?;
     Ok((status, ready))
@@ -112,6 +236,7 @@ pub fn stop_tor_child(state: &TorState) -> Result<bool, String> {
 
 /// R4: the UI / Tauri process must never own `tor.exe`.
 pub const UI_PROCESS_MAY_SPAWN_TOR: bool = false;
+const _: () = assert!(!UI_PROCESS_MAY_SPAWN_TOR);
 
 /// UI process must never open SOCKS sockets (freeze class). Remains false after Slice 4a.
 pub const UI_PROCESS_MAY_DIAL_VIA_SOCKS: bool = false;
@@ -121,6 +246,7 @@ pub const GATEWAY_OWNS_HTTP_DIALS: bool = true;
 
 /// Slice 4b: NativeRelay WS dials use gateway tunnel (UI never opens Tor SOCKS).
 pub const GATEWAY_OWNS_WS_DIALS: bool = true;
+const _: () = assert!(GATEWAY_OWNS_WS_DIALS);
 
 /// Best-effort kill of orphan Tor processes left after crash / legacy in-process sidecar.
 pub fn kill_orphan_tor_processes() {
@@ -149,6 +275,10 @@ pub async fn start_tor(
     state: tauri::State<'_, TorState>,
     net_runtime: tauri::State<'_, net::NativeNetworkRuntime>,
 ) -> Result<String, String> {
+    if crate::perf_plane::is_local() {
+        crate::invoke_pressure::note_invoke("perf_plane:reject:start_tor");
+        return Ok(crate::perf_plane::reject_message("start_tor"));
+    }
     let _ = stop_tor_child(&state)?;
     // UI process must never arm SOCKS (Slice 4 owns dials).
     net_runtime.set(false, net_runtime.get_proxy_url());
@@ -174,6 +304,7 @@ pub async fn start_tor(
                     tor_gateway_client::gateway_base_url()
                 );
                 append_tor_log(&state, format!("TI-2: {msg}"))?;
+                crate::emit_pressure::note_webview_emit("tor-error");
                 let _ = app.emit("tor-error", msg.clone());
                 set_tor_runtime_status(&app, &state, TorRuntimeStatus::Error, Some(false))?;
                 return Err(msg);
@@ -185,6 +316,7 @@ pub async fn start_tor(
                 tor_gateway_client::gateway_base_url()
             );
             append_tor_log(&state, format!("R4: {msg}"))?;
+            crate::emit_pressure::note_webview_emit("tor-error");
             let _ = app.emit("tor-error", msg.clone());
             set_tor_runtime_status(&app, &state, TorRuntimeStatus::Error, Some(false))?;
             return Err(msg);
@@ -206,11 +338,13 @@ pub async fn start_tor(
                         .unwrap_or_default()
                 ),
             )?;
+            crate::emit_pressure::note_webview_emit("tor-log");
             let _ = app.emit(
                 "tor-log",
                 format!("R4: gateway start → {} ready={}", status_label(status), ready),
             );
             if let Some(detail) = gw.detail.as_ref() {
+                crate::emit_pressure::note_webview_emit("tor-log");
                 let _ = app.emit("tor-log", format!("R4: gateway detail: {detail}"));
             }
             Ok(if ready {
@@ -222,7 +356,9 @@ pub async fn start_tor(
         Err(err) => {
             let msg = err.to_string();
             append_tor_log(&state, format!("R4: {msg}"))?;
+            crate::emit_pressure::note_webview_emit("tor-log");
             let _ = app.emit("tor-log", format!("R4: {msg}"));
+            crate::emit_pressure::note_webview_emit("tor-error");
             let _ = app.emit("tor-error", msg.clone());
             set_tor_runtime_status(&app, &state, TorRuntimeStatus::Error, Some(false))?;
             Err(msg)
@@ -246,18 +382,25 @@ pub async fn stop_tor(
     app: tauri::AppHandle,
     net_runtime: tauri::State<'_, net::NativeNetworkRuntime>,
 ) -> Result<String, String> {
+    if crate::perf_plane::is_local() {
+        crate::invoke_pressure::note_invoke("perf_plane:reject:stop_tor");
+        return Ok(crate::perf_plane::reject_message("stop_tor"));
+    }
     let stopped_child = stop_tor_child(&state)?;
     net_runtime.set(false, net_runtime.get_proxy_url());
 
     match tor_gateway_client::stop().await {
         Ok(gw) => {
             let _ = apply_gateway_status(&app, &state, &gw)?;
+            clear_gateway_progress(&state)?;
             append_tor_log(&state, "R4: gateway stop accepted.")?;
+            crate::emit_pressure::note_webview_emit("tor-log");
             let _ = app.emit("tor-log", "R4: gateway stop accepted.");
         }
         Err(err) => {
             // Kill-switch: gateway down — still clear local leftovers.
             kill_orphan_tor_processes();
+            clear_gateway_progress(&state)?;
             append_tor_log(
                 &state,
                 format!("R4: gateway stop failed ({err}); local orphan cleanup attempted."),
@@ -286,6 +429,10 @@ pub async fn get_tor_status(
     app: tauri::AppHandle,
     state: tauri::State<'_, TorState>,
 ) -> Result<TorStatusSnapshot, String> {
+    if crate::perf_plane::is_local() {
+        crate::invoke_pressure::note_invoke("perf_plane:reject:get_tor_status");
+        return build_tor_status_snapshot(&state, false, false);
+    }
     // R4: never promote ready from SOCKS TCP probe — gateway bootstrap only.
     match tor_gateway_client::status().await {
         Ok(gw) => {
@@ -330,6 +477,7 @@ pub async fn save_tor_settings(
         net_runtime.set(false, proxy_url.clone());
 
         if !enable_tor {
+            let _ = clear_gateway_progress(&state);
             let _ =
                 set_tor_runtime_status(&app, &state, TorRuntimeStatus::Disconnected, Some(false));
         } else {
@@ -384,8 +532,8 @@ pub fn load_tor_settings(app: &tauri::AppHandle) -> TorSettings {
 #[cfg(test)]
 mod tests {
     use super::{
-        parse_socks_port, GATEWAY_OWNS_HTTP_DIALS, GATEWAY_OWNS_WS_DIALS,
-        UI_PROCESS_MAY_DIAL_VIA_SOCKS, UI_PROCESS_MAY_SPAWN_TOR,
+        parse_bootstrap_percent_from_detail, parse_socks_port, GATEWAY_OWNS_HTTP_DIALS,
+        GATEWAY_OWNS_WS_DIALS, UI_PROCESS_MAY_DIAL_VIA_SOCKS, UI_PROCESS_MAY_SPAWN_TOR,
     };
     use crate::commands::tor_gateway_spawn::UI_PROCESS_MAY_SPAWN_GATEWAY;
 
@@ -394,6 +542,24 @@ mod tests {
         assert_eq!(parse_socks_port("socks5h://127.0.0.1:9050"), 9050);
         assert_eq!(parse_socks_port("socks5://127.0.0.1:9150"), 9150);
         assert_eq!(parse_socks_port("invalid"), 9050);
+    }
+
+    #[test]
+    fn parse_bootstrap_percent_prefers_stuck_at() {
+        let stuck = "Problem bootstrapping. Stuck at 10% (conn_done): Connected to a relay. (TLS_ERROR)";
+        assert_eq!(parse_bootstrap_percent_from_detail(stuck), Some(10));
+        assert_eq!(
+            parse_bootstrap_percent_from_detail("Bootstrapped 45% (connecting_to_relay)"),
+            Some(45)
+        );
+        assert_eq!(
+            parse_bootstrap_percent_from_detail("bootstrapped 10%"),
+            Some(10)
+        );
+        assert_eq!(
+            parse_bootstrap_percent_from_detail("waiting for Bootstrapped 100%"),
+            None
+        );
     }
 
     #[test]

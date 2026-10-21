@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use libobscur::db::Database;
 use libobscur::storage_at_rest::{decrypt_file_to_plaintext, encrypt_file_in_place, encrypted_sidecar_path};
-use tauri::AppHandle;
+use tauri::{AppHandle, State};
 use crate::data_root::resolve_effective_data_root;
 
 /// Tauri managed state wrapping the SQLite database.
@@ -32,6 +32,26 @@ impl DbState {
             .as_ref()
             .ok_or_else(|| "Local database is locked. Unlock this profile to continue.".to_string())?;
         f(db)
+    }
+
+    pub fn is_open(&self) -> Result<bool, String> {
+        let guard = self.inner.lock().map_err(|e| e.to_string())?;
+        Ok(guard.db.is_some())
+    }
+
+    /// Reopen plaintext SQLite when closed without an at-rest envelope.
+    /// Encrypted envelopes still require `desktop_storage_at_rest_unlock` (PDK).
+    pub fn ensure_open_for_writes(&self, app: &AppHandle) -> Result<(), String> {
+        if self.is_open()? {
+            return Ok(());
+        }
+        let (sqlite_path, encrypted_path) = sqlite_paths(app)?;
+        if encrypted_path.exists() {
+            return Err(
+                "Local database is locked. Unlock this profile to continue.".to_string(),
+            );
+        }
+        self.open_at_path(sqlite_path)
     }
 
     pub fn close(&self) -> Result<(), String> {
@@ -98,22 +118,21 @@ pub fn quiesce_sqlite_for_data_root_change(db_state: &DbState) -> Result<(), Str
     db_state.close()
 }
 
-// ---------------------------------------------------------------------------
-// Message commands
-// ---------------------------------------------------------------------------
-
-use tauri::State;
-use libobscur::db::repositories::{
-    MessageRecord, ConversationRecord,
-};
-
+/// Soft-lock drift repair: reopen plaintext DB, or report locked when encrypted.
 #[tauri::command]
-pub fn db_insert_message(
-    state: State<'_, DbState>,
-    msg: MessageRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.insert_message(&msg).map_err(|e| e.to_string()))
+pub fn desktop_db_ensure_open(
+    app: AppHandle,
+    db_state: State<'_, DbState>,
+) -> Result<bool, String> {
+    db_state.ensure_open_for_writes(&app)?;
+    Ok(true)
 }
+
+// ---------------------------------------------------------------------------
+// Message / conversation write IPC — tombstoned (Track B 2026-10).
+// Use engine_invoke dm.insertMessage / dm.upsertConversation.
+// @see specs/backend/db-insert-upsert-legacy-parallel-tombstone-design-2026-10.md
+// ---------------------------------------------------------------------------
 
 // Slice 15 — DM read IPC tombstoned. Use engine_invoke dm.getThread / dm.listConversations.
 // @see specs/backend/r-dm-read-tombstone-slice15-design-2026-07.md
@@ -121,14 +140,6 @@ pub fn db_insert_message(
 // Slice 21 — DM delete/tombstone IPC tombstoned; use engine_invoke dm.deleteMessages /
 // deleteMessage / insertTombstone / listTombstones / deleteAllTombstones.
 // @see specs/backend/r-dm-delete-tombstone-ipc-slice21-design-2026-07.md
-
-#[tauri::command]
-pub fn db_upsert_conversation(
-    state: State<'_, DbState>,
-    conversation: ConversationRecord,
-) -> Result<(), String> {
-    state.with_db(|db| db.upsert_conversation(&conversation).map_err(|e| e.to_string()))
-}
 
 // Group list/message/tombstone IPC tombstoned. Use engine_invoke workspace.listGroups /
 // upsertGroup / listGroupMessages / insertGroupMessage / insertGroupTombstone.

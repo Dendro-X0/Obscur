@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { useRelay } from "../providers/relay-provider";
+import { useRelayPoolDiagnosis } from "../hooks/use-relay-pool-diagnosis";
 import {
   getRelayReadinessBannerCopy,
   getRelayReadinessTone,
@@ -20,8 +21,9 @@ const OFFLINE_BANNER_GRACE_MS = 1200;
  */
 export function RelayReadinessInlineBanner({ className }: RelayReadinessInlineBannerProps = {}) {
   const { relayRecovery, relayRuntime } = useRelay();
+  const poolDiagnosis = useRelayPoolDiagnosis();
   const [offlineBannerVisible, setOfflineBannerVisible] = useState(false);
-  const copy = getRelayReadinessBannerCopy(relayRecovery);
+  const copy = getRelayReadinessBannerCopy(relayRecovery, poolDiagnosis);
 
   useEffect(() => {
     if (relayRecovery.readiness !== "offline") {

@@ -10,7 +10,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 
 describe("transport-engine w43 — Rust network publish protocol wiring", () => {
   it("pins network protocol wiring charter", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w43-rust-network-publish-protocol-wiring.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w43-rust-network-publish-protocol-wiring.md");
     expect(charter).toContain("Rust Network Publish Protocol Wiring");
     expect(charter).toContain("publish_with_quorum_attempts");
     expect(charter).toContain("No writable relay connection");

@@ -13,7 +13,7 @@ export const STANDALONE_LEGACY_B5_EXIT_CRITERIA = [
 ] as const;
 
 export const STANDALONE_LEGACY_B5_EXIT_CHARTER = (
-  "docs/program/transport-engine-w67-standalone-legacy-b5-exit-verification.md"
+  "docs/archive/program/inactive-2026-08/transport-engine-w67-standalone-legacy-b5-exit-verification.md"
 );
 
 export const STANDALONE_LEGACY_B5_EXIT_POST_DELETION_OWNERS = [

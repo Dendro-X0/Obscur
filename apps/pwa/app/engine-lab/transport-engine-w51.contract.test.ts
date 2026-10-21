@@ -20,7 +20,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w51 — standalone owner quarantine charter", () => {
   it("pins quarantine charter with legacy target path", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w51-standalone-owner-quarantine-charter.md",
     );
     expect(charter).toContain("Standalone Owner Quarantine Charter");
     expect(charter).toContain("transport-kernel-standalone-publish-legacy.ts");
@@ -34,20 +34,20 @@ describe("transport-engine w51 — standalone owner quarantine charter", () => {
     expect(archive).toContain("publishTransportKernelToRelayUrls");
 
     const charter = readFromRepo(
-      "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w51-standalone-owner-quarantine-charter.md",
     );
     expect(charter).toContain("No rename/move");
   });
 
   it("references W48 subtraction plan without executing quarantine", () => {
     const review = readFromRepo(
-      "docs/program/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
     );
     expect(review).toContain("Subtraction plan");
     expect(review).toContain("transport-kernel-standalone-publish.ts");
 
     const charter = readFromRepo(
-      "docs/program/transport-engine-w51-standalone-owner-quarantine-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w51-standalone-owner-quarantine-charter.md",
     );
     expect(charter).toContain("No rename/move");
   });

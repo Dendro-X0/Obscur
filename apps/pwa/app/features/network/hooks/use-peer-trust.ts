@@ -15,6 +15,12 @@ import { useAccountProjectionSnapshot } from "@/app/features/account-sync/hooks/
 import { resolveProjectionReadAuthority } from "@/app/features/account-sync/services/account-projection-read-authority";
 import { selectProjectionAcceptedPeers } from "@/app/features/account-sync/services/account-projection-selectors";
 import { resolvePeerTrustReadAuthority } from "@/app/features/network/services/peer-trust-read-authority";
+import {
+  canInheritUnscopedPeerTrust,
+  getLegacyPeerTrustStorageKey,
+  getPeerTrustStorageKey,
+} from "@/app/features/network/services/peer-trust-storage-key";
+import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 type PeerTrustState = Readonly<{
@@ -40,10 +46,16 @@ type UsePeerTrustResult = Readonly<{
 type StoredPeerTrust = Readonly<{
   acceptedPeers: ReadonlyArray<PublicKeyHex>;
   mutedPeers: ReadonlyArray<PublicKeyHex>;
+  /**
+   * Local negative mask for peers removed/unaccepted.
+   * Needed because account projection reads may lag behind optimistic removals,
+   * causing "remove contact" to appear irreversible.
+   */
+  removedPeers: ReadonlyArray<PublicKeyHex>;
 }>;
 
 const createDefaultState = (): StoredPeerTrust => {
-  return { acceptedPeers: [], mutedPeers: [] };
+  return { acceptedPeers: [], mutedPeers: [], removedPeers: [] };
 };
 
 const createContactMutationIdempotencySuffix = (params: Readonly<{
@@ -55,9 +67,10 @@ const createContactMutationIdempotencySuffix = (params: Readonly<{
   `${params.action}:${params.peerPublicKeyHex}:${params.atUnixMs}:${params.nonce}`
 );
 
-const getStorageKey = (publicKeyHex: PublicKeyHex): string => {
-  return `obscur.peer_trust.v1.${publicKeyHex}`;
-};
+const getStorageKey = (
+  publicKeyHex: PublicKeyHex,
+  profileId: string = getResolvedProfileId(),
+): string => getPeerTrustStorageKey(publicKeyHex, profileId);
 
 const DEBUG_PERSISTENCE_KEY = "obscur_debug_persistence";
 const getDebugPersistenceKey = (): string => getScopedStorageKey(DEBUG_PERSISTENCE_KEY, getResolvedProfileId());
@@ -77,45 +90,89 @@ const removeSelfFromTrustState = (publicKeyHex: PublicKeyHex, value: StoredPeerT
   return {
     acceptedPeers: value.acceptedPeers.filter((peer) => peer !== publicKeyHex),
     mutedPeers: value.mutedPeers.filter((peer) => peer !== publicKeyHex),
+    removedPeers: value.removedPeers.filter((peer) => peer !== publicKeyHex),
   };
 };
 
-const loadFromStorage = (publicKeyHex: PublicKeyHex): StoredPeerTrust => {
-  if (typeof window === "undefined") {
-    return createDefaultState();
-  }
+const parseStoredPeerTrust = (raw: string, publicKeyHex: PublicKeyHex): StoredPeerTrust | null => {
   try {
-    const raw: string | null = window.localStorage.getItem(getStorageKey(publicKeyHex));
-    if (shouldDebugPersistence()) {
-      console.info("[peerTrust] load", getStorageKey(publicKeyHex), raw ? raw.length : 0);
-    }
-    if (!raw) {
-      return createDefaultState();
-    }
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") {
-      return createDefaultState();
+      return null;
     }
     const record = parsed as Record<string, unknown>;
     const accepted = Array.isArray(record.acceptedPeers) ? (record.acceptedPeers as unknown[]) : [];
     const muted = Array.isArray(record.mutedPeers) ? (record.mutedPeers as unknown[]) : [];
+    const removedRaw = Array.isArray(record.removedPeers) ? (record.removedPeers as unknown[]) : [];
     const acceptedPeers = normalizePublicKeyHexList(accepted.filter((v: unknown): v is string => typeof v === "string"));
     const mutedPeers = normalizePublicKeyHexList(muted.filter((v: unknown): v is string => typeof v === "string"));
-    return removeSelfFromTrustState(publicKeyHex, { acceptedPeers, mutedPeers });
+    const removedPeers = normalizePublicKeyHexList(removedRaw.filter((v: unknown): v is string => typeof v === "string"));
+    return removeSelfFromTrustState(publicKeyHex, { acceptedPeers, mutedPeers, removedPeers });
+  } catch {
+    return null;
+  }
+};
+
+const loadFromStorage = (
+  publicKeyHex: PublicKeyHex,
+  profileId: string = getResolvedProfileId(),
+): StoredPeerTrust => {
+  if (typeof window === "undefined") {
+    return createDefaultState();
+  }
+  try {
+    const scopedKey = getStorageKey(publicKeyHex, profileId);
+    const scopedRaw = window.localStorage.getItem(scopedKey);
+    if (shouldDebugPersistence()) {
+      console.info("[peerTrust] load", scopedKey, scopedRaw ? scopedRaw.length : 0);
+    }
+    if (scopedRaw) {
+      return parseStoredPeerTrust(scopedRaw, publicKeyHex) ?? createDefaultState();
+    }
+    if (!canInheritUnscopedPeerTrust(profileId)) {
+      return createDefaultState();
+    }
+    const legacyRaw = window.localStorage.getItem(getLegacyPeerTrustStorageKey(publicKeyHex));
+    if (!legacyRaw) {
+      return createDefaultState();
+    }
+    const inherited = parseStoredPeerTrust(legacyRaw, publicKeyHex);
+    if (!inherited) {
+      return createDefaultState();
+    }
+    saveToStorage(publicKeyHex, inherited, profileId);
+    return inherited;
   } catch {
     return createDefaultState();
   }
 };
 
-const saveToStorage = (publicKeyHex: PublicKeyHex, value: StoredPeerTrust): void => {
+type StoredPeerTrustWrite = Readonly<{
+  acceptedPeers: ReadonlyArray<PublicKeyHex>;
+  mutedPeers: ReadonlyArray<PublicKeyHex>;
+  removedPeers?: ReadonlyArray<PublicKeyHex>;
+}>;
+
+const normalizeStoredPeerTrust = (value: StoredPeerTrustWrite): StoredPeerTrust => ({
+  acceptedPeers: value.acceptedPeers,
+  mutedPeers: value.mutedPeers,
+  removedPeers: value.removedPeers ?? [],
+});
+
+const saveToStorage = (
+  publicKeyHex: PublicKeyHex,
+  value: StoredPeerTrustWrite,
+  profileId: string = getResolvedProfileId(),
+): void => {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    const serialized = JSON.stringify(value);
-    window.localStorage.setItem(getStorageKey(publicKeyHex), serialized);
+    const scopedKey = getStorageKey(publicKeyHex, profileId);
+    const serialized = JSON.stringify(normalizeStoredPeerTrust(value));
+    window.localStorage.setItem(scopedKey, serialized);
     if (shouldDebugPersistence()) {
-      console.info("[peerTrust] save", getStorageKey(publicKeyHex), serialized.length);
+      console.info("[peerTrust] save", scopedKey, serialized.length);
     }
   } catch {
     return;
@@ -129,16 +186,32 @@ const extractAcceptedPeersFromPersistedChatState = (
     return [];
   }
 
+  // Trust is derived exclusively from explicit accept events, not from address-book presence.
+  // createdConnections entries are NOT a trust signal — a connection can exist without a
+  // completed two-way handshake (e.g. sender side before receiver accepts).
   const acceptedFromRequests: ReadonlyArray<PublicKeyHex> = (persisted.connectionRequests ?? [])
     .filter((request) => request.status === "accepted")
     .map((request) => normalizePublicKeyHex(request.id))
     .filter((peer): peer is PublicKeyHex => peer !== null);
 
-  const acceptedFromConnections: ReadonlyArray<PublicKeyHex> = (persisted.createdConnections ?? [])
-    .map((connection) => normalizePublicKeyHex(connection.pubkey))
-    .filter((peer): peer is PublicKeyHex => peer !== null);
+  return Array.from(new Set(acceptedFromRequests));
+};
 
-  return Array.from(new Set([...acceptedFromRequests, ...acceptedFromConnections]));
+const extractAcceptedPeersFromRequestEvidence = (
+  profileId: string = getResolvedProfileId(),
+): ReadonlyArray<PublicKeyHex> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const state = requestFlowEvidenceStoreInternals.readState(profileId);
+    return Object.entries(state.byPeer)
+      .filter(([, evidence]) => evidence.acceptSeen === true)
+      .map(([peer]) => normalizePublicKeyHex(peer))
+      .filter((peer): peer is PublicKeyHex => peer !== null);
+  } catch {
+    return [];
+  }
 };
 
 export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => {
@@ -159,15 +232,19 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   const shouldUseProjectionReads = projectionReadAuthority.useProjectionReads;
 
   const publicKeyHexRef = useRef<PublicKeyHex | null>(params.publicKeyHex);
+  const profileIdRef = useRef(activeProfileId);
   useEffect(() => {
     publicKeyHexRef.current = params.publicKeyHex;
   }, [params.publicKeyHex]);
+  useEffect(() => {
+    profileIdRef.current = activeProfileId;
+  }, [activeProfileId]);
 
   const [stored, setStored] = useState<StoredPeerTrust>(() => {
     if (!params.publicKeyHex) {
       return createDefaultState();
     }
-    return loadFromStorage(params.publicKeyHex);
+    return loadFromStorage(params.publicKeyHex, activeProfileId);
   });
   const didLoadRef = useRef(false);
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -195,10 +272,12 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(
         messagingChatStateReadPort.load(currentPublicKeyHex),
       );
-      if (acceptedFromChat.length === 0) {
+      const acceptedFromEvidence = extractAcceptedPeersFromRequestEvidence(profileIdRef.current);
+      const recovered = Array.from(new Set([...acceptedFromChat, ...acceptedFromEvidence]));
+      if (recovered.length === 0) {
         return prev;
       }
-      const merged = Array.from(new Set([...prev.acceptedPeers, ...acceptedFromChat]));
+      const merged = Array.from(new Set([...prev.acceptedPeers, ...recovered]));
       if (
         merged.length === prev.acceptedPeers.length
         && merged.every((peer) => prev.acceptedPeers.includes(peer))
@@ -207,9 +286,9 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       }
       const next: StoredPeerTrust = removeSelfFromTrustState(
         currentPublicKeyHex,
-        { acceptedPeers: merged, mutedPeers: prev.mutedPeers }
+        { acceptedPeers: merged, mutedPeers: prev.mutedPeers, removedPeers: prev.removedPeers }
       );
-      saveToStorage(currentPublicKeyHex, next);
+      saveToStorage(currentPublicKeyHex, next, profileIdRef.current);
       return next;
     });
   }, []);
@@ -228,15 +307,17 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   }, []);
 
   useEffect((): void => {
+    didLoadRef.current = false;
+    setHasHydrated(false);
     queueMicrotask((): void => {
       if (!params.publicKeyHex) {
         return;
       }
-      const loaded = loadFromStorage(params.publicKeyHex);
+      const loaded = loadFromStorage(params.publicKeyHex, activeProfileId);
       setStored(loaded);
       setHasHydrated(true);
     });
-  }, [params.publicKeyHex]);
+  }, [activeProfileId, params.publicKeyHex]);
 
   useEffect((): void => {
     if (!params.publicKeyHex) {
@@ -245,7 +326,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     queueMicrotask(() => {
       hydrateAcceptedPeersFromChatState();
     });
-  }, [hydrateAcceptedPeersFromChatState, params.publicKeyHex]);
+  }, [activeProfileId, hydrateAcceptedPeersFromChatState, params.publicKeyHex]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !params.publicKeyHex) {
@@ -274,8 +355,8 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       return;
     }
 
-    saveToStorage(params.publicKeyHex, stored);
-  }, [params.publicKeyHex, stored]);
+    saveToStorage(params.publicKeyHex, stored, activeProfileId);
+  }, [activeProfileId, hasHydrated, params.publicKeyHex, stored]);
 
   useEffect(() => {
     if (!params.publicKeyHex || !hasHydrated) {
@@ -320,7 +401,9 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     stored.acceptedPeers.length,
   ]);
 
-  const acceptedPeersForRead = peerTrustReadAuthority.acceptedPeers;
+  const acceptedPeersForRead = useMemo(() => (
+    peerTrustReadAuthority.acceptedPeers.filter((peer) => !stored.removedPeers.includes(peer))
+  ), [peerTrustReadAuthority.acceptedPeers, stored.removedPeers]);
 
   const isAccepted = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
     const normalized = normalizePublicKeyHex(p.publicKeyHex);
@@ -342,7 +425,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       const next: StoredPeerTrust = { ...prev, mutedPeers: [...prev.mutedPeers, normalized] };
       const pk = publicKeyHexRef.current;
       if (pk) {
-        saveToStorage(pk, next);
+        saveToStorage(pk, next, profileIdRef.current);
       }
       emitAccountSyncMutation("peer_trust_changed");
       return next;
@@ -358,7 +441,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       const next: StoredPeerTrust = { ...prev, mutedPeers: prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized) };
       const pk = publicKeyHexRef.current;
       if (pk) {
-        saveToStorage(pk, next);
+        saveToStorage(pk, next, profileIdRef.current);
       }
       emitAccountSyncMutation("peer_trust_changed");
       return next;
@@ -379,10 +462,11 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       const nextAccepted: ReadonlyArray<PublicKeyHex> = prev.acceptedPeers.includes(normalized)
         ? prev.acceptedPeers
         : [...prev.acceptedPeers, normalized];
-      const next: StoredPeerTrust = { acceptedPeers: nextAccepted, mutedPeers: nextMuted };
+      const nextRemoved: ReadonlyArray<PublicKeyHex> = prev.removedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
+      const next: StoredPeerTrust = { acceptedPeers: nextAccepted, mutedPeers: nextMuted, removedPeers: nextRemoved };
       const pk = publicKeyHexRef.current;
       if (pk) {
-        saveToStorage(pk, next);
+        saveToStorage(pk, next, profileIdRef.current);
       }
       emitAccountSyncMutation("peer_trust_changed");
       return next;
@@ -408,10 +492,14 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       if (!prev.acceptedPeers.includes(normalized)) {
         return prev;
       }
-      const next: StoredPeerTrust = { ...prev, acceptedPeers: prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== normalized) };
+      const nextAcceptedPeers: ReadonlyArray<PublicKeyHex> = prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
+      const nextRemovedPeers: ReadonlyArray<PublicKeyHex> = prev.removedPeers.includes(normalized)
+        ? prev.removedPeers
+        : [...prev.removedPeers, normalized];
+      const next: StoredPeerTrust = { ...prev, acceptedPeers: nextAcceptedPeers, removedPeers: nextRemovedPeers };
       const pk = publicKeyHexRef.current;
       if (pk) {
-        saveToStorage(pk, next);
+        saveToStorage(pk, next, profileIdRef.current);
       }
       emitAccountSyncMutation("peer_trust_changed");
       return next;
@@ -450,4 +538,5 @@ export const peerTrustInternals = {
   loadFromStorage,
   saveToStorage,
   extractAcceptedPeersFromPersistedChatState,
+  extractAcceptedPeersFromRequestEvidence,
 };

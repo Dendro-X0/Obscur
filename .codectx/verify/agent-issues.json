@@ -1,7 +1,7 @@
 {
   "schema": "verify.agent.issues@0.1.0",
-  "updatedAt": "2026-07-06T14:51:07.848571900+00:00",
-  "issueCount": 59,
+  "updatedAt": "2026-08-23T18:33:43.971237300+00:00",
+  "issueCount": 63,
   "issues": [
     {
       "id": "verify:issue:agent:ea000f3b3f41603b",
@@ -1234,6 +1234,84 @@
       "evidenceRefs": [],
       "doesNotProve": [],
       "ingestedAt": "2026-07-06T14:51:07.847348200+00:00"
+    },
+    {
+      "id": "verify:issue:assert:cap-7c36691a2d41",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: domExists — unsupported assert kind: domExists",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-7c36691a2d41/manifest.json",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-7c36691a2d41/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/steps.json"
+      ],
+      "proofTier": "t2",
+      "doesNotProve": [
+        "Packaged desktop",
+        "WebView2-specific behavior",
+        "Multi-window focus"
+      ],
+      "ingestedAt": "2026-08-18T18:15:21.560478300+00:00",
+      "findingId": "cap-7c36691a2d41"
+    },
+    {
+      "id": "verify:issue:assert:cap-4a17a6f54e3d",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-4a17a6f54e3d/manifest.json",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-4a17a6f54e3d/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-41dadb0e48c9/steps.json"
+      ],
+      "proofTier": "t2",
+      "doesNotProve": [
+        "Packaged desktop",
+        "WebView2-specific behavior",
+        "Multi-window focus"
+      ],
+      "ingestedAt": "2026-08-18T18:15:27.327654100+00:00",
+      "findingId": "cap-4a17a6f54e3d"
+    },
+    {
+      "id": "verify:issue:assert:cap-d750192b42c3",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: beta-smoke-20260823-t1-nip17",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-d750192b42c3/manifest.json",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-d750192b42c3/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-08-23T18:33:17.702877400+00:00",
+      "findingId": "cap-d750192b42c3"
+    },
+    {
+      "id": "verify:issue:assert:cap-c83f5561abd3",
+      "severity": "p1",
+      "status": "open",
+      "title": "Client assert failed: textVisible — text not visible: E2E Encrypted",
+      "source": "client_assert",
+      "evidenceRefs": [
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-c83f5561abd3/manifest.json",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-c83f5561abd3/snapshot.yaml",
+        ".codectx/verify/client-sessions/csess-1bf455470e0d/steps.json"
+      ],
+      "proofTier": "t3",
+      "doesNotProve": [
+        "Full OS-level automation",
+        "Long soak across machines"
+      ],
+      "ingestedAt": "2026-08-23T18:33:43.970796800+00:00",
+      "findingId": "cap-c83f5561abd3"
     }
   ]
 }

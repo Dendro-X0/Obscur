@@ -1,0 +1,297 @@
+{
+  "schema": "studio.repo.owner-conflict-register@0.1.0",
+  "jobId": "salvage-obscur-T1-owner-conflicts",
+  "repoRoot": "E:\\Web Projects\\experimental-workspace\\obscur",
+  "dualOwnerCount": 3,
+  "lifecyclesScanned": 4,
+  "conflicts": [
+    {
+      "lifecycleId": "relay-publish",
+      "title": "Relay publish / pool",
+      "writers": [
+        {
+          "path": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-publish\""
+        },
+        {
+          "path": "apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-publish\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/relay-pool-hook-port.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/use-conduit-mesh-relay-pool.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/use-enhanced-relay-pool-runtime.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/use-relay-pool-ref.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/use-relay-pool.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/hooks/use-transport-kernel-relay-pool.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/services/relay-pool-runtime-port.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/services/relay-publish-scope.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-publish\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/services/relay-publish-user-copy.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-publish\""
+        },
+        {
+          "path": "apps/pwa/app/features/relays/services/transport-relay-pool-hydration.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "apps/relay-gateway/src/community-relay-hide-registry-persist.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-gateway\""
+        },
+        {
+          "path": "apps/relay-gateway/src/community-relay-hide-suppress.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-gateway\""
+        },
+        {
+          "path": "apps/relay-gateway/src/index.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-gateway\""
+        },
+        {
+          "path": "apps/relay-gateway/src/mesh-http-server.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-gateway\""
+        },
+        {
+          "path": "packages/obscur-conduit-mesh/src/conduit-mesh-relay-pool-runtime.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        },
+        {
+          "path": "packages/obscur-conduit-mesh/src/resolve-relay-pool-conduit-descriptors.ts",
+          "role": "writer",
+          "evidence": "path contains \"relay-pool\""
+        }
+      ],
+      "readers": [
+        {
+          "path": "apps/pwa/app/features/relays/services/transport-relay-pool-subscribe.test.ts",
+          "role": "reader",
+          "evidence": "path contains \"relay-pool\" (noise retained as reader)"
+        },
+        {
+          "path": "apps/pwa/app/features/relays/services/transport-relay-pool-subscribe.ts",
+          "role": "reader",
+          "evidence": "path contains \"relay-pool\""
+        }
+      ],
+      "dualOwner": true,
+      "score": 21
+    },
+    {
+      "lifecycleId": "profile-scope",
+      "title": "Profile / identity scope",
+      "writers": [
+        {
+          "path": "apps/pwa/app/features/auth-kernel/auth-kernel-profile-scope.ts",
+          "role": "writer",
+          "evidence": "path contains \"profile-scope\""
+        },
+        {
+          "path": "apps/pwa/app/features/auth/components/auth-gateway.tsx",
+          "role": "writer",
+          "evidence": "path contains \"auth-gateway\""
+        },
+        {
+          "path": "apps/pwa/app/features/auth/hooks/use-identity.ts",
+          "role": "writer",
+          "evidence": "path contains \"use-identity\""
+        },
+        {
+          "path": "apps/pwa/app/features/profiles/services/profile-scope.ts",
+          "role": "writer",
+          "evidence": "path contains \"profile-scope\""
+        },
+        {
+          "path": "apps/pwa/app/features/profiles/services/resolve-desktop-window-profile-scope.ts",
+          "role": "writer",
+          "evidence": "path contains \"profile-scope\""
+        },
+        {
+          "path": "apps/pwa/app/features/search/hooks/use-identity-resolver.ts",
+          "role": "writer",
+          "evidence": "path contains \"use-identity\""
+        },
+        {
+          "path": "apps/pwa/app/settings/settings-tab-panel-models/use-identity-settings-model.ts",
+          "role": "writer",
+          "evidence": "path contains \"use-identity\""
+        }
+      ],
+      "readers": [],
+      "dualOwner": true,
+      "score": 7
+    },
+    {
+      "lifecycleId": "dm-persist",
+      "title": "DM / outgoing message persist",
+      "writers": [
+        {
+          "path": "apps/pwa/app/features/groups/services/sealed-group-message-persistence.ts",
+          "role": "writer",
+          "evidence": "path contains \"message-persist\""
+        },
+        {
+          "path": "apps/pwa/app/features/messaging/components/message-persistence-durability-owner.tsx",
+          "role": "writer",
+          "evidence": "path contains \"message-persist\""
+        },
+        {
+          "path": "apps/pwa/app/features/messaging/services/message-persistence-service.ts",
+          "role": "writer",
+          "evidence": "path contains \"message-persist\""
+        },
+        {
+          "path": "apps/pwa/app/features/messaging/services/thread-history/workspace-group-message-persist-port.ts",
+          "role": "writer",
+          "evidence": "path contains \"message-persist\""
+        }
+      ],
+      "readers": [],
+      "dualOwner": true,
+      "score": 4
+    },
+    {
+      "lifecycleId": "session-hydrate",
+      "title": "Session hydrate / restore",
+      "writers": [
+        {
+          "path": "apps/pwa/app/features/auth-kernel/auth-kernel-boot-owner.ts",
+          "role": "writer",
+          "evidence": "path contains \"boot-owner\""
+        }
+      ],
+      "readers": [],
+      "dualOwner": false,
+      "score": 1
+    }
+  ],
+  "topEdges": [
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/relay-pool-hook-port.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/use-conduit-mesh-relay-pool.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/use-enhanced-relay-pool-runtime.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/use-relay-pool-ref.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/use-relay-pool.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    },
+    {
+      "lifecycleId": "relay-publish",
+      "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "writerB": "apps/pwa/app/features/relays/hooks/use-transport-kernel-relay-pool.ts",
+      "reason": "≥2 writers for relay-publish (Relay publish / pool)"
+    }
+  ],
+  "markdown": "# Owner conflict register — `salvage-obscur-T1-owner-conflicts`\n\nDual-owner lifecycles: **3** / 4 scanned. Top edges: 10.\nSignal hygiene: **on** — noise writers filtered: **66** (PREC1).\n\n## Dual-owner edges (top 10)\n\n| Lifecycle | Writer A | Writer B |\n|---|---|---|\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/relay-pool-hook-port.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/use-conduit-mesh-relay-pool.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/use-enhanced-relay-pool-runtime.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/use-relay-pool-ref.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/use-relay-pool.ts` |\n| `relay-publish` | `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` | `apps/pwa/app/features/relays/hooks/use-transport-kernel-relay-pool.ts` |\n\n## Lifecycles\n\n### `relay-publish` — Relay publish / pool (⚠️ dual-owner)\n- Writers (21): `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts`, `apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts`, `apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts`, `apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts`, `apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts`, `apps/pwa/app/features/relays/hooks/relay-pool-hook-port.ts`, `apps/pwa/app/features/relays/hooks/use-conduit-mesh-relay-pool.ts`, `apps/pwa/app/features/relays/hooks/use-enhanced-relay-pool-runtime.ts`, `apps/pwa/app/features/relays/hooks/use-relay-pool-ref.ts`, `apps/pwa/app/features/relays/hooks/use-relay-pool.ts`, `apps/pwa/app/features/relays/hooks/use-transport-kernel-relay-pool.ts`, `apps/pwa/app/features/relays/services/relay-pool-runtime-port.ts`, `apps/pwa/app/features/relays/services/relay-publish-scope.ts`, `apps/pwa/app/features/relays/services/relay-publish-user-copy.ts`, `apps/pwa/app/features/relays/services/transport-relay-pool-hydration.ts`, `apps/relay-gateway/src/community-relay-hide-registry-persist.ts`, `apps/relay-gateway/src/community-relay-hide-suppress.ts`, `apps/relay-gateway/src/index.ts`, `apps/relay-gateway/src/mesh-http-server.ts`, `packages/obscur-conduit-mesh/src/conduit-mesh-relay-pool-runtime.ts`, `packages/obscur-conduit-mesh/src/resolve-relay-pool-conduit-descriptors.ts`\n- Readers (2): `apps/pwa/app/features/relays/services/transport-relay-pool-subscribe.test.ts`, `apps/pwa/app/features/relays/services/transport-relay-pool-subscribe.ts`\n\n### `profile-scope` — Profile / identity scope (⚠️ dual-owner)\n- Writers (7): `apps/pwa/app/features/auth-kernel/auth-kernel-profile-scope.ts`, `apps/pwa/app/features/auth/components/auth-gateway.tsx`, `apps/pwa/app/features/auth/hooks/use-identity.ts`, `apps/pwa/app/features/profiles/services/profile-scope.ts`, `apps/pwa/app/features/profiles/services/resolve-desktop-window-profile-scope.ts`, `apps/pwa/app/features/search/hooks/use-identity-resolver.ts`, `apps/pwa/app/settings/settings-tab-panel-models/use-identity-settings-model.ts`\n- Readers (0): _none_\n\n### `dm-persist` — DM / outgoing message persist (⚠️ dual-owner)\n- Writers (4): `apps/pwa/app/features/groups/services/sealed-group-message-persistence.ts`, `apps/pwa/app/features/messaging/components/message-persistence-durability-owner.tsx`, `apps/pwa/app/features/messaging/services/message-persistence-service.ts`, `apps/pwa/app/features/messaging/services/thread-history/workspace-group-message-persist-port.ts`\n- Readers (0): _none_\n\n### `session-hydrate` — Session hydrate / restore (ok)\n- Writers (1): `apps/pwa/app/features/auth-kernel/auth-kernel-boot-owner.ts`\n- Readers (0): _none_\n\n## IDE contract\n\nRefuse additive writers without subtracting one. No IDE patches until this register exists.\n",
+  "ideContractNote": "Refuse patches that add a writer without subtracting one; show conflict IDs in the plan card (enforcement later).",
+  "doesNotClaim": [
+    "Exact AST ownership / call-graph mutators (path heuristic only)",
+    "Obscur protocol / AB matrices",
+    "Automatic subtract of duplicate writers"
+  ],
+  "noiseFiltered": 66,
+  "noiseFilterNotes": [
+    "Excluded writers: .codactrl/.codectx, docs/archive, test/spec paths, docs/specs markdown (unless *-owner.*)",
+    "OXD8: .exe/.dll/.so + target/ + node_modules filtered (A5.1 dual-owner noise)",
+    "JSON/gitkeep under perf/manifest trees filtered"
+  ],
+  "signalHygiene": true
+}

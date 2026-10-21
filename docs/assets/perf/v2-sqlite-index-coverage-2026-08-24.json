@@ -1,0 +1,233 @@
+{
+  "schema": "obscur.sqlite.index-coverage@1.0.0",
+  "measuredAt": "2026-08-24T06:27:29.714607+00:00",
+  "doesNotProve": [
+    "production_capacity",
+    "p99_under_load",
+    "index_coverage_complete_as_sla"
+  ],
+  "databases": [
+    {
+      "label": "obscur.sqlite3",
+      "path": "C:\\Users\\Administrator\\AppData\\Roaming\\app.obscur.desktop\\obscur.sqlite3",
+      "present": true,
+      "schemaVersion": 4,
+      "tableCount": 23,
+      "tables": [
+        "call_records",
+        "connection_requests",
+        "conversations",
+        "group_messages",
+        "group_messages_fts",
+        "group_messages_fts_config",
+        "group_messages_fts_data",
+        "group_messages_fts_docsize",
+        "group_messages_fts_idx",
+        "group_tombstones",
+        "groups",
+        "messages",
+        "messages_fts",
+        "messages_fts_config",
+        "messages_fts_data",
+        "messages_fts_docsize",
+        "messages_fts_idx",
+        "peer_relay_hints",
+        "profiles",
+        "relay_checkpoints",
+        "schema_version",
+        "tombstones",
+        "vault_media_index"
+      ],
+      "rowCounts": {
+        "call_records": 0,
+        "connection_requests": 0,
+        "conversations": 2,
+        "group_messages": 21,
+        "group_messages_fts": 21,
+        "group_messages_fts_config": 1,
+        "group_messages_fts_data": 8,
+        "group_messages_fts_docsize": 21,
+        "group_messages_fts_idx": 6,
+        "group_tombstones": 0,
+        "groups": 2,
+        "messages": 154,
+        "messages_fts": 154,
+        "messages_fts_config": 1,
+        "messages_fts_data": 22,
+        "messages_fts_docsize": 154,
+        "messages_fts_idx": 20,
+        "peer_relay_hints": 0,
+        "profiles": 2,
+        "relay_checkpoints": 7,
+        "schema_version": 4,
+        "tombstones": 55,
+        "vault_media_index": 8
+      },
+      "indexes": [
+        {
+          "name": "idx_conversations_profile",
+          "table": "conversations",
+          "sql": "CREATE INDEX idx_conversations_profile\n    ON conversations(profile_id, last_message_at DESC)"
+        },
+        {
+          "name": "idx_messages_conv",
+          "table": "messages",
+          "sql": "CREATE INDEX idx_messages_conv\n    ON messages(profile_id, conversation_id, created_at)"
+        },
+        {
+          "name": "idx_messages_conv_received",
+          "table": "messages",
+          "sql": "CREATE INDEX idx_messages_conv_received\n    ON messages(profile_id, conversation_id, received_at)"
+        },
+        {
+          "name": "idx_vault_media_index_profile_saved",
+          "table": "vault_media_index",
+          "sql": "CREATE INDEX idx_vault_media_index_profile_saved\n    ON vault_media_index(profile_id, saved_at_unix_ms DESC)"
+        }
+      ],
+      "expectedCoreIndexes": [
+        "idx_conversations_profile",
+        "idx_messages_conv",
+        "idx_messages_conv_received",
+        "idx_vault_media_index_profile_saved"
+      ],
+      "missingCoreIndexes": [],
+      "extraIndexes": [],
+      "queryPlans": [
+        {
+          "id": "messages_by_conv",
+          "usesIndexOrSearch": true,
+          "hasScan": false,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH messages USING INDEX idx_messages_conv (profile_id=? AND conversation_id=?)"
+            }
+          ]
+        },
+        {
+          "id": "messages_by_received",
+          "usesIndexOrSearch": true,
+          "hasScan": false,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 61,
+              "detail": "SEARCH messages USING INDEX idx_messages_conv_received (profile_id=? AND conversation_id=?)"
+            }
+          ]
+        },
+        {
+          "id": "conversations_list",
+          "usesIndexOrSearch": true,
+          "hasScan": false,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH conversations USING INDEX idx_conversations_profile (profile_id=?)"
+            }
+          ]
+        },
+        {
+          "id": "tombstone_pk",
+          "usesIndexOrSearch": true,
+          "hasScan": false,
+          "plan": [
+            {
+              "id": 2,
+              "parent": 0,
+              "notused": 39,
+              "detail": "SEARCH tombstones USING COVERING INDEX sqlite_autoindex_tombstones_1 (event_id=? AND profile_id=?)"
+            }
+          ]
+        },
+        {
+          "id": "vault_media_by_saved",
+          "usesIndexOrSearch": true,
+          "hasScan": false,
+          "plan": [
+            {
+              "id": 5,
+              "parent": 0,
+              "notused": 62,
+              "detail": "SEARCH vault_media_index USING INDEX idx_vault_media_index_profile_saved (profile_id=?)"
+            }
+          ]
+        },
+        {
+          "id": "messages_fts_match",
+          "usesIndexOrSearch": false,
+          "hasScan": true,
+          "plan": [
+            {
+              "id": 3,
+              "parent": 0,
+              "notused": 132,
+              "detail": "SCAN messages_fts VIRTUAL TABLE INDEX 0:M6"
+            }
+          ]
+        }
+      ],
+      "verdict": "pass"
+    },
+    {
+      "label": "les/catalog.sqlite",
+      "path": "C:\\Users\\Administrator\\AppData\\Roaming\\app.obscur.desktop\\profiles\\default\\les\\catalog.sqlite",
+      "present": true,
+      "schemaVersion": "n/a: no such table: schema_version",
+      "tableCount": 1,
+      "tables": [
+        "les_objects"
+      ],
+      "rowCounts": {
+        "les_objects": 0
+      },
+      "indexes": [
+        {
+          "name": "idx_les_objects_profile_created",
+          "table": "les_objects",
+          "sql": "CREATE INDEX idx_les_objects_profile_created\n          ON les_objects(profile_id, created_at_unix_ms DESC)"
+        }
+      ],
+      "expectedCoreIndexes": [
+        "idx_conversations_profile",
+        "idx_messages_conv",
+        "idx_messages_conv_received",
+        "idx_vault_media_index_profile_saved"
+      ],
+      "missingCoreIndexes": [
+        "idx_conversations_profile",
+        "idx_messages_conv",
+        "idx_messages_conv_received",
+        "idx_vault_media_index_profile_saved"
+      ],
+      "extraIndexes": [
+        "idx_les_objects_profile_created"
+      ],
+      "queryPlans": [
+        {
+          "id": "messages_by_conv",
+          "error": "no such table: messages"
+        },
+        {
+          "id": "messages_by_received",
+          "error": "no such table: messages"
+        },
+        {
+          "id": "conversations_list",
+          "error": "no such table: conversations"
+        },
+        {
+          "id": "tombstone_pk",
+          "error": "no such table: tombstones"
+        }
+      ],
+      "verdict": "review"
+    }
+  ]
+}

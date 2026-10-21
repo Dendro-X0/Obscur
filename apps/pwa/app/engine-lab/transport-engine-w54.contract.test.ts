@@ -29,7 +29,7 @@ const W53_CHECKLIST_STEPS = [
 describe("transport-engine w54 — smoke evidence sign-off template charter", () => {
   it("pins sign-off template charter and template path", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
     );
     expect(charter).toContain("Smoke Evidence Sign-Off Template Charter");
     expect(charter).toContain("docs/handoffs/transport-engine-smoke-sign-off-template.md");
@@ -48,10 +48,10 @@ describe("transport-engine w54 — smoke evidence sign-off template charter", ()
 
   it("links template to W53 smoke charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
     );
     const w53 = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
     expect(charter).toContain("W53");
     expect(w53).toContain("Sign-off");

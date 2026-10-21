@@ -115,3 +115,83 @@ export const resolveCommunityStewardPolicy = (params: Readonly<{
         canDirectMemberExpel: false,
     };
 };
+
+export type StewardRoleMutationAction = "promote" | "demote";
+
+export type StewardRoleMutationReasonCode =
+    | "allowed"
+    | "not_managed_workspace"
+    | "not_steward"
+    | "target_not_member"
+    | "already_steward"
+    | "not_steward_target"
+    | "last_steward";
+
+export type StewardRoleMutationResult = Readonly<{
+    allowed: boolean;
+    nextStewardPubkeys: ReadonlyArray<PublicKeyHex>;
+    reasonCode: StewardRoleMutationReasonCode;
+}>;
+
+/**
+ * CU-UX-4: designate / remove stewards on managed workspace via descriptor list.
+ * Always keeps at least one steward when demoting.
+ */
+export const resolveStewardRoleMutation = (params: Readonly<{
+    communityMode?: CommunityMode;
+    stewardPubkeys?: ReadonlyArray<string>;
+    actorPublicKeyHex: string | null;
+    targetPublicKeyHex: string;
+    action: StewardRoleMutationAction;
+    activeMemberPubkeys: ReadonlyArray<string>;
+}>): StewardRoleMutationResult => {
+    const stewards = normalizeCommunityStewardPubkeys(params.stewardPubkeys);
+    const target = normalizePublicKeyHex(params.targetPublicKeyHex);
+    const active = new Set(
+        params.activeMemberPubkeys
+            .map((entry) => normalizePublicKeyHex(entry))
+            .filter((entry): entry is PublicKeyHex => Boolean(entry)),
+    );
+
+    if (params.communityMode !== "managed_workspace") {
+        return { allowed: false, nextStewardPubkeys: stewards, reasonCode: "not_managed_workspace" };
+    }
+
+    if (!isCommunityDesignatedSteward({
+        stewardPubkeys: stewards,
+        actorPublicKeyHex: params.actorPublicKeyHex,
+    })) {
+        return { allowed: false, nextStewardPubkeys: stewards, reasonCode: "not_steward" };
+    }
+
+    if (!target || !active.has(target)) {
+        return { allowed: false, nextStewardPubkeys: stewards, reasonCode: "target_not_member" };
+    }
+
+    const targetIsSteward = stewards.includes(target);
+
+    if (params.action === "promote") {
+        if (targetIsSteward) {
+            return { allowed: false, nextStewardPubkeys: stewards, reasonCode: "already_steward" };
+        }
+        return {
+            allowed: true,
+            nextStewardPubkeys: [...stewards, target],
+            reasonCode: "allowed",
+        };
+    }
+
+    if (!targetIsSteward) {
+        return { allowed: false, nextStewardPubkeys: stewards, reasonCode: "not_steward_target" };
+    }
+
+    if (stewards.length <= 1) {
+        return { allowed: false, nextStewardPubkeys: stewards, reasonCode: "last_steward" };
+    }
+
+    return {
+        allowed: true,
+        nextStewardPubkeys: stewards.filter((pubkey) => pubkey !== target),
+        reasonCode: "allowed",
+    };
+};

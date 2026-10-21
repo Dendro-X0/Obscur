@@ -13,10 +13,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w61 — production deletion execution harness", () => {
   it("links W60 archive preparation to W61 archive-aware contract reads", () => {
     const w60 = readFromRepo(
-      "docs/program/transport-engine-w60-standalone-legacy-mechanical-deletion-preparation.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w60-standalone-legacy-mechanical-deletion-preparation.md",
     );
     const w61 = readFromRepo(
-      "docs/program/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
     );
     expect(w60).toContain("transport-kernel-standalone-publish-legacy.archive.ts");
     expect(w61).toContain("transport-engine-standalone-legacy-contract-read.ts");
@@ -25,7 +25,7 @@ describe("transport-engine w61 — production deletion execution harness", () =>
 
   it("documents W62+ mechanical subtraction in execution charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
     );
     expect(charter).toContain("STANDALONE_LEGACY_FILES_TO_DELETE");
     expect(charter).toContain("No deletion of production");

@@ -50,10 +50,14 @@ export function VaultWriteUnlockDialog({
     setIsSubmitting(true);
     setError(null);
     try {
-      await activateNativeStorageAtRestUnlock({
+      const activated = await activateNativeStorageAtRestUnlock({
         profileId: resolveVaultProfileId(),
         passphrase: trimmed as Passphrase,
       });
+      if (!activated) {
+        setError(t("vault.localSaveUnlockRequired", COPY.unlockRequired));
+        return;
+      }
       setPassphrase("");
       await onUnlocked();
     } catch (submitError) {

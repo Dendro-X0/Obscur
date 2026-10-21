@@ -1,6 +1,6 @@
 # Obscur v2 — known limitations (presenter sheet)
 
-**Status:** Active (2026-07-04)  
+**Status:** Active (2026-08-23) · **Beta:** [v2.0.0-beta-release.md](../releases/v2.0.0-beta-release.md)  
 **Audience:** Maintainers, demo hosts, support — honest product truth after Phase 1 verification  
 **Register:** [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md) · **Scope:** [version-roadmap-scope.md](./version-roadmap-scope.md)
 
@@ -46,15 +46,30 @@
 **Status:** Open P1 — parallel read/write owners for roster projection vs coordination directory.  
 **Do not:** patch roster display as “low priority” while band is PAUSED.
 
-### Display-only / open repair rows
+### Display-only / repair rows (Phase 1 status)
 
 | Symptom | Layer | Status |
 |---------|--------|--------|
-| Sidebar preview “No messages yet” while thread shows full history | UI preview vs SQLite hydrate | **R3** — open |
-| Post cold-restart password unlock may require Import Key | Auth / keychain band | **R2** — next repair row |
+| Sidebar preview “No messages yet” while thread shows full history | UI preview vs SQLite hydrate | **R3 VERIFIED t4** — `3cf79dbe` · do not demo as open |
+| Post cold-restart password unlock / Import Key loop | Auth / keychain band | **R2 VERIFIED t4** — `1ab19204` · edge restore bands may still show Import Key — say so honestly; do not claim R2 broken |
 | ~~Sidebar “Room key missing” while send works~~ | Health hook vs send owner | **R1 VERIFIED t4** — do not demo as broken |
 | Tor preference / onion path | Gateway TI landed · Verified **INFEASIBLE** here (blocked net · no testers) | Keep Tor **OFF** for clearnet; do not demo Tor Ready |
+| Video calling / conference | **Not shipped.** 1:1 **voice call** + voice notes already shipped; missing = **usable video** (M1-L3) and **group / conference** (M2–M3). **M1-A/B/C** L1: callType · dock panes · camera fail → voice + honesty banner · optional **lab canvas** (dev only, not Gift). Do **not** claim video usable until L3 AV. | Demo voice + Gift GIFs for prior features; roadmap [pre-b2b-capability-and-media-roadmap-2026-10.md](./pre-b2b-capability-and-media-roadmap-2026-10.md) · camera-less eng [m1-video-camera-less-engineering-design-2026-10.md](../../specs/backend/m1-video-camera-less-engineering-design-2026-10.md) |
+| Interest ↔ Team / host convert | CU-UX-2b…6 **L1** shipped; dual-profile L3 optional. Host change does **not** migrate history. Quiet Team = honesty, not enterprise directory / delete-for-all. | Demo create + Manage Mode & hosting; [cut plan](./v2.0.0-beta-cut-plan-2026-10.md) |
 | Chat → Save to Vault | LES / Vault | Packaged soak **Pass** (2026-08-09) |
+
+**Evidence:** [obscur-runtime-issue-tracker-2026-07](../archive/program/inactive-2026-08/obscur-runtime-issue-tracker-2026-07.md) (R1–R3 VERIFIED t4) · [demo README](../assets/demo/v2.0.0/README.md) Segment 2/6. Reopen only with a **new** fail repro.
+
+### Crypto defaults (v2 beta)
+
+| Path | Default | Notes |
+|------|---------|-------|
+| Outbound DM | **NIP-17 gift wrap (NIP-44)** | NIP-04 receive-only for legacy interop |
+| Community room-key wrap | **NIP-44 (`obscur.nip44_room_key_wrap.v2`)** | V1 NIP-04 wraps still decrypt on import |
+| Portable profile export | **NIP-44 self-encrypt** | Legacy bundles without `encryptionScheme` import as NIP-04 |
+| Relay-published account backup | NIP-04 (unchanged) | Existing relay backups remain readable |
+
+**Do not claim:** full metadata invisibility, traffic-analysis resistance by default, or independent crypto audit.
 
 ---
 
@@ -82,9 +97,17 @@
 
 ## Suggested demo language
 
-- “Obscur is **privacy-first** desktop software; production web is **disabled**.”
+- “Obscur is **sovereign** desktop software — your keys, E2EE, operator infra you choose; production web is **disabled**.”
+- “Pitch **clearnet private-trust** (cell VPS · group live). Tor is **optional underlay**, not identity — leave Tor **OFF** for clearnet demos.”
+- “Do **not** say dark-web messenger / gray-market hub / onion-first GTM.”
+- “ASE warnings are **on-device** — not cloud content police.”
+- “**Open beta** ships NIP-17 DMs and NIP-44 room-key wraps — message bodies encrypt on your device; relays still see routing metadata.”
+- “Voice notes + 1:1 **audio** only — **no usable video** / conferencing in this beta.”
+- “Groups: **Interest** or **Team** — Quiet hosts need honesty ack; private VPS/DC for stronger team claims. Switching host does not migrate chat history.”
 - “Group messaging works on **managed workspace + relay** stacks we verify in dev — roster display between profiles may disagree (known, accepted).”
-- “Native message history **survives restart** on desktop SQLite paths we tested; account **restore** and **delete-for-me** have documented limits.”
+- “Native message history **survives restart** on desktop SQLite paths we tested; cold unlock is **Verified** on those paths — account **restore** and **delete-for-me** still have documented limits (ACC-01).”
+
+**PB1-D checklist:** [pb1d-positioning-honesty-checklist-2026-10.md](./pb1d-positioning-honesty-checklist-2026-10.md)
 
 ---
 
@@ -94,5 +117,6 @@
 |-----|------|
 | [obscur-native-sqlite-policy.md](./obscur-native-sqlite-policy.md) | Native persistence owners |
 | [obscur-v2-roadmap-2026-07.md](./obscur-v2-roadmap-2026-07.md) | Phase queue (runtime repair band) |
+| [v2.0.0-beta-release.md](../releases/v2.0.0-beta-release.md) | Open beta release notes |
 | [obscur-v2-phase2-docs-charter.md](../archive/program/inactive-2026-08/obscur-v2-phase2-docs-charter.md) | Phase 2 doc tasks (**EXIT**) |
 | [obscur-v2-install-build-guide.md](./obscur-v2-install-build-guide.md) | Build / install |

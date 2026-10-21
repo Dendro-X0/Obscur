@@ -28,6 +28,7 @@ import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
 import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm-orchestrator";
 import { publishDmNostrEvent, resolveCommunityInviteDmPublishRelayUrls } from "@/app/features/messaging/services/publish-dm-nostr-event";
+import { useEscapeDismissLayer } from "@/app/lib/use-escape-dismiss-layer";
 
 interface InviteMemberDialogProps {
     isOpen: boolean;
@@ -55,6 +56,7 @@ export function InviteMemberDialog({
     creatorPubkey
 }: InviteMemberDialogProps) {
     const { t } = useTranslation();
+    useEscapeDismissLayer({ enabled: isOpen, onClose });
     const { relayPool: pool, enabledRelayUrls } = useRelay();
     const poolRef = useRelayPoolRef(pool);
     const { state: identityState } = useIdentity();
@@ -188,6 +190,8 @@ export function InviteMemberDialog({
 
     return (
         <div
+            data-escape-layer="open"
+            data-testid="invite-member-dialog-layer"
             className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
             onClick={onClose}
         >
@@ -245,8 +249,12 @@ export function InviteMemberDialog({
                                             </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="text-white font-black text-sm">{user.displayName || user.name || 'Unknown'}</p>
-                                            <p className="text-zinc-600 text-[10px] uppercase tracking-[0.14em] mt-0.5">Identity hidden</p>
+                                            <p className="text-white font-black text-sm">
+                                                {user.displayName || user.name || `${user.pubkey.slice(0, 8)}…${user.pubkey.slice(-8)}`}
+                                            </p>
+                                            <p className="text-zinc-500 text-[10px] tracking-wider mt-0.5 font-mono">
+                                                {`${user.pubkey.slice(0, 8)}…${user.pubkey.slice(-8)}`}
+                                            </p>
                                         </div>
                                     </div>
                                     <Button

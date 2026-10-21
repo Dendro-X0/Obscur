@@ -27,6 +27,7 @@ Nothing in this directory is a commitment to ship on a date. It is **inspiration
 | 00 | [Charter & vision](./00-charter-vision.md) | Goals, trust model, three layers, Nostr as optional adapter |
 | 01 | [Kernel & transport sketch](./01-kernel-transport-sketch.md) | Gradual kernel, ports, what to extract from the monorepo |
 | 02 | [Assets harvested from Obscur](./02-assets-from-obscur.md) | Map existing packages/features to future layers |
+| — | [API extensions plan](./api-extensions-plan.md) | Keep/park/kill for public-API-inspired adapters (does not gate S2) |
 
 **Application architecture (current + bridge):** [../architecture/product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md)
 

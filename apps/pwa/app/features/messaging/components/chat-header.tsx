@@ -11,7 +11,7 @@ import { getNotificationTargetEnabled, setNotificationTargetEnabled, type Notifi
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { subscribeNotificationTargetPreferenceChangedDual } from "@/app/features/profiles/services/subscribe-notification-target-preference-changed-dual";
-import { Bell, BellOff, Copy, PhoneCall } from "lucide-react";
+import { Bell, BellOff, Copy, PhoneCall, Video } from "lucide-react";
 import type { ContactTrustSensitivity } from "@/app/features/dm-kernel/contact-trust-sensitivity";
 import { DmKernelTrustSensitivityStrip } from "@/app/features/dm-kernel/components/dm-kernel-trust-sensitivity-strip";
 
@@ -47,6 +47,8 @@ export interface ChatHeaderProps {
     onSendVoiceCallInvite?: () => void;
     canSendVoiceCallInvite?: boolean;
     isSendingVoiceCallInvite?: boolean;
+    onSendVideoCallInvite?: () => void;
+    canSendVideoCallInvite?: boolean;
     activeVoiceCallState?: Readonly<{
         roomId: string;
         peerPubkey: string;
@@ -67,7 +69,7 @@ export interface ChatHeaderProps {
     /** DM-only defense sensitivity — rendered inside the header block above the chat. */
     contactTrustSensitivity?: ChatHeaderContactTrustSensitivity;
 }
-export function ChatHeader({ conversation, groupMemberCount, groupMemberCountSource, groupMemberCountFetchedAtMs, groupOnlineMemberCount, groupLastActivityAtMs, isOnline = false, interactionStatus, nowMs, onCopyPubkey, onOpenMedia, onToggleConversationNotifications, onOpenInfo, onOpenProfile, onSendVoiceCallInvite, canSendVoiceCallInvite = true, isSendingVoiceCallInvite = false, activeVoiceCallState, voiceCallStatus, onLeaveVoiceCall, onAcceptIncomingVoiceCall, onDeclineIncomingVoiceCall, contactTrustSensitivity, }: ChatHeaderProps) {
+export function ChatHeader({ conversation, groupMemberCount, groupMemberCountSource, groupMemberCountFetchedAtMs, groupOnlineMemberCount, groupLastActivityAtMs, isOnline = false, interactionStatus, nowMs, onCopyPubkey, onOpenMedia, onToggleConversationNotifications, onOpenInfo, onOpenProfile, onSendVoiceCallInvite, canSendVoiceCallInvite = true, isSendingVoiceCallInvite = false, onSendVideoCallInvite, canSendVideoCallInvite = true, activeVoiceCallState, voiceCallStatus, onLeaveVoiceCall, onAcceptIncomingVoiceCall, onDeclineIncomingVoiceCall, contactTrustSensitivity, }: ChatHeaderProps) {
     const { t } = useTranslation();
     const metadata = useResolvedProfileMetadata(conversation.kind === "dm" ? conversation.pubkey : null);
     const optionalProfileBus = useOptionalProfileMessageBus();
@@ -256,11 +258,33 @@ export function ChatHeader({ conversation, groupMemberCount, groupMemberCountSou
                       </Button>
                     ) : null}
                     {conversation.kind === "dm" ? (
-                      <Button type="button" variant="secondary" className={headerActionButtonClass} onClick={onSendVoiceCallInvite} disabled={!onSendVoiceCallInvite || !canSendVoiceCallInvite || isSendingVoiceCallInvite || isDeletedRecipient}>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className={headerActionButtonClass}
+                        onClick={onSendVoiceCallInvite}
+                        disabled={!onSendVoiceCallInvite || !canSendVoiceCallInvite || isSendingVoiceCallInvite || isDeletedRecipient}
+                        data-testid="chat-header-voice-call"
+                      >
                         <PhoneCall className="mr-1 h-3.5 w-3.5"/>
                         {isSendingVoiceCallInvite
                           ? t("common.sending")
                           : (isDeletedRecipient ? t("messaging.voiceCallUnavailable") : t("messaging.voiceCall"))}
+                      </Button>
+                    ) : null}
+                    {conversation.kind === "dm" ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className={headerActionButtonClass}
+                        onClick={onSendVideoCallInvite}
+                        disabled={!onSendVideoCallInvite || !canSendVideoCallInvite || isSendingVoiceCallInvite || isDeletedRecipient}
+                        data-testid="chat-header-video-call"
+                      >
+                        <Video className="mr-1 h-3.5 w-3.5"/>
+                        {isSendingVoiceCallInvite
+                          ? t("common.sending")
+                          : (isDeletedRecipient ? t("messaging.videoCallUnavailable") : t("messaging.videoCall"))}
                       </Button>
                     ) : null}
                     <Button type="button" variant="secondary" className={headerActionButtonClass} onClick={onOpenMedia}>

@@ -1605,6 +1605,10 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
     const { t } = useTranslation();
     const {
         pendingLinkUrl,
+        pendingLinkPhase,
+        reputationResult,
+        reputationChecking,
+        reputationProviderLabel,
         cancelPendingLink,
         confirmPendingLink,
         handleAnchorClick,
@@ -1836,8 +1840,12 @@ function MessageAttachmentLayout({ attachments, isOutgoing, localAttachmentUrlSe
             />
             <LinkOpenConfirmDialog
                 url={pendingLinkUrl}
+                phase={pendingLinkPhase}
+                reputationResult={reputationResult}
+                reputationChecking={reputationChecking}
+                providerLabel={reputationProviderLabel}
                 onClose={cancelPendingLink}
-                onConfirm={() => confirmPendingLink()}
+                onConfirm={() => { void confirmPendingLink(); }}
             />
         </div>);
 }

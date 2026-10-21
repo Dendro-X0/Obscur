@@ -43,31 +43,50 @@ const definePeerConnection = (options: Readonly<{ installed: boolean; hasAddTrac
   });
 };
 
-const defineRtpSenderCapabilities = (
-  mimeTypes: ReadonlyArray<string> | null,
-): void => {
-  if (mimeTypes === null) {
+const defineRtpSenderCapabilities = (params: Readonly<{
+  audio?: ReadonlyArray<string> | null;
+  video?: ReadonlyArray<string> | null;
+}>): void => {
+  if (params.audio === null && params.video === null) {
     Object.defineProperty(window, "RTCRtpSender", {
       configurable: true,
       value: undefined,
     });
     return;
   }
-  const codecMimeTypes = mimeTypes;
+  const audioMimeTypes = params.audio ?? [];
+  const videoMimeTypes = params.video ?? [];
   class FakeRtpSender {
     static getCapabilities = (kind: string): RTCRtpCapabilities | null => {
-      if (kind !== "audio") {
-        return null;
+      if (kind === "audio") {
+        if (params.audio === null) {
+          return null;
+        }
+        return {
+          codecs: audioMimeTypes.map((mimeType) => ({
+            mimeType,
+            clockRate: 48_000,
+            channels: 2,
+            sdpFmtpLine: "",
+          })),
+          headerExtensions: [],
+        };
       }
-      return {
-        codecs: codecMimeTypes.map((mimeType) => ({
-          mimeType,
-          clockRate: 48_000,
-          channels: 2,
-          sdpFmtpLine: "",
-        })),
-        headerExtensions: [],
-      };
+      if (kind === "video") {
+        if (params.video === null) {
+          return null;
+        }
+        return {
+          codecs: videoMimeTypes.map((mimeType) => ({
+            mimeType,
+            clockRate: 90_000,
+            channels: 1,
+            sdpFmtpLine: "",
+          })),
+          headerExtensions: [],
+        };
+      }
+      return null;
     };
   }
   Object.defineProperty(window, "RTCRtpSender", {
@@ -81,7 +100,10 @@ describe("realtime-voice-capability", () => {
     defineSecureContext(true);
     defineMediaDevices(true);
     definePeerConnection({ installed: true, hasAddTrack: true });
-    defineRtpSenderCapabilities(["audio/opus", "audio/PCMU"]);
+    defineRtpSenderCapabilities({
+      audio: ["audio/opus", "audio/PCMU"],
+      video: ["video/VP8", "video/H264"],
+    });
   });
 
   it("returns insecure_context when runtime is not secure", () => {
@@ -93,6 +115,7 @@ describe("realtime-voice-capability", () => {
       supported: false,
       reasonCode: "insecure_context",
       isSecureContext: false,
+      supportsVideo: false,
     }));
   });
 
@@ -105,6 +128,7 @@ describe("realtime-voice-capability", () => {
       supported: false,
       reasonCode: "media_devices_unavailable",
       hasMediaDevices: false,
+      supportsVideo: false,
     }));
   });
 
@@ -117,6 +141,7 @@ describe("realtime-voice-capability", () => {
       supported: false,
       reasonCode: "webrtc_unavailable",
       hasPeerConnection: false,
+      supportsVideo: false,
     }));
   });
 
@@ -130,11 +155,15 @@ describe("realtime-voice-capability", () => {
       reasonCode: "webrtc_add_track_unavailable",
       hasPeerConnection: true,
       hasAddTrack: false,
+      supportsVideo: false,
     }));
   });
 
   it("reports missing opus capability when codecs do not include opus", () => {
-    defineRtpSenderCapabilities(["audio/PCMU"]);
+    defineRtpSenderCapabilities({
+      audio: ["audio/PCMU"],
+      video: ["video/VP8"],
+    });
 
     const capability = getRealtimeVoiceCapability();
 
@@ -142,12 +171,12 @@ describe("realtime-voice-capability", () => {
       supported: true,
       reasonCode: "supported",
       opusCapabilityStatus: "missing",
+      videoCapabilityStatus: "available",
+      supportsVideo: true,
     }));
   });
 
-  it("returns supported capability when runtime has secure WebRTC audio path", () => {
-    defineRtpSenderCapabilities(["audio/opus", "audio/PCMU"]);
-
+  it("M1-A: reports supportsVideo when video codecs are available", () => {
     const capability = getRealtimeVoiceCapability();
 
     expect(capability).toEqual(expect.objectContaining({
@@ -158,6 +187,23 @@ describe("realtime-voice-capability", () => {
       hasPeerConnection: true,
       hasAddTrack: true,
       opusCapabilityStatus: "available",
+      videoCapabilityStatus: "available",
+      supportsVideo: true,
+    }));
+  });
+
+  it("M1-A: supportsVideo false when video codecs are explicitly missing", () => {
+    defineRtpSenderCapabilities({
+      audio: ["audio/opus"],
+      video: ["application/octet-stream"],
+    });
+
+    const capability = getRealtimeVoiceCapability();
+
+    expect(capability).toEqual(expect.objectContaining({
+      supported: true,
+      videoCapabilityStatus: "missing",
+      supportsVideo: false,
     }));
   });
 });

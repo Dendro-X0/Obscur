@@ -36,6 +36,12 @@ pub struct TorStatusSnapshot {
     pub proxy_url: String,
     /// R4: true when obscur-tor-gateway answered on loopback.
     pub gateway_reachable: bool,
+    /// Latest gateway detail (bootstrap progress / Stuck at / TLS_ERROR).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// Parsed Bootstrapped N% or Stuck at N% while still Starting — never implies Ready.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bootstrap_percent: Option<u8>,
 }
 
 /// Tor process state
@@ -48,4 +54,7 @@ pub struct TorState {
     pub runtime_status: Mutex<TorRuntimeStatus>,
     pub using_external_instance: Mutex<bool>,
     pub logs: Mutex<Vec<String>>,
+    /// Last gateway detail string for UI honesty while Warming/Stuck.
+    pub last_gateway_detail: Mutex<Option<String>>,
+    pub last_bootstrap_percent: Mutex<Option<u8>>,
 }

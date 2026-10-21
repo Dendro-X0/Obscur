@@ -23,13 +23,14 @@ describe("conduit-mesh-c13 — Tor SOCKS drivers", () => {
     expect(design).toMatch(/mesh_http_fetch_via_socks/);
   });
 
-  it("desktop registers mesh_http_fetch_via_socks", () => {
+  it("desktop registers mesh_http_fetch_via_socks via gateway (R4 — UI never dials SOCKS)", () => {
     const system = readFileSync(
       join(REPO_ROOT, "apps/desktop/src-tauri/src/commands/system.rs"),
       "utf8",
     );
     expect(system).toMatch(/mesh_http_fetch_via_socks/);
-    expect(system).toMatch(/socks5h/);
+    expect(system).toMatch(/UI_PROCESS_MAY_DIAL_VIA_SOCKS/);
+    expect(system).toMatch(/tor_gateway_client::http_fetch/);
   });
 
   it("pool hook wires socksFetch host port", () => {

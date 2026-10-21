@@ -48,7 +48,10 @@ import {
 import { isAuthKernelBootRestoreEnabled } from "@/app/features/auth-kernel/auth-kernel-policy";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
-import { resolveActivePrivateKeyHex } from "@/app/features/auth/services/resolve-active-private-key-hex";
+import {
+  clearResolvedActivePrivateKeyCache,
+  resolveActivePrivateKeyHex,
+} from "@/app/features/auth/services/resolve-active-private-key-hex";
 import { SessionApi } from "@/app/features/auth/services/session-api";
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
 import {
@@ -339,11 +342,23 @@ const clearNativeSecureSessionBestEffort = async (): Promise<void> => {
 const syncVaultEncryptionSessionBestEffort = async (params?: Readonly<{
   profileId?: string;
   passphrase?: Passphrase;
-}>): Promise<void> => {
+  /** When true (passphrase unlock), native SQLite reopen failure is fatal to unlock. */
+  requireNativeOpen?: boolean;
+}>): Promise<boolean> => {
   try {
-    await syncNativeVaultEncryptionSessionAfterIdentityUnlock(params);
+    const opened = await syncNativeVaultEncryptionSessionAfterIdentityUnlock(params);
+    if (params?.requireNativeOpen && params.passphrase?.trim() && !opened) {
+      throw new Error(
+        "Local database is locked. Unlock this profile (device password or Import Key), then retry.",
+      );
+    }
+    return opened;
   } catch (error) {
+    if (params?.requireNativeOpen) {
+      throw error;
+    }
     console.warn("[Identity] Vault encryption session sync failed (session remains unlocked):", error);
+    return false;
   }
 };
 
@@ -1060,6 +1075,7 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
     await syncVaultEncryptionSessionBestEffort({
       profileId: resolveIdentityScopeProfileId(),
       passphrase: params.passphrase,
+      requireNativeOpen: true,
     });
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unlock failed";
@@ -1079,7 +1095,10 @@ const unlockIdentityAction = async (params: Readonly<{ passphrase: Passphrase; s
       throw error;
     }
     // Failed unlock attempts should keep auth flow recoverable instead of escalating runtime to fatal.
-    setIdentityState(createLockedState(priorStoredIdentity));
+    // Soft-lock slice 3: if identity was already unlocked and only SQLite reopen failed, keep unlocked.
+    if (identityState.status !== "unlocked") {
+      setIdentityState(createLockedState(priorStoredIdentity));
+    }
     throw error;
   } finally {
     endIdentityMutation();
@@ -1201,6 +1220,7 @@ const lockIdentityAction = (): void => {
   void finalizeNativeStorageAtRestLock();
   const profileId = resolveIdentityScopeProfileId();
   void clearInMemoryNativeSessionBestEffort();
+  clearResolvedActivePrivateKeyCache();
   markAuthKernelManualLock(profileId);
   setIdentityState(createLockedState(identityState.stored));
 };
@@ -1216,6 +1236,7 @@ const forgetIdentityAction = async (): Promise<void> => {
     clearNativeSessionPersistError(profileId);
     await clearStoredIdentity();
     clearPresenceSelfSession(publicKeyHex);
+    clearResolvedActivePrivateKeyCache();
     setIdentityState(createLockedState(undefined));
   } catch (error: unknown) {
     const message: string = error instanceof Error ? error.message : "Unknown error";

@@ -29,7 +29,7 @@ const createPwaFilesystem = (): StandaloneLegacySubtractionDryRunFilesystem => (
 describe("transport-engine w62 — standalone legacy mechanical production subtraction", () => {
   it("pins mechanical production subtraction charter with subtracted port module", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
     );
     expect(charter).toContain("Mechanical Production Subtraction");
     expect(charter).toContain("relay-standalone-publish-port-subtracted.ts");

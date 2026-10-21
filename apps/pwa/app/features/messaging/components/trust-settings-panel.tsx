@@ -15,8 +15,32 @@ import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
 import { UserAvatar } from "../../profile/components/user-avatar";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
-const PRIVATE_PEER_LABEL = "Unknown contact";
-const PRIVATE_PEER_IDENTITY_HINT = "Identity hidden";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { resolvedIdentityCache } from "@/app/features/search/services/resolved-identity-cache";
+import {
+    formatInviteConnectionPubkeyPreview,
+    isInviteConnectionHumanDisplayName,
+} from "@/app/features/groups/components/invite-connection-display";
+import { resolveInviteConnectionPresentation } from "@/app/features/groups/components/resolve-invite-connection-presentation";
+
+const resolveTrustedPeerLabel = (pk: string, metadataDisplayName?: string | null): Readonly<{
+    label: string;
+    subtitle: string;
+}> => {
+    const cached = discoveryCache.getProfile(pk);
+    const resolved = resolvedIdentityCache.getByPubkey(pk);
+    const presentation = resolveInviteConnectionPresentation({
+        pubkey: pk,
+        metadataDisplayName,
+        cachedDisplayName: cached?.displayName || cached?.name,
+        resolvedDisplayName: resolved?.display,
+    });
+    const hasHuman = isInviteConnectionHumanDisplayName(presentation.displayName, pk);
+    return {
+        label: presentation.displayName,
+        subtitle: hasHuman ? formatInviteConnectionPubkeyPreview(pk) : "Trusted connection",
+    };
+};
 export function TrustSettingsPanel() {
     const { t } = useTranslation();
     const compact = useMobileCompactLayout();
@@ -157,16 +181,17 @@ function AcceptedPeerRow({ pk, t, onMute, onUntrust }: {
     onMute: () => void;
     onUntrust: () => void;
 }) {
-    const metadata = useResolvedProfileMetadata(pk);
+    const metadata = useResolvedProfileMetadata(pk, { live: true });
+    const peerLabel = resolveTrustedPeerLabel(pk, metadata?.displayName);
     return (<div className="group flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
                 <UserAvatar pubkey={pk} size="md" showProfileOnClick={true}/>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-zinc-900 dark:text-zinc-100">
-                        {metadata?.displayName || PRIVATE_PEER_LABEL}
+                        {peerLabel.label}
                     </p>
-                    <p className="text-[10px] uppercase tracking-[0.14em] truncate text-zinc-500">
-                        {PRIVATE_PEER_IDENTITY_HINT}
+                    <p className="text-[10px] tracking-[0.08em] truncate text-zinc-500">
+                        {peerLabel.subtitle}
                     </p>
                 </div>
             </div>
@@ -185,16 +210,17 @@ function MutedPeerRow({ pk, t, onUnmute }: {
     t: any;
     onUnmute: () => void;
 }) {
-    const metadata = useResolvedProfileMetadata(pk);
+    const metadata = useResolvedProfileMetadata(pk, { live: true });
+    const peerLabel = resolveTrustedPeerLabel(pk, metadata?.displayName);
     return (<div className="flex items-center justify-between p-3 rounded-xl border border-zinc-100 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-950/40 opacity-70">
             <div className="flex items-center gap-3 min-w-0">
                 <UserAvatar pubkey={pk} size="md" showProfileOnClick={true} className="grayscale"/>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-zinc-500">
-                        {metadata?.displayName || PRIVATE_PEER_LABEL}
+                        {peerLabel.label}
                     </p>
-                    <p className="text-[10px] uppercase tracking-[0.14em] truncate text-zinc-400">
-                        {PRIVATE_PEER_IDENTITY_HINT}
+                    <p className="text-[10px] tracking-[0.08em] truncate text-zinc-400">
+                        {peerLabel.subtitle}
                     </p>
                 </div>
             </div>
@@ -210,7 +236,8 @@ function BlockedPeerRow({ pk, t, onUnblock }: {
     t: any;
     onUnblock: () => void;
 }) {
-    const metadata = useResolvedProfileMetadata(pk);
+    const metadata = useResolvedProfileMetadata(pk, { live: true });
+    const peerLabel = resolveTrustedPeerLabel(pk, metadata?.displayName);
     return (<div className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-950/10">
             <div className="flex items-center gap-3 min-w-0">
                 <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
@@ -218,10 +245,10 @@ function BlockedPeerRow({ pk, t, onUnblock }: {
                 </div>
                 <div className="min-w-0">
                     <p className="text-sm font-bold truncate text-red-700 dark:text-red-400">
-                        {metadata?.displayName || PRIVATE_PEER_LABEL}
+                        {peerLabel.label}
                     </p>
-                    <p className="text-[10px] uppercase tracking-[0.14em] truncate text-red-700/50 dark:text-red-400/50">
-                        {PRIVATE_PEER_IDENTITY_HINT}
+                    <p className="text-[10px] tracking-[0.08em] truncate text-red-700/50 dark:text-red-400/50">
+                        {peerLabel.subtitle}
                     </p>
                 </div>
             </div>

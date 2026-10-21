@@ -20,6 +20,7 @@ const healthMocks = vi.hoisted(() => ({
   recordConnectionSuccess: vi.fn(),
   recordConnectionFailure: vi.fn(),
   recordLatency: vi.fn(),
+  getAllMetrics: vi.fn(() => new Map()),
 }));
 
 vi.mock("./relay-native-adapter", () => ({

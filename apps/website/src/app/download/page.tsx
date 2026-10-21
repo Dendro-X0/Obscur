@@ -149,9 +149,11 @@ export default async function DownloadPage() {
             {site.currentVersion}
           </a>
           <ul className="hero-points hero-points--compact">
-            <li>End-to-end encrypted messaging with local-first storage.</li>
+            <li>Sovereign path: your keys, end-to-end encryption, and operator infra you choose — not a hosted landlord inbox.</li>
+            <li>End-to-end encrypted messaging — NIP-17 DMs and sealed group room keys — with local-first storage.</li>
+            <li>Relays carry ciphertext only; routing metadata is still visible on public relays.</li>
             <li>Desktop + Android APK in the release manifest — verify checksums before install.</li>
-            <li>No cloud account required; identity stays on your device.</li>
+            <li>No cloud account required; identity stays on your device. Tor routing is optional underlay, not the product pitch.</li>
           </ul>
         </aside>
       </section>

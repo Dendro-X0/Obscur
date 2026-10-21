@@ -55,6 +55,7 @@ vi.mock("@/app/features/les/ui/use-les-vault-media", () => ({
     isLoading: false,
     error: null,
     refresh: vi.fn(),
+    ensurePreview: vi.fn(async () => true),
     downloadToLocalPath: vi.fn(async () => true),
     deleteLocalCopy: vi.fn(async () => undefined),
     openLocalFileLocation: vi.fn(async () => true),

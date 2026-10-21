@@ -326,8 +326,10 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
 
   const [processedEventIds] = useState<Set<string>>(() => new Set());
 
-  const persistChange = useCallback((next: StoredRequestsInbox) => {
-    if (!shouldWriteLegacyContacts) {
+  const persistChange = useCallback((next: StoredRequestsInbox, options?: Readonly<{
+    force?: boolean;
+  }>) => {
+    if (!shouldWriteLegacyContacts && !options?.force) {
       return;
     }
     const pk = publicKeyHexRef.current;
@@ -624,8 +626,15 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
       }
 
       const next = { items: nextItems };
-      if (shouldWriteLegacyContacts) {
-        persistChange(next);
+      // Terminal handshake statuses must survive restart even when projection is
+      // the preferred read path — otherwise Accept looks undone after reboot.
+      const isTerminalHandshake = (
+        p.status === "accepted"
+        || p.status === "declined"
+        || p.status === "canceled"
+      );
+      if (shouldWriteLegacyContacts || isTerminalHandshake) {
+        persistChange(next, { force: isTerminalHandshake && !shouldWriteLegacyContacts });
       }
       emitAccountSyncMutation("requests_inbox_status_changed");
       return next;
@@ -646,6 +655,36 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         const projected = byPeer.get(item.peerPublicKeyHex);
         if (!projected) {
           byPeer.set(item.peerPublicKeyHex, item);
+          return;
+        }
+        // Accepted is sticky — never let a stale pending projection row undo a
+        // local accept that survived in legacy chat-state.
+        if (item.status === "accepted" && projected.status !== "accepted") {
+          byPeer.set(item.peerPublicKeyHex, {
+            ...projected,
+            ...item,
+            status: "accepted",
+            unreadCount: 0,
+            lastReceivedAtUnixSeconds: Math.max(
+              projected.lastReceivedAtUnixSeconds,
+              item.lastReceivedAtUnixSeconds,
+            ),
+            eventId: item.eventId ?? projected.eventId,
+          });
+          return;
+        }
+        if (projected.status === "accepted" && item.status !== "accepted") {
+          byPeer.set(item.peerPublicKeyHex, {
+            ...item,
+            ...projected,
+            status: "accepted",
+            unreadCount: 0,
+            lastReceivedAtUnixSeconds: Math.max(
+              projected.lastReceivedAtUnixSeconds,
+              item.lastReceivedAtUnixSeconds,
+            ),
+            eventId: projected.eventId ?? item.eventId,
+          });
           return;
         }
         const legacyIsOutgoingOpen = item.isOutgoing && (

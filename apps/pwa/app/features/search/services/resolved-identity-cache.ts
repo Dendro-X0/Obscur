@@ -43,14 +43,19 @@ const writeState = (state: CacheState): void => {
 const upsert = (identity: ResolvedIdentity): void => {
   const state = readState();
   const now = Date.now();
-  const existing = state.entries.filter((entry) => entry.pubkey !== identity.pubkey);
-  const next = [{ ...identity, updatedAtUnixMs: now }, ...existing].slice(0, MAX_ENTRIES);
+  const pubkey = identity.pubkey.trim().toLowerCase();
+  const existing = state.entries.filter(
+    (entry) => entry.pubkey.trim().toLowerCase() !== pubkey,
+  );
+  const next = [{ ...identity, pubkey, updatedAtUnixMs: now }, ...existing].slice(0, MAX_ENTRIES);
   writeState({ version: 1, entries: next });
 };
 
 const getByPubkey = (pubkey: string): ResolvedIdentity | null => {
+  const target = pubkey.trim().toLowerCase();
+  if (!target) return null;
   const state = readState();
-  const matched = state.entries.find((entry) => entry.pubkey === pubkey);
+  const matched = state.entries.find((entry) => entry.pubkey.trim().toLowerCase() === target);
   if (!matched) return null;
   return {
     pubkey: matched.pubkey,

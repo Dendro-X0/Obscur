@@ -13,10 +13,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w68 — prep band closure harness", () => {
   it("links W67 B5 exit to W68 prep band closure", () => {
     const w67 = readFromRepo(
-      "docs/program/transport-engine-w67-standalone-legacy-b5-exit-verification.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w67-standalone-legacy-b5-exit-verification.md",
     );
     const w68 = readFromRepo(
-      "docs/program/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md",
     );
     expect(w67).toContain("readyForB5ExitVerification");
     expect(w68).toContain("prepBandComplete");
@@ -25,7 +25,7 @@ describe("transport-engine w68 — prep band closure harness", () => {
 
   it("documents maintainer-only execution after prep band closure", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md",
     );
     expect(charter).toContain("execute-transport-standalone-legacy-subtraction.mjs");
     expect(charter).toContain("PAUSED");

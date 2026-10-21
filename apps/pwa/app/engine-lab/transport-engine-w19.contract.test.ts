@@ -16,7 +16,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w19 — host publish parity verification charter", () => {
   it("pins charter for parity verification before wiring", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w19-host-publish-parity-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w19-host-publish-parity-charter.md");
     expect(charter).toContain("Parity definition");
     expect(charter).toContain("Non-goals / forbidden drift");
     expect(charter).toContain("Do **not** add a Rust implementation that actually sends relay messages.");
@@ -24,7 +24,7 @@ describe("transport-engine w19 — host publish parity verification charter", ()
   });
 
   it("pins shared publish-outcome mapper as semantic owner", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w19-host-publish-parity-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w19-host-publish-parity-charter.md");
     expect(charter).toContain("publish-outcome-mapper.ts");
     expect(charter).toContain("mapLegacyPublishResultToRelayPublishResult");
 
@@ -35,7 +35,7 @@ describe("transport-engine w19 — host publish parity verification charter", ()
   });
 
   it("pins canonical runtime owner as transport-kernel standalone publish", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w19-host-publish-parity-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w19-host-publish-parity-charter.md");
     expect(charter).toContain("transport-kernel-standalone-publish.ts");
     expect(charter).toContain("relay-standalone-publish-port.ts");
 

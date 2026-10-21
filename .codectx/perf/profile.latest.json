@@ -31,13 +31,13 @@
       "stack": null
     }
   ],
-  "generatedAt": "2026-07-05T05:51:34.829494+00:00",
+  "generatedAt": "2026-10-14T15:43:17.932275700+00:00",
   "recommendedDefaults": {
     "appRoot": "apps/website",
     "exploreScope": "monorepo-critical-path",
     "operationalMode": "monorepo-audit"
   },
-  "scanSnapshotHash": "sha256:1a8e3cb6c71a027c2f2b8e32b504b0e1d2865ce853673ea8ab72a8dee6e62969",
+  "scanSnapshotHash": "sha256:ac300378ac9921f4f1fd948c8b88606f7aecebd10321989674cbe8aa397d3e28",
   "schema": "perf.profile@1.0.0",
   "suggestedOperationalModes": [
     {
@@ -59,8 +59,9 @@
       ],
       "crateCount": 0,
       "crateRoots": [],
-      "libCount": 23,
+      "libCount": 27,
       "libRoots": [
+        "apps",
         "packages"
       ],
       "workspaceMarkers": [
@@ -68,10 +69,22 @@
         "package.json"
       ]
     },
-    "confidence": 0.9399999976158142,
+    "confidence": 0.8999999761581421,
+    "detectEvidence": [
+      "apps/* package.json members",
+      "bind `apps/website`"
+    ],
+    "detectHypothesis": "legacy-apps",
+    "doesNotProve": [
+      "Soft L3 Fixed",
+      "Obscur Fixed",
+      "every repository layout"
+    ],
     "previewScopedPackages": [
       "apps/coordination",
+      "apps/desktop/src-tauri",
       "apps/pwa",
+      "apps/relay-gateway",
       "apps/website",
       "packages/db",
       "packages/dweb-auth",
@@ -87,19 +100,21 @@
       "packages/dweb-transport-coordination",
       "packages/dweb-transport-nostr",
       "packages/dweb-transport-team-relay",
+      "packages/libobscur",
       "packages/obscur-auth-engine",
       "packages/obscur-conduit-mesh",
       "packages/obscur-conduit-mesh-contracts",
       "packages/obscur-dm-engine",
       "packages/obscur-engine-contracts",
       "packages/obscur-engine-host",
+      "packages/obscur-persistence-engine",
       "packages/obscur-transport-engine",
       "packages/obscur-workspace-engine",
       "packages/ui-kit"
     ],
     "primaryStack": "tauri",
-    "projectFamily": "node-monorepo",
-    "projectTypeLabel": "Node monorepo · tauri · pnpm",
+    "projectFamily": "polyglot",
+    "projectTypeLabel": "Polyglot repo · tauri + Rust",
     "recommendedAppRoot": "apps/website",
     "recommendedExploreScope": "monorepo-critical-path",
     "rootMarkers": [
@@ -119,6 +134,16 @@
         "signal": "pnpm workspace"
       },
       {
+        "kind": "manifest",
+        "path": "Cargo.toml",
+        "signal": "Rust workspace manifest"
+      },
+      {
+        "kind": "lockfile",
+        "path": "Cargo.lock",
+        "signal": "Rust dependency lock"
+      },
+      {
         "kind": "framework",
         "path": "next.config.*",
         "signal": "Next.js app router"
@@ -132,7 +157,7 @@
       "app:apps/relay-gateway",
       "app:apps/website",
       "framework:tauri",
-      "monorepo:pnpm"
+      "monorepo:pnpm+cargo"
     ],
     "setupReady": true
   }

@@ -34,6 +34,29 @@ export const readShowProfilePickerOnStartup = (): boolean => {
   return raw === "true";
 };
 
+/**
+ * Sync registry count for cold-start gates (N1d).
+ * Native isolation snapshot may still be the single default stub when keychain unlocks.
+ */
+export const readRegisteredDesktopProfileCountFromStorage = (): number => {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+  try {
+    const raw = window.localStorage.getItem("obscur.profiles.registry.v1");
+    if (!raw) {
+      return 0;
+    }
+    const parsed = JSON.parse(raw) as { version?: number; profiles?: unknown };
+    if (parsed?.version !== 1 || !Array.isArray(parsed.profiles)) {
+      return 0;
+    }
+    return parsed.profiles.length;
+  } catch {
+    return 0;
+  }
+};
+
 export const writeShowProfilePickerOnStartup = (enabled: boolean): void => {
   if (typeof window === "undefined") {
     return;

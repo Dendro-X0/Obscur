@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ROOM_KEY_WRAP_SCHEME_V1,
+  ROOM_KEY_WRAP_SCHEME_V2,
   signMembershipDelta,
   signRoomKeyWrap,
   verifyRoomKeyWrapSignature,
@@ -122,6 +123,32 @@ describe("room-key-wrap contracts", () => {
       subjectPubkey: steward,
       wrapSeq: 1,
       scheme: ROOM_KEY_WRAP_SCHEME_V1,
+      ciphertext,
+      actorPubkey: steward,
+      createdAtUnixMs,
+      signature,
+    });
+    expect(valid).toBe(true);
+  });
+
+  it("sign and verify roundtrip for nip44 scheme", async () => {
+    const createdAtUnixMs = 1_700_000_051;
+    const ciphertext = "nip44-ciphertext-payload";
+    const signature = await signRoomKeyWrap({
+      communityId: "workspace-1",
+      subjectPubkey: steward,
+      wrapSeq: 2,
+      scheme: ROOM_KEY_WRAP_SCHEME_V2,
+      ciphertext,
+      actorPubkey: steward,
+      createdAtUnixMs,
+      actorPrivateKeyHex: stewardPriv,
+    });
+    const valid = await verifyRoomKeyWrapSignature({
+      communityId: "workspace-1",
+      subjectPubkey: steward,
+      wrapSeq: 2,
+      scheme: ROOM_KEY_WRAP_SCHEME_V2,
       ciphertext,
       actorPubkey: steward,
       createdAtUnixMs,

@@ -26,7 +26,7 @@ mod desktop {
         pub created_at: u64,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct NativeSignResponse {
         pub id: String,
         pub pubkey: String,
@@ -35,6 +35,41 @@ mod desktop {
         pub tags: Vec<Vec<String>>,
         pub content: String,
         pub sig: String,
+    }
+
+    /// Presence heartbeat (30315) — return last successful sign within window (Slice 1).
+    fn take_presence_sign_coalesce(kind: u64) -> Option<NativeSignResponse> {
+        if kind != 30315 {
+            return None;
+        }
+        use std::sync::Mutex;
+        use std::time::{Duration, Instant};
+        static LAST: std::sync::OnceLock<Mutex<Option<(Instant, NativeSignResponse)>>> =
+            std::sync::OnceLock::new();
+        let Ok(guard) = LAST.get_or_init(|| Mutex::new(None)).lock() else {
+            return None;
+        };
+        let Some((at, cached)) = guard.as_ref() else {
+            return None;
+        };
+        if at.elapsed() > Duration::from_secs(25) {
+            return None;
+        }
+        crate::invoke_pressure::note_invoke("sign_kind:30315:coalesce");
+        Some(cached.clone())
+    }
+
+    fn store_presence_sign_coalesce(kind: u64, response: &NativeSignResponse) {
+        if kind != 30315 {
+            return;
+        }
+        use std::sync::Mutex;
+        use std::time::Instant;
+        static LAST: std::sync::OnceLock<Mutex<Option<(Instant, NativeSignResponse)>>> =
+            std::sync::OnceLock::new();
+        if let Ok(mut guard) = LAST.get_or_init(|| Mutex::new(None)).lock() {
+            *guard = Some((Instant::now(), response.clone()));
+        }
     }
 
     /// Get the native public key if it exists in the session or keychain.
@@ -133,6 +168,28 @@ mod desktop {
         profiles: State<'_, DesktopProfileState>,
         req: NativeSignRequest,
     ) -> Result<NativeSignResponse, String> {
+        // Slice 3c: name which event kinds flood PostMessage/heap after workspace IPC cut.
+        crate::invoke_pressure::note_invoke(&format!("sign_kind:{}", req.kind));
+        // Chrome plane: all native sign is quarantined (account-sync backup + presence).
+        if crate::perf_plane::stubs_hydrate() {
+            crate::invoke_pressure::note_invoke(&format!(
+                "perf_plane:reject:sign_kind:{}",
+                req.kind
+            ));
+            return Err(crate::perf_plane::reject_message(&format!(
+                "sign_kind:{}",
+                req.kind
+            )));
+        }
+        // Fault-scan local plane: presence (kind 30315) must not stampede native sign IPC.
+        if req.kind == 30315 && crate::perf_plane::is_local() {
+            crate::invoke_pressure::note_invoke("perf_plane:reject:sign_kind:30315");
+            return Err(crate::perf_plane::reject_message("sign_kind:30315"));
+        }
+        // Full plane: coalesce presence heartbeats — dual-owned JS timer + native sign is bridge tax.
+        if let Some(cached) = take_presence_sign_coalesce(req.kind) {
+            return Ok(cached);
+        }
         let keys = ensure_session(&app, &window, &profiles, &session).await?;
 
         let unsigned_event = EventBuilder::new(Kind::from(req.kind as u16), req.content.clone())
@@ -155,7 +212,7 @@ mod desktop {
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(NativeSignResponse {
+        let response = NativeSignResponse {
             id: signed_event.id.to_string(),
             pubkey: signed_event.pubkey.to_string(),
             created_at: signed_event.created_at.as_u64(),
@@ -167,7 +224,9 @@ mod desktop {
                 .collect(),
             content: signed_event.content.clone(),
             sig: signed_event.sig.to_string(),
-        })
+        };
+        store_presence_sign_coalesce(req.kind, &response);
+        Ok(response)
     }
 
     /// Delete the stored nsec from the keychain and clear session.
@@ -295,6 +354,131 @@ mod desktop {
     ) -> Result<String, String> {
         let keys = ensure_session(&app, &window, &profiles, &session).await?;
         Ok(keys.secret_key().to_secret_hex())
+    }
+
+    /// Generate a 32-byte group room key (hex). No session required.
+    #[tauri::command]
+    pub async fn generate_group_room_key() -> Result<String, String> {
+        libobscur::crypto::group_aes::generate_group_room_key()
+    }
+
+    /// AES-GCM group encrypt — wire `base64(iv||ct)?v=1`. Room key is an argument.
+    #[tauri::command]
+    pub async fn encrypt_group_message(
+        plaintext: String,
+        room_key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::group_aes::encrypt_group_message(&plaintext, &room_key_hex)
+    }
+
+    /// AES-GCM group decrypt — accepts optional `?v=1` suffix.
+    #[tauri::command]
+    pub async fn decrypt_group_message(
+        ciphertext: String,
+        room_key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::group_aes::decrypt_group_message(&ciphertext, &room_key_hex)
+    }
+
+    /// Invite AES-GCM encrypt — `base64(iv||ct)` (no ?v=). Key is 32-byte hex.
+    #[tauri::command]
+    pub async fn encrypt_invite_data(
+        plaintext: String,
+        key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::invite_aes::encrypt_invite_data(&plaintext, &key_hex)
+    }
+
+    /// Invite AES-GCM decrypt.
+    #[tauri::command]
+    pub async fn decrypt_invite_data(
+        ciphertext: String,
+        key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::invite_aes::decrypt_invite_data(&ciphertext, &key_hex)
+    }
+
+    /// NIP-01 rumor/event id — no session required.
+    /// @see specs/backend/crypto-native-rumor-event-id-design-2026-10.md
+    #[tauri::command]
+    pub async fn derive_rumor_event_id(
+        pubkey: String,
+        created_at: u64,
+        kind: u32,
+        tags: Vec<Vec<String>>,
+        content: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::nip01::derive_rumor_event_id(&pubkey, created_at, kind, &tags, &content)
+    }
+
+    /// Invite sign — session sk + TS canonical string.
+    /// @see specs/backend/crypto-native-invite-sign-design-2026-10.md
+    #[tauri::command]
+    pub async fn sign_invite_data(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        canonical_data: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        libobscur::crypto::invite_sign::sign_invite_data(&sk_hex, &canonical_data)
+    }
+
+    /// Invite verify — no session.
+    #[tauri::command]
+    pub async fn verify_invite_signature(
+        canonical_data: String,
+        signature: String,
+        public_key: String,
+    ) -> Result<bool, String> {
+        Ok(libobscur::crypto::invite_sign::verify_invite_signature(
+            &public_key,
+            &canonical_data,
+            &signature,
+        ))
+    }
+
+    /// SHA-256(utf8(session_sk_hex + public_key)) — not ECDH.
+    /// @see specs/backend/crypto-native-shared-secret-design-2026-10.md
+    #[tauri::command]
+    pub async fn derive_shared_secret(
+        app: AppHandle,
+        window: WebviewWindow,
+        session: State<'_, SessionState>,
+        profiles: State<'_, DesktopProfileState>,
+        public_key: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &window, &profiles, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        Ok(libobscur::crypto::shared_secret::derive_shared_secret(
+            &sk_hex,
+            &public_key,
+        ))
+    }
+
+    /// Cryptographically secure random bytes as hex (no session).
+    /// @see specs/backend/crypto-native-random-verify-design-2026-10.md
+    #[tauri::command]
+    pub async fn generate_secure_random(length: u32) -> Result<String, String> {
+        libobscur::crypto::secure_random::generate_secure_random_hex(length as usize)
+    }
+
+    /// Verify signed Nostr event (id + schnorr). No session.
+    #[tauri::command]
+    pub async fn verify_nostr_event(
+        id: String,
+        pubkey: String,
+        created_at: u64,
+        kind: u32,
+        tags: Vec<Vec<String>>,
+        content: String,
+        sig: String,
+    ) -> Result<bool, String> {
+        Ok(libobscur::crypto::nip01::verify_nostr_event(
+            &id, &pubkey, created_at, kind, &tags, &content, &sig,
+        ))
     }
 }
 
@@ -557,6 +741,112 @@ mod mobile {
     ) -> Result<String, String> {
         let keys = ensure_session(&app, &session).await?;
         Ok(keys.secret_key().to_secret_hex())
+    }
+
+    #[tauri::command]
+    pub async fn generate_group_room_key() -> Result<String, String> {
+        libobscur::crypto::group_aes::generate_group_room_key()
+    }
+
+    #[tauri::command]
+    pub async fn encrypt_group_message(
+        plaintext: String,
+        room_key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::group_aes::encrypt_group_message(&plaintext, &room_key_hex)
+    }
+
+    #[tauri::command]
+    pub async fn decrypt_group_message(
+        ciphertext: String,
+        room_key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::group_aes::decrypt_group_message(&ciphertext, &room_key_hex)
+    }
+
+    #[tauri::command]
+    pub async fn encrypt_invite_data(
+        plaintext: String,
+        key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::invite_aes::encrypt_invite_data(&plaintext, &key_hex)
+    }
+
+    #[tauri::command]
+    pub async fn decrypt_invite_data(
+        ciphertext: String,
+        key_hex: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::invite_aes::decrypt_invite_data(&ciphertext, &key_hex)
+    }
+
+    #[tauri::command]
+    pub async fn derive_rumor_event_id(
+        pubkey: String,
+        created_at: u64,
+        kind: u32,
+        tags: Vec<Vec<String>>,
+        content: String,
+    ) -> Result<String, String> {
+        libobscur::crypto::nip01::derive_rumor_event_id(&pubkey, created_at, kind, &tags, &content)
+    }
+
+    #[tauri::command]
+    pub async fn sign_invite_data(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        canonical_data: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        libobscur::crypto::invite_sign::sign_invite_data(&sk_hex, &canonical_data)
+    }
+
+    #[tauri::command]
+    pub async fn verify_invite_signature(
+        canonical_data: String,
+        signature: String,
+        public_key: String,
+    ) -> Result<bool, String> {
+        Ok(libobscur::crypto::invite_sign::verify_invite_signature(
+            &public_key,
+            &canonical_data,
+            &signature,
+        ))
+    }
+
+    #[tauri::command]
+    pub async fn derive_shared_secret(
+        app: AppHandle,
+        session: State<'_, SessionState>,
+        public_key: String,
+    ) -> Result<String, String> {
+        let keys = ensure_session(&app, &session).await?;
+        let sk_hex = keys.secret_key().to_secret_hex();
+        Ok(libobscur::crypto::shared_secret::derive_shared_secret(
+            &sk_hex,
+            &public_key,
+        ))
+    }
+
+    #[tauri::command]
+    pub async fn generate_secure_random(length: u32) -> Result<String, String> {
+        libobscur::crypto::secure_random::generate_secure_random_hex(length as usize)
+    }
+
+    #[tauri::command]
+    pub async fn verify_nostr_event(
+        id: String,
+        pubkey: String,
+        created_at: u64,
+        kind: u32,
+        tags: Vec<Vec<String>>,
+        content: String,
+        sig: String,
+    ) -> Result<bool, String> {
+        Ok(libobscur::crypto::nip01::verify_nostr_event(
+            &id, &pubkey, created_at, kind, &tags, &content, &sig,
+        ))
     }
 }
 

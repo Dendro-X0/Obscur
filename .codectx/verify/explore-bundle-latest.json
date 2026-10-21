@@ -1,0 +1,212 @@
+{
+  "schema": "studio.repo.explore-bundle@1.0.0",
+  "stackFingerprint": {
+    "shape": "monorepo-workspace",
+    "confidence": 0.9,
+    "recommendedPack": "orient-cold-oss",
+    "notes": [
+      "workspacePackages=25 apps=6",
+      "OXD8: dualOwnerCount=0 — no owner-conflicts cache; call studio_owner_conflicts_get to sync"
+    ],
+    "signals": {
+      "adapterPackageHits": 0,
+      "appCount": 6,
+      "codeFileCount": 800,
+      "docsMdCount": 200,
+      "dualOwnerCount": 0,
+      "hasAppsDir": true,
+      "hasPackagesDir": true,
+      "multiRootHint": false,
+      "packageNameSamples": [
+        "db",
+        "dweb-auth",
+        "dweb-client-gateway",
+        "dweb-coordination-contracts",
+        "dweb-core",
+        "dweb-crdt",
+        "dweb-crypto",
+        "dweb-nostr",
+        "dweb-storage",
+        "dweb-storage-contracts",
+        "dweb-transport-contracts",
+        "dweb-transport-coordination"
+      ],
+      "workspacePackageCount": 25
+    },
+    "source": "subject.shape.classify"
+  },
+  "neuralSummary": {
+    "authoritative": true,
+    "bundleSource": "live",
+    "coverage": {
+      "languages": [
+        "rust",
+        "ts"
+      ],
+      "notes": [
+        "NMAP1 summary: package_dep + contains from context.scan; import hubs from codebase.relations",
+        "PREC1 hub denylist removed 57 noise/tombstone hubs (tests {, super::*, engine-lab, …)"
+      ],
+      "partial": false
+    },
+    "crateCount": 3,
+    "hubsFiltered": 57,
+    "importHubs": [
+      {
+        "degree": 23,
+        "path": "apps/desktop/src-tauri/src/lib.rs"
+      },
+      {
+        "degree": 22,
+        "path": "packages/ui-kit/src/index.ts"
+      },
+      {
+        "degree": 21,
+        "path": "packages/obscur-conduit-mesh/src/index.ts"
+      },
+      {
+        "degree": 20,
+        "path": "packages/ui-kit/src/components/../utils/cn.ts"
+      },
+      {
+        "degree": 14,
+        "path": "packages/dweb-auth/src/index.ts"
+      },
+      {
+        "degree": 13,
+        "path": "apps/pwa/app/components/root-app-shell.tsx"
+      },
+      {
+        "degree": 13,
+        "path": "packages/obscur-conduit-mesh-contracts/src/index.ts"
+      },
+      {
+        "degree": 12,
+        "path": "apps/pwa/app/components/./ui/button.tsx"
+      },
+      {
+        "degree": 12,
+        "path": "apps/pwa/app/components/app-shell.tsx"
+      },
+      {
+        "degree": 12,
+        "path": "packages/obscur-conduit-mesh/src/./conduit-http-utils.ts"
+      },
+      {
+        "degree": 11,
+        "path": "packages/dweb-client-gateway/src/index.ts"
+      },
+      {
+        "degree": 10,
+        "path": "apps/pwa/app/components/./ui/card.tsx"
+      }
+    ],
+    "layers": [
+      "import",
+      "contains",
+      "package_dep"
+    ],
+    "noStudioApiKeyRequired": true,
+    "packageCount": 32,
+    "packageEdgeCount": 60,
+    "schema": "studio.map.neural-summary@0.1.0",
+    "signalHygiene": true,
+    "snapshotHash": "sha256:a1e610c445664fb921f29b4394464224009ef1a130c5f5dc1509a9ae9a196822",
+    "unitCount": 62
+  },
+  "ownerConflicts": {
+    "source": "live",
+    "dualOwnerCount": 3,
+    "topEdges": [
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/relays/hooks/relay-pool-hook-port.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/relays/hooks/use-conduit-mesh-relay-pool.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/relays/hooks/use-enhanced-relay-pool-runtime.ts"
+      },
+      {
+        "lifecycleId": "relay-publish",
+        "reason": "≥2 writers for relay-publish (Relay publish / pool)",
+        "writerA": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+        "writerB": "apps/pwa/app/features/relays/hooks/use-relay-pool-ref.ts"
+      }
+    ],
+    "notes": [
+      "Enriched via repo.explore.ownerConflicts"
+    ]
+  },
+  "exploreStaleness": {
+    "explorePresent": true,
+    "exploreId": "re-00b3fcc62c0f",
+    "completedAt": "2026-08-16T04:27:14.555086700+00:00",
+    "ageSeconds": 299,
+    "stale": false,
+    "repoExploreRunRequired": false,
+    "notes": [
+      "Explore cache present"
+    ]
+  },
+  "recommendedVerifyOps": [
+    {
+      "id": "obscur-profile-picker-flow",
+      "title": "Obscur profile picker CDP script (T3 adapter)",
+      "kind": "scenario",
+      "defaultProofTier": "t3"
+    },
+    {
+      "id": "obscur-dev-lab-gate",
+      "title": "Obscur in-app dev lab gate reference (T4 adapter)",
+      "kind": "scenario",
+      "defaultProofTier": "t4"
+    }
+  ],
+  "coldSubject": false,
+  "notes": [
+    "CVE3 explore bundle: stack + map orientation + conflicts + catalog ops in one call",
+    "CodeGraph not required — externalIndexes.codegraph is compatibility-only"
+  ],
+  "codegraph": {
+    "cliOnPath": true,
+    "indexPresent": true,
+    "note": "Optional structural index; CodaCtrl gates PASS without it",
+    "ready": true,
+    "required": false,
+    "status": "detected"
+  }
+}

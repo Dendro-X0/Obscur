@@ -1,3 +1,4 @@
+import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import {
   isLocalDevWorkspaceRelayUrl,
   isLocalMeshHttpGatewayUrl,
@@ -23,24 +24,65 @@ export const isLocalLabAssistRelayUrl = (relayUrl: string): boolean => (
 );
 
 /**
+ * Self T1 / Track L: operator workspace bind may retain a local WS lab in the dial
+ * pool while public remotes stay enabled. Mesh HTTP (:8788) is never retainable.
+ */
+export const isOperatorRetainedLocalLabUrl = (
+  localUrl: string,
+  retainLabUrl?: string | null,
+): boolean => {
+  if (!retainLabUrl || !isLocalDevWorkspaceRelayUrl(retainLabUrl)) {
+    return false;
+  }
+  if (!isLocalDevWorkspaceRelayUrl(localUrl)) {
+    return false;
+  }
+  return workspaceRelayUrlsMatch(localUrl, retainLabUrl);
+};
+
+/**
+ * Nostr-first primary: never keep lab as DM primary when remotes are enabled —
+ * even when the lab is retained for dial (Self T1 cell path).
+ */
+export const shouldAvoidLocalLabAsPrimary = (params: Readonly<{
+  localUrl: string;
+  remotesEnabled: boolean;
+}>): boolean => (
+  params.remotesEnabled && isLocalDevWorkspaceRelayUrl(params.localUrl)
+);
+
+/**
  * Nostr-first lab silo: when any public/VPS remote is enabled, exclude local lab
- * assists from the active dial pool. Soft L3 = lab alone (remotes disabled).
+ * assists from the active dial pool — unless operator-retained (Self T1).
+ * Soft L3 = lab alone (remotes disabled).
  */
 export const shouldDemoteLocalLabFromActivePool = (params: Readonly<{
   localUrl: string;
   hint?: LocalLabHealthHint | undefined;
   remotesEnabled: boolean;
+  /** Operator workspace URL — retain matching local WS lab in dial pool. */
+  retainLabUrl?: string | null;
 }>): boolean => {
   if (!params.remotesEnabled) {
     return false;
   }
-  return isLocalLabAssistRelayUrl(params.localUrl);
+  if (!isLocalLabAssistRelayUrl(params.localUrl)) {
+    return false;
+  }
+  if (isOperatorRetainedLocalLabUrl(params.localUrl, params.retainLabUrl)) {
+    return false;
+  }
+  return true;
 };
 
+/**
+ * Drop demoted lab assists from the ordered dial set. Retained lab URLs pass through.
+ */
 export const filterDemotedLocalLabUrls = (params: Readonly<{
   orderedEnabledUrls: ReadonlyArray<string>;
   hints?: ReadonlyArray<LocalLabHealthHint>;
   remotesEnabled: boolean;
+  retainLabUrl?: string | null;
 }>): ReadonlyArray<string> => {
   if (!params.remotesEnabled) {
     return params.orderedEnabledUrls;
@@ -49,6 +91,7 @@ export const filterDemotedLocalLabUrls = (params: Readonly<{
     !shouldDemoteLocalLabFromActivePool({
       localUrl: url,
       remotesEnabled: true,
+      retainLabUrl: params.retainLabUrl,
     })
   ));
 };

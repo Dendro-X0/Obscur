@@ -1,14 +1,28 @@
 # Obscur v2.0.0 — presenter demo script
 
-**Status:** Local prep (2026-07-04) — **not Phase 5 EXIT** until maintainer cold-run sign-off  
-**Duration:** 15–20 minutes (live desktop) · 12 minutes (GIF-backed walkthrough)  
+**Status:** Open beta recording prep (2026-08-23) — exe @ **`shell-2026-08-23T17:15:41Z`** · maintainer smoke before Phase 5 EXIT  
+**Release notes:** [v2.0.0-beta-release.md](../../../releases/v2.0.0-beta-release.md)  
+**Duration:** 15–20 minutes (live desktop) · ~10 min (edited showcase + VO)  
 **Audience:** Technical evaluators, B2B trust conversations, community maintainers  
-**Prerequisite:** Phase 1 verification complete · Windows installer @ v1.9.10 · [known limitations](../../../program/obscur-v2-known-limitations.md) reviewed
+**Prerequisite:** Phase 1 verification complete · release exe @ **`shell-2026-08-23T17:15:41Z`** · [known limitations](../../../program/obscur-v2-known-limitations.md) reviewed
+
+**Agent GIF / docs shelf standard:** [agent-docs-gif-standard.md](../../../program/agent-docs-gif-standard.md) — silent · 20–30 FPS · `docs/assets/gifs/` + this `demo/<version>/` MD shelf.
 
 **Companion docs:**
 
 | Doc | Role |
 |-----|------|
+| [segment-a-download-install-v1.9.16.md](./segment-a-download-install-v1.9.16.md) | B-roll brief · site · install (~45 s) |
+| [segment-b-create-identity-v1.9.16.md](./segment-b-create-identity-v1.9.16.md) | B-roll brief · create · lock/unlock (~52 s) |
+| [segment-c-relays-transport-v1.9.16.md](./segment-c-relays-transport-v1.9.16.md) | B-roll brief · relays · E2EE · Tor honesty |
+| [segment-d-discovery-add-contact-v1.9.16.md](./segment-d-discovery-add-contact-v1.9.16.md) | B-roll brief · Discovery · npub · friend code |
+| [segment-e-multi-profile-v1.9.16.md](./segment-e-multi-profile-v1.9.16.md) | B-roll brief · multi-profile · second window · Tester2 sign-in |
+| [segment-f-accept-dm-v1.9.16.md](./segment-f-accept-dm-v1.9.16.md) | B-roll brief · appearance · accept request · DM |
+| [segment-h-voice-notes-calls-v1.9.16.md](./segment-h-voice-notes-calls-v1.9.16.md) | B-roll brief · voice notes · voice calls (audio only) |
+| [segment-i-community-group-chat-v1.9.16.md](./segment-i-community-group-chat-v1.9.16.md) | B-roll brief · Part 9 · Managed Workspace create · invite · group chat (Docker demo stack) |
+| [segment-j-data-portability-v1.9.16.md](./segment-j-data-portability-v1.9.16.md) | B-roll brief · Part 10 (final) · data folder · export/import · close |
+| [final-vo-beta-close-v1.9.16.md](./final-vo-beta-close-v1.9.16.md) | Post-edit VO + open-beta end card |
+| [v2.0.0-beta-release.md](../../../releases/v2.0.0-beta-release.md) | Open beta release notes + build stamp |
 | [presenter-checklist.md](./presenter-checklist.md) | Cold-run setup + exit criteria |
 | [gif-inventory.md](./gif-inventory.md) | Visual evidence map + capture gaps |
 | [group-chat-gif-shot-list.md](./group-chat-gif-shot-list.md) | Group demo GIF sequence (Docker relay, invite, chat) |
@@ -22,11 +36,11 @@
 
 **Say:**
 
-> Obscur is privacy-first **native desktop** software. Production web/PWA is disabled; what you install is the Tauri shell with local SQLite. This demo shows verified Phase 1 paths — not a marketing story. Roster display between profiles may disagree; delete-for-me and restore have documented limits. Full sheet: [known limitations](../../../program/obscur-v2-known-limitations.md).
+> Obscur is **sovereign** native desktop software — local keys, end-to-end encryption, infra you control. Production web/PWA is disabled. Pitch **clearnet private-trust**; Tor is optional underlay, not the product. **Open beta** ships NIP-17 DMs, NIP-44 room-key wraps, honest relay-metadata copy. Voice is audio-only today — no video conference. ASE is on-device warnings, not cloud content police. This demo shows verified Phase 1 paths — not a dark-web or gray-market story. Roster display between profiles may disagree; delete-for-me and restore have documented limits. Full sheet: [known limitations](../../../program/obscur-v2-known-limitations.md) · [PB1-D checklist](../../../program/pb1d-positioning-honesty-checklist-2026-10.md).
 
 **Show:** Website `/limitations` (when deployed) or open the limitations doc locally.
 
-**Do not claim:** Play Store, App Store, signed Windows installer, or “roster always matches between profiles.”
+**Do not claim:** Play Store, App Store, signed Windows installer, “roster always matches between profiles,” dark-web messenger branding, Tor Verified, or video conferencing.
 
 ---
 
@@ -81,7 +95,7 @@
 | 4.2 | Community membership sync mode | Coordination preferred when URL set |
 | 4.3 | One sentence on transport | “Relay carries ciphertext; coordination directory owns membership deltas on private-trust stacks.” |
 
-**GIF:** [`relay_overview_1.gif`](../../gifs/relay_overview_1.gif) · [`relay_enable_disable_1.gif`](../../gifs/relay_enable_disable_1.gif) — **settings panel refresh pending:** `settings_panel_1.gif`
+**GIF:** [`relay_overview_1.gif`](../../gifs/relay_overview_1.gif) · [`relay_enable_disable_1.gif`](../../gifs/relay_enable_disable_1.gif) · [`settings_panel_1.gif`](../../gifs/settings_panel_1.gif)
 
 **Live stack (if group segment follows):** See [private-trust-local-setup.md](../private-trust-local-setup.md) — coordination `:8787` · relay `ws://localhost:7000`.
 
@@ -98,9 +112,11 @@
 
 ---
 
-## Segment 6 — Group community (5 min) — **live preferred**
+## Segment 6 — Group community (5 min) — **live preferred** · **Part 9 / Segment I**
 
 This segment proves Phase 1C **VERIFIED t4** (dual-profile send/receive). Requires two profiles + coordination (+ relay for chat).
+
+**Recording brief:** [segment-i-community-group-chat-v1.9.16.md](./segment-i-community-group-chat-v1.9.16.md) — packaged exe + **Docker** relay for the take; VO must say Docker is demo/dev infrastructure and recommend a **VPS / dedicated pool** for production.
 
 | Step | Actor | Action | Pass when |
 |------|-------|--------|-----------|
@@ -123,7 +139,7 @@ This segment proves Phase 1C **VERIFIED t4** (dual-profile send/receive). Requir
 | 7.1 | Attach image or file in DM | Upload progress + render |
 | 7.2 | Voice note or call surface | UI loads — do not claim full PSTN parity |
 
-**GIFs (pending):** `multimedia_files_upload_and_transfer_1.gif` · `voice_notes_1.gif` · `voice_calls_1.gif` — see [inventory](./gif-inventory.md)
+**GIFs:** [`multimedia_files_upload_and_transfer_1.gif`](../../gifs/multimedia_files_upload_and_transfer_1.gif) · [`send_voice_note_1.gif`](../../gifs/send_voice_note_1.gif) · [`start_a_voice_call_1.gif`](../../gifs/start_a_voice_call_1.gif) — [inventory](./gif-inventory.md)
 
 **Accepted:** MED-001 / MED-002 media relink — not re-run for v2 demo gate.
 

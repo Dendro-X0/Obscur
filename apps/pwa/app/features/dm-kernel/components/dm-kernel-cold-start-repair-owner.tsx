@@ -6,12 +6,14 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfileRuntime } from "@/app/features/profiles/providers/profile-runtime-provider";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { schedulePostPaintIdleWork } from "@/app/features/runtime/services/post-paint-idle-schedule";
 import { scheduleDmKernelColdStartRepair } from "../dm-kernel-cold-start-repair";
 import { isDmKernelAuthority } from "../dm-kernel-policy";
 
 /**
  * Runs once per profile unlock — background relay backfill for one-sided SQLite DM threads.
- * Waits until at least one relay socket is open so backfill has transport evidence.
+ * Waits until at least one relay socket is open, then N2b defers past paint+idle so repair
+ * scan IPC does not join the unlock PostMessage storm (E23).
  */
 export function DmKernelColdStartRepairOwner(): null {
   const { profileId } = useProfileRuntime();
@@ -29,10 +31,25 @@ export function DmKernelColdStartRepairOwner(): null {
     if (scheduledForProfileRef.current === profileId) {
       return;
     }
-    scheduledForProfileRef.current = profileId;
 
+    let cancelled = false;
     const myPublicKeyHex = normalizePublicKeyHex(publicKeyHex) ?? (publicKeyHex as PublicKeyHex);
-    void scheduleDmKernelColdStartRepair({ profileId, myPublicKeyHex });
+
+    const cancelDeferred = schedulePostPaintIdleWork(() => {
+      if (cancelled) {
+        return;
+      }
+      if (scheduledForProfileRef.current === profileId) {
+        return;
+      }
+      scheduledForProfileRef.current = profileId;
+      void scheduleDmKernelColdStartRepair({ profileId, myPublicKeyHex });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelDeferred();
+    };
   }, [profileId, publicKeyHex, relayReady]);
 
   return null;

@@ -152,6 +152,8 @@ export type EncryptedAccountBackupEnvelope = Readonly<{
   dTag: string;
 }>;
 
+export type PortableAccountBundleEncryptionScheme = "nip04" | "nip44";
+
 export type PortableAccountBundle = Readonly<{
   version: 1;
   format: "obscur.portable_account_bundle.v1";
@@ -160,6 +162,8 @@ export type PortableAccountBundle = Readonly<{
   publicKeyHex: PublicKeyHex;
   /** Plaintext display hint for save library scans — not authoritative identity. */
   profileLabel?: string;
+  /** Omitted on legacy exports — treated as nip04 for import. */
+  encryptionScheme?: PortableAccountBundleEncryptionScheme;
   ciphertext: string;
 }>;
 

@@ -148,11 +148,32 @@ export const parseVoiceCallSignalPayload = (content: string): VoiceCallSignalPay
   };
 };
 
+const parseInviteCallType = (value: unknown): VoiceCallInvitePayload["callType"] => {
+  if (value === "voice" || value === "video" || value === "av") {
+    return value;
+  }
+  return undefined;
+};
+
+const parseInviteCapabilities = (
+  value: unknown,
+): VoiceCallInvitePayload["capabilities"] => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  if (typeof value.video !== "boolean") {
+    return undefined;
+  }
+  return { video: value.video };
+};
+
 export const parseVoiceCallInvitePayload = (content: string): VoiceCallInvitePayload | null => {
   const parsed = parseJsonRecordPayload(content);
   if (!parsed || parsed.type !== "voice-call-invite") {
     return null;
   }
+  const callType = parseInviteCallType(parsed.callType);
+  const capabilities = parseInviteCapabilities(parsed.capabilities);
   return {
     type: "voice-call-invite",
     version: typeof parsed.version === "number" ? parsed.version : undefined,
@@ -160,6 +181,30 @@ export const parseVoiceCallInvitePayload = (content: string): VoiceCallInvitePay
     invitedAtUnixMs: typeof parsed.invitedAtUnixMs === "number" ? parsed.invitedAtUnixMs : undefined,
     expiresAtUnixMs: typeof parsed.expiresAtUnixMs === "number" ? parsed.expiresAtUnixMs : undefined,
     fromPubkey: typeof parsed.fromPubkey === "string" ? parsed.fromPubkey : null,
+    ...(callType ? { callType } : {}),
+    ...(capabilities ? { capabilities } : {}),
+  };
+};
+
+export const createVoiceCallInvitePayload = (params: Readonly<{
+  roomId: string;
+  fromPubkey?: string | null;
+  invitedAtUnixMs?: number;
+  expiresAtUnixMs?: number;
+  callType?: VoiceCallInvitePayload["callType"];
+  capabilities?: VoiceCallInvitePayload["capabilities"];
+}>): VoiceCallInvitePayload => {
+  const invitedAtUnixMs = params.invitedAtUnixMs ?? Date.now();
+  const expiresAtUnixMs = params.expiresAtUnixMs ?? (invitedAtUnixMs + (5 * 60 * 1000));
+  return {
+    type: "voice-call-invite",
+    version: 1,
+    roomId: params.roomId,
+    invitedAtUnixMs,
+    expiresAtUnixMs,
+    fromPubkey: params.fromPubkey ?? null,
+    ...(params.callType ? { callType: params.callType } : {}),
+    ...(params.capabilities ? { capabilities: params.capabilities } : {}),
   };
 };
 

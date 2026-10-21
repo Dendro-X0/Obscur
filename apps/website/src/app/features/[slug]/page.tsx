@@ -34,9 +34,9 @@ const features = {
         icon: Fingerprint,
       },
       {
-        title: "No Metadata Collection",
+        title: "Routing Metadata Honesty",
         description:
-          "We don't track who you talk to, when, or how often. Your communication patterns are yours alone.",
+          "Message bodies are end-to-end encrypted on your device. Public relays still see routing metadata — sender keys, timestamps, and event structure — so choose your relay stack accordingly.",
         icon: Eye,
       },
       {
@@ -49,25 +49,26 @@ const features = {
   },
   relay: {
     title: "Decentralized Relay Network",
-    description: "Built on the Nostr protocol for censorship-resistant messaging that can't be shut down.",
+    description:
+      "Built on Nostr-style relays you choose — public pools for reach, or private operator stacks for stronger control.",
     icon: Radio,
     sections: [
       {
         title: "Choose Your Relays",
         description:
-          "Connect to any Nostr relay or run your own. You're never locked into a single provider.",
+          "Connect to any compatible relay or run your own. You're never locked into a single landlord.",
         icon: Server,
       },
       {
-        title: "Censorship Resistant",
+        title: "Switch When Blocked",
         description:
-          "If one relay blocks you, switch to another. Your messages propagate across the network.",
+          "If one relay refuses you, point the client elsewhere. Propagation still depends on which relays peers actually use.",
         icon: Zap,
       },
       {
-        title: "Global Reach",
+        title: "Clearnet First · Tor Optional",
         description:
-          "Access the network from anywhere in the world. No VPN required for basic connectivity.",
+          "Basic connectivity uses clearnet relays. Tor is an optional routing underlay — not required for private-trust demos, and not the product identity.",
         icon: Globe,
       },
       {
@@ -80,62 +81,64 @@ const features = {
   },
   voice: {
     title: "Encrypted Voice Calls",
-    description: "Crystal-clear voice calls with the same privacy guarantees as your messages.",
+    description:
+      "1:1 audio calls and voice notes with the same client-side encryption stance as messaging. Video conferencing is not shipped.",
     icon: Phone,
     sections: [
       {
         title: "Peer-to-Peer Audio",
         description:
-          "Voice calls connect directly between devices when possible, minimizing latency and maximizing privacy.",
+          "Voice calls connect directly between devices when possible, minimizing latency.",
         icon: Zap,
       },
       {
         title: "Relay Fallback",
         description:
-          "When direct connection isn't possible, calls route through relays with the same E2EE protection.",
+          "When direct connection isn't possible, signaling may use relays; media paths stay honest about what is encrypted.",
         icon: Server,
       },
       {
-        title: "No Call Records",
+        title: "No Central Call Archive",
         description:
-          "Call metadata isn't logged on any server. When the call ends, the evidence disappears.",
+          "Obscur does not host a cloud call-recording service. Local devices may still keep call history you own.",
         icon: Eye,
       },
       {
-        title: "Cross-Platform",
+        title: "Audio Today",
         description:
-          "Call from desktop to mobile seamlessly. All platforms support voice calling.",
+          "Desktop voice notes and 1:1 voice are the supported path. Camera / multiparty conference is a later roadmap band.",
         icon: Smartphone,
       },
     ],
   },
   groups: {
     title: "Private Communities",
-    description: "Create encrypted group chats with sovereign governance and no central admins.",
+    description:
+      "Encrypted group chat with two honest modes — egalitarian sovereign rooms and operator-managed workspaces.",
     icon: Users,
     sections: [
       {
         title: "Sovereign Rooms",
         description:
-          "Public relay-based groups with democratic governance. No single admin can ban users unilaterally.",
+          "Relay-backed groups with peer governance. Exact live roster parity across devices is best-effort on public relays.",
         icon: Globe,
       },
       {
         title: "Managed Workspaces",
         description:
-          "Private relay-based groups for organizations requiring stronger membership controls.",
+          "Private relay + coordination stacks for organizations that need stronger membership controls on infra they trust.",
         icon: Lock,
       },
       {
         title: "Vote-Driven Changes",
         description:
-          "Community decisions require quorum votes. Changes to avatar or membership are democratic.",
+          "Where the mode supports it, membership and room changes require quorum — not silent unilateral admin theater on public relays.",
         icon: Users,
       },
       {
-        title: "Cross-Community Messaging",
+        title: "Portable Identity",
         description:
-          "Message between communities seamlessly. Your identity is portable across all groups.",
+          "Your keys travel with you across groups. Cross-community delivery still depends on shared relay reachability.",
         icon: Radio,
       },
     ],

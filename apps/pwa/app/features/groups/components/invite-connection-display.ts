@@ -1,115 +1,56 @@
-import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
+import type { DmConversation } from "@/app/features/messaging/types";
+import {
+  formatPeerPubkeyPreview,
+  isPeerPubkeyPlaceholderName,
+  resolvePeerDisplayName,
+} from "@/app/features/profile/utils/resolve-peer-display-name";
 
-const PLACEHOLDER_PREFIX_LENGTHS = [8, 10, 12, 16] as const;
-const PLACEHOLDER_SUFFIX_LENGTHS = [8, 10] as const;
+/** @deprecated Prefer pubkey preview via resolveInviteConnectionDisplayName — kept for legacy call sites. */
 export const INVITE_CONNECTION_FALLBACK_NAME = "Unknown contact";
 
-const toLower = (value: string): string => value.trim().toLowerCase();
+export const isPubkeyPlaceholderName = isPeerPubkeyPlaceholderName;
 
-const addUnique = (parts: Array<string>, value: string | null | undefined): void => {
-  if (!value) {
-    return;
+export const formatInviteConnectionPubkeyPreview = formatPeerPubkeyPreview;
+
+/** Case-insensitive DM row lookup — peerTrust stores lowercase; conversation pubkeys may not. */
+export const findDmConnectionByPubkey = <T extends Pick<DmConversation, "kind" | "pubkey">>(
+  connections: ReadonlyArray<T>,
+  pubkey: string,
+): T | undefined => {
+  const target = pubkey.trim().toLowerCase();
+  if (!target) {
+    return undefined;
   }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return;
-  }
-  if (!parts.includes(trimmed)) {
-    parts.push(trimmed);
-  }
+  return connections.find(
+    (connection) => connection.kind === "dm" && connection.pubkey.trim().toLowerCase() === target,
+  );
 };
 
-const buildFallback = (pubkey: string): string => {
-  void pubkey;
-  return INVITE_CONNECTION_FALLBACK_NAME;
-};
-
-const isPreviewFromPubkey = (displayName: string, normalizedPubkey: string): boolean => {
-  const lower = toLower(displayName);
-  const sanitized = lower.replace(/\u2026/g, "...");
-
-  for (const prefixLength of PLACEHOLDER_PREFIX_LENGTHS) {
-    const prefix = normalizedPubkey.slice(0, prefixLength);
-    if (lower === prefix || sanitized === `${prefix}...`) {
-      return true;
-    }
-  }
-
-  for (const prefixLength of PLACEHOLDER_PREFIX_LENGTHS) {
-    for (const suffixLength of PLACEHOLDER_SUFFIX_LENGTHS) {
-      const preview = `${normalizedPubkey.slice(0, prefixLength)}...${normalizedPubkey.slice(-suffixLength)}`;
-      if (sanitized === preview) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-};
-
-export const isPubkeyPlaceholderName = (displayName: string | null | undefined, pubkey: string): boolean => {
-  if (!displayName) {
-    return false;
-  }
-  const normalizedName = displayName.trim();
-  if (!normalizedName) {
-    return false;
-  }
-
-  const normalizedPubkey = normalizePublicKeyHex(pubkey);
-  if (!normalizedPubkey) {
-    return false;
-  }
-  const keyLower = normalizedPubkey.toLowerCase();
-  const nameLower = toLower(normalizedName);
-
-  if (nameLower.startsWith("npub1") || nameLower.startsWith("nprofile1")) {
-    return true;
-  }
-
-  if (nameLower === keyLower) {
-    return true;
-  }
-
-  const normalizedNamePubkey = normalizePublicKeyHex(normalizedName);
-  if (normalizedNamePubkey?.toLowerCase() === keyLower) {
-    return true;
-  }
-
-  return isPreviewFromPubkey(normalizedName, keyLower);
-};
-
-const asMeaningfulName = (displayName: string | null | undefined, pubkey: string): string | null => {
-  if (!displayName) {
-    return null;
-  }
-  const trimmed = displayName.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (isPubkeyPlaceholderName(trimmed, pubkey)) {
-    return null;
-  }
-  return trimmed;
-};
-
+/**
+ * Invite picker label — human name when known, otherwise compact pubkey preview.
+ * Never returns the hostile "Unknown contact" / identity-hidden placeholders.
+ */
 export const resolveInviteConnectionDisplayName = (input: {
   pubkey: string;
   metadataDisplayName?: string | null;
   connectionDisplayName?: string | null;
-}): string => {
-  const metadataName = asMeaningfulName(input.metadataDisplayName, input.pubkey);
-  if (metadataName) {
-    return metadataName;
-  }
+}): string => (
+  resolvePeerDisplayName({
+    pubkey: input.pubkey,
+    metadataDisplayName: input.metadataDisplayName,
+    fallbackDisplayName: input.connectionDisplayName,
+  })
+);
 
-  const connectionName = asMeaningfulName(input.connectionDisplayName, input.pubkey);
-  if (connectionName) {
-    return connectionName;
-  }
-
-  return buildFallback(input.pubkey);
-};
+/** True when the primary label is a real nickname/name (not a pubkey preview). */
+export const isInviteConnectionHumanDisplayName = (
+  displayName: string,
+  pubkey: string,
+): boolean => (
+  Boolean(displayName.trim())
+  && !isPeerPubkeyPlaceholderName(displayName, pubkey)
+  && displayName.trim() !== formatPeerPubkeyPreview(pubkey)
+);
 
 export const toInviteConnectionSearchText = (input: {
   pubkey: string;
@@ -118,9 +59,20 @@ export const toInviteConnectionSearchText = (input: {
   connectionDisplayName?: string | null;
 }): string => {
   const terms: Array<string> = [];
-  addUnique(terms, input.resolvedDisplayName);
-  addUnique(terms, input.metadataDisplayName);
-  addUnique(terms, input.connectionDisplayName);
-  addUnique(terms, input.pubkey);
+  const addUnique = (value: string | null | undefined): void => {
+    if (!value) {
+      return;
+    }
+    const trimmed = value.trim();
+    if (!trimmed || terms.includes(trimmed)) {
+      return;
+    }
+    terms.push(trimmed);
+  };
+  addUnique(input.resolvedDisplayName);
+  addUnique(input.metadataDisplayName);
+  addUnique(input.connectionDisplayName);
+  addUnique(input.pubkey);
+  addUnique(formatPeerPubkeyPreview(input.pubkey));
   return terms.join(" ").toLowerCase();
 };

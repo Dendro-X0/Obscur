@@ -1,0 +1,120 @@
+{
+  "schema": "studio.health.depth@1.0.0",
+  "allowlist": {
+    "present": false,
+    "path": null,
+    "apiCount": 0,
+    "databaseCount": 0
+  },
+  "templates": [
+    {
+      "id": "sqlite",
+      "path": "docs/studio/templates/health/sqlite.allowlist.yaml",
+      "purpose": "Local sqlite file via urlEnv + optional explainSql"
+    },
+    {
+      "id": "postgres",
+      "path": "docs/studio/templates/health/postgres.allowlist.yaml",
+      "purpose": "Loopback Postgres TCP (EXPLAIN via local client)"
+    },
+    {
+      "id": "api-sqlite",
+      "path": "docs/studio/templates/health/api-sqlite.allowlist.yaml",
+      "purpose": "Local API ping + sqlite"
+    },
+    {
+      "id": "mysql",
+      "path": "docs/studio/templates/health/mysql.allowlist.yaml",
+      "purpose": "Loopback MySQL TCP (EXPLAIN via local client)"
+    },
+    {
+      "id": "api-postgres",
+      "path": "docs/studio/templates/health/api-postgres.allowlist.yaml",
+      "purpose": "Local API ping + Postgres"
+    },
+    {
+      "id": "redis",
+      "path": "docs/studio/templates/health/redis.allowlist.yaml",
+      "purpose": "Loopback Redis TCP (not a Redis CLI)"
+    },
+    {
+      "id": "mongodb",
+      "path": "docs/studio/templates/health/mongodb.allowlist.yaml",
+      "purpose": "Loopback MongoDB TCP (not a mongo shell)"
+    }
+  ],
+  "dataSurfaces": {
+    "present": true,
+    "dataItemCount": 0,
+    "topRefs": []
+  },
+  "explain": {
+    "sqlite3CliOnPath": false,
+    "support": "tcp_path_plus_deferred_explain",
+    "notes": [
+      "explainDepth on health_probe_run attempts SQLite EXPLAIN QUERY PLAN via sqlite3 CLI",
+      "Postgres/MySQL/Redis/MongoDB: TCP probe only — run EXPLAIN/plan in local client (not Studio DBA)",
+      "Sample plan ≠ production capacity / index coverage / SLA",
+      "RG1 template depth — exotic/managed stacks remain operator-local"
+    ]
+  },
+  "pathway": {
+    "id": "pathways.healthSqlDepth",
+    "title": "Health / SQL depth (FS3)",
+    "steps": [
+      "studio_help → healthSqlDepth / pathways.healthSqlDepth",
+      "studio_repo { action: \"studio_health_sql_depth\" }",
+      "Copy template → .codactrl/health.allowlist.yaml when missing",
+      "studio_verify { action: \"health_probe_run\", explainDepth: true }",
+      "Never treat EXPLAIN sample as production index coverage"
+    ]
+  },
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.healthSqlDepth"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_health_sql_depth\" }",
+      "purpose": "Load templates + allowlist/explain honesty"
+    },
+    {
+      "order": 3,
+      "tool": "(operator) copy docs/studio/templates/health/*.yaml",
+      "purpose": "Create .codactrl/health.allowlist.yaml",
+      "when": "allowlist missing"
+    },
+    {
+      "order": 4,
+      "tool": "studio_verify { action: \"health_probe_run\", explainDepth: true }",
+      "purpose": "Probe allowlist; EXPLAIN may defer without sqlite3 CLI"
+    },
+    {
+      "order": 5,
+      "tool": "studio_perf { action: \"perf_workflow_guide\" }",
+      "purpose": "Optional data_surface / optimizeHealth static audit",
+      "when": "when diagnosing ORM/SQL smells"
+    }
+  ],
+  "openQuestions": [
+    "No health.allowlist — copy docs/studio/templates/health/*.yaml into subject",
+    "sqlite3 CLI absent — SQLite EXPLAIN samples will defer honestly"
+  ],
+  "doesNotProve": [
+    "production_capacity",
+    "production_p99",
+    "index_coverage_complete",
+    "vanity_green_explain",
+    "soft_l3_fixed",
+    "mcp_settings_listing_fixed",
+    "obscur_product_fixed",
+    "auto_hop_inference"
+  ],
+  "notes": [
+    "FS3 health/SQL depth — extends OH3; not a DBA console",
+    "RG1 — mysql/api-postgres/redis/mongodb templates added",
+    "allowlistSchema=health.allowlist@1.0.0"
+  ]
+}

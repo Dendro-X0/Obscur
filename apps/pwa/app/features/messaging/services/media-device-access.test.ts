@@ -6,11 +6,23 @@ import {
   listMediaInputDevices,
   queryMediaPermission,
   requestMediaStream,
+  shouldOpenMediaConsentRecovery,
   shouldRequestMediaPermissionDirectly,
   shouldSkipMediaConsentDialog,
+  type MediaConsentPurpose,
 } from "./media-device-access";
 
 describe("media-device-access", () => {
+  it("M1-A: includes video_call among consent purposes", () => {
+    const purposes: ReadonlyArray<MediaConsentPurpose> = [
+      "voice_note",
+      "voice_call",
+      "video_call",
+      "qr_scan",
+    ];
+    expect(purposes).toContain("video_call");
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -22,7 +34,15 @@ describe("media-device-access", () => {
     expect(shouldSkipMediaConsentDialog("unknown", 2)).toBe(false);
   });
 
-  it("requests OS permission directly for prompt/unknown/granted (single-step UX)", () => {
+  it("opens in-app recovery only after getUserMedia permission_denied", () => {
+    expect(shouldOpenMediaConsentRecovery("permission_denied")).toBe(true);
+    expect(shouldOpenMediaConsentRecovery("not_found")).toBe(false);
+    expect(shouldOpenMediaConsentRecovery("unavailable")).toBe(false);
+    expect(shouldOpenMediaConsentRecovery("failed")).toBe(false);
+    expect(shouldOpenMediaConsentRecovery("unsupported")).toBe(false);
+  });
+
+  it("keeps legacy shouldRequestMediaPermissionDirectly helper for tests/callers", () => {
     expect(shouldRequestMediaPermissionDirectly("prompt")).toBe(true);
     expect(shouldRequestMediaPermissionDirectly("unknown")).toBe(true);
     expect(shouldRequestMediaPermissionDirectly("granted")).toBe(true);

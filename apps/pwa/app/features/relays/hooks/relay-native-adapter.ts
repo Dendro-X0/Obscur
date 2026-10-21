@@ -36,6 +36,10 @@ export type TorStatusSnapshot = Readonly<{
   proxyUrl: string;
   /** R4: obscur-tor-gateway answered on loopback. */
   gatewayReachable?: boolean;
+  /** Latest gateway detail (bootstrap progress / Stuck at / TLS_ERROR). */
+  detail?: string | null;
+  /** Parsed Bootstrapped N% while Starting — never implies Ready. */
+  bootstrapPercent?: number | null;
 }>;
 
 const requireNativeValue = async <T>(

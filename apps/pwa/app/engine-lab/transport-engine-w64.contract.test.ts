@@ -29,7 +29,7 @@ const createPwaFilesystem = (): StandaloneLegacySubtractionDryRunFilesystem => (
 describe("transport-engine w64 — standalone legacy production deletion execution", () => {
   it("pins production deletion execution charter with thin port template", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w64-standalone-legacy-production-deletion-execution.md",
     );
     expect(charter).toContain("Production Deletion Execution");
     expect(charter).toContain("relay-standalone-publish-port-thin.ts");

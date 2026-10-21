@@ -1,0 +1,12 @@
+{
+  "name": "@obscur/protocol-nostr",
+  "version": "1.9.16",
+  "private": true,
+  "type": "module",
+  "description": "Obscur-Nostr protocol module package — attachment point for bespoke forks. Live adapter still hosts in apps/pwa until a later extract.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./port-surfaces": "./src/port-surfaces.ts",
+    "./module-identity": "./src/module-identity.ts"
+  }
+}

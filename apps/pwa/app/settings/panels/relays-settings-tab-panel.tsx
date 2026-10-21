@@ -88,7 +88,18 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             if (!detail) {
                 return;
             }
-            if (detail.entryId === "relay-advanced" || detail.elementId === "relay-advanced-settings") {
+            if (
+                detail.entryId === "relay-advanced"
+                || detail.entryId === "relay-api"
+                || detail.entryId === "relay-performance"
+                || detail.entryId === "relay-conduit-mesh"
+                || detail.entryId === "relay-community-modes"
+                || detail.elementId === "relay-advanced-settings"
+                || detail.elementId === "relay-api-status"
+                || detail.elementId === "relay-performance-metrics"
+                || detail.elementId === "conduit-mesh-settings"
+                || detail.elementId === "relay-community-modes"
+            ) {
                 setShowAdvancedRelays(true);
             }
         };
@@ -147,6 +158,14 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
             tab: "security",
         });
         router.replace(`${pathname}?tab=security`, { scroll: false });
+    }, [pathname, router]);
+    const navigateToProtocolsSettings = useCallback((): void => {
+        dispatchSettingsSearchPrepare({
+            entryId: "tab-protocols",
+            tab: "protocols",
+            elementId: "protocols-selectors",
+        });
+        router.replace(`${pathname}?tab=protocols`, { scroll: false });
     }, [pathname, router]);
     const pendingPresetLabel = pendingPresetApplyId
         ? translateRelayPresetLabel(pendingPresetApplyId as TransportPresetId)
@@ -305,6 +324,29 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
           <div className="space-y-6">
             <RelayReadinessSettingsBanner />
 
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400" data-testid="relays-standard-mode-hint">
+                {showAdvancedRelays
+                  ? t("settings.relays.advancedModeHint", {
+                    defaultValue: "Full pack catalog plus offline packs, conduit mesh, community modes, and per-node metrics.",
+                  })
+                  : t("settings.relays.standardModeHint", {
+                    defaultValue: "Four transport paths below. Open Advanced for more packs, offline tools, conduit mesh, and metrics.",
+                  })}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant={showAdvancedRelays ? "secondary" : "outline"}
+                data-testid="relays-advanced-toggle"
+                onClick={() => setShowAdvancedRelays((prev: boolean) => !prev)}
+              >
+                {showAdvancedRelays
+                  ? t("settings.relays.hideAdvanced")
+                  : t("settings.relays.showAdvanced")}
+              </Button>
+            </div>
+
             <TransportPresetCatalogPanel
               onApplyPreset={handleApplyTransportPreset}
               translatePresetLabel={translateRelayPresetLabel}
@@ -314,9 +356,9 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               onScrollToCustomEndpoint={scrollToCustomEndpoint}
               torState={torState}
               onNavigateToSecurity={navigateToSecuritySettings}
+              onNavigateToProtocols={navigateToProtocolsSettings}
+              catalogDepth={showAdvancedRelays ? "advanced" : "standard"}
             />
-
-            <OfflinePackHelperPanel profileId={getResolvedProfileId()} />
 
             <div id="relay-custom-endpoint" className="space-y-3 rounded-2xl border border-black/5 bg-white p-5 dark:border-white/10 dark:bg-black/20">
               <div className="space-y-1">
@@ -346,57 +388,13 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               </div>
             </div>
 
-            <ConduitMeshSettingsPanel relays={relayList.state.relays} />
-
-            <Collapsible
-              open={showApiHealthSection}
-              onOpenChange={() => setShowApiHealthSection((prev) => !prev)}
-              className="rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50"
-            >
-              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-5 text-left">
-                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">
-                  <Activity className="h-4 w-4 text-purple-500"/>
-                  {t("settings.relays.collapse.apiHealth")}
-                </div>
-                <ChevronDown className={cn("h-4 w-4 shrink-0 text-zinc-400 transition-transform", showApiHealthSection && "rotate-180")}/>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4 border-t border-black/5 px-5 pb-5 pt-4 dark:border-white/10" id="relay-api-status">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-black/20 border border-black/5 dark:border-white/5 shadow-sm">
-                <div className="space-y-1 overflow-hidden">
-                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">{t("settings.relays.endpoint")}</div>
-                  <div className="text-xs font-mono text-zinc-600 dark:text-zinc-300 truncate">{getApiBaseUrl()}</div>
-                </div>
-                <Button variant="secondary" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"} className="shrink-0">
-                  {apiHealth.status === "checking"
-            ? <Loader2 className="h-3 w-3 animate-spin"/>
-            : ENABLE_API_HEALTH_PROBE
-                ? t("settings.health.check")
-                : t("settings.relays.showAdvisory")}
-                </Button>
-              </div>
-
-              <AnimatePresence mode="wait">
-                {apiHealth.status === "disabled" && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2 font-medium">
-                    <Activity className="h-3 w-3"/>
-                    {apiHealth.message}
-                  </motion.div>)}
-                {apiHealth.status === "ok" && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2 font-medium">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
-                    Operational — Latency: {apiHealth.latencyMs}ms
-                  </motion.div>)}
-                {apiHealth.status === "error" && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2 font-medium">
-                    <ShieldAlert className="h-3 w-3"/>
-                    Connection Error: {apiHealth.message}
-                  </motion.div>)}
-              </AnimatePresence>
-              </CollapsibleContent>
-            </Collapsible>
-
-            {/* Relay Runtime Setup */}
+            {/* Standard: compact pool status + Advanced entry */}
             <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-white dark:bg-black/20">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                   <Label className="font-semibold text-base">{t("settings.relays.connectivityTitle")}</Label>
+                  {showAdvancedRelays ? (
+                    <>
                   <p className="text-xs text-zinc-500">
                     {t("settings.relays.connectivityDesc", {
             defaultValue: "Nostr DM and profile events use the public relay pool below (basic = one relay, redundancy = up to three). Workspace communities and operator-configured nodes use their own relay URLs and are not limited by this toggle.",
@@ -445,12 +443,13 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {getDmPublishPathCopy({ publishPathRelayUrls: dmPublishPathRelayUrls })}
                   </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-zinc-500">
+                      {t("settings.relays.redundancyModeDesc")}
+                    </p>
+                  )}
                 </div>
-                <Button type="button" size="sm" variant={showAdvancedRelays ? "secondary" : "outline"} onClick={() => setShowAdvancedRelays((prev: boolean) => !prev)}>
-                  {showAdvancedRelays
-            ? t("settings.relays.hideAdvanced")
-            : t("settings.relays.showAdvanced")}
-                </Button>
               </div>
 
               <SettingsToggleCard title={t("settings.relays.redundancyModeTitle")} description={t("settings.relays.redundancyModeDesc")} checked={relayTransportMode === "redundancy"} onChange={(enabled: boolean) => {
@@ -544,6 +543,56 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                   </div>
                 </div>
               </div>
+
+            </div>
+
+            {/* Advanced: operator surfaces (offline, conduit, community, metrics, per-node) */}
+            <AnimatePresence>
+              {showAdvancedRelays && (<motion.div id="relay-advanced-settings" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden space-y-6">
+            <OfflinePackHelperPanel profileId={getResolvedProfileId()} />
+            <ConduitMeshSettingsPanel relays={relayList.state.relays} />
+            <Collapsible
+              open={showApiHealthSection}
+              onOpenChange={() => setShowApiHealthSection((prev) => !prev)}
+              className="rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50"
+            >
+              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-5 text-left">
+                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-500">
+                  <Activity className="h-4 w-4 text-purple-500"/>
+                  {t("settings.relays.collapse.apiHealth")}
+                </div>
+                <ChevronDown className={cn("h-4 w-4 shrink-0 text-zinc-400 transition-transform", showApiHealthSection && "rotate-180")}/>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 border-t border-black/5 px-5 pb-5 pt-4 dark:border-white/10" id="relay-api-status">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-black/20 border border-black/5 dark:border-white/5 shadow-sm">
+                <div className="space-y-1 overflow-hidden">
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none">{t("settings.relays.endpoint")}</div>
+                  <div className="text-xs font-mono text-zinc-600 dark:text-zinc-300 truncate">{getApiBaseUrl()}</div>
+                </div>
+                <Button variant="secondary" size="sm" onClick={handleCheckApi} disabled={apiHealth.status === "checking"} className="shrink-0">
+                  {apiHealth.status === "checking"
+            ? <Loader2 className="h-3 w-3 animate-spin"/>
+            : ENABLE_API_HEALTH_PROBE
+                ? t("settings.health.check")
+                : t("settings.relays.showAdvisory")}
+                </Button>
+              </div>
+              <AnimatePresence mode="wait">
+                {apiHealth.status === "disabled" && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2 font-medium">
+                    <Activity className="h-3 w-3"/>
+                    {apiHealth.message}
+                  </motion.div>)}
+                {apiHealth.status === "ok" && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2 font-medium">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
+                    Operational — Latency: {apiHealth.latencyMs}ms
+                  </motion.div>)}
+                {apiHealth.status === "error" && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2 font-medium">
+                    <ShieldAlert className="h-3 w-3"/>
+                    Connection Error: {apiHealth.message}
+                  </motion.div>)}
+              </AnimatePresence>
+              </CollapsibleContent>
+            </Collapsible>
 
               <Collapsible
                 open={showCommunitySection}
@@ -645,7 +694,6 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               <CommunityMembershipSyncSettingsPanel />
               </CollapsibleContent>
               </Collapsible>
-            </div>
 
             <div id="relay-performance-metrics" className="space-y-4 rounded-2xl border border-black/5 p-4 dark:border-white/5">
               {isLoopbackOnlyConfigured ? (
@@ -708,9 +756,6 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
               </div>
             </div>
 
-            {/* Advanced Configuration */}
-            <AnimatePresence>
-              {showAdvancedRelays && (<motion.div id="relay-advanced-settings" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden space-y-6">
                   <div className="space-y-4 rounded-2xl border border-black/5 p-5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50">
                     <div className="space-y-1">
                       <Label className="font-semibold text-base">{t("settings.relays.advancedConfigTitle")}</Label>
@@ -782,6 +827,23 @@ export default function RelaysSettingsTabPanel(): React.JSX.Element {
                   </div>
                 </motion.div>)}
             </AnimatePresence>
+            {relayQuickHealth.enabledCount === 0 ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-sm text-amber-900 dark:text-amber-100">
+                <p className="font-semibold">No relays enabled</p>
+                <p className="mt-1 text-xs opacity-90">
+                  Account restore and messaging need at least one enabled public relay.
+                  Localhost Docker relay is optional — public relays work without it.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="mt-3"
+                  onClick={handleRelayBulkEnableAll}
+                >
+                  {t("settings.relays.bulkEnableAll")}
+                </Button>
+              </div>
+            ) : null}
             <SettingsActionStatus title={t("settings.relays.actionsTitle")} phase={relayActionPhase} message={relayActionMessage || undefined} summary={t("settings.relays.actionsSummary", {
             defaultValue: "Publish-ready {{writable}} of {{enabled}} · Open sockets {{open}} of {{enabled}}",
             // Never claim publish-ready when open sockets are zero (mesh ghost health).

@@ -20,7 +20,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w49 — maintainer-gated port default flip charter", () => {
   it("pins authority flip charter separate from shim gate", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w49-maintainer-gated-port-default-flip-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w49-maintainer-gated-port-default-flip-charter.md",
     );
     expect(charter).toContain("Maintainer-Gated Port Default Flip Charter");
     expect(charter).toContain("NEXT_PUBLIC_OBSCUR_TRANSPORT_HOST_PUBLISH_AUTHORITY");

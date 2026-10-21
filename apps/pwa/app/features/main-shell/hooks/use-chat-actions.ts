@@ -198,7 +198,6 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
     relayListAddRelayRef.current = relayList.addRelay;
     const recipientMetadata = useResolvedProfileMetadata(
         selectedConversation?.kind === "dm" ? selectedConversation.pubkey : null,
-        { live: false }
     );
     const isDeletedRecipient = selectedConversation?.kind === "dm" && recipientMetadata.isDeleted;
     const groupRelayUrl = selectedConversation?.kind === "group" ? selectedConversation.relayUrl : null;
@@ -399,6 +398,18 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             return;
         }
 
+        // Soft-lock drift: identity UI can stay up while native SQLite is closed.
+        const { ensureNativeSqliteOpenForWrites } = await import(
+            "@/app/features/storage/services/native-storage-at-rest-service"
+        );
+        const sqliteReady = await ensureNativeSqliteOpenForWrites();
+        if (!sqliteReady) {
+            toast.error(
+                "Local database is locked. Unlock this profile (device password or Import Key), then retry.",
+            );
+            return;
+        }
+
         if (selectedConversation?.kind === "dm") {
             const peerPublicKeyHex = selectedConversation.pubkey as PublicKeyHex;
             const dmComposeMode = resolveContactRequestComposeMode({
@@ -595,7 +606,8 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     finalContent = urls;
                 }
 
-                // Do not block send path on local caching.
+                // Prefer awaiting video cache so the sender bubble swaps off CDN
+                // placeholders (e.g. nostrcheck ostrich) before playback settles.
                 const cacheableAttachments = attachments.filter((attachment) => {
                     if (!shouldCacheAttachmentInVault(attachment)) {
                         return false;
@@ -606,11 +618,22 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     }
                     return !shouldSkipLocalAttachmentCachingForRuntimeSafety(sourceFile);
                 });
-                void Promise.all(
-                    cacheableAttachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
-                ).catch((e) => {
-                    console.warn("[Vault] Failed to cache sent attachments locally:", e);
-                });
+                const videoAttachments = cacheableAttachments.filter((attachment) => attachment.kind === "video");
+                const otherAttachments = cacheableAttachments.filter((attachment) => attachment.kind !== "video");
+                if (videoAttachments.length > 0) {
+                    await Promise.all(
+                        videoAttachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
+                    ).catch((e) => {
+                        console.warn("[Vault] Failed to cache sent video attachments locally:", e);
+                    });
+                }
+                if (otherAttachments.length > 0) {
+                    void Promise.all(
+                        otherAttachments.map((attachment) => cacheAttachmentLocally(attachment, "sent", fileBytesMap.get(attachment.url)))
+                    ).catch((e) => {
+                        console.warn("[Vault] Failed to cache sent attachments locally:", e);
+                    });
+                }
             } catch (error: unknown) {
                 console.warn("Failed to upload attachment:", error);
 
@@ -654,8 +677,12 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
                     throw new Error("DM controller not initialized");
                 }
 
+                // Matrix rooms use id `!…:server` in the pubkey slot; Nostr DMs use hex pubkey.
+                const peerPublicKeyInput = selectedConversation.id.startsWith("!")
+                    ? selectedConversation.id
+                    : selectedConversation.pubkey;
                 await dmController.sendDm({
-                    peerPublicKeyInput: selectedConversation.pubkey,
+                    peerPublicKeyInput,
                     plaintext: currentInput,
                     attachments,
                     replyTo: currentReplyTo?.messageId

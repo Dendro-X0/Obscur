@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   MEDIA_RUNTIME_SAFETY_LIMITS,
   shouldAvoidInMemoryAttachmentCaching,
-  shouldPreferBrowserUploadForRuntimeSafety,
   shouldSkipLocalAttachmentCachingForRuntimeSafety,
   shouldSkipPreprocessForRuntimeSafety,
   validateAttachmentBatchForRuntimeSafety,
@@ -29,34 +28,6 @@ describe("media-upload-policy runtime safety", () => {
 
     expect(shouldSkipPreprocessForRuntimeSafety(largeVideo)).toBe(true);
     expect(shouldSkipPreprocessForRuntimeSafety(largeImage)).toBe(true);
-  });
-
-  it("prefers browser upload over native byte upload for oversized native files", () => {
-    const largeAudio = createFile({
-      name: "large-audio.mp3",
-      type: "audio/mpeg",
-      sizeBytes: MEDIA_RUNTIME_SAFETY_LIMITS.nativeDirectUploadBytes + 1,
-    });
-
-    expect(shouldPreferBrowserUploadForRuntimeSafety(largeAudio, true)).toBe(true);
-    expect(shouldPreferBrowserUploadForRuntimeSafety(largeAudio, false)).toBe(false);
-  });
-
-  it("prefers browser upload for oversized native video files", () => {
-    const smallVideo = createFile({
-      name: "clip.mp4",
-      type: "video/mp4",
-      sizeBytes: 5 * 1024 * 1024,
-    });
-    const largeVideo = createFile({
-      name: "large-video.mp4",
-      type: "video/mp4",
-      sizeBytes: MEDIA_RUNTIME_SAFETY_LIMITS.nativeDirectUploadBytes + 1,
-    });
-
-    expect(shouldPreferBrowserUploadForRuntimeSafety(smallVideo, true)).toBe(false);
-    expect(shouldPreferBrowserUploadForRuntimeSafety(largeVideo, true)).toBe(true);
-    expect(shouldPreferBrowserUploadForRuntimeSafety(smallVideo, false)).toBe(false);
   });
 
   it("rejects oversized attachment batches before processing begins", () => {

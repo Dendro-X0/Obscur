@@ -16,6 +16,14 @@ import {
   isExperimentOfflineStubEnabled,
   scheduleExperimentIdleWork,
 } from "@/app/features/runtime/experiment-shell-policy";
+import { shouldQuarantineDesktopUnlockOwners } from "@/app/features/runtime/unlock-hydrate-policy";
+import { resolvedIdentityCache } from "@/app/features/search/services/resolved-identity-cache";
+import {
+  hydrateRuntimeFromDevicePeerDisplayCache,
+  subscribePeerDisplayDeviceCacheUpdates,
+} from "@/app/features/search/services/device-peer-display-cache";
+import { seedLabPeerDisplayHintsIfNeeded } from "@/app/features/search/services/lab-peer-display-seed";
+import { seedPeerDisplayFromLocalAccountHints } from "@/app/features/search/services/peer-display-local-hint-seed";
 
 interface NetworkContextType {
     identity: ReturnType<typeof useIdentity>;
@@ -36,7 +44,8 @@ const EXPERIMENT_OFFLINE_PRESENCE: ReturnType<typeof useRealtimePresence> = {
 };
 
 export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  if (isExperimentOfflineStubEnabled()) {
+  // Desktop thin shell: no presence publish / sign_kind:30315 bridge on unlock.
+  if (isExperimentOfflineStubEnabled() || shouldQuarantineDesktopUnlockOwners()) {
     return <ExperimentNetworkShell>{children}</ExperimentNetworkShell>;
   }
   return <FullNetworkProvider>{children}</FullNetworkProvider>;
@@ -130,6 +139,20 @@ const FullNetworkProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         duplicateLockKeyRef.current = null;
     }, [publicKeyHex]);
+
+    useEffect(() => {
+        // Hydrate-only: soft-l3 dual windows often cannot share profile-slot hints.
+        // Device AppData cache crosses Tauri webview partitions (names + avatars).
+        resolvedIdentityCache.runOneTimeMigration();
+        const hydratePeerDisplay = (): void => {
+            void hydrateRuntimeFromDevicePeerDisplayCache().finally(() => {
+                seedLabPeerDisplayHintsIfNeeded();
+                void seedPeerDisplayFromLocalAccountHints();
+            });
+        };
+        hydratePeerDisplay();
+        return subscribePeerDisplayDeviceCacheUpdates(hydratePeerDisplay);
+    }, []);
 
     useEffect(() => {
         if (!publicKeyHex) return;

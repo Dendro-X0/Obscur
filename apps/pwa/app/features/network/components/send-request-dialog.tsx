@@ -40,8 +40,8 @@ export function SendRequestDialog({ isOpen, onClose, recipientName, onSend }: Se
             setIsSending(false);
         }
     };
-    return (<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <Card title={t("network.sendRequestTitle")} description={t("network.sendRequestDesc", { name: recipientLabel })} className="w-full max-w-md shadow-2xl border-white/10 bg-white dark:bg-zinc-950 dark:border-zinc-800 modal-transition">
+    return (<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 dark:bg-black/80">
+      <Card title={t("network.sendRequestTitle")} description={t("network.sendRequestDesc", { name: recipientLabel })} className="w-full max-w-md shadow-2xl border-black/10 bg-white backdrop-blur-none dark:border-zinc-800 dark:bg-zinc-950 modal-transition">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="intro-message" className="text-zinc-500 dark:text-zinc-400 font-bold">

@@ -23,8 +23,8 @@ export function NewGroupDialog({ isOpen, onClose, name, setName, memberPubkeys, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <Card title={t("messaging.newGroup")} description={t("messaging.createGroupDesc")} className="w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 dark:bg-black/80">
+            <Card title={t("messaging.newGroup")} description={t("messaging.createGroupDesc")} className="w-full max-w-md border-black/10 bg-white backdrop-blur-none dark:border-zinc-800 dark:bg-zinc-950">
                 <div className="space-y-3">
                     <div className="space-y-2">
                         <Label htmlFor="new-group-name">{t("messaging.groupName")}</Label>

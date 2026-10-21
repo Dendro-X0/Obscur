@@ -1,0 +1,96 @@
+- text: "Transport preset applied: Local Dev Mesh"
+- button "Dismiss notification"
+- main:
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - text: Settings
+  - main:
+    - complementary:
+      - textbox "Search settings":
+        - /placeholder: Search settings…
+      - navigation "Settings":
+        - heading "General" [level=3]
+        - button "Profile"
+        - button "Appearance"
+        - button "Notifications"
+        - heading "Account" [level=3]
+        - button "Identity"
+        - button "Security"
+        - heading "Network" [level=3]
+        - button "Protocols/Network"
+        - button "Relays"
+        - button "Storage"
+        - heading "Moderation" [level=3]
+        - button "Blocklist"
+        - button "Privacy"
+        - heading "System" [level=3]
+        - button "Updates"
+    - main:
+      - text: DM & Quick groups · transport Choose which networks carry your ciphertext. Public Nostr relays are optional — private mesh, hybrid, and Tor adapters are first-class.
+      - paragraph: Four transport paths below. Open Advanced for more packs, offline tools, conduit mesh, and metrics.
+      - button "Advanced settings"
+      - heading "Transport packs" [level=3]
+      - paragraph: Four paths — pick one threat model. Open Advanced settings for more packs (redundancy, LAN templates, SSH).
+      - paragraph: Obscur encrypts on the client (E2EE + LES). Relays and adapters only see ciphertext — they cannot read your message or vault content.
+      - paragraph: Want Matrix (or to switch messaging protocol)? That is under Settings → Protocols/Network — this page only configures Nostr/mesh relay endpoints.
+      - button "Open Protocols/Network"
+      - text: "Active mix: 0 public Nostr · 1 private mesh · 0 Tor · 1 enabled · single primary Matched pack: Local Dev Mesh"
+      - paragraph: Everyday clearnet
+      - paragraph: Public Nostr relays for normal use.
+      - text: Default Stable Available
+      - paragraph: Three public Nostr relays in Multi-node mode — the product default pool (nos.lol, relay.primal.net, relay.damus.io).
+      - button "Apply pack"
+      - paragraph: Public + private
+      - paragraph: Public Nostr pool plus a local HTTP mesh gateway.
+      - text: Public + Private Available
+      - paragraph: Public Nostr relay pool plus a local HTTP mesh gateway — Mixed adapters boot default for new profiles.
+      - button "Apply pack"
+      - paragraph: Local only
+      - paragraph: Local or intranet relay — no public Nostr dependency.
+      - text: Local Dev Mesh Active
+      - paragraph: ws://localhost:7000 — local WebSocket relay for development (requires relay service running).
+      - button "Active" [disabled]
+      - paragraph: Tor onion
+      - paragraph: Onion gateway — enable Tor in Security before sending.
+      - text: Tor Onion Gateway Available Tor off Edit URL
+      - paragraph: http://example.onion/mesh — replace with your .onion mesh URL; Tor must be ready before publish.
+      - button "Enable Tor in Security settings"
+      - button "Apply pack" [disabled]
+      - paragraph: Build your own pool
+      - paragraph: Add any wss://, ws://, http(s)://, or .onion endpoint. Mix adapters on one profile.
+      - button "Add custom endpoint"
+      - text: Custom endpoint
+      - paragraph: Paste a relay or mesh gateway URL — WS for Nostr wire, HTTP for private mesh gateways, .onion when Tor is enabled.
+      - textbox "wss://relay.example.com · ws://192.168.0.10:7000 · http://127.0.0.1:8788"
+      - button "Add Node"
+      - text: Active pool status
+      - paragraph: "On (Multi-node): stay connected to multiple enabled relays and publish with redundancy. Off (Single-node): use one primary; auto-switch to another healthy enabled relay if it becomes unstable."
+      - text: Multi-node pool
+      - paragraph: "On (Multi-node): stay connected to multiple enabled relays and publish with redundancy. Off (Single-node): use one primary; auto-switch to another healthy enabled relay if it becomes unstable."
+      - switch
+      - text: "Degraded localhost Publish: localhost Avg RTT 41ms"
+      - paragraph: Sockets are open and may have fine Connect/RTT; this window is idle (no recent events). Quiet is not high latency — send or wait for traffic.
+      - button "Refresh Status"
+      - button "Reset Relay Section"
+      - text: "Relay window quiet Sockets are open and may have fine Connect/RTT; this window is idle (no recent events). Quiet is not high latency — send or wait for traffic. Relay Actions success Local Dev Mesh: ws://localhost:7000 — local WebSocket relay for development (requires relay service running)."
+- alert

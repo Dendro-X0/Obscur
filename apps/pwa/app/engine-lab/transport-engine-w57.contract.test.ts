@@ -22,7 +22,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w57 — standalone legacy deletion subtraction", () => {
   it("pins subtraction charter with fail-closed routing and W58+ steps", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w57-standalone-legacy-deletion-subtraction.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w57-standalone-legacy-deletion-subtraction.md",
     );
     expect(charter).toContain("Standalone Legacy Deletion Subtraction");
     expect(charter).toContain("shouldBlockStandaloneLegacyPublishFallback");

@@ -172,10 +172,55 @@ const SE_STANDALONE_SIGNALS: ReadonlyArray<TrustSignalId> = [
   "thread.irreversible_payment_demand",
 ];
 
+/** Co-signals that make weak off-platform meaningful for accepted peers. */
+const OFF_PLATFORM_COMPOUND_SIGNALS: ReadonlyArray<TrustSignalId> = [
+  "thread.pivot_financial",
+  "thread.financial_pressure",
+  "commerce.urgency_pressure",
+  "thread.gift_card_scam",
+  "thread.advance_fee_scam",
+  "thread.irreversible_payment_demand",
+  "thread.fake_escrow",
+  "thread.credential_harvest",
+  "thread.authority_impersonation",
+  "thread.overpayment_refund",
+  "thread.remote_access_tool",
+  "thread.hiring_trap",
+];
+
+const OFF_PLATFORM_PAYMENT_CO_MENTION = /\b(pay(?:ment|pal)?|invoice|wire|crypto|usdt|btc|eth|venmo|cashapp|funds|money)\b/i;
+
 const includesAnySignal = (
   signals: ReadonlyArray<TrustSignalId>,
   candidates: ReadonlyArray<TrustSignalId>,
 ): boolean => candidates.some((signal) => signals.includes(signal));
+
+const isWeakAcceptedOffPlatformOnly = (params: Readonly<{
+  signals: ReadonlyArray<TrustSignalId>;
+  isPeerAccepted: boolean;
+  isContactCold: boolean;
+  messageContent: string;
+}>): boolean => {
+  if (!params.isPeerAccepted || params.isContactCold) {
+    return false;
+  }
+  if (!params.signals.includes("thread.off_platform_redirect")) {
+    return false;
+  }
+  const otherStandalone = SE_STANDALONE_SIGNALS.filter(
+    (signal) => signal !== "thread.off_platform_redirect" && params.signals.includes(signal),
+  );
+  if (otherStandalone.length > 0) {
+    return false;
+  }
+  if (includesAnySignal(params.signals, OFF_PLATFORM_COMPOUND_SIGNALS)) {
+    return false;
+  }
+  if (OFF_PLATFORM_PAYMENT_CO_MENTION.test(params.messageContent)) {
+    return false;
+  }
+  return true;
+};
 
 const resolveSeCriticalTier = (signals: ReadonlyArray<TrustSignalId>): boolean => (
   signals.includes("commerce.urgency_pressure")
@@ -346,6 +391,16 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
   }
 
   if (includesAnySignal(signals, SE_STANDALONE_SIGNALS)) {
+    // Accepted peers: lone off-platform mention → info (not elevated banner).
+    // Compound with payment/urgency/other SE → elevated. Cold still uses BUNDLE_SE_COLD above.
+    if (isWeakAcceptedOffPlatformOnly({
+      signals,
+      isPeerAccepted: input.isPeerAccepted,
+      isContactCold,
+      messageContent: input.messageContent,
+    })) {
+      return finalize(buildAssessment(signals, null, "info"));
+    }
     const tier: TrustWarningTier = includesAnySignal(signals, SE_CRITICAL_SIGNALS)
       ? "critical"
       : "elevated";
@@ -368,8 +423,10 @@ export const assessDmTrustWarning = (input: AssessDmTrustInput): DmTrustAssessme
 
   if (signals.includes("msg.rate") || signals.includes("invite.fanout")) {
     const msgRateOnly = signals.length === 1 && signals[0] === "msg.rate";
-    if (msgRateOnly && input.isPeerAccepted && !isContactCold) {
-      return finalize(buildAssessment(signals, null, "info"));
+    // ASE immature: volume alone is not fraud — do not surface rate-only notices.
+    // Cold+rate still uses BUNDLE_SPAM_COLD above.
+    if (msgRateOnly) {
+      return finalize(buildAssessment(signals, null, "none"));
     }
     return finalize(buildAssessment(signals, null, "elevated"));
   }

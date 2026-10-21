@@ -2159,6 +2159,8 @@ export const installM6VoiceReplayBridge = (): void => {
           hasPeerConnection: true,
           hasAddTrack: true,
           opusCapabilityStatus: params?.opusCapabilityStatus ?? "available",
+          videoCapabilityStatus: "available" as const,
+          supportsVideo: true,
         }
         : {
           supported: false as const,
@@ -2168,6 +2170,8 @@ export const installM6VoiceReplayBridge = (): void => {
           hasPeerConnection: false,
           hasAddTrack: false,
           opusCapabilityStatus: "unknown" as const,
+          videoCapabilityStatus: "unknown" as const,
+          supportsVideo: false,
         };
       state = owner.start({
         roomId: params?.roomId ?? "m6-voice-room",

@@ -22,8 +22,14 @@ describe("conduit-mesh C13 Tor SOCKS routing", () => {
       "http://abcdef123.onion:8788",
       "http://127.0.0.1:8788",
     ]);
-    expect(descriptors[0]?.networkPolicy).toBe("tor_required");
-    expect(descriptors[1]?.networkPolicy).toBe("clearnet");
+    const byEndpoint = new Map(
+      descriptors.flatMap((descriptor) => (
+        descriptor.endpoints.map((endpoint) => [endpoint, descriptor] as const)
+      )),
+    );
+
+    expect(byEndpoint.get("http://abcdef123.onion:8788")?.networkPolicy).toBe("tor_required");
+    expect(byEndpoint.get("http://127.0.0.1:8788")?.networkPolicy).toBe("clearnet");
   });
 
   it("routes tor_required HTTP publish through socksFetch with proxyUrl", async () => {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createRequestTransportService,
   deriveRequestConvergenceState,
+  pendingAcceptRelayQueue,
   requestTransportInternals,
 } from "./request-transport-service";
 import * as accountEventIngestBridge from "@/app/features/account-sync/services/account-event-ingest-bridge";
@@ -55,17 +56,135 @@ describe("request-transport-service internals", () => {
     } as any)).toBe(false);
   });
 
-  it("only commits accepted state when acceptance publish has relay evidence", async () => {
+  it("commits accepted state locally even when relay publish fails", async () => {
+    pendingAcceptRelayQueue.clear();
+    const acceptPeer = vi.fn();
+    const setStatus = vi.fn();
+    const markAccept = vi.fn();
+    const sendDm = vi.fn(async () => ({
+      success: false,
+      deliveryStatus: "queued_retrying",
+      retryAtUnixMs: Date.now() + 30_000,
+      relayResults: [{ relayUrl: "wss://relay.test", success: false, error: "timeout" }],
+      failureReason: "no_active_relays",
+    }));
+    const service = createRequestTransportService({
+      sendConnectionRequest: vi.fn(),
+      sendDm,
+      peerTrust: { acceptPeer },
+      requestsInbox: {
+        getRequestStatus: () => ({ status: "pending", isOutgoing: false }),
+        setStatus,
+      },
+      evidenceStore: {
+        get: () => ({ receiptAckSeen: false, acceptSeen: false }),
+        markRequestPublished: vi.fn(),
+        markReceiptAck: vi.fn(),
+        markAccept,
+        markTerminalFailure: vi.fn(),
+      } as any,
+    });
+
+    const outcome = await service.acceptIncomingRequest({
+      peerPublicKeyHex: "b".repeat(64) as any,
+      requestEventId: "req-1",
+    });
+
+    expect(outcome.status).toBe("ok");
+    expect(outcome.convergenceState).toBe("accepted");
+    expect(outcome.relayConfirmed).toBe(false);
+    expect(acceptPeer).toHaveBeenCalledWith({ publicKeyHex: "b".repeat(64) });
+    expect(setStatus).toHaveBeenCalledWith({
+      peerPublicKeyHex: "b".repeat(64),
+      status: "accepted",
+      isOutgoing: false,
+    });
+    expect(markAccept).toHaveBeenCalled();
+    expect(sendDm).toHaveBeenCalledWith(expect.objectContaining({
+      waitForConfirmation: true,
+      suppressPublishFeedbackToast: true,
+      customTags: [["t", "connection-accept"], ["e", "req-1"]],
+    }));
+    expect(pendingAcceptRelayQueue.hasPending("b".repeat(64))).toBe(true);
+    expect(pendingAcceptRelayQueue.getAll()[0]?.relaySendAttemptedAtUnixMs).toBeTypeOf("number");
+    pendingAcceptRelayQueue.clear();
+  });
+
+  it("waits for writable relay before accept publish when preflight hook is provided", async () => {
+    pendingAcceptRelayQueue.clear();
+    const waitForWritableRelay = vi.fn(async () => true);
+    const sendDm = vi.fn(async () => ({
+      success: true,
+      deliveryStatus: "sent_quorum",
+      messageId: "accept-1",
+      relayResults: [{ relayUrl: "wss://relay.test", success: true }],
+    }));
+    const service = createRequestTransportService({
+      sendConnectionRequest: vi.fn(),
+      sendDm,
+      waitForWritableRelay,
+      requestsInbox: {
+        getRequestStatus: () => ({ status: "pending", isOutgoing: false }),
+        setStatus: vi.fn(),
+      },
+      evidenceStore: {
+        get: () => ({ receiptAckSeen: false, acceptSeen: false }),
+        markRequestPublished: vi.fn(),
+        markReceiptAck: vi.fn(),
+        markAccept: vi.fn(),
+        markTerminalFailure: vi.fn(),
+      } as any,
+    });
+
+    await service.acceptIncomingRequest({
+      peerPublicKeyHex: "b".repeat(64) as any,
+      requestEventId: "req-1",
+    });
+
+    expect(waitForWritableRelay).toHaveBeenCalledWith(20_000);
+    pendingAcceptRelayQueue.clear();
+  });
+
+  it("does not re-send accept relay notification when already accepted locally", async () => {
+    pendingAcceptRelayQueue.clear();
+    const sendDm = vi.fn();
+    const service = createRequestTransportService({
+      sendConnectionRequest: vi.fn(),
+      sendDm,
+      requestsInbox: {
+        getRequestStatus: () => ({ status: "accepted", isOutgoing: false }),
+        setStatus: vi.fn(),
+      },
+      evidenceStore: {
+        get: () => ({ receiptAckSeen: false, acceptSeen: true }),
+        markRequestPublished: vi.fn(),
+        markReceiptAck: vi.fn(),
+        markAccept: vi.fn(),
+        markTerminalFailure: vi.fn(),
+      } as any,
+    });
+
+    const outcome = await service.acceptIncomingRequest({
+      peerPublicKeyHex: "b".repeat(64) as any,
+      requestEventId: "req-1",
+    });
+
+    expect(sendDm).not.toHaveBeenCalled();
+    expect(outcome.relayConfirmed).toBe(true);
+    pendingAcceptRelayQueue.clear();
+  });
+
+  it("commits accepted state with relayConfirmed=true when relay succeeds", async () => {
+    pendingAcceptRelayQueue.clear();
     const acceptPeer = vi.fn();
     const setStatus = vi.fn();
     const service = createRequestTransportService({
       sendConnectionRequest: vi.fn(),
       sendDm: async () => ({
-        success: false,
-        deliveryStatus: "queued_retrying",
-        retryAtUnixMs: Date.now() + 30_000,
-        relayResults: [{ relayUrl: "wss://relay.test", success: false, error: "timeout" }],
-        failureReason: "no_active_relays",
+        success: true,
+        deliveryStatus: "sent_quorum",
+        messageId: "accept-1",
+        relayResults: [{ relayUrl: "wss://relay.test", success: true }],
       }) as any,
       peerTrust: { acceptPeer },
       requestsInbox: {
@@ -86,10 +205,35 @@ describe("request-transport-service internals", () => {
       requestEventId: "req-1",
     });
 
-    expect(outcome.status).toBe("queued");
-    expect(outcome.convergenceState).toBe("pending_local");
-    expect(acceptPeer).not.toHaveBeenCalled();
-    expect(setStatus).not.toHaveBeenCalled();
+    expect(outcome.status).toBe("ok");
+    expect(outcome.relayConfirmed).toBe(true);
+    expect(acceptPeer).toHaveBeenCalled();
+    expect(setStatus).toHaveBeenCalledWith(expect.objectContaining({ status: "accepted" }));
+    expect(pendingAcceptRelayQueue.hasPending("b".repeat(64))).toBe(false);
+    pendingAcceptRelayQueue.clear();
+  });
+
+  it("enqueues relay retry on failed accept and dequeues on success", () => {
+    pendingAcceptRelayQueue.clear();
+    pendingAcceptRelayQueue.enqueue({
+      peerPublicKeyHex: "c".repeat(64),
+      plaintext: "Accepted",
+      requestEventId: "req-2",
+    });
+    expect(pendingAcceptRelayQueue.hasPending("c".repeat(64))).toBe(true);
+    expect(pendingAcceptRelayQueue.getAll()).toHaveLength(1);
+
+    pendingAcceptRelayQueue.dequeue("c".repeat(64));
+    expect(pendingAcceptRelayQueue.hasPending("c".repeat(64))).toBe(false);
+    expect(pendingAcceptRelayQueue.getAll()).toHaveLength(0);
+  });
+
+  it("does not duplicate entries in the relay retry queue", () => {
+    pendingAcceptRelayQueue.clear();
+    pendingAcceptRelayQueue.enqueue({ peerPublicKeyHex: "d".repeat(64), plaintext: "Accepted" });
+    pendingAcceptRelayQueue.enqueue({ peerPublicKeyHex: "d".repeat(64), plaintext: "Accepted" });
+    expect(pendingAcceptRelayQueue.getAll()).toHaveLength(1);
+    pendingAcceptRelayQueue.clear();
   });
 
   it("commits declined state only when decline publish has relay evidence", async () => {

@@ -10,6 +10,8 @@ import {
   dispatchVoiceCallOverlayAction,
   type VoiceCallOverlayAction,
 } from "../services/voice-call-overlay-action-bridge";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
+import { resolveVoiceCallPresentation } from "../services/realtime-call-presentation";
 
 const toRoomIdHint = (roomIdInput: string): string => {
   const roomId = roomIdInput.trim();
@@ -63,11 +65,18 @@ export function GlobalVoiceCallOverlay(): React.JSX.Element | null {
         peerAvatarUrl={overlay.peerAvatarUrl}
         anchorMode={anchorMode}
         audioLevel={overlay.waveAudioLevel}
+        localVideoStream={overlay.localVideoStream}
+        remoteVideoStream={overlay.remoteVideoStream}
         onOpenChat={() => relayActionToChatSurface("open_chat")}
         onAccept={() => relayActionToChatSurface("accept")}
         onDecline={() => relayActionToChatSurface("decline")}
         onEnd={() => relayActionToChatSurface("end")}
         onDismiss={() => relayActionToChatSurface("dismiss")}
+        presentation={resolveVoiceCallPresentation({
+          isMobileShell: isMobileShellProduct(),
+          callType: overlay.status.callType,
+          phase: overlay.status.phase,
+        })}
       />
     );
 

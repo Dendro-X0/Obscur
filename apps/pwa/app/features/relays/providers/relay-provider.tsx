@@ -304,6 +304,8 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       hints: relayHealthHints,
       // TI-1: sticky Tor dials only while tor_armed.
       maxRedundancy: torViableArmed ? 2 : undefined,
+      // Self T1: operator workspace lab stays dialable with public remotes.
+      retainLabUrl: operatorWorkspaceRelayUrl,
     })
   ), [
     relayTransportMode,
@@ -312,6 +314,7 @@ const FullRelayProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     relaySelection.primaryUrl,
     relaySelection.standbyUrls.join("|"),
     reconcileHintsSignature,
+    operatorWorkspaceRelayUrl,
   ]);
 
   const poolConnectionRelayUrls = useMemo(() => (

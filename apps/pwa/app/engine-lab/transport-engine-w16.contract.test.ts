@@ -15,7 +15,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w16 — host publish charter decision", () => {
   it("captures explicit defer decision and migration plan in program charter", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w16-host-publish-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w16-host-publish-charter.md");
     expect(charter).toContain("explicit defer");
     expect(charter).toContain("do not add");
     expect(charter).toContain("Migration plan");
@@ -23,7 +23,7 @@ describe("transport-engine w16 — host publish charter decision", () => {
   });
 
   it("w16 charter explicitly deferred wiring a host publish implementation", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w16-host-publish-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w16-host-publish-charter.md");
     expect(charter).toContain("do not add");
     expect(charter).toContain("host publish method");
     expect(charter).toContain("read-only in this wave");

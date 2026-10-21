@@ -25,7 +25,7 @@ const DELETION_GATE_ITEMS = [
 describe("transport-engine w55 — standalone legacy deletion charter", () => {
   it("pins deletion charter with five-part gate", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w55-standalone-legacy-deletion-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w55-standalone-legacy-deletion-charter.md",
     );
     expect(charter).toContain("Standalone Legacy Deletion Charter");
     expect(charter).toContain("design-only");
@@ -37,7 +37,7 @@ describe("transport-engine w55 — standalone legacy deletion charter", () => {
 
   it("links deletion gate to W54 sign-off template", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w55-standalone-legacy-deletion-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w55-standalone-legacy-deletion-charter.md",
     );
     const template = readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-template.md");
     expect(charter).toContain("transport-engine-smoke-sign-off-template.md");

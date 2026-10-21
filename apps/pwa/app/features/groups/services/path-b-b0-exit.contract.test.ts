@@ -11,19 +11,21 @@ describe("path B B0 exit contract", () => {
   const read = (relativePath: string) => readFileSync(path.join(pwaRoot, relativePath), "utf8");
   const readRepo = (relativePath: string) => readFileSync(path.join(repoRoot, relativePath), "utf8");
 
-  it("canonical trust policy blocks public_default and requires coordination", () => {
+  it("canonical trust policy honesty-gates public_default and requires coordination (CU-UX-5)", () => {
     const policy = read("app/features/groups/services/community-trust-policy.ts");
     expect(policy).toContain("assessWorkspaceCommunityTrust");
-    expect(policy).toContain("public_relay_blocked");
+    expect(policy).toContain("public_relay_honest");
     expect(policy).toContain("coordination_unconfigured");
     expect(policy).toContain("coordination_unreachable");
     expect(policy).toContain("isCoordinationGateSatisfied");
   });
 
-  it("managed workspace relay gate rejects public_default tier", () => {
+  it("managed workspace relay gate honesty-allows public_default tier (CU-UX-5)", () => {
     const contract = read("app/features/groups/services/community-mode-contract.ts");
     expect(contract).toContain("resolveManagedWorkspaceRelayGate");
     expect(contract).toContain('tier === "public_default"');
+    expect(contract).toContain("public_default_honest");
+    expect(contract).toContain("requiresHonestyAck");
     expect(contract).toContain("supportsManagedWorkspace");
   });
 
@@ -45,7 +47,9 @@ describe("path B B0 exit contract", () => {
   it("global create handler re-checks trust before publish", () => {
     const manager = read("app/features/messaging/components/global-dialog-manager.tsx");
     expect(manager).toContain("assessWorkspaceCommunityTrustAsync");
-    expect(manager).toContain('communityMode = "managed_workspace"');
+    expect(manager).toContain("createManagedWorkspaceMembership");
+    expect(manager).toContain('info.communityMode === "sovereign_room"');
+    expect(manager).toContain("isWorkspaceCommunityCreateAllowed");
   });
 
   it("invite redemption partitions workspace relays through trust policy", () => {

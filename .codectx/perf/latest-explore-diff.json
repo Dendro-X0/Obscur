@@ -1,20 +1,10 @@
 {
   "schema": "perf.explore.diff@1.1.0",
-  "generatedAt": "2026-07-05T05:49:54.250820800+00:00",
+  "generatedAt": "2026-10-14T15:38:44.575872200+00:00",
   "step": {
     "schema": "perf.baseline.diff@1.1.0",
-    "generatedAt": "2026-07-05T05:49:54.250820800+00:00",
+    "generatedAt": "2026-10-14T15:38:44.575872200+00:00",
     "baseline": {
-      "exploreId": "bundle-20260701050052.374227600+0000",
-      "graphHash": "",
-      "findingCount": 38,
-      "severityCounts": {
-        "red": 0,
-        "yellow": 38,
-        "info": 0
-      }
-    },
-    "current": {
       "exploreId": "bundle-20260705054954.250820800+0000",
       "graphHash": "",
       "findingCount": 39,
@@ -24,31 +14,79 @@
         "info": 0
       }
     },
+    "current": {
+      "exploreId": "bundle-20261014153844.575872200+0000",
+      "graphHash": "",
+      "findingCount": 81,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 81,
+        "info": 0
+      }
+    },
     "delta": {
       "red": 0,
-      "yellow": 1,
+      "yellow": 42,
       "info": 0,
-      "total": 1
+      "total": 42
     },
-    "resolvedFindingIds": [],
-    "newFindingIds": [
-      "perf:route:missing-loading:apps/website/src/app/limitations/page.tsx"
+    "resolvedFindingIds": [
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "perf:dev:tauri-vite-shell:apps/desktop"
     ],
-    "unchangedFindingIds": [
-      "perf:bundle:missing-optimize-imports:apps/website",
-      "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
-      "perf:import:barrel-penalty:apps/pwa/app/features/invites/utils/index.ts",
-      "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
-      "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+    "newFindingIds": [
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-1SOLVK/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-9ZLhKy/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-FfriwI/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-UCr4Ft/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-WFdrXK/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-bluPof/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-c4AWNC/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-gT35ln/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-ljm4cZ/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-nCQa6l/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-uJ5anc/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-vknbKa/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-wOXYBG/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-wnS8gC/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-yAfBC0/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-1TpgWa/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-Eieqhs/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-ID3RGs/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-OwBnye/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-VGm2Zh/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-ggptvL/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-k14D7g/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-mh8ZuS/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-nDUx17/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-nwMfDJ/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-rs35ef/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-rsex38/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-s68emw/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-sAJRo1/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-xjUkub/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-1SOLVK/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-9ZLhKy/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-FfriwI/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-UCr4Ft/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-WFdrXK/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-bluPof/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-c4AWNC/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-gT35ln/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-ljm4cZ/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-nCQa6l/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-uJ5anc/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-vknbKa/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-wOXYBG/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-wnS8gC/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-yAfBC0/index.js",
       "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
       "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
       "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
       "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
       "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
-      "perf:route:missing-loading:apps/website/src/app/changelog/page.tsx",
-      "perf:route:missing-loading:apps/website/src/app/download/page.tsx",
-      "perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx",
-      "perf:route:missing-loading:apps/website/src/app/page.tsx",
       "perf:stack:next:apps/pwa",
       "perf:stack:next:apps/website",
       "perf:topology:architecture-layout:apps:coordination",
@@ -61,6 +99,7 @@
       "perf:topology:critical-path-scope:apps:pwa",
       "perf:topology:critical-path-scope:apps:relay-gateway",
       "perf:topology:critical-path-scope:apps:website",
+      "perf:topology:shared-fanout:apps:desktop:src-tauri",
       "perf:topology:shared-fanout:packages:db",
       "perf:topology:shared-fanout:packages:dweb-auth",
       "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
@@ -68,17 +107,83 @@
       "perf:topology:shared-fanout:packages:dweb-crypto",
       "perf:topology:shared-fanout:packages:dweb-storage-contracts",
       "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh",
       "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
       "perf:topology:shared-fanout:packages:obscur-engine-contracts"
     ],
+    "unchangedFindingIds": [
+      "perf:api:client-payload-suspect:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+      "perf:api:waterfall:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+      "perf:asset:oversized:apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/auth_create_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/delete_profile_window_isolation_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/export_local_profile_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/group_invite_member_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/preview_files_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/relay_enable_disable_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/relay_overview_1.mp4",
+      "perf:asset:oversized:apps/website/public/guide-media/settings_panel_1.mp4",
+      "perf:asset:raw-img:apps/website/src/app/ambient-demo-video.tsx",
+      "perf:asset:raw-img:apps/website/src/app/guide/guide-docs-shell.tsx",
+      "perf:asset:raw-img:apps/website/src/app/hero-stage.tsx",
+      "perf:asset:raw-img:apps/website/src/app/page.tsx",
+      "perf:bundle:missing-optimize-imports:apps/website",
+      "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/security/index.ts",
+      "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "perf:route:missing-loading:apps/website/src/app/changelog/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/download/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/guide/[slug]/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/guide/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/limitations/page.tsx",
+      "perf:route:missing-loading:apps/website/src/app/page.tsx",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website"
+    ],
     "severityChanges": [],
-    "improved": false,
+    "improved": true,
     "verification": {
-      "status": "regressed",
-      "resolvedCount": 0,
+      "status": "mixed",
+      "resolvedCount": 4,
       "severityImprovementCount": 0,
       "partialCount": 0,
-      "metricImprovements": []
+      "metricImprovements": [
+        {
+          "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:dev:tauri-vite-shell:apps/desktop",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
     }
   }
 }

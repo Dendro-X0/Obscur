@@ -17,11 +17,27 @@ describe("desktop-profile-card-display", () => {
       label: "Profile 2",
       avatarName: "Tester2",
       avatarUrl: "https://example.com/t2.png",
+      subtitle: "3db055b4…d946830f",
       hasStoredIdentity: false,
       hasSavedAccountPresence: true,
     })).toMatchObject({
       showAccountIdentity: true,
       displayName: "Tester2",
+    });
+  });
+
+  it("shows pubkey preview when account exists but only a generic slot label", () => {
+    expect(resolveDesktopProfileCardDisplay({
+      profileId: "profile-2",
+      label: "Profile 2",
+      avatarName: "Profile 2",
+      avatarUrl: "",
+      subtitle: "3db055b4…d946830f",
+      hasStoredIdentity: true,
+      hasSavedAccountPresence: true,
+    })).toMatchObject({
+      showAccountIdentity: true,
+      displayName: "3db055b4…d946830f",
     });
   });
 
@@ -31,6 +47,7 @@ describe("desktop-profile-card-display", () => {
       label: "Tester1",
       avatarName: "Tester1",
       avatarUrl: "https://example.com/a.png",
+      subtitle: "e07f67dc…c191ea56",
       hasStoredIdentity: true,
       hasSavedAccountPresence: true,
     })).toMatchObject({
@@ -43,6 +60,7 @@ describe("desktop-profile-card-display", () => {
       label: "Profile 2",
       avatarName: "Profile 2",
       avatarUrl: "",
+      subtitle: "profile-2",
       hasStoredIdentity: false,
       hasSavedAccountPresence: false,
     })).toMatchObject({
@@ -55,6 +73,7 @@ describe("desktop-profile-card-display", () => {
       label: "Default",
       avatarName: "Default",
       avatarUrl: "",
+      subtitle: "default",
       hasStoredIdentity: false,
       hasSavedAccountPresence: false,
     })).toMatchObject({

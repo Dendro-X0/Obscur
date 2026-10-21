@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterDemotedLocalLabUrls,
+  isOperatorRetainedLocalLabUrl,
+  shouldAvoidLocalLabAsPrimary,
   shouldDemoteLocalLabFromActivePool,
 } from "./relay-local-lab-adapt";
 
@@ -60,5 +62,40 @@ describe("relay-local-lab-adapt (Nostr-first silo)", () => {
       remotesEnabled: false,
     });
     expect(filtered).toEqual([local]);
+  });
+
+  it("Self T1: retains matching operator workspace lab in dial set with remotes", () => {
+    expect(isOperatorRetainedLocalLabUrl(local, "ws://127.0.0.1:7000")).toBe(true);
+    expect(shouldDemoteLocalLabFromActivePool({
+      localUrl: local,
+      remotesEnabled: true,
+      retainLabUrl: "ws://localhost:7000",
+    })).toBe(false);
+    expect(filterDemotedLocalLabUrls({
+      orderedEnabledUrls: [local, "wss://nos.lol"],
+      remotesEnabled: true,
+      retainLabUrl: local,
+    })).toEqual([local, "wss://nos.lol"]);
+  });
+
+  it("Self T1: mesh HTTP is never retainable", () => {
+    const mesh = "http://127.0.0.1:8788";
+    expect(isOperatorRetainedLocalLabUrl(mesh, mesh)).toBe(false);
+    expect(shouldDemoteLocalLabFromActivePool({
+      localUrl: mesh,
+      remotesEnabled: true,
+      retainLabUrl: mesh,
+    })).toBe(true);
+  });
+
+  it("Self T1: primary still avoids lab when remotes enabled", () => {
+    expect(shouldAvoidLocalLabAsPrimary({
+      localUrl: local,
+      remotesEnabled: true,
+    })).toBe(true);
+    expect(shouldAvoidLocalLabAsPrimary({
+      localUrl: local,
+      remotesEnabled: false,
+    })).toBe(false);
   });
 });

@@ -19,11 +19,15 @@ describe("p3 runtime data path contract", () => {
     expect(port).not.toContain("chat-state-store");
   });
 
-  it("routes native sidebar reads through loadDmKernelSidebar", () => {
+  it("routes native sidebar reads through protocol adaptation → loadDmKernelSidebar", () => {
     const provider = read("app/features/messaging/providers/messaging-provider.tsx");
-    expect(provider).toContain("loadDmKernelSidebar");
+    expect(provider).toContain("listDmConversations");
+    expect(provider).toContain("protocol-adaptation");
+    expect(provider).not.toContain("loadDmKernelSidebar");
     expect(provider).not.toMatch(/\bdbGetConversations\b/);
     expect(provider).not.toContain("isDmKernelAuthority");
+    const adapter = read("app/features/protocol-adaptation/nostr/nostr-adapter.ts");
+    expect(adapter).toContain("loadDmKernelSidebar");
     const sidebar = read("app/features/dm-kernel/dm-kernel-sidebar-port.ts");
     expect(sidebar).toContain("listDmConversations");
     expect(sidebar).toContain("recordDmKernelInvoke");

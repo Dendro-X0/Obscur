@@ -12,6 +12,9 @@ export type RealtimeVoiceCapability = Readonly<{
   hasPeerConnection: boolean;
   hasAddTrack: boolean;
   opusCapabilityStatus: "available" | "missing" | "unknown";
+  /** M1-A: WebRTC can carry a video track (codecs/runtime) — not “camera plugged in”. */
+  videoCapabilityStatus: "available" | "missing" | "unknown";
+  supportsVideo: boolean;
 }>;
 
 const isSecureContextSafe = (): boolean => (
@@ -44,18 +47,28 @@ const hasAddTrackSupport = (
   return typeof peerConnectionCtor.prototype?.addTrack === "function";
 };
 
-const getOpusCapabilityStatus = (): "available" | "missing" | "unknown" => {
+const getRtpSenderCapabilities = (
+  kind: "audio" | "video",
+): ReadonlyArray<{ mimeType?: string }> | null => {
   if (typeof window === "undefined") {
-    return "unknown";
+    return null;
   }
   const senderCtor = (
     window as Window & { RTCRtpSender?: typeof RTCRtpSender }
   ).RTCRtpSender;
   if (!senderCtor || typeof senderCtor.getCapabilities !== "function") {
+    return null;
+  }
+  const capabilities = senderCtor.getCapabilities(kind);
+  const codecs = Array.isArray(capabilities?.codecs) ? capabilities.codecs : [];
+  return codecs;
+};
+
+const getOpusCapabilityStatus = (): "available" | "missing" | "unknown" => {
+  const codecs = getRtpSenderCapabilities("audio");
+  if (codecs === null) {
     return "unknown";
   }
-  const capabilities = senderCtor.getCapabilities("audio");
-  const codecs = Array.isArray(capabilities?.codecs) ? capabilities.codecs : [];
   if (codecs.length === 0) {
     return "unknown";
   }
@@ -65,6 +78,21 @@ const getOpusCapabilityStatus = (): "available" | "missing" | "unknown" => {
   return hasOpus ? "available" : "missing";
 };
 
+/** Structural video path (VP8/H264/etc.) — independent of a physical camera. */
+const getVideoCapabilityStatus = (): "available" | "missing" | "unknown" => {
+  const codecs = getRtpSenderCapabilities("video");
+  if (codecs === null) {
+    return "unknown";
+  }
+  if (codecs.length === 0) {
+    return "unknown";
+  }
+  const hasVideoCodec = codecs.some((codec) => (
+    typeof codec.mimeType === "string" && codec.mimeType.toLowerCase().startsWith("video/")
+  ));
+  return hasVideoCodec ? "available" : "missing";
+};
+
 export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
   const secureContext = isSecureContextSafe();
   const hasMediaDevices = hasMediaDevicesSafe();
@@ -72,6 +100,8 @@ export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
   const hasPeerConnection = peerConnectionCtor !== null;
   const hasAddTrack = hasAddTrackSupport(peerConnectionCtor);
   const opusCapabilityStatus = getOpusCapabilityStatus();
+  const videoCapabilityStatus = getVideoCapabilityStatus();
+  const supportsVideoBase = hasAddTrack && videoCapabilityStatus !== "missing";
 
   if (!secureContext) {
     return {
@@ -82,6 +112,8 @@ export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
       hasPeerConnection,
       hasAddTrack,
       opusCapabilityStatus,
+      videoCapabilityStatus,
+      supportsVideo: false,
     };
   }
 
@@ -94,6 +126,8 @@ export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
       hasPeerConnection,
       hasAddTrack,
       opusCapabilityStatus,
+      videoCapabilityStatus,
+      supportsVideo: false,
     };
   }
 
@@ -106,6 +140,8 @@ export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
       hasPeerConnection: false,
       hasAddTrack: false,
       opusCapabilityStatus,
+      videoCapabilityStatus,
+      supportsVideo: false,
     };
   }
 
@@ -118,6 +154,8 @@ export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
       hasPeerConnection: true,
       hasAddTrack: false,
       opusCapabilityStatus,
+      videoCapabilityStatus,
+      supportsVideo: false,
     };
   }
 
@@ -129,6 +167,8 @@ export const getRealtimeVoiceCapability = (): RealtimeVoiceCapability => {
     hasPeerConnection: true,
     hasAddTrack: true,
     opusCapabilityStatus,
+    videoCapabilityStatus,
+    supportsVideo: supportsVideoBase,
   };
 };
 
@@ -138,4 +178,5 @@ export const realtimeVoiceCapabilityInternals = {
   hasMediaDevicesSafe,
   isSecureContextSafe,
   getOpusCapabilityStatus,
+  getVideoCapabilityStatus,
 };

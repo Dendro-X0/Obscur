@@ -39,6 +39,7 @@ export type CommunityDescriptorRelayHintPayload = Readonly<{
   picture?: string;
   access?: string;
   communityMode?: string;
+  hostingTier?: string;
   relayCapabilityTier?: string;
   descriptorVersion?: number;
   stewardPubkeys?: ReadonlyArray<CommunityDescriptorPubkeyHex>;

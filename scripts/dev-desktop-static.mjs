@@ -22,6 +22,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import { spawnPnpm } from "./lib/spawn-pnpm.mjs";
 import { applyWindowsBuildTempEnv } from "./lib/windows-build-temp.mjs";
 import {
   formatStaticShellStaleHelp,
@@ -142,11 +143,10 @@ const run = async () => {
 
   log("starting Tauri — loads out/index.html (OBSCUR_DESKTOP_STATIC_DEV=1)…");
 
-  const desktop = spawn("pnpm", ["-C", "apps/desktop", "dev"], {
+  const desktop = spawnPnpm(["-C", "apps/desktop", "dev"], {
     cwd: repoRoot,
     env,
     stdio: "inherit",
-    shell: process.platform === "win32",
   });
 
   desktop.on("exit", (code) => {

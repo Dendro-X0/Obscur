@@ -4,11 +4,10 @@ import type { Message } from "@/app/features/messaging/types";
 import { messageBus } from "@/app/features/messaging/services/message-bus";
 import { useDmKernelThread } from "./use-dm-kernel-thread";
 
-const loadDmKernelThreadMock = vi.hoisted(() => vi.fn(async () => [] as Message[]));
+const listDmMessagesMock = vi.hoisted(() => vi.fn(async () => [] as Message[]));
 
-vi.mock("./dm-kernel-thread-port", () => ({
-  DM_KERNEL_PAGE_SIZE: 200,
-  loadDmKernelThread: loadDmKernelThreadMock,
+vi.mock("@/app/features/protocol-adaptation", () => ({
+  listDmMessages: listDmMessagesMock,
 }));
 
 vi.mock("./dm-kernel-integrity", () => ({
@@ -38,8 +37,8 @@ const createMessage = (overrides: Partial<Message> = {}): Message => ({
 
 describe("useDmKernelThread", () => {
   beforeEach(() => {
-    loadDmKernelThreadMock.mockReset();
-    loadDmKernelThreadMock.mockResolvedValue([]);
+    listDmMessagesMock.mockReset();
+    listDmMessagesMock.mockResolvedValue([]);
   });
 
   it("appends new_message bus events without reloading sqlite", async () => {
@@ -161,7 +160,7 @@ describe("useDmKernelThread", () => {
       senderPubkey: myPublicKeyHex,
       recipientPubkey: peerPublicKeyHex,
     });
-    loadDmKernelThreadMock.mockResolvedValueOnce([existing]);
+    listDmMessagesMock.mockResolvedValueOnce([existing]);
 
     const { result } = renderHook(() => useDmKernelThread(canonicalConversationId, myPublicKeyHex));
 

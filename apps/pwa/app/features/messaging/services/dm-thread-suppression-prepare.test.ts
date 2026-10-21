@@ -66,7 +66,33 @@ describe("prepareDmThreadSuppressionIds", () => {
     });
 
     expect(ensureReadyMock).toHaveBeenCalled();
-    expect(mergeIdbMock).toHaveBeenCalled();
+    // Slice 3g: ensureReady owns hydrate — prepare must not re-merge / re-list.
+    expect(mergeIdbMock).not.toHaveBeenCalled();
+    expect(hydrateSqliteMock).not.toHaveBeenCalled();
+    expect(listDmTombstonesMock).not.toHaveBeenCalled();
     expect(result).toEqual(new Set(["in-flight", "durable-1", "proj-removed"]));
+  });
+
+  it("hydrates durable store when ensureReady cannot run (no account key)", async () => {
+    const result = await prepareDmThreadSuppressionIds({
+      profileId: "profile-1",
+      accountPublicKeyHex: null,
+      projection: null,
+      messageDeleteTombstones: {
+        hydrateMessageDeleteTombstonesFromSqlite: hydrateSqliteMock,
+        mergeMessageDeleteTombstonesFromIndexedDb: mergeIdbMock,
+        loadSuppressedMessageDeleteIds: loadSuppressedMock,
+        loadMessageDeleteTombstoneEntries: vi.fn(() => []),
+        isMessageDeleteSuppressed: vi.fn(() => false),
+        suppressMessageDeleteTombstone: vi.fn(),
+        replaceMessageDeleteTombstones: vi.fn(),
+        clearMessageDeleteTombstones: vi.fn(),
+        liftMessageDeleteSuppression: vi.fn(),
+      },
+    });
+
+    expect(ensureReadyMock).not.toHaveBeenCalled();
+    expect(mergeIdbMock).toHaveBeenCalled();
+    expect(result).toEqual(new Set(["durable-1"]));
   });
 });

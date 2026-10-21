@@ -1,7 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AppOverlayRoot, APP_OVERLAY_ROOT_ID } from "@/app/components/app-overlay-layer";
+import { APP_OVERLAY_PORTAL_WRAPPER_CLASS } from "@/app/components/app-overlay-layer";
 import { MediaGallery } from "./media-gallery";
 import type { MediaItem } from "../types";
 import en from "@/app/lib/i18n/locales/en.json";
@@ -40,24 +40,22 @@ const createMediaItem = (overrides: Partial<MediaItem>): MediaItem => ({
 });
 
 describe("MediaGallery", () => {
-    it("renders through the app overlay root above the app shell stacking context", () => {
+    it("renders through a body portal above the Tauri desktop shell stacking context", () => {
         render(
-            <>
-                <AppOverlayRoot />
-                <MediaGallery
-                    isOpen
-                    onClose={vi.fn()}
-                    conversationDisplayName="Test Chat"
-                    mediaItems={[]}
-                    onSelect={vi.fn()}
-                />
-            </>,
+            <MediaGallery
+                isOpen
+                onClose={vi.fn()}
+                conversationDisplayName="Test Chat"
+                mediaItems={[]}
+                onSelect={vi.fn()}
+            />,
         );
 
-        const overlayRoot = document.getElementById(APP_OVERLAY_ROOT_ID);
-        const backdrop = overlayRoot?.querySelector('[data-escape-layer="open"]');
+        const portal = document.body.querySelector('[data-testid="app-overlay-portal"]');
+        const backdrop = document.body.querySelector('[data-escape-layer="open"]');
+        expect(portal).not.toBeNull();
         expect(backdrop).not.toBeNull();
-        expect(backdrop?.className).toContain("z-[10100]");
+        expect(portal?.className).toContain(APP_OVERLAY_PORTAL_WRAPPER_CLASS);
     });
 
     it("renders voice-note label and duration in audio tiles", () => {
@@ -72,16 +70,13 @@ describe("MediaGallery", () => {
         });
 
         render(
-            <>
-                <AppOverlayRoot />
-                <MediaGallery
-                    isOpen
-                    onClose={vi.fn()}
-                    conversationDisplayName="Test Chat"
-                    mediaItems={[voiceItem]}
-                    onSelect={vi.fn()}
-                />
-            </>,
+            <MediaGallery
+                isOpen
+                onClose={vi.fn()}
+                conversationDisplayName="Test Chat"
+                mediaItems={[voiceItem]}
+                onSelect={vi.fn()}
+            />,
         );
 
         expect(screen.getByText("Voice Note")).toBeInTheDocument();
@@ -108,23 +103,20 @@ describe("MediaGallery", () => {
             },
         });
 
-        const { container } = render(
-            <>
-                <AppOverlayRoot />
-                <MediaGallery
-                    isOpen
-                    onClose={vi.fn()}
-                    conversationDisplayName="Test Chat"
-                    mediaItems={[voiceItem, audioItem]}
-                    onSelect={vi.fn()}
-                />
-            </>,
+        const { container: _container } = render(
+            <MediaGallery
+                isOpen
+                onClose={vi.fn()}
+                conversationDisplayName="Test Chat"
+                mediaItems={[voiceItem, audioItem]}
+                onSelect={vi.fn()}
+            />,
         );
 
         expect(screen.getByText("Voice Note")).toBeInTheDocument();
         expect(screen.getByText("Audio")).toBeInTheDocument();
-        expect(container.querySelector(".lucide-mic")).not.toBeNull();
-        expect(container.querySelector(".lucide-music-2")).not.toBeNull();
+        expect(document.body.querySelector(".lucide-mic")).not.toBeNull();
+        expect(document.body.querySelector(".lucide-music-2")).not.toBeNull();
     });
 
     it("renders a video poster tile seeking the first frame", () => {
@@ -139,16 +131,13 @@ describe("MediaGallery", () => {
         });
 
         render(
-            <>
-                <AppOverlayRoot />
-                <MediaGallery
+            <MediaGallery
                     isOpen
                     onClose={vi.fn()}
                     conversationDisplayName="Test Chat"
                     mediaItems={[videoItem]}
                     onSelect={vi.fn()}
-                />
-            </>,
+            />,
         );
 
         const video = screen.getByLabelText("Video preview: clip.mp4");
@@ -177,16 +166,13 @@ describe("MediaGallery", () => {
         });
 
         render(
-            <>
-                <AppOverlayRoot />
-                <MediaGallery
+            <MediaGallery
                     isOpen
                     onClose={vi.fn()}
                     conversationDisplayName="Test Chat"
                     mediaItems={[imageItem, voiceItem]}
                     onSelect={vi.fn()}
-                />
-            </>,
+            />,
         );
 
         expect(screen.getByAltText("image-1.png")).toBeInTheDocument();
@@ -210,16 +196,13 @@ describe("MediaGallery", () => {
         });
 
         render(
-            <>
-                <AppOverlayRoot />
-                <MediaGallery
+            <MediaGallery
                     isOpen
                     onClose={vi.fn()}
                     conversationDisplayName="Test Chat"
                     mediaItems={[imageItem]}
                     onSelect={vi.fn()}
-                />
-            </>,
+            />,
         );
 
         const tile = screen.getByAltText("image-1.png").closest("button");

@@ -66,13 +66,13 @@ describe("Path B Band B0 workspace gates", () => {
             expect(result.reasonCode).toBe("coordination_unreachable");
         });
 
-        it("blocks public_default relay tier for managed_workspace", () => {
+        it("allows public_default with honesty for managed_workspace when coordination healthy (CU-UX-5)", () => {
             const result = assessWorkspaceCommunityTrust({
                 communityRelayUrl: "wss://nos.lol",
                 coordinationHealthy: true,
             });
-            expect(result.allowed).toBe(false);
-            expect(result.reasonCode).toBe("public_relay_blocked");
+            expect(result.allowed).toBe(true);
+            expect(result.reasonCode).toBe("public_relay_honest");
         });
     });
 

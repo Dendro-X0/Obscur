@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sendDm, dmSendPipelineInternals } from "./dm-send-pipeline";
 import type { RelayPoolContract } from "./dm-controller-types";
+import { cryptoService } from "@/app/features/crypto/crypto-service";
 
 const nip65Mocks = vi.hoisted(() => ({
   getWriteRelays: vi.fn(() => [] as string[]),
@@ -105,6 +106,23 @@ describe("dm-send-pipeline", () => {
     expect(result.messageId).toBeTruthy();
     expect(result.relayResults.length).toBeGreaterThan(0);
     expect(result.relayResults.every(r => r.success)).toBe(true);
+  });
+
+  it("defaults to NIP-17 gift wrap for outbound DMs", async () => {
+    const pool = createMockPool();
+    vi.mocked(cryptoService.encryptGiftWrap).mockClear();
+    vi.mocked(cryptoService.encryptDM).mockClear();
+
+    await sendDm({
+      pool,
+      senderPublicKeyHex: "a".repeat(64),
+      senderPrivateKeyHex: "b".repeat(64) as any,
+      recipientPublicKeyHex: "c".repeat(64),
+      plaintext: "modern default",
+    });
+
+    expect(cryptoService.encryptGiftWrap).toHaveBeenCalled();
+    expect(cryptoService.encryptDM).not.toHaveBeenCalled();
   });
 
   it("prevents double-send of the same message", async () => {

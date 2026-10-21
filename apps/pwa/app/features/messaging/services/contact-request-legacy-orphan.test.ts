@@ -38,7 +38,7 @@ describe("contact-request-legacy-orphan", () => {
     })).toBe(false);
   });
 
-  it("synthesizes pending request status for legacy orphan threads", () => {
+  it("uses sandbox pending status when legacy orphan thread evidence exists", () => {
     expect(resolveEffectiveContactRequestStatus({
       peerPublicKeyHex: PEER_A,
       isPeerAcceptedByTrust: false,
@@ -47,13 +47,22 @@ describe("contact-request-legacy-orphan", () => {
     })).toEqual({ status: "pending", isOutgoing: false });
   });
 
-  it("uses sandbox pending status when a stranger thread exists without an inbox row", () => {
+  it("does not synthesize pending status from address-book thread rows alone", () => {
     expect(resolveEffectiveContactRequestStatus({
       peerPublicKeyHex: PEER_A,
       isPeerAcceptedByTrust: false,
       requestStatus: null,
       hasDmThreadRow: true,
-    })).toEqual({ status: "pending", isOutgoing: false });
+    })).toBeNull();
+  });
+
+  it("keeps accept sticky when trust is set even if inbox still says pending", () => {
+    expect(resolveEffectiveContactRequestStatus({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: true,
+      requestStatus: { status: "pending", isOutgoing: false },
+      hasDmThreadRow: true,
+    })).toEqual({ status: "accepted", isOutgoing: false });
   });
 
   it("does not merge plain DM threads without request event evidence", () => {

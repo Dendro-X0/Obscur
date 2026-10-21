@@ -3,10 +3,10 @@ import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/rela
 import { relayDiscoveryQueryInternals } from "./relay-discovery-query";
 
 describe("relayDiscoveryQueryInternals", () => {
-    it("builds invite filters with indexable #i and fallback scan", () => {
+    it("builds invite filters with indexed alias d-tag before kind-0 fallback", () => {
         const filters = relayDiscoveryQueryInternals.buildFilters("invite", "OBSCUR-RW8NXD");
-        expect(filters.length).toBeGreaterThanOrEqual(3);
-        expect(filters[0]).toMatchObject({ kinds: [0], "#i": ["OBSCUR-RW8NXD"] });
+        expect(filters[0]).toMatchObject({ kinds: [31950], "#d": ["OBSCUR-RW8NXD"] });
+        expect(filters.some((f) => f.kinds?.[0] === 0 && f["#i"]?.[0] === "OBSCUR-RW8NXD")).toBe(true);
         expect(filters.some((f) => typeof f.search === "string")).toBe(true);
         expect(filters.some((f) => typeof f.since === "number")).toBe(true);
     });

@@ -53,13 +53,20 @@ const mapOutcome = (outcome: LesChatSaveOutcome): SaveChatAttachmentOutcome => {
   return { status: "failed", reason: outcome.reason };
 };
 
+export type SaveChatAttachmentCallOptions = Readonly<{
+  toastPolicy?: "all" | "errors-only";
+  suppressUnlockToast?: boolean;
+  suppressCatalogEmit?: boolean;
+  knownSavedUrls?: ReadonlySet<string>;
+}>;
+
 export const isChatAttachmentSavedToLocalVault = async (remoteUrl: string): Promise<boolean> =>
   isChatAttachmentSavedToLes(remoteUrl);
 
 export const saveChatAttachmentWithOutcome = async (
   attachment: Attachment,
   t: TranslateFn,
-  options?: Readonly<{ toastPolicy?: "all" | "errors-only"; suppressUnlockToast?: boolean }>,
+  options?: SaveChatAttachmentCallOptions,
 ): Promise<SaveChatAttachmentOutcome> => {
   if (!isVaultSaveFromChatFeatureEnabled() || !hasNativeRuntime()) {
     const { toast } = await import("@dweb/ui-kit");

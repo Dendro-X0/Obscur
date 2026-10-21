@@ -8,6 +8,9 @@ import { useRouter } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { User } from "lucide-react";
+import { isPeerPubkeyPlaceholderName } from "../utils/resolve-peer-display-name";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { normalizePublicUrl } from "@/app/shared/public-url";
 
 interface UserAvatarProps {
     pubkey: string;
@@ -39,7 +42,18 @@ export const UserAvatar = ({
     const { state: identityState } = useIdentity();
     const myPubkey = identityState.publicKeyHex ?? identityState.stored?.publicKeyHex;
     const showDeletedFallback = metadata?.isDeleted === true;
-    const fallbackSeed = showDeletedFallback ? "?" : (metadata?.displayName || pubkey || "??");
+    const meaningfulDisplayName = metadata?.displayName?.trim();
+    const hasHumanDisplayName = Boolean(
+        meaningfulDisplayName
+        && !isPeerPubkeyPlaceholderName(meaningfulDisplayName, pubkey),
+    );
+    const fallbackInitials = hasHumanDisplayName && meaningfulDisplayName
+        ? meaningfulDisplayName.slice(0, 2).toUpperCase()
+        : null;
+    const discoveryPicture = normalizePublicUrl(discoveryCache.getProfile(pubkey)?.picture);
+    const avatarUrl = (!showDeletedFallback
+        ? (normalizePublicUrl(metadata?.avatarUrl) || discoveryPicture)
+        : "") || undefined;
 
     const handleClick = () => {
         if (!showProfileOnClick) return;
@@ -60,9 +74,9 @@ export const UserAvatar = ({
             )}
             onClick={handleClick}
         >
-            {metadata?.avatarUrl && !showDeletedFallback && (
-                <AvatarImage src={metadata.avatarUrl} alt={metadata.displayName || pubkey} />
-            )}
+            {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={metadata?.displayName || pubkey} />
+            ) : null}
             <AvatarFallback
                 className={cn(
                     "font-bold uppercase",
@@ -72,7 +86,11 @@ export const UserAvatar = ({
                     fallbackClassName
                 )}
             >
-                {showDeletedFallback ? <User className="h-4 w-4" /> : fallbackSeed.slice(0, 2).toUpperCase()}
+                {showDeletedFallback || !fallbackInitials ? (
+                    <User className="h-4 w-4" />
+                ) : (
+                    fallbackInitials
+                )}
             </AvatarFallback>
         </Avatar>
     );
