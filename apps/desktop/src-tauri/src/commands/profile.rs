@@ -158,7 +158,33 @@ pub async fn desktop_list_active_session_leases(
     app: AppHandle,
     leases: tauri::State<'_, ActiveSessionLeaseState>,
 ) -> Result<Vec<ActiveSessionLeaseRecord>, String> {
-    leases.list_active_session_leases(&app)
+    // Chrome fault-scan: picker polls leases — soft-empty so IPC does not accumulate.
+    if crate::perf_plane::stubs_hydrate() {
+        crate::invoke_pressure::note_invoke("perf_plane:stub:desktop_list_active_session_leases");
+        return Ok(Vec::new());
+    }
+    // Full plane: coalesce picker polls (JS interval + remount) — bridge tax, not Rust work.
+    {
+        use std::sync::Mutex;
+        use std::time::{Duration, Instant};
+        static LAST: std::sync::OnceLock<Mutex<Option<(Instant, Vec<ActiveSessionLeaseRecord>)>>> =
+            std::sync::OnceLock::new();
+        if let Ok(guard) = LAST.get_or_init(|| Mutex::new(None)).lock() {
+            if let Some((at, cached)) = guard.as_ref() {
+                if at.elapsed() <= Duration::from_secs(55) {
+                    crate::invoke_pressure::note_invoke(
+                        "desktop_list_active_session_leases:coalesce",
+                    );
+                    return Ok(cached.clone());
+                }
+            }
+        }
+        let listed = leases.list_active_session_leases(&app)?;
+        if let Ok(mut guard) = LAST.get_or_init(|| Mutex::new(None)).lock() {
+            *guard = Some((Instant::now(), listed.clone()));
+        }
+        return Ok(listed);
+    }
 }
 
 #[tauri::command]

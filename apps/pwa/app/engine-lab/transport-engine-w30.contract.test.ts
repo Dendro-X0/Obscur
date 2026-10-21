@@ -15,7 +15,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w30 — host publish owner migration charter", () => {
   it("pins phased migration charter without immediate authority flip", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w30-host-publish-owner-migration-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w30-host-publish-owner-migration-charter.md");
     expect(charter).toContain("Host Publish Owner Migration Charter");
     expect(charter).toContain("Phase A — Evidence complete (W24–W29)");
     expect(charter).toContain("Phase D — Authority flip");

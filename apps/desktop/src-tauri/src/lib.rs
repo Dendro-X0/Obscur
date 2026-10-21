@@ -20,6 +20,11 @@ mod keychain_session_envelope;
 mod protocol;
 mod profiles;
 mod active_session_leases;
+mod account_sync_state;
+mod emit_pressure;
+mod invoke_coalesce;
+mod invoke_pressure;
+mod perf_plane;
 mod relay;
 mod mesh;
 mod session;
@@ -38,9 +43,11 @@ mod local_save_scan;
 mod warmup;
 mod services;
 pub mod dev_shell_freshness;
+mod webview_media_permissions;
 
 use profiles::DesktopProfileState;
 use active_session_leases::ActiveSessionLeaseState;
+use account_sync_state::AccountSyncState;
 use session::SessionState;
 use commands::warmup::DesktopWarmupState;
 use commands::tor::{load_tor_settings, start_tor};
@@ -147,6 +154,7 @@ pub fn run() {
                 }
             }
             app.manage(storage_at_rest_state::StorageAtRestState::new());
+            app.manage(AccountSyncState::new());
 
             let _ = crate::data_root::bootstrap_data_root_authority(&app.handle());
 
@@ -181,6 +189,8 @@ pub fn run() {
                 runtime_status: Mutex::new(TorRuntimeStatus::Disconnected),
                 using_external_instance: Mutex::new(false),
                 logs: Mutex::new(Vec::new()),
+                last_gateway_detail: Mutex::new(None),
+                last_bootstrap_percent: Mutex::new(None),
             });
 
             // TI-2: if preference enabled, ensure gateway (spawn if needed) then start Tor via gateway.
@@ -273,6 +283,10 @@ pub fn run() {
                 let window_builder = base_builder.visible(false);
                 window_builder.build().expect("Failed to build main window")
             };
+            #[cfg(desktop)]
+            {
+                crate::webview_media_permissions::install_webview_media_permissions(&_window);
+            }
             #[cfg(mobile)]
             let _window = tauri::WebviewWindowBuilder::new(
                 app,
@@ -456,6 +470,7 @@ pub fn run() {
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
+                    crate::emit_pressure::note_webview_emit("deep-link");
                     let _ = window.emit("deep-link", json!({ "url": url }));
                 }
             });
@@ -465,7 +480,7 @@ pub fn run() {
         .invoke_handler({
             #[cfg(desktop)]
             {
-                tauri::generate_handler![
+                crate::invoke_pressure::wrap_invoke_handler(tauri::generate_handler![
                     commands::window::window_minimize,
                     commands::window::window_maximize,
                     commands::window::window_unmaximize,
@@ -508,6 +523,7 @@ pub fn run() {
                     commands::profile::desktop_claim_active_session_lease,
                     commands::profile::desktop_touch_active_session_lease,
                     commands::profile::desktop_release_active_session_lease,
+                    commands::account_sync::account_sync_snapshot,
                     commands::data_root::desktop_get_obscur_data_root_config,
                     commands::data_root::desktop_set_obscur_data_root,
                     commands::data_root::desktop_prepare_data_root_change,
@@ -564,6 +580,17 @@ pub fn run() {
                     wallet::decrypt_nip44,
                     wallet::encrypt_gift_wrap,
                     wallet::decrypt_gift_wrap,
+                    wallet::generate_group_room_key,
+                    wallet::encrypt_group_message,
+                    wallet::decrypt_group_message,
+                    wallet::encrypt_invite_data,
+                    wallet::decrypt_invite_data,
+                    wallet::derive_rumor_event_id,
+                    wallet::sign_invite_data,
+                    wallet::verify_invite_signature,
+                    wallet::derive_shared_secret,
+                    wallet::generate_secure_random,
+                    wallet::verify_nostr_event,
                     wallet::get_session_nsec,
                     commands::tor::start_tor,
                     commands::tor::stop_tor,
@@ -583,7 +610,7 @@ pub fn run() {
                     protocol::protocol_publish_with_quorum,
                     protocol::protocol_check_storage_health,
                     protocol::protocol_run_storage_recovery,
-                    commands::db::db_insert_message,
+                    commands::db::desktop_db_ensure_open,
                     commands::engine::engine_invoke,
                     commands::transport_engine::engine_invoke_transport_publish_relay_event,
                     commands::transport_engine::engine_invoke_transport_configure_mesh_conduits,
@@ -591,14 +618,13 @@ pub fn run() {
                     commands::transport_engine::engine_invoke_transport_publish_mesh_envelope,
                     commands::transport_engine::engine_invoke_transport_export_offline_pack,
                     commands::transport_engine::engine_invoke_transport_import_offline_pack,
-                    commands::db::db_upsert_conversation,
                     commands::warmup::desktop_start_warmup,
                     commands::warmup::desktop_get_warmup_status
-                ]
+                ])
             }
             #[cfg(not(desktop))]
             {
-                tauri::generate_handler![
+                crate::invoke_pressure::wrap_invoke_handler(tauri::generate_handler![
                     commands::tray::set_tray_unread_badge_count,
                     commands::tray::set_tray_incoming_call_state,
                     commands::tray::desktop_get_incoming_call_state,
@@ -630,6 +656,7 @@ pub fn run() {
                     commands::profile::desktop_claim_active_session_lease,
                     commands::profile::desktop_touch_active_session_lease,
                     commands::profile::desktop_release_active_session_lease,
+                    commands::account_sync::account_sync_snapshot,
                     commands::data_root::desktop_get_obscur_data_root_config,
                     commands::data_root::desktop_set_obscur_data_root,
                     commands::data_root::desktop_prepare_data_root_change,
@@ -686,6 +713,17 @@ pub fn run() {
                     wallet::decrypt_nip44,
                     wallet::encrypt_gift_wrap,
                     wallet::decrypt_gift_wrap,
+                    wallet::generate_group_room_key,
+                    wallet::encrypt_group_message,
+                    wallet::decrypt_group_message,
+                    wallet::encrypt_invite_data,
+                    wallet::decrypt_invite_data,
+                    wallet::derive_rumor_event_id,
+                    wallet::sign_invite_data,
+                    wallet::verify_invite_signature,
+                    wallet::derive_shared_secret,
+                    wallet::generate_secure_random,
+                    wallet::verify_nostr_event,
                     wallet::get_session_nsec,
                     commands::tor::start_tor,
                     commands::tor::stop_tor,
@@ -705,7 +743,7 @@ pub fn run() {
                     protocol::protocol_publish_with_quorum,
                     protocol::protocol_check_storage_health,
                     protocol::protocol_run_storage_recovery,
-                    commands::db::db_insert_message,
+                    commands::db::desktop_db_ensure_open,
                     commands::engine::engine_invoke,
                     commands::transport_engine::engine_invoke_transport_publish_relay_event,
                     commands::transport_engine::engine_invoke_transport_configure_mesh_conduits,
@@ -713,10 +751,9 @@ pub fn run() {
                     commands::transport_engine::engine_invoke_transport_publish_mesh_envelope,
                     commands::transport_engine::engine_invoke_transport_export_offline_pack,
                     commands::transport_engine::engine_invoke_transport_import_offline_pack,
-                    commands::db::db_upsert_conversation,
                     commands::warmup::desktop_start_warmup,
                     commands::warmup::desktop_get_warmup_status
-                ]
+                ])
             }
         })
         .build(tauri::generate_context!())

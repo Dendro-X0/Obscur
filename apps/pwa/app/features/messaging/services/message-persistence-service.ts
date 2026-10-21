@@ -15,7 +15,7 @@ import { logAppEvent } from "@/app/shared/log-app-event";
 import { getProfileRuntimeScope, getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import type { ProfileMessageBus } from "@dweb/core/profile-message-bus";
 import { isTauri } from "@dweb/db";
-import { deleteDmMessages, insertDmTombstone } from "@obscur/dm-engine";
+import { deleteDmMessages, insertDmTombstones } from "@obscur/dm-engine";
 import { createTauriEngineHost } from "@obscur/engine-host/tauri";
 import type { HostEnginePort } from "@obscur/engine-contracts";
 import { isDmKernelChatStateMessageIoSuppressed } from "@/app/features/dm-kernel/dm-kernel-chat-state-io-policy";
@@ -759,16 +759,17 @@ export class MessagePersistenceService {
                             profileId,
                             eventIds: deletes,
                         }).catch(() => undefined);
-                        await Promise.all(deletes.map((deleteId) => insertDmTombstone({
+                        // One IPC for the delete batch — N× insertTombstone was the unlock hydrate tops spike (E33).
+                        await insertDmTombstones({
                             host,
                             profileId,
-                            record: {
+                            records: deletes.map((deleteId) => ({
                                 event_id: deleteId,
                                 profile_id: profileId,
                                 deleted_at: nowMs,
                                 deleted_by: "",
-                            },
-                        }).catch(() => undefined)));
+                            })),
+                        }).catch(() => undefined);
                     }
                 }
             }

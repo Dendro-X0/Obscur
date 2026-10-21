@@ -50,7 +50,10 @@ const PageShell = (props: PageShellProps): React.JSX.Element => {
         </div>
       </header>
 
-      <main className="page-transition min-h-0 flex-1">
+      <main className={cn(
+        "page-transition min-h-0 flex-1",
+        props.containScroll && "flex flex-col overflow-hidden",
+      )}>
         <React.Suspense fallback={
           <div className="flex h-full w-full items-center justify-center p-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

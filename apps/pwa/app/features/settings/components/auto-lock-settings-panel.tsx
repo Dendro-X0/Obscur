@@ -19,6 +19,10 @@ import {
   torLifecycleUxI18nKey,
   type TorLifecycleUxPhase,
 } from "@/app/features/relays/services/tor-lifecycle-ux";
+import {
+  assessTorBootstrapStall,
+  formatTorBootstrapProgressSuffix,
+} from "@/app/features/relays/services/tor-bootstrap-honesty";
 type SharedIntelSnapshot = Readonly<{
     signalCount: number;
     activeCount: number;
@@ -74,30 +78,65 @@ export const AutoLockSettingsPanel: React.FC = () => {
     const isTauri: boolean = getRuntimeCapabilities().isNativeRuntime;
     const atRestEncryptionUiPolicy = resolveAtRestEncryptionUiPolicy();
     const [everReadyWhilePreferred, setEverReadyWhilePreferred] = React.useState(false);
+    const [warmingStartedAtMs, setWarmingStartedAtMs] = React.useState<number | null>(null);
+    const [warmingNowMs, setWarmingNowMs] = React.useState(() => Date.now());
     React.useEffect(() => {
         if (!settings.enableTorProxy) {
             setEverReadyWhilePreferred(false);
+            setWarmingStartedAtMs(null);
             return;
         }
         if (torStatusSnapshot?.lifecycleReady && torStatusSnapshot?.gatewayReachable) {
             setEverReadyWhilePreferred(true);
+            setWarmingStartedAtMs(null);
+            return;
         }
+        setWarmingStartedAtMs((prev) => prev ?? Date.now());
     }, [
         settings.enableTorProxy,
         torStatusSnapshot?.lifecycleReady,
         torStatusSnapshot?.gatewayReachable,
     ]);
+    React.useEffect(() => {
+        if (!settings.enableTorProxy || torStatusSnapshot?.lifecycleReady) {
+            return;
+        }
+        const id = window.setInterval(() => setWarmingNowMs(Date.now()), 2_000);
+        return () => window.clearInterval(id);
+    }, [settings.enableTorProxy, torStatusSnapshot?.lifecycleReady]);
+    const bootstrapStall = React.useMemo(() => assessTorBootstrapStall({
+        preferenceOn: Boolean(settings.enableTorProxy),
+        lifecycleReady: Boolean(torStatusSnapshot?.lifecycleReady),
+        detail: torStatusSnapshot?.detail,
+        logLines: torLogs,
+        bootstrapPercent: torStatusSnapshot?.bootstrapPercent,
+        warmingElapsedMs: warmingStartedAtMs === null ? 0 : Math.max(0, warmingNowMs - warmingStartedAtMs),
+    }), [
+        settings.enableTorProxy,
+        torStatusSnapshot?.lifecycleReady,
+        torStatusSnapshot?.detail,
+        torStatusSnapshot?.bootstrapPercent,
+        torLogs,
+        warmingStartedAtMs,
+        warmingNowMs,
+    ]);
+    React.useEffect(() => {
+        if (bootstrapStall.stalled) {
+            setShowLogs(true);
+        }
+    }, [bootstrapStall.stalled]);
     const torLifecycleUxPhase: TorLifecycleUxPhase = resolveTorLifecycleUxPhase({
         preferenceOn: Boolean(settings.enableTorProxy),
         lifecycleReady: Boolean(torStatusSnapshot?.lifecycleReady),
         gatewayReachable: Boolean(torStatusSnapshot?.gatewayReachable),
         everReadyWhilePreferred,
-        startFailed: torStatus === "error",
+        startFailed: torStatus === "error" || bootstrapStall.stalled,
     });
     const torLifecyclePhaseKey = torLifecycleUxI18nKey(torLifecycleUxPhase);
     const torLifecyclePhaseDefault = getTorLifecycleUxDefaultCopy(torLifecycleUxPhase, {
         gatewayReachable: Boolean(torStatusSnapshot?.gatewayReachable),
-        startFailed: torStatus === "error",
+        startFailed: torStatus === "error" || bootstrapStall.stalled,
+        stallReason: bootstrapStall.reason,
     });
     const handleRestart = () => {
         if (isTauri) {
@@ -317,6 +356,40 @@ export const AutoLockSettingsPanel: React.FC = () => {
                     </label>
                 </div>
 
+                <div className="flex items-center justify-between gap-4 rounded-2xl border border-black/10 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/40 px-3 py-3">
+                    <div className="min-w-0 space-y-0.5">
+                        <Label className="text-sm font-bold text-zinc-900 dark:text-white">
+                            {t("settings.security.linkSafety.title")}
+                        </Label>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                            {t("settings.security.linkSafety.desc", { provider: "URLHaus" })}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={settings.linkSafetyOutboundCheckEnabled === true}
+                        aria-label={t("settings.security.linkSafety.aria")}
+                        onClick={() => updateSettings({
+                            ...settings,
+                            linkSafetyOutboundCheckEnabled: settings.linkSafetyOutboundCheckEnabled !== true,
+                        })}
+                        className={cn(
+                            "relative h-7 w-12 shrink-0 rounded-full border transition-colors",
+                            settings.linkSafetyOutboundCheckEnabled === true
+                                ? "bg-rose-600 border-rose-600"
+                                : "bg-zinc-200 border-black/10 dark:bg-zinc-800 dark:border-white/10",
+                        )}
+                    >
+                        <span
+                            className={cn(
+                                "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+                                settings.linkSafetyOutboundCheckEnabled === true ? "left-6" : "left-0.5",
+                            )}
+                        />
+                    </button>
+                </div>
+
                 <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-zinc-50/70 dark:bg-zinc-950/40 px-3 py-2.5 text-[11px] text-zinc-600 dark:text-zinc-300">
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                         <div>
@@ -488,7 +561,10 @@ export const AutoLockSettingsPanel: React.FC = () => {
             </div>
 
             {/* Network Privacy (Tor) */}
-            <div className={cn("p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 shadow-sm", isTauri
+            <div
+                id="security-tor-settings"
+                data-testid="security-tor-settings"
+                className={cn("p-6 rounded-3xl border backdrop-blur-xl transition-all duration-300 shadow-sm", isTauri
             ? "bg-white dark:bg-zinc-900/40 border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 group"
             : "bg-zinc-50 dark:bg-zinc-900/20 border-black/5 dark:border-white/5 opacity-50 grayscale")}>
                 <div className="flex items-center justify-between gap-4">
@@ -515,10 +591,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             </button>
                             <div className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors",
                 torLifecycleUxPhase === "ready" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                bootstrapStall.stalled || torLifecycleUxPhase === "degraded" || torStatus === "error" ? "bg-red-500/10 text-red-600 border-red-500/20" :
                 torLifecycleUxPhase === "warming" ? "bg-amber-500/10 text-amber-600 border-amber-500/20 animate-pulse" :
-                torLifecycleUxPhase === "degraded" || torStatus === "error" ? "bg-red-500/10 text-red-600 border-red-500/20" :
                         "bg-zinc-500/10 text-zinc-600 border-zinc-500/20")}>
-                                {torLifecycleUxPhase === "warming"
+                                {bootstrapStall.stalled
+                  ? t("settings.security.tor.status.stuck", { defaultValue: "Stuck" })
+                  : torLifecycleUxPhase === "warming"
                   ? t("settings.security.tor.status.warming", { defaultValue: "Warming" })
                   : torLifecycleUxPhase === "ready"
                     ? t("settings.security.tor.status.ready", { defaultValue: "Ready" })
@@ -534,7 +612,8 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         </div>)}
                 </div>
 
-                {isTauri && torLifecyclePhaseKey && torLifecyclePhaseDefault ? (
+                {isTauri && torLifecyclePhaseKey && torLifecyclePhaseDefault
+                  && !(bootstrapStall.reason && torLifecyclePhaseDefault === bootstrapStall.reason) ? (
                     <div className={cn(
                       "mt-4 rounded-2xl border px-3 py-2.5 text-[11px] leading-relaxed font-medium",
                       torLifecycleUxPhase === "ready"
@@ -543,9 +622,12 @@ export const AutoLockSettingsPanel: React.FC = () => {
                           ? "bg-amber-500/5 border-amber-500/15 text-amber-800 dark:text-amber-200"
                           : "bg-amber-500/5 border-amber-500/15 text-amber-800 dark:text-amber-200",
                     )}>
-                        {t(torLifecyclePhaseKey, {
-                          defaultValue: torLifecyclePhaseDefault ?? undefined,
-                        })}
+                        {/* Degraded defaults are dynamic (stall / bootstrap fail) — do not let static i18n mask them. */}
+                        {torLifecycleUxPhase === "degraded"
+                          ? torLifecyclePhaseDefault
+                          : t(torLifecyclePhaseKey, {
+                              defaultValue: torLifecyclePhaseDefault ?? undefined,
+                            })}
                     </div>
                 ) : null}
                 {isTauri && (<div className="mt-4 pt-4 border-t border-black/5 dark:border-white/5 space-y-2">
@@ -563,6 +645,8 @@ export const AutoLockSettingsPanel: React.FC = () => {
                             </div>
                             <div className={cn("rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider", torStatusSnapshot?.lifecycleReady
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                : bootstrapStall.stalled
+                    ? "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300"
                 : settings.enableTorProxy
                     ? "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
                     : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300")}>
@@ -570,21 +654,27 @@ export const AutoLockSettingsPanel: React.FC = () => {
                 ? t("settings.security.tor.reachability.lifecycleReady", {
                     defaultValue: "Gateway bootstrapped",
                 })
+                : bootstrapStall.stalled
+                    ? t("settings.security.tor.reachability.stuck", {
+                        defaultValue: "Stuck — see reason",
+                    })
                 : settings.enableTorProxy
                     ? t("settings.security.tor.reachability.pending")
                     : t("settings.security.tor.reachability.disabled")}
                             </div>
                             <div className={cn("rounded-xl border px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider", torStatus === "connected"
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                : bootstrapStall.stalled || torStatus === "error"
+                    ? "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300"
                 : torStatus === "starting"
                     ? "bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-300"
-                    : torStatus === "error"
-                        ? "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-300"
                         : "bg-zinc-500/10 border-zinc-500/20 text-zinc-700 dark:text-zinc-300")}>
                                 {t("settings.security.tor.bootstrap.label")}: {torStatus === "connected"
                 ? t("settings.security.tor.bootstrap.ready")
-                : torStatus === "starting"
-                    ? t("settings.security.tor.bootstrap.starting")
+                                : bootstrapStall.stalled
+                    ? `${t("settings.security.tor.bootstrap.stuck", { defaultValue: "Stuck" })}${formatTorBootstrapProgressSuffix(torStatusSnapshot?.bootstrapPercent)}`
+                                : torStatus === "starting"
+                    ? `${t("settings.security.tor.bootstrap.starting")}${formatTorBootstrapProgressSuffix(torStatusSnapshot?.bootstrapPercent)}`
                     : torStatus === "error"
                         ? t("settings.security.tor.bootstrap.error")
                         : t("settings.security.tor.bootstrap.idle")}
@@ -593,6 +683,25 @@ export const AutoLockSettingsPanel: React.FC = () => {
                         <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">
                             {t("settings.security.tor.proxy.label")}: {torStatusSnapshot?.proxyUrl || settings.torProxyUrl}
                         </div>
+                        {bootstrapStall.reason ? (
+                            <div
+                              className="rounded-xl border border-rose-500/25 bg-rose-500/10 px-3 py-2 text-[11px] leading-relaxed font-medium text-rose-800 dark:text-rose-200"
+                              role="status"
+                              data-testid="tor-bootstrap-stall-reason"
+                            >
+                              {bootstrapStall.reason}
+                            </div>
+                        ) : null}
+                        {torStatusSnapshot?.detail ? (
+                            <div className={cn(
+                              "text-[10px] font-mono break-all",
+                              bootstrapStall.stalled
+                                ? "text-rose-700/90 dark:text-rose-300/90"
+                                : "text-zinc-500 dark:text-zinc-400",
+                            )} data-testid="tor-bootstrap-detail">
+                                {torStatusSnapshot.detail}
+                            </div>
+                        ) : null}
                     </div>)}
 
                 {isTauri && torRestartRequired && (<div className="mt-4 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center justify-between gap-4">

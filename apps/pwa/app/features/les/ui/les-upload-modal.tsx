@@ -72,7 +72,7 @@ export function LesUploadModal({ isOpen, onClose, onUploadComplete }: LesUploadM
         onClick={onClose}
       >
         <motion.div
-          className="w-full max-w-lg rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-border dark:bg-card"
+          className="w-full max-w-lg rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
           initial={{ scale: 0.96, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.96, opacity: 0 }}

@@ -23,6 +23,20 @@ vi.mock("../providers/relay-provider", () => ({
   useRelay: () => relayState,
 }));
 
+vi.mock("../hooks/use-relay-pool-diagnosis", () => ({
+  useRelayPoolDiagnosis: () => ({
+    disabledCount: 0,
+    invalidSchemeCount: 0,
+    enabledRemoteDisconnectedCount: 0,
+    enabledLoopbackDisconnectedCount: 0,
+    openCount: 0,
+    connectingCount: 0,
+    loopbackDisabledCount: 0,
+    hypothesisCopy: null,
+    bannerSupplement: null,
+  }),
+}));
+
 describe("RelayReadinessInlineBanner", () => {
   beforeEach(() => {
     vi.useFakeTimers();

@@ -88,6 +88,7 @@ pub fn current_incoming_call_state_payload(app: &AppHandle) -> Result<IncomingCa
 #[cfg(desktop)]
 pub fn emit_incoming_call_state(app: &AppHandle) -> Result<(), String> {
     let payload = current_incoming_call_state_payload(app)?;
+    crate::emit_pressure::note_webview_emit(INCOMING_CALL_STATE_EVENT_NAME);
     app.emit(INCOMING_CALL_STATE_EVENT_NAME, payload)
         .map_err(|e| e.to_string())
 }
@@ -181,6 +182,7 @@ pub fn sync_incoming_call_surface_state(app: &AppHandle) -> Result<(), String> {
 pub fn emit_tray_call_action(app: &AppHandle, action: &str) -> Result<(), String> {
     let room_id = current_incoming_tray_call_state(app)?
         .map(|value| value.room_id);
+    crate::emit_pressure::note_webview_emit(TRAY_INCOMING_CALL_EVENT_NAME);
     app.emit(
         TRAY_INCOMING_CALL_EVENT_NAME,
         TrayIncomingCallActionPayload {

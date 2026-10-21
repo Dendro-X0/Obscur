@@ -3,11 +3,36 @@ import { Nip96UploadService, nip96UploadInternals } from "./nip96-upload-service
 import { UploadError, UploadErrorCode } from "../types";
 import { MEDIA_RUNTIME_SAFETY_LIMITS } from "./media-upload-policy";
 
+vi.mock("@/app/features/runtime/native-adapters", () => ({
+  invokeNativeCommand: vi.fn(),
+}));
+
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
+
 describe("nip96-upload-service internals", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.mocked(invokeNativeCommand).mockReset();
   });
+
+  it("does not pull get_session_nsec for Tauri browser-fallback key resolve", async () => {
+    const service = new Nip96UploadService(["https://upload.example"], null, null);
+    (service as any).isTauri = () => true;
+
+    await expect(nip96UploadInternals.resolveFallbackPrivateKeyHex(service)).resolves.toBeNull();
+    expect(invokeNativeCommand).not.toHaveBeenCalled();
+  });
+
+  it("uses constructor hex for browser signing without native session export", async () => {
+    const hex = "a".repeat(64);
+    const service = new Nip96UploadService(["https://upload.example"], null, hex as any);
+    (service as any).isTauri = () => true;
+
+    await expect(nip96UploadInternals.resolveFallbackPrivateKeyHex(service)).resolves.toBe(hex);
+    expect(invokeNativeCommand).not.toHaveBeenCalled();
+  });
+
 
   it("maps timeout network errors to upload_timeout and retryable", () => {
     const outcome = nip96UploadInternals.classifyUploadError(
@@ -63,7 +88,7 @@ describe("nip96-upload-service internals", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("prefers browser upload for oversized native video files to avoid byte-buffer pressure", async () => {
+  it("keeps oversized native video on Tauri upload path (no browser divert)", async () => {
     const service = new Nip96UploadService(["https://upload.example"], null, null);
     const uploadViaBrowser = vi.fn(async () => ({
       kind: "video" as const,
@@ -79,7 +104,7 @@ describe("nip96-upload-service internals", () => {
     }));
 
     (service as any).isTauri = () => true;
-    (service as any).resolveFallbackPrivateKeyHex = vi.fn(async () => "f".repeat(64));
+    (service as any).shouldPreferBrowserPathInDev = () => false;
     (service as any).uploadViaBrowser = uploadViaBrowser;
     (service as any).uploadViaTauri = uploadViaTauri;
     (service as any).withTimeout = async (promise: Promise<unknown>) => await promise;
@@ -92,9 +117,31 @@ describe("nip96-upload-service internals", () => {
 
     const attachment = await service.uploadFile(file);
 
-    expect(uploadViaBrowser).toHaveBeenCalledTimes(1);
-    expect(uploadViaTauri).not.toHaveBeenCalled();
+    expect(uploadViaTauri).toHaveBeenCalledTimes(1);
+    expect(uploadViaBrowser).not.toHaveBeenCalled();
     expect(attachment.url).toBe("https://upload.example/video.mp4");
+  });
+
+  it("does not browser-fallback when native Tauri upload fails (B6)", async () => {
+    const service = new Nip96UploadService(["https://upload.example"], null, "a".repeat(64) as any);
+    const uploadViaBrowser = vi.fn();
+    const uploadViaTauri = vi.fn(async () => {
+      throw new UploadError(UploadErrorCode.NETWORK_ERROR, "native provider down");
+    });
+
+    (service as any).isTauri = () => true;
+    (service as any).shouldPreferBrowserPathInDev = () => false;
+    (service as any).uploadViaBrowser = uploadViaBrowser;
+    (service as any).uploadViaTauri = uploadViaTauri;
+    (service as any).withTimeout = async (promise: Promise<unknown>) => await promise;
+
+    const file = new File([new Uint8Array(1024)], "clip.mp4", { type: "video/mp4" });
+
+    await expect(service.uploadFile(file)).rejects.toMatchObject({
+      code: UploadErrorCode.NETWORK_ERROR,
+    });
+    expect(uploadViaTauri).toHaveBeenCalled();
+    expect(uploadViaBrowser).not.toHaveBeenCalled();
   });
 
   it("rotates provider priority across sequential uploads", async () => {

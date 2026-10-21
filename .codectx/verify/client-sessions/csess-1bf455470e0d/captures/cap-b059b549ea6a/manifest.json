@@ -1,0 +1,24 @@
+{
+  "schema": "client.capture@0.1.0",
+  "sessionId": "csess-1bf455470e0d",
+  "captureId": "cap-b059b549ea6a",
+  "action": "snapshot",
+  "provider": "webview2-cdp",
+  "proofTier": "t3",
+  "pass": true,
+  "stepLabel": null,
+  "url": "http://tauri.localhost/profiles",
+  "finalUrl": "http://tauri.localhost/profiles",
+  "pageTitle": "Obscur",
+  "artifactPath": null,
+  "snapshotPath": ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-b059b549ea6a/snapshot.yaml",
+  "consoleLogPath": ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-b059b549ea6a/console.jsonl",
+  "capturedAt": "2026-08-23T17:52:30.338241700+00:00",
+  "proves": [
+    "Real WebView CDP flows including native IPC surfaces"
+  ],
+  "doesNotProve": [
+    "Full OS-level automation",
+    "Long soak across machines"
+  ]
+}

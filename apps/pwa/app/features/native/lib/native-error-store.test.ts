@@ -21,7 +21,7 @@ describe("softRelayToastCoalesceKey / shouldNotifySoftRelayToastUi", () => {
   });
 
   it("throttles UI notify by interval only (host flaps do not force paint)", () => {
-    expect(RELAY_UI_NOTIFY_THROTTLE_MS).toBe(45_000);
+    expect(RELAY_UI_NOTIFY_THROTTLE_MS).toBe(90_000);
     expect(shouldNotifySoftRelayToastUi({
       nowMs: 10_000,
       lastUiNotifyAtMs: 5_000,

@@ -1,0 +1,198 @@
+{
+  "schema": "studio.orientation.pack@1.0.0",
+  "subjectMatch": {
+    "kind": "obscur",
+    "matched": true,
+    "signals": [
+      "scripts/verify-profile-picker-flow.mjs",
+      "case-study:obscur-green-ci-red-runtime"
+    ],
+    "notes": [
+      "Obscur adapter signals present — O-1…O-5 landmines attached"
+    ]
+  },
+  "hubs": [
+    {
+      "path": "apps/desktop/src-tauri/src/lib.rs",
+      "kind": "hub",
+      "degree": 23,
+      "source": "live"
+    },
+    {
+      "path": "packages/ui-kit/src/index.ts",
+      "kind": "hub",
+      "degree": 22,
+      "source": "live"
+    },
+    {
+      "path": "packages/obscur-conduit-mesh/src/index.ts",
+      "kind": "hub",
+      "degree": 21,
+      "source": "live"
+    },
+    {
+      "path": "packages/ui-kit/src/components/../utils/cn.ts",
+      "kind": "hub",
+      "degree": 20,
+      "source": "live"
+    },
+    {
+      "path": "packages/dweb-auth/src/index.ts",
+      "kind": "hub",
+      "degree": 14,
+      "source": "live"
+    },
+    {
+      "path": "apps/pwa/app/components/root-app-shell.tsx",
+      "kind": "hub",
+      "degree": 13,
+      "source": "live"
+    },
+    {
+      "path": "packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "kind": "hub",
+      "degree": 13,
+      "source": "live"
+    },
+    {
+      "path": "apps/pwa/app/components/./ui/button.tsx",
+      "kind": "hub",
+      "degree": 12,
+      "source": "live"
+    }
+  ],
+  "packageMap": {
+    "shape": "monorepo-workspace",
+    "confidence": 0.9,
+    "recommendedPack": "orient-cold-oss",
+    "packageSamples": [
+      "db",
+      "dweb-auth",
+      "dweb-client-gateway",
+      "dweb-coordination-contracts",
+      "dweb-core",
+      "dweb-crdt",
+      "dweb-crypto",
+      "dweb-nostr",
+      "dweb-storage",
+      "dweb-storage-contracts",
+      "dweb-transport-contracts",
+      "dweb-transport-coordination"
+    ],
+    "workspacePackageCount": 25,
+    "source": "subject.shape.classify"
+  },
+  "landmines": [
+    {
+      "id": "O-1",
+      "title": "Rapid DMs → notification storm",
+      "tag": "case-study/obscur",
+      "symptomClass": "notification-coalesce",
+      "pointer": "docs/case-studies/obscur-green-ci-red-runtime.md#o-1",
+      "declaredFixedSignal": "Handler unit tests",
+      "runtimeTruth": "Background coalescing needed per-conversation debounce + stable tag"
+    },
+    {
+      "id": "O-2",
+      "title": "Outgoing DM vanishes after cold restart",
+      "tag": "case-study/obscur",
+      "symptomClass": "cold-restart-persist",
+      "pointer": "docs/case-studies/obscur-green-ci-red-runtime.md#o-2",
+      "declaredFixedSignal": "Persistence service tests with mocks",
+      "runtimeTruth": "Tauri blocked UUID-only SQLite writes; message_updated not emitted on send path"
+    },
+    {
+      "id": "O-3",
+      "title": "Relay offline flash on every refresh",
+      "tag": "case-study/obscur",
+      "symptomClass": "relay-warmup",
+      "pointer": "docs/case-studies/obscur-green-ci-red-runtime.md#o-3",
+      "declaredFixedSignal": "Relay policy unit tests",
+      "runtimeTruth": "Startup classified as hard offline instead of recovering / warmup"
+    },
+    {
+      "id": "O-4",
+      "title": "Group thread messages never appear from relay",
+      "tag": "case-study/obscur",
+      "symptomClass": "group-ingest",
+      "pointer": "docs/case-studies/obscur-green-ci-red-runtime.md#o-4",
+      "declaredFixedSignal": "Contract grep gates (readSource)",
+      "runtimeTruth": "Ingest not wired to appendGroupThreadMessage; send still toast-stubbed"
+    },
+    {
+      "id": "O-5",
+      "title": "Shipped feeling despite broken core",
+      "tag": "case-study/obscur",
+      "symptomClass": "false-green",
+      "pointer": "docs/case-studies/obscur-green-ci-red-runtime.md#o-5",
+      "declaredFixedSignal": "Green pnpm verify:*",
+      "runtimeTruth": "No packaged-desktop E2E; user on release build may predate fixes"
+    }
+  ],
+  "suggestedMcpReadOrder": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Consolidated lanes + orientationPack quickstart"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_orientation_pack\" }",
+      "purpose": "OFP1 hubs + landmines + MCP order + doesNotProve"
+    },
+    {
+      "order": 3,
+      "tool": "studio_repo { action: \"studio_map_hop\", focusPath, depth, layers }",
+      "purpose": "Zoom one hub without inventing a file tour",
+      "when": "hubs present"
+    },
+    {
+      "order": 4,
+      "tool": "studio_pathway",
+      "purpose": "Salvage / vibe-ruin pathway when repairing; not a substitute for orientation",
+      "when": "salvage / prove needed"
+    },
+    {
+      "order": 5,
+      "tool": "studio_client { action: \"client_workflow_guide\", mode: \"acceptance-prove\" }",
+      "purpose": "Obscur-class: client prove ladder after orientation (OFP2)",
+      "when": "subjectMatch.kind == obscur"
+    }
+  ],
+  "openQuestions": [
+    "Which hub is the surgical entry for the current task (not the whole monorepo)?",
+    "Is explore cache warm enough for hop/trail, or is repo_explore_run required first?",
+    "Owner conflicts dualOwnerCount=3 — which dual-owner edge blocks the claim?",
+    "Which O-* landmine class matches the user-visible symptom (cold restart, relay, groups)?",
+    "Has clientSatisfied / live CDP prove been run, or only unit/CI green?"
+  ],
+  "doesNotProve": [
+    "Orientation pack ≠ architecture complete or product fixed",
+    "Soft neural hubs ≠ authoritative map.neural.summary",
+    "Landmine tags ≠ reproduced fault on this checkout",
+    "Suggested MCP order ≠ executed prove / stress",
+    "O-1…O-5 pointers ≠ Obscur product complete (subject-owned)",
+    "CI / unit green ≠ cold-restart or packaged desktop truth"
+  ],
+  "explore": {
+    "schema": "studio.repo.explore-bundle@1.0.0",
+    "coldSubject": false,
+    "repoExploreRunRequired": false,
+    "shape": "monorepo-workspace",
+    "dualOwnerCount": 3,
+    "recommendedVerifyOpIds": [
+      "obscur-profile-picker-flow",
+      "obscur-dev-lab-gate"
+    ],
+    "notes": [
+      "Explore cache present"
+    ]
+  },
+  "notes": [
+    "OFP1 orientation pack: hubs + landmines + MCP read order + honesty — prefer this over inventing a tour",
+    "Reuses CVE3 explore-bundle signals; call studio_map_summary when hubs.source is soft",
+    "Subject match `obscur` — landmines cite case-study tags (not product patches)",
+    "Hubs enriched via map.neural.summary (live)",
+    "Hub source live — prefer these over soft package samples"
+  ]
+}

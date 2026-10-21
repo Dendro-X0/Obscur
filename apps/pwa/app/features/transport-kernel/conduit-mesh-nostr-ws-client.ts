@@ -9,6 +9,12 @@ import { parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { createRelayWebSocket } from "@/app/features/relays/hooks/create-relay-websocket";
 import { relayHealthMonitor } from "@/app/features/relays/hooks/relay-health-monitor";
+import {
+  RELAY_WARMUP_PUBLIC_DIAL_STAGGER_MS,
+  clearProcessPublicWarmupDials,
+  partitionWarmupDialUrls,
+  releaseProcessPublicWarmupDial,
+} from "@/app/features/relays/services/relay-warmup-dial-cap";
 
 export type ConduitMeshNostrWsClient = NostrWsWirePort & ConduitMeshNostrSubscriptionPort & Readonly<{
   setRelayUrls: (urls: ReadonlyArray<string>) => void;
@@ -60,6 +66,22 @@ export const createConduitMeshNostrWsClient = (
   let disposed = false;
   /** Cached for useSyncExternalStore — getSnapshot must be referentially stable until notify. */
   let cachedConnectionSnapshots: ReadonlyArray<ConduitMeshNostrConnectionSnapshot> = [];
+  const deferredPublicDialTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  const clearDeferredPublicDial = (url: string): void => {
+    const timer = deferredPublicDialTimers.get(url);
+    if (timer) {
+      clearTimeout(timer);
+      deferredPublicDialTimers.delete(url);
+    }
+  };
+
+  const clearAllDeferredPublicDials = (): void => {
+    for (const timer of deferredPublicDialTimers.values()) {
+      clearTimeout(timer);
+    }
+    deferredPublicDialTimers.clear();
+  };
 
   const rebuildConnectionSnapshots = (): void => {
     const now = Date.now();
@@ -139,6 +161,8 @@ export const createConduitMeshNostrWsClient = (
 
   const closeSocket = (url: string): void => {
     const entry = sockets.get(url);
+    // Release process Quiet claim before async onclose — reconnect must re-claim.
+    releaseProcessPublicWarmupDial(url);
     if (!entry?.socket) {
       return;
     }
@@ -155,6 +179,8 @@ export const createConduitMeshNostrWsClient = (
     }
 
     closeSocket(url);
+
+    // Quiet process-wide claim lives in createRelayWebSocket (covers all dial sites).
 
     const entry: RelaySocketState = {
       url,
@@ -237,6 +263,7 @@ export const createConduitMeshNostrWsClient = (
         relayHealthMonitor.recordDisconnection(url);
       }
       entry.status = "closed";
+      releaseProcessPublicWarmupDial(url);
       notifyConnectionListeners();
     };
   };
@@ -252,17 +279,41 @@ export const createConduitMeshNostrWsClient = (
 
     for (const existingUrl of sockets.keys()) {
       if (!nextSet.has(existingUrl)) {
+        clearDeferredPublicDial(existingUrl);
         closeSocket(existingUrl);
         sockets.delete(existingUrl);
       }
     }
 
-    for (const url of normalized) {
+    // Slice 2: dial private/local + at most one public Quiet now; stagger the rest.
+    const { immediate, deferredPublic } = partitionWarmupDialUrls(normalized);
+    for (const url of immediate) {
+      clearDeferredPublicDial(url);
       const existing = sockets.get(url);
       if (!existing || existing.status === "closed" || existing.status === "error") {
         connectRelay(url);
       }
     }
+    deferredPublic.forEach((url, index) => {
+      const existing = sockets.get(url);
+      if (existing && existing.status !== "closed" && existing.status !== "error") {
+        return;
+      }
+      if (deferredPublicDialTimers.has(url)) {
+        return;
+      }
+      const timer = setTimeout(() => {
+        deferredPublicDialTimers.delete(url);
+        if (disposed) {
+          return;
+        }
+        const current = sockets.get(url);
+        if (!current || current.status === "closed" || current.status === "error") {
+          connectRelay(url);
+        }
+      }, (index + 1) * RELAY_WARMUP_PUBLIC_DIAL_STAGGER_MS);
+      deferredPublicDialTimers.set(url, timer);
+    });
 
     notifyConnectionListeners();
   };
@@ -271,11 +322,14 @@ export const createConduitMeshNostrWsClient = (
     if (disposed) {
       disposed = false;
     }
+    clearAllDeferredPublicDials();
     const priorKeys = Array.from(sockets.keys());
     for (const url of priorKeys) {
       closeSocket(url);
       sockets.delete(url);
     }
+    // Drop any orphan Quiet claims so the re-dial can claim again.
+    clearProcessPublicWarmupDials();
     const nextUrls = urls !== undefined ? urls : priorKeys;
     if (nextUrls.length === 0) {
       notifyConnectionListeners();
@@ -478,6 +532,7 @@ export const createConduitMeshNostrWsClient = (
 
     dispose: () => {
       disposed = true;
+      clearAllDeferredPublicDials();
       for (const url of sockets.keys()) {
         closeSocket(url);
       }

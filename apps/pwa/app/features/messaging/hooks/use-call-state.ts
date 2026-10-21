@@ -2,7 +2,7 @@
  * Use Call State Hook
  *
  * React hook for integrating Call State CRDT with UI components.
- * Provides reactive call state for voice/video call UI.
+ * Provides reactive call state for 1:1 voice call UI (video deferred to M1).
  *
  * Ghost Call Prevention:
  * - Uses CRDT-derived state, not raw event replay
@@ -49,6 +49,7 @@ export interface UseCallStateResult {
   /** Call participants */
   participants: string[];
   /** Initiate a new call */
+  /** type is accepted for API compat; video is coerced to voice until M1. */
   initiateCall: (participantPubkey: string, type?: "voice" | "video") => void;
   /** End current call */
   endCall: () => void;
@@ -162,7 +163,7 @@ export const useCallState = (
         profileId,
         callId,
         participantPubkey,
-        type
+        type,
       );
       setStatus(newStatus);
     },

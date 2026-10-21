@@ -100,4 +100,24 @@ describe("startup-auth-state-contracts", () => {
       identityStatus: "unlocked",
     })).toBe(false);
   });
+
+  it("shows lock screen when native SQLite write is blocked despite unlocked identity", () => {
+    const restored = deriveStartupAuthStateFromIdentityState({
+      identityStatus: "unlocked",
+      storedPublicKeyHex: "a".repeat(64),
+      unlockedPublicKeyHex: "a".repeat(64),
+    });
+    expect(shouldShowStoredIdentityLockScreen({
+      startupState: restored,
+      isAutoLockLocked: false,
+      identityStatus: "unlocked",
+      nativeSqliteWriteBlocked: true,
+    })).toBe(true);
+    expect(shouldShowStoredIdentityLockScreen({
+      startupState: restored,
+      isAutoLockLocked: false,
+      identityStatus: "unlocked",
+      nativeSqliteWriteBlocked: false,
+    })).toBe(false);
+  });
 });

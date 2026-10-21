@@ -1,0 +1,64 @@
+{
+  "schema": "perf.baseline.diff@1.1.0",
+  "generatedAt": "2026-10-14T15:43:25.039949100+00:00",
+  "baseline": {
+    "exploreId": "d9c378d2-eedf-0746-a87a-09126679a7a1",
+    "graphHash": "sha256:d36049039c1d34cc9bffbf46f2cb94ea70970ddc67982768483f14626dd45b8b",
+    "findingCount": 8,
+    "severityCounts": {
+      "red": 0,
+      "yellow": 6,
+      "info": 2
+    }
+  },
+  "current": {
+    "exploreId": "ac57e93a-50d8-e155-ddd4-99c999d5fd45",
+    "graphHash": "sha256:4fb63623f57c53bcdf64db07b5863b55bb6c81caf4c7283909e835dfc6dc9d1c",
+    "findingCount": 25,
+    "severityCounts": {
+      "red": 0,
+      "yellow": 10,
+      "info": 15
+    }
+  },
+  "delta": {
+    "red": 0,
+    "yellow": 4,
+    "info": 13,
+    "total": 17
+  },
+  "resolvedFindingIds": [
+    "perf:dev:tauri-vite-shell:apps/desktop"
+  ],
+  "newFindingIds": [
+    "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+    "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+    "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+    "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+    "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+    "perf:topology:architecture-layout:apps:pwa",
+    "perf:topology:critical-path-scope:apps:pwa",
+    "perf:topology:shared-fanout:apps:desktop:src-tauri",
+    "perf:topology:shared-fanout:packages:db",
+    "perf:topology:shared-fanout:packages:dweb-auth",
+    "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+    "perf:topology:shared-fanout:packages:dweb-core",
+    "perf:topology:shared-fanout:packages:dweb-crypto",
+    "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+    "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+    "perf:topology:shared-fanout:packages:obscur-conduit-mesh",
+    "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+    "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+  ],
+  "unchangedFindingIds": [
+    "perf:api:client-payload-suspect:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+    "perf:api:waterfall:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/security/index.ts",
+    "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+    "perf:stack:next:apps/pwa"
+  ],
+  "severityChanges": [],
+  "improved": false
+}

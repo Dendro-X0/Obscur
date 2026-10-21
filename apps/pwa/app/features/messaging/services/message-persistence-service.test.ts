@@ -548,7 +548,7 @@ describe("MessagePersistenceService batching", () => {
 
 const tauriDbMocks = vi.hoisted(() => ({
     dbInsertMessage: vi.fn(async (_message: MessageRecord) => undefined),
-    insertDmTombstone: vi.fn(async () => undefined),
+    insertDmTombstones: vi.fn(async () => undefined),
     deleteDmMessages: vi.fn(async () => undefined),
     dbUpsertConversation: vi.fn(async (_record?: { profile_id: string }) => undefined),
     isTauri: vi.fn(() => false),
@@ -560,7 +560,7 @@ vi.mock("@dweb/db", () => ({
 
 vi.mock("@obscur/dm-engine", () => ({
     deleteDmMessages: tauriDbMocks.deleteDmMessages,
-    insertDmTombstone: tauriDbMocks.insertDmTombstone,
+    insertDmTombstones: tauriDbMocks.insertDmTombstones,
     listDmTombstones: vi.fn(async () => []),
     deleteAllDmTombstones: vi.fn(async () => undefined),
     deleteDmMessage: vi.fn(async () => undefined),
@@ -595,7 +595,7 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         tauriDbMocks.isTauri.mockReturnValue(true);
         tauriDbMocks.dbInsertMessage.mockReset();
         tauriDbMocks.dbInsertMessage.mockResolvedValue(undefined);
-        tauriDbMocks.insertDmTombstone.mockClear();
+        tauriDbMocks.insertDmTombstones.mockClear();
         tauriDbMocks.deleteDmMessages.mockClear();
         tauriDbMocks.dbUpsertConversation.mockReset();
         tauriDbMocks.dbUpsertConversation.mockResolvedValue(undefined);
@@ -795,9 +795,9 @@ describe("MessagePersistenceService Tauri/SQLite path", () => {
         expect(deletedIds.has(uuid)).toBe(true);
         expect(deletedIds.has(nostrId)).toBe(true);
 
-        // Belt-and-suspenders: tombstones are also written for receiver-side suppression
-        const tombstonedIds = (tauriDbMocks.insertDmTombstone.mock.calls as unknown as Array<[{ record: { event_id: string } }]>).map(
-            (call) => call[0].record.event_id
+        // Belt-and-suspenders: tombstones are also written for receiver-side suppression (one batch IPC)
+        const tombstonedIds = (tauriDbMocks.insertDmTombstones.mock.calls as unknown as Array<[{ records: Array<{ event_id: string }> }]>).flatMap(
+            (call) => call[0].records.map((r) => r.event_id)
         );
         expect(tombstonedIds).toContain(uuid);
         expect(tombstonedIds).toContain(nostrId);

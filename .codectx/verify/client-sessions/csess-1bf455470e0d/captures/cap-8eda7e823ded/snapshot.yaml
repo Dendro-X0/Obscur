@@ -1,0 +1,44 @@
+- text: Opened a new profile window. Create your identity there.
+- button "Dismiss notification"
+- text: A different account already occupies this window. Choose a new window or reset local data.
+- button "Dismiss notification"
+- main:
+  - text: Client shell-2026-08-19T13:57:47Z
+  - img "Obscur"
+  - text: Obscur
+  - button "Switch profile before sign-in": D DemoUser Switch profile
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Change Language"
+  - alert "Profile slot account conflict summary":
+    - paragraph: This window already has a different account
+    - paragraph: The key or account you entered does not match the local data bound to this profile window.
+    - paragraph: Use the resolution options below to open another profile window or reset this window's local data.
+  - button "Back"
+  - heading "Welcome Back" [level=2]
+  - paragraph: Enter your existing device login password to unlock Default. Import Key is available if password unlock fails.
+  - text: Protect your identity
+  - paragraph: Obscur will never ask for your passphrase or private key in chat, email, or support messages. Only enter secrets on the lock screen or Import Key flow inside this app.
+  - button "Log In"
+  - button "Import Key"
+  - paragraph: No device login password is saved for this profile on this device. Go to Import Key, unlock with your private key, then choose whether to set a new password or continue with key-only sign-in.
+  - text: Private Key
+  - textbox "nsec1...": nsec1gkv6kg9gyfvrg7h7q60usvaqtjq096dxewaw4vpk9y6krrlcglpqat96ta
+  - text: Master password (optional)
+  - textbox "Set to enable username login"
+  - button
+  - paragraph: Leave blank to unlock with key only. Setting a password enables the Log In tab next time.
+  - paragraph: "Step 1: paste your private key and continue. Step 2: set a new device password or skip."
+  - button "Unlock"
+  - region "Profile account conflict":
+    - paragraph: This window already has an account
+    - paragraph: Default on this device already holds local data for 860b15c3…. Signing in with a different private key here would mix two identities in one window.
+    - paragraph: The key you entered belongs to a different account (3db055b4…).
+    - paragraph: Open a new profile window for the other account (recommended), or reset this window's local data (optionally export an archive first), then import again.
+    - button "Open another profile window (recommended)"
+    - button "Clear this window and continue"
+    - button "Export archive to disk, then switch account"
+    - button "Cancel"
+  - text: Self-Custody Anonymous
+- alert

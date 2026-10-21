@@ -1,12 +1,14 @@
 import {
   ROOM_KEY_WRAP_SCHEME_V1,
+  ROOM_KEY_WRAP_SCHEME_V2,
   signRoomKeyWrap,
+  type RoomKeyWrapScheme,
 } from "@dweb/coordination-contracts";
 import { nip04Decrypt } from "@dweb/nostr/nip04-decrypt";
-import { nip04Encrypt } from "@dweb/nostr/nip04-encrypt";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { cryptoService } from "../../crypto/crypto-service";
 import { roomKeyStore, type RoomKeyStore } from "../../crypto/room-key-store";
 import {
   CoordinationFetchError,
@@ -26,7 +28,7 @@ export type CoordinationRoomKeyWrapRecord = Readonly<{
   communityId: string;
   subjectPubkey: string;
   wrapSeq: number;
-  scheme: typeof ROOM_KEY_WRAP_SCHEME_V1;
+  scheme: RoomKeyWrapScheme;
   ciphertext: string;
   actorPubkey: string;
   createdAtUnixMs: number;
@@ -148,7 +150,7 @@ export const wrapRoomKeyForCoordination = async (params: Readonly<{
   roomKeyHex: string;
   subjectPubkey: PublicKeyHex;
   actorPrivateKeyHex: PrivateKeyHex;
-}>): Promise<Readonly<{ ok: true; ciphertext: string }> | Readonly<{ ok: false; error: string }>> => {
+}>): Promise<Readonly<{ ok: true; ciphertext: string; scheme: RoomKeyWrapScheme }> | Readonly<{ ok: false; error: string }>> => {
   const inner = buildRoomKeyWrapInnerPayload(params.groupId, params.roomKeyHex);
   if (!inner) {
     return { ok: false, error: "invalid_room_key_payload" };
@@ -157,14 +159,47 @@ export const wrapRoomKeyForCoordination = async (params: Readonly<{
     const actorPrivateKeyHex = await resolveActorPrivateKeyForMembershipDeltaSigning(
       params.actorPrivateKeyHex,
     );
-    const ciphertext = await nip04Encrypt({
-      senderPrivateKeyHex: actorPrivateKeyHex,
-      recipientPublicKeyHex: params.subjectPubkey,
-      plaintext: JSON.stringify(inner),
-    });
-    return { ok: true, ciphertext };
+    const plaintext = JSON.stringify(inner);
+    const ciphertext = await cryptoService.encryptNIP44(
+      plaintext,
+      params.subjectPubkey,
+      actorPrivateKeyHex,
+    );
+    return { ok: true, ciphertext, scheme: ROOM_KEY_WRAP_SCHEME_V2 };
   } catch {
-    return { ok: false, error: "nip04_encrypt_failed" };
+    return { ok: false, error: "nip44_encrypt_failed" };
+  }
+};
+
+const decryptRoomKeyWrapCiphertext = async (params: Readonly<{
+  ciphertext: string;
+  actorPubkey: PublicKeyHex;
+  recipientPrivateKeyHex: PrivateKeyHex;
+  scheme: RoomKeyWrapScheme;
+}>): Promise<Readonly<{ ok: true; plaintext: string }> | Readonly<{ ok: false; error: string }>> => {
+  try {
+    const recipientPrivateKeyHex = await resolveActorPrivateKeyForMembershipDeltaSigning(
+      params.recipientPrivateKeyHex,
+    );
+    if (params.scheme === ROOM_KEY_WRAP_SCHEME_V2) {
+      const plaintext = await cryptoService.decryptNIP44(
+        params.ciphertext,
+        params.actorPubkey,
+        recipientPrivateKeyHex,
+      );
+      return { ok: true, plaintext };
+    }
+    const plaintext = await nip04Decrypt({
+      recipientPrivateKeyHex,
+      senderPublicKeyHex: params.actorPubkey,
+      payload: params.ciphertext,
+    });
+    return { ok: true, plaintext };
+  } catch {
+    return {
+      ok: false,
+      error: params.scheme === ROOM_KEY_WRAP_SCHEME_V2 ? "nip44_decrypt_failed" : "nip04_decrypt_failed",
+    };
   }
 };
 
@@ -173,27 +208,25 @@ export const unwrapRoomKeyFromCoordinationCiphertext = async (params: Readonly<{
   actorPubkey: PublicKeyHex;
   recipientPrivateKeyHex: PrivateKeyHex;
   expectedGroupId?: string;
+  scheme?: RoomKeyWrapScheme;
 }>): Promise<Readonly<{ ok: true; roomKeyHex: string; groupId: string }> | Readonly<{ ok: false; error: string }>> => {
-  try {
-    const recipientPrivateKeyHex = await resolveActorPrivateKeyForMembershipDeltaSigning(
-      params.recipientPrivateKeyHex,
-    );
-    const plaintext = await nip04Decrypt({
-      recipientPrivateKeyHex,
-      senderPublicKeyHex: params.actorPubkey,
-      payload: params.ciphertext,
-    });
-    const inner = parseRoomKeyWrapInnerPayload(plaintext);
-    if (!inner) {
-      return { ok: false, error: "invalid_inner_payload" };
-    }
-    if (params.expectedGroupId?.trim() && inner.groupId !== params.expectedGroupId.trim()) {
-      return { ok: false, error: "group_id_mismatch" };
-    }
-    return { ok: true, roomKeyHex: inner.roomKeyHex, groupId: inner.groupId };
-  } catch {
-    return { ok: false, error: "nip04_decrypt_failed" };
+  const decrypted = await decryptRoomKeyWrapCiphertext({
+    ciphertext: params.ciphertext,
+    actorPubkey: params.actorPubkey,
+    recipientPrivateKeyHex: params.recipientPrivateKeyHex,
+    scheme: params.scheme ?? ROOM_KEY_WRAP_SCHEME_V1,
+  });
+  if (!decrypted.ok) {
+    return { ok: false, error: decrypted.error };
   }
+  const inner = parseRoomKeyWrapInnerPayload(decrypted.plaintext);
+  if (!inner) {
+    return { ok: false, error: "invalid_inner_payload" };
+  }
+  if (params.expectedGroupId?.trim() && inner.groupId !== params.expectedGroupId.trim()) {
+    return { ok: false, error: "group_id_mismatch" };
+  }
+  return { ok: true, roomKeyHex: inner.roomKeyHex, groupId: inner.groupId };
 };
 
 export const fetchCoordinationRoomKeyWrapsSince = async (
@@ -269,7 +302,7 @@ export const publishCoordinationRoomKeyWrap = async (params: Readonly<{
       communityId: params.communityId,
       subjectPubkey: params.subjectPubkey,
       wrapSeq: nextWrapSeq,
-      scheme: ROOM_KEY_WRAP_SCHEME_V1,
+      scheme: wrapped.scheme,
       ciphertext: wrapped.ciphertext,
       actorPubkey: params.actorPubkey,
       createdAtUnixMs,
@@ -292,7 +325,7 @@ export const publishCoordinationRoomKeyWrap = async (params: Readonly<{
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           subjectPubkey: params.subjectPubkey,
-          scheme: ROOM_KEY_WRAP_SCHEME_V1,
+          scheme: wrapped.scheme,
           ciphertext: wrapped.ciphertext,
           actorPubkey: params.actorPubkey,
           createdAtUnixMs,
@@ -370,6 +403,7 @@ export const materializeRoomKeysFromCoordinationWraps = async (params: Readonly<
     actorPubkey: latestWrap.actorPubkey as PublicKeyHex,
     recipientPrivateKeyHex: params.localPrivateKeyHex,
     expectedGroupId: params.groupId,
+    scheme: latestWrap.scheme,
   });
   if (!decrypted.ok) {
     return { materialized: false, roomKeyHex: null, error: decrypted.error };

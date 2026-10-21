@@ -1,0 +1,190 @@
+{
+  "exploreId": "d9c378d2-eedf-0746-a87a-09126679a7a1",
+  "findings": [
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:706c456b70114b8f3770fbe5306c688da391be7bcc518b53e911ee0ebbba1394",
+          "line": 1,
+          "path": "apps/pwa/app/features/desktop/utils/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/desktop/utils/index.ts",
+      "obligation": "Reduce barrel re-exports (10 wildcard re-exports, 2 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 944.8400268554688,
+      "rollupCount": 10,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:10",
+        "module:apps:pwa:app:features:desktop:utils:index.ts",
+        "hot_path_imports:2",
+        "root_hot_path_imports:2",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:d00e3d4c65f3697110ae9cf36a6764cf073a7db06c59f1f9b665043363f60dfd",
+          "line": 1,
+          "path": "apps/pwa/app/features/workspace-kernel/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/workspace-kernel/index.ts",
+      "obligation": "Reduce barrel re-exports (9 wildcard re-exports, 1 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 922.8400268554688,
+      "rollupCount": 9,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:9",
+        "module:apps:pwa:app:features:workspace-kernel:index.ts",
+        "hot_path_imports:1",
+        "root_hot_path_imports:1",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:e9352d0df48da8492c304f0bf11a6738e4d1fbb2331525cbb2044eceeba45651",
+          "line": 1,
+          "path": "apps/pwa/app/features/security/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/security/index.ts",
+      "obligation": "Reduce barrel re-exports (8 wildcard re-exports, 0 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 900.8400268554688,
+      "rollupCount": 8,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:8",
+        "module:apps:pwa:app:features:security:index.ts",
+        "hot_path_imports:0",
+        "root_hot_path_imports:0",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:1907b1e08082b3711cdf7fbb4fedee0e0812c7546d1e75ea3afdc4358b6b486f",
+          "line": 1,
+          "path": "apps/pwa/app/features/messaging/services/thread-history/index.ts"
+        }
+      ],
+      "confidence": 0.8199999928474426,
+      "id": "perf:import:barrel-penalty:apps/pwa/app/features/messaging/services/thread-history/index.ts",
+      "obligation": "Reduce barrel re-exports (6 wildcard re-exports, 0 hot-path importers in app/src tree) or lazy-load heavy subtree",
+      "oracle": "perf.explore.run: finding absent after barrel removal or hot-path import reduction",
+      "proofTier": "static",
+      "rankScore": 856.8400268554688,
+      "rollupCount": 6,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "barrel_exports:6",
+        "module:apps:pwa:app:features:messaging:services:thread-history:index.ts",
+        "hot_path_imports:0",
+        "root_hot_path_imports:0",
+        "barrel_consumers:0"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:b2781be3ad096fc38de3dc3c0af95b4d43d220c4cc3a0cca98ddeceb936d4a20",
+          "line": 297,
+          "path": "apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+          "symbol": "api-waterfall"
+        }
+      ],
+      "confidence": 0.8600000143051147,
+      "id": "perf:api:waterfall:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+      "obligation": "3 sequential awaited API-shaped calls (Promise.all batches=0) — batch independent network work or reduce critical path",
+      "oracle": "perf.explore.run: finding absent when sequential awaited API calls < 3",
+      "proofTier": "static",
+      "rankScore": 781.3200073242188,
+      "rollupCount": 3,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "family:api_surface",
+        "apiKind:fetch",
+        "sequentialAwaits:3",
+        "parallelGroup:false"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6cb7bae23e8a5c7bd1576a7ef305acf961a12315a0cbad9e8239f7f9b4c502be",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
+          "symbol": "tauri"
+        },
+        {
+          "path": "apps/desktop/vite.config.ts",
+          "symbol": "vite"
+        }
+      ],
+      "confidence": 0.9200000166893005,
+      "id": "perf:dev:tauri-vite-shell:apps/desktop",
+      "obligation": "Tauri + Vite dev shell depends on localhost dev server — white window if Vite is down, IPv6/127.0.0.1 mismatch, or secondary window races daemon boot",
+      "oracle": "perf.confirm.run provider=studio-dev-probe attachMode=dev baseUrl=http://127.0.0.1:5173: measure paintMs and whiteScreen",
+      "probePath": "/jobs",
+      "proofTier": "static",
+      "rankScore": 641.0399780273438,
+      "severity": "yellow",
+      "surfaceRefs": [
+        "shell_surface:studio-vite"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:b2781be3ad096fc38de3dc3c0af95b4d43d220c4cc3a0cca98ddeceb936d4a20",
+          "path": "apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+          "symbol": "api-client-payload"
+        }
+      ],
+      "confidence": 0.7200000286102295,
+      "id": "perf:api:client-payload-suspect:apps/pwa/app/features/messaging/lib/nip96-upload-service.ts",
+      "obligation": "4 `.json()` consumptions without zod/pick — verify client only needs a subset of the payload",
+      "oracle": "perf.explore.run: finding absent when .json() count < 3 or zod/pick present",
+      "proofTier": "static",
+      "rankScore": 401.6400146484375,
+      "rollupCount": 4,
+      "severity": "info",
+      "surfaceRefs": [
+        "family:api_surface",
+        "apiKind:fetch",
+        "jsonConsumeCount:4"
+      ]
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:5f9398f8c1f8bed527ae51337a6e6b6ce496888c8ef00e23cf59ed997e729a32",
+          "path": "apps/pwa/package.json"
+        }
+      ],
+      "confidence": 0.949999988079071,
+      "id": "perf:stack:next:apps/pwa",
+      "obligation": "Stack fingerprinted as next for performance surface extraction",
+      "oracle": "perf.explore.run: stack node present in graph",
+      "proofTier": "static",
+      "rankScore": 91.4000015258789,
+      "severity": "info",
+      "surfaceRefs": [
+        "package:pwa"
+      ]
+    }
+  ],
+  "schema": "perf.findings@1.0.0"
+}

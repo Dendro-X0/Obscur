@@ -14,10 +14,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w67 — B5 exit verification harness", () => {
   it("links W66 mechanical commit to W67 B5 exit verification", () => {
     const w66 = readFromRepo(
-      "docs/program/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md",
     );
     const w67 = readFromRepo(
-      "docs/program/transport-engine-w67-standalone-legacy-b5-exit-verification.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w67-standalone-legacy-b5-exit-verification.md",
     );
     expect(w66).toContain("postSubtractionComplete");
     expect(w67).toContain("readyForB5ExitVerification");

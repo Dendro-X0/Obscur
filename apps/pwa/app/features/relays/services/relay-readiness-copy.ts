@@ -1,7 +1,11 @@
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import type { RelayPoolDiagnosisSummary } from "./relay-path-diagnosis";
 import type { RelayReadinessState, RelayRecoverySnapshot } from "./relay-recovery-types";
 
-export const getRelayReadinessBannerCopy = (snapshot: RelayRecoverySnapshot): string | null => {
+export const getRelayReadinessBannerCopy = (
+  snapshot: RelayRecoverySnapshot,
+  poolDiagnosis?: RelayPoolDiagnosisSummary | null,
+): string | null => {
   if (isExperimentOfflineStubEnabled()) {
     return "Relay transport is disabled in offline mode. Run pnpm dev:desktop:online for live relays and messaging, or enable relays in Settings.";
   }
@@ -16,8 +20,13 @@ export const getRelayReadinessBannerCopy = (snapshot: RelayRecoverySnapshot): st
       return "Obscur is recovering the relay connection. Delivery can resume once writable relays are back.";
     case "degraded":
       return "Relay connection is degraded. Delivery may be partial, but Obscur will only show success with relay evidence.";
-    case "offline":
-      return "Relay transport is offline. You can still read messages; sends are queued until relays return.";
+    case "offline": {
+      const base = "Relay transport is offline. You can still read messages; sends are queued until relays return.";
+      if (poolDiagnosis?.bannerSupplement) {
+        return `${base} ${poolDiagnosis.bannerSupplement}`;
+      }
+      return base;
+    }
     default:
       return null;
   }
@@ -47,6 +56,7 @@ export const getRelaySendBlockCopy = getRelayTransportQueueHint;
 
 export const getRelayReadinessDetailCopy = (
   snapshot: RelayRecoverySnapshot,
+  poolDiagnosis?: RelayPoolDiagnosisSummary | null,
 ): string | null => {
   if (snapshot.readiness === "healthy") {
     return null;
@@ -60,8 +70,13 @@ export const getRelayReadinessDetailCopy = (
   switch (snapshot.readiness) {
     case "recovering":
       return `Obscur is reconnecting relays (${writableLabel}). Delivery may resume shortly.`;
-    case "offline":
-      return `Relay transport is offline (${writableLabel}). Sends queue locally; background sync resumes when online.`;
+    case "offline": {
+      const base = `Relay transport is offline (${writableLabel}). Sends queue locally; background sync resumes when online.`;
+      if (poolDiagnosis?.hypothesisCopy) {
+        return `${base} ${poolDiagnosis.hypothesisCopy}`;
+      }
+      return base;
+    }
     case "degraded":
       return `Relay transport is degraded (${writableLabel}). Obscur will only treat delivery as successful with relay evidence.`;
     default:

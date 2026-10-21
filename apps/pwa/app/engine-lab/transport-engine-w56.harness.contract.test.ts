@@ -13,7 +13,7 @@ describe("transport-engine w56 — deletion execution harness", () => {
   it("links recorded sign-off file to W55 deletion gate", () => {
     const recorded = readFromRepo("docs/handoffs/transport-engine-smoke-sign-off-recorded.md");
     const w55 = readFromRepo(
-      "docs/program/transport-engine-w55-standalone-legacy-deletion-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w55-standalone-legacy-deletion-charter.md",
     );
     expect(recorded).toContain("**Decision:** PASS");
     expect(w55).toContain("transport-engine-smoke-sign-off-template.md");
@@ -22,7 +22,7 @@ describe("transport-engine w56 — deletion execution harness", () => {
 
   it("documents W57 subtraction steps in execution charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w56-standalone-legacy-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w56-standalone-legacy-deletion-execution.md",
     );
     expect(charter).toContain("W57");
     expect(charter).toContain("transport-kernel-standalone-publish-legacy.ts");

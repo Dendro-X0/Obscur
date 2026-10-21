@@ -1,0 +1,57 @@
+- text: Failed to send group message. Check relay scope and retry.
+- button "Dismiss notification"
+- main:
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities...": PB1A-1791732571
+  - button "Chat"
+  - button "Group"
+  - button "New Group"
+  - button "Communities"
+  - button "P PB1A-1791732571 Sealed community created locally 13m ago":
+    - text: P PB1A-1791732571
+    - paragraph: Sealed community created locally
+    - button
+    - text: 13m ago
+  - text: Connected 1/1 active relays Obscur Preview
+  - main:
+    - text: P
+    - heading "PB1A-1791732571" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: 1 members· 0 online here ·Last activity 13m ago
+    - button "Media"
+    - button "Info"
+    - button "Search Messages"
+    - text: P
+    - heading "PB1A-1791732571" [level=2]
+    - paragraph: This is the start of your encrypted conversation.
+    - button "Media"
+    - textbox "Type a message...": pb1a-g-a-1791733000
+    - button "Search emojis..."
+    - button "Send"
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.16
+- alert: Obscur

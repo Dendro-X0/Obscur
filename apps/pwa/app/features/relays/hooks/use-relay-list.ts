@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
-import { applyRelayListScopeMigration, LOCAL_DEV_WORKSPACE_RELAY_URL, mergePublicBootIntoLoopbackOnlyList } from "../services/relay-transport-scope";
+import {
+  applyRelayListScopeMigration,
+  LOCAL_DEV_WORKSPACE_RELAY_URL,
+  mergePublicBootIntoLoopbackOnlyList,
+  reenableWhenNoRelaysEnabled,
+} from "../services/relay-transport-scope";
 import { normalizeWorkspaceRelayUrl } from "@/app/features/groups/services/workspace-relay-url";
 import { dedupeRelayListByWorkspaceIdentity } from "@/app/features/groups/services/workspace-relay-calibrator";
 import { validateRelayUrl } from "./validate-relay-url";
@@ -147,8 +152,10 @@ const resolveLoadedRelayList = (
   publicKeyHex: PublicKeyHex,
   profileId?: string,
 ): ReadonlyArray<RelayListItem> => {
-  const { relays: merged, changed } = mergePublicBootIntoLoopbackOnlyList(parsed, DEFAULT_RELAYS);
-  if (changed) {
+  const loopbackMerge = mergePublicBootIntoLoopbackOnlyList(parsed, DEFAULT_RELAYS);
+  const noneEnabledHeal = reenableWhenNoRelaysEnabled(loopbackMerge.relays, DEFAULT_RELAYS);
+  const merged = noneEnabledHeal.relays;
+  if (loopbackMerge.changed || noneEnabledHeal.changed) {
     saveRelayListToStorage(publicKeyHex, merged, profileId);
   }
   return merged;

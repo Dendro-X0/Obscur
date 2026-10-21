@@ -14,8 +14,14 @@ describe("conduit-mesh C7 client integration", () => {
       "http://127.0.0.1:8788",
     ]);
 
-    expect(descriptors[0]?.dialect).toBe("nostr_ws");
-    expect(descriptors[1]?.dialect).toBe("team_relay");
+    const byEndpoint = new Map(
+      descriptors.flatMap((descriptor) => (
+        descriptor.endpoints.map((endpoint) => [endpoint, descriptor] as const)
+      )),
+    );
+
+    expect(byEndpoint.get("wss://relay.example.test")?.dialect).toBe("nostr_ws");
+    expect(byEndpoint.get("http://127.0.0.1:8788")?.dialect).toBe("team_relay");
   });
 
   it("passthrough-publishes pre-built Nostr EVENT payloads without mesh re-wrap", async () => {

@@ -42,10 +42,14 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
     const [peaksReady, setPeaksReady] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
     const {
-        pendingLinkUrl,
-        cancelPendingLink,
-        confirmPendingLink,
-        requestOpenExternalLinkPreferNative,
+      pendingLinkUrl,
+      pendingLinkPhase,
+      reputationResult,
+      reputationChecking,
+      reputationProviderLabel,
+      cancelPendingLink,
+      confirmPendingLink,
+      requestOpenExternalLinkPreferNative,
     } = useGuardedExternalLinkOpen();
 
     const resolveDuration = (audio: HTMLAudioElement | null): number => {
@@ -330,10 +334,14 @@ export function AudioPlayer({ src, isOutgoing, className, voiceNoteMetadata = nu
         </div>
         {!onRequestOpenExternalLink ? (
             <LinkOpenConfirmDialog
-                url={pendingLinkUrl}
-                onClose={cancelPendingLink}
-                onConfirm={() => confirmPendingLink()}
-            />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
         ) : null}
         </>
     );

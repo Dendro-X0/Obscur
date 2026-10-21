@@ -1,0 +1,80 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-08-24T06:17:25.920010600+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-08-24T06:17:25.920010600+00:00",
+    "baseline": {
+      "exploreId": "7ba7bb2b-50e3-1b44-e9b2-a5120928a81e",
+      "graphHash": "sha256:45dd800b2548f284865f8334f6a4604932b7ff76abffd887642662a31c8c0f9e",
+      "findingCount": 1,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 1,
+        "info": 0
+      }
+    },
+    "current": {
+      "exploreId": "9ee1cc94-cdcc-80f8-7618-daf0f2c994f4",
+      "graphHash": "sha256:d9433e678347a86f186242f043529b32bd95e6918079b009055ce8030d3f81eb",
+      "findingCount": 4,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 3,
+        "info": 1
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 2,
+      "info": 1,
+      "total": 3
+    },
+    "resolvedFindingIds": [],
+    "newFindingIds": [
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js"
+    ],
+    "unchangedFindingIds": [
+      "perf:dev:tauri-vite-shell:apps/desktop"
+    ],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "regressed",
+      "resolvedCount": 0,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": []
+    },
+    "newFindings": [
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+        "reason": "codeChange"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+        "reason": "codeChange"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+        "reason": "codeChange"
+      }
+    ],
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 0,
+        "to": 0
+      },
+      "actionItems": {
+        "from": 1,
+        "to": 3
+      },
+      "infoInventory": {
+        "from": 0,
+        "to": 1
+      }
+    }
+  }
+}

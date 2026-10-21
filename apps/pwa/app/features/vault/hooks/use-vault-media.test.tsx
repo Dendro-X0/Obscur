@@ -70,7 +70,7 @@ vi.mock("../services/local-media-store", async (importOriginal) => {
   return {
     ...actual,
     deleteLocalMediaCacheItem: vi.fn(async () => undefined),
-    downloadAttachmentToUserPath: vi.fn(async () => true),
+    downloadAttachmentToUserPath: vi.fn(async () => "saved" as const),
     ensureVaultMediaIndexReadyForActiveProfile: vi.fn(async () => undefined),
     revealLocalMediaItemPath: vi.fn(async () => true),
     subscribeLocalMediaIndexChanged: vi.fn(() => () => undefined),

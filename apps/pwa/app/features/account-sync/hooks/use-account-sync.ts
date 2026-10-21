@@ -14,6 +14,7 @@ import { accountProjectionRuntime } from "../services/account-projection-runtime
 import { encryptedAccountBackupService } from "../services/encrypted-account-backup-service";
 import { accountSyncStatusStore } from "../services/account-sync-status-store";
 import { isExperimentOfflineStubEnabled } from "@/app/features/runtime/experiment-shell-policy";
+import { shouldSkipAutoAccountSyncOnUnlock } from "@/app/features/runtime/unlock-hydrate-policy";
 import type {
   AccountSyncBackupPublishReason,
   AccountSyncBackupPublishResult,
@@ -402,13 +403,15 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
     if (rehydratedForKeyRef.current === key) {
       return;
     }
-    if (isExperimentOfflineStubEnabled()) {
+    if (isExperimentOfflineStubEnabled() || shouldSkipAutoAccountSyncOnUnlock()) {
       rehydratedForKeyRef.current = key;
       accountSyncStatusStore.updateSnapshot({
         publicKeyHex: params.publicKeyHex!,
         phase: "ready",
         status: "identity_only",
-        message: "Experiment shell: account sync deferred",
+        message: isExperimentOfflineStubEnabled()
+          ? "Experiment shell: account sync deferred"
+          : "Local identity ready; account sync not auto-started on unlock",
       });
       return;
     }
@@ -498,6 +501,10 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   ]);
 
   useEffect(() => {
+    if (shouldSkipAutoAccountSyncOnUnlock()) {
+      pendingDeferredMutationPublishReasonRef.current = null;
+      return;
+    }
     if (!params.publicKeyHex || !params.privateKeyHex) {
       pendingDeferredMutationPublishReasonRef.current = null;
       return;
@@ -526,7 +533,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   ]);
 
   useEffect(() => {
-    if (isExperimentOfflineStubEnabled()) {
+    if (isExperimentOfflineStubEnabled() || shouldSkipAutoAccountSyncOnUnlock()) {
       return;
     }
     if (!params.publicKeyHex || !params.privateKeyHex) {
@@ -666,7 +673,7 @@ export const useAccountSync = (params: UseAccountSyncParams) => {
   ]);
 
   useEffect(() => {
-    if (isExperimentOfflineStubEnabled()) {
+    if (isExperimentOfflineStubEnabled() || shouldSkipAutoAccountSyncOnUnlock()) {
       return;
     }
     if (!params.publicKeyHex || !params.privateKeyHex || snapshot.phase !== "ready") {

@@ -26,7 +26,7 @@ const W41_EXIT_EVIDENCE_WAVES = [
 describe("transport-engine w48 — pre-authority-flip exit evidence review", () => {
   it("pins exit evidence review charter with maintainer gate", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
     );
     expect(charter).toContain("Pre-Authority-Flip Exit Evidence Review");
     expect(charter).toContain("Maintainer gate");
@@ -37,7 +37,7 @@ describe("transport-engine w48 — pre-authority-flip exit evidence review", () 
 
   it("references W41 checklist and W47 network parity harness", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
     );
     expect(charter).toContain("W41 exit checklist");
     expect(charter).toContain("W47 network publish parity harness");

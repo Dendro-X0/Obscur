@@ -1,0 +1,4 @@
+- alert
+- heading "Oops! Something went wrong" [level=1]
+- paragraph: The application hit an unexpected error. Fully quit Obscur and restart — a normal refresh may not clear a fatal render loop.
+- button "Reload page"

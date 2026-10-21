@@ -20,6 +20,8 @@ import {
   MESSAGING_SHELL_BOTTOM_CHROME_PRIMARY_ROW_CLASS,
   MESSAGING_SHELL_BOTTOM_CHROME_STATUS_ROW_CLASS,
 } from "./messaging-shell-bottom-chrome";
+import { useActiveProtocolCapabilities } from "@/app/features/protocol-adaptation/use-active-protocol-capabilities";
+import { ProtocolCapabilityChips } from "@/app/features/protocol-adaptation/components/protocol-capability-chips";
 interface ComposerProps {
     messageInput: string;
     setMessageInput: (val: string) => void;
@@ -49,6 +51,8 @@ interface ComposerProps {
     deliveryRisk?: "no_overlap" | "unknown" | "overlap" | null;
 }
 export function Composer({ messageInput, setMessageInput, handleSendMessage, isUploadingAttachment, uploadStage, pendingAttachments, pendingAttachmentPreviewUrls, attachmentError, replyTo, setReplyTo, onPickAttachments, onSelectFiles, removePendingAttachment, clearPendingAttachment, relayStatus, textareaRef, recipientStatus, isPeerAccepted = true, isInitiator = false, contactRequestComposeMode, onSendVoiceNote, isProcessingMedia, mediaProcessingProgress, recipientRemoved = false, deliveryRisk, }: ComposerProps) {
+    const { capabilities } = useActiveProtocolCapabilities();
+    const mediaEnabled = capabilities.media;
     const EMOJI_PICKER_DESKTOP_WIDTH_PX = 320;
     const EMOJI_PICKER_DESKTOP_HEIGHT_PX = 400;
     const EMOJI_PICKER_MOBILE_MAX_WIDTH_PX = 400;
@@ -195,7 +199,7 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
             if (file)
                 files.push(file);
         }
-        if (files.length > 0) {
+        if (files.length > 0 && mediaEnabled) {
             // Create a FileList-like object using DataTransfer
             const dataTransfer = new DataTransfer();
             files.forEach(file => dataTransfer.items.add(file));
@@ -203,6 +207,14 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
         }
     };
     return (<div className={cn("relative z-20", MESSAGING_SHELL_BOTTOM_CHROME_CLASS)}>
+            <ProtocolCapabilityChips className="mb-2 px-1" />
+            {!mediaEnabled ? (
+                <p data-testid="composer-media-capability-hint" className="mb-2 px-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                    {t("protocol.composer.mediaUnavailable", {
+                        defaultValue: "Attachments and voice notes are unavailable on this protocol.",
+                    })}
+                </p>
+            ) : null}
             {/* Connection Pending Gated State */}
             {isGated && (<div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-50/50 p-4 text-[11px] font-medium text-purple-700 dark:border-purple-500/30 dark:bg-purple-900/20 dark:text-purple-300 animate-in slide-in-from-bottom-2 duration-300">
                     <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse"/>
@@ -381,8 +393,8 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
             {/* Main Input Area */}
             <div className={cn(MESSAGING_SHELL_BOTTOM_CHROME_PRIMARY_ROW_CLASS, "relative items-end gap-2 p-1.5 bg-black/5 dark:bg-black/40 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300 backdrop-blur-sm", "focus-within:bg-white/80 dark:focus-within:bg-zinc-950 focus-within:ring-purple-500/30 focus-within:shadow-2xl focus-within:shadow-purple-500/10", disableCompose && "opacity-50 grayscale pointer-events-none")}>
                 <input type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.csv,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp" multiple className="hidden" id="composer-attachment" onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachments(e.target.files)}/>
-                {!isSandboxMode ? (
-                <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0" disabled={isUploadingAttachment || disableCompose} onClick={onSelectFiles} aria-label={t("messaging.media")}>
+                {!isSandboxMode && mediaEnabled ? (
+                <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0" disabled={isUploadingAttachment || disableCompose} onClick={onSelectFiles} aria-label={t("messaging.media")} data-testid="composer-attach">
                     <Paperclip className="h-6 w-6 text-zinc-500 dark:text-zinc-400"/>
                 </Button>
                 ) : null}
@@ -420,7 +432,7 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
                         </div>, document.body)}
                 </div>
 
-                {onSendVoiceNote && !isSandboxMode && !messageInput.trim() && pendingAttachments.length === 0 && (<VoiceRecorder onRecordingComplete={onSendVoiceNote} isUploading={isUploadingAttachment} disabled={disableCompose}/>)}
+                {mediaEnabled && onSendVoiceNote && !isSandboxMode && !messageInput.trim() && pendingAttachments.length === 0 && (<VoiceRecorder onRecordingComplete={onSendVoiceNote} isUploading={isUploadingAttachment} disabled={disableCompose}/>)}
 
                 <Button type="button" onClick={handleSendMessage} disabled={disableCompose || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment} size="icon" className={cn("h-11 w-11 rounded-full shrink-0 transition-all duration-300 active:scale-95 flex items-center justify-center p-0", (messageInput.trim() || pendingAttachments.length > 0) && !isUploadingAttachment
             ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)] hover:scale-105"

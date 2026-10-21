@@ -1,0 +1,168 @@
+{
+  "schema": "studio.client.validation-ladder@1.2.0",
+  "subjectKind": "obscur",
+  "obscurWorkspace": true,
+  "currentRung": "operationProve",
+  "rungs": [
+    {
+      "id": "workspaceAligned",
+      "title": "Workspace aligned",
+      "tool": "client_dev_environment_get",
+      "satisfied": true,
+      "requiredForClientSatisfied": true,
+      "summary": "workspaceAligned=true"
+    },
+    {
+      "id": "sessionConnect",
+      "title": "Client session connect",
+      "tool": "client_session_connect",
+      "satisfied": true,
+      "requiredForClientSatisfied": true,
+      "summary": "sessionId=csess-1bf455470e0d connect=live"
+    },
+    {
+      "id": "interact",
+      "title": "Interact",
+      "tool": "client_interact_click | client_interact_type | client_interact_fill_form",
+      "satisfied": true,
+      "requiredForClientSatisfied": true,
+      "summary": "hasInteract=true"
+    },
+    {
+      "id": "validateAssert",
+      "title": "Validate assert",
+      "tool": "client_validate_assert",
+      "satisfied": true,
+      "requiredForClientSatisfied": true,
+      "summary": "hasPassingAssert=true"
+    },
+    {
+      "id": "runtimeDigest",
+      "title": "Runtime digest",
+      "tool": "client_runtime_digest_pull",
+      "satisfied": true,
+      "requiredForClientSatisfied": false,
+      "summary": "digest artifact present"
+    },
+    {
+      "id": "operationProve",
+      "title": "Operation prove",
+      "tool": "verify_operation_run",
+      "satisfied": false,
+      "requiredForClientSatisfied": false,
+      "summary": "no latest-operation-proof.json — run verify_operation_run"
+    }
+  ],
+  "clientRequired": true,
+  "clientSatisfied": true,
+  "coldRestartTagged": false,
+  "ladderComplete": true,
+  "blocked": false,
+  "blockCodes": [],
+  "recoveryRecipes": [],
+  "sessionId": "csess-1bf455470e0d",
+  "sessionContract": {
+    "sessionId": "csess-1bf455470e0d",
+    "hasConnect": true,
+    "hasInteract": true,
+    "hasPassingAssert": true,
+    "stubOnly": false,
+    "stubAccepted": false,
+    "closed": false,
+    "stepCount": 42
+  },
+  "mcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "See clientValidationLadder quickstart"
+    },
+    {
+      "order": 2,
+      "tool": "studio_client { action: \"client_validation_ladder\" }",
+      "purpose": "OFP2/OXD2 status — currentRung + blocked + recoveryRecipes + clientSatisfied"
+    },
+    {
+      "order": 3,
+      "tool": "studio_client { action: \"client_session_prune\" }",
+      "purpose": "OXD2: prune stale csess-* when currentRung=blocked",
+      "when": "currentRung == blocked"
+    },
+    {
+      "order": 4,
+      "tool": "studio_client { action: \"client_dev_environment_get\" }",
+      "purpose": "Confirm workspaceAligned true",
+      "when": "currentRung == workspaceAligned"
+    },
+    {
+      "order": 5,
+      "tool": "studio_client { action: \"client_stack_preflight\" }",
+      "purpose": "Blocking preflight before attach / when Blocked",
+      "when": "before first connect || currentRung == blocked"
+    },
+    {
+      "order": 6,
+      "tool": "studio_client { action: \"client_session_connect\", provider: \"webview2-cdp\", … }",
+      "purpose": "Open live session (same sessionId for remaining rungs)",
+      "when": "currentRung == sessionConnect"
+    },
+    {
+      "order": 7,
+      "tool": "studio_client { action: \"client_interact_click\" | type | fill_form }",
+      "purpose": "Drive UI toward the claim — only when blocked=false",
+      "when": "currentRung == interact && blocked=false"
+    },
+    {
+      "order": 8,
+      "tool": "studio_client { action: \"client_validate_assert\" }",
+      "purpose": "Pass assert for user-visible claim (clientSatisfied)",
+      "when": "currentRung == validateAssert"
+    },
+    {
+      "order": 9,
+      "tool": "studio_client { action: \"client_runtime_digest_pull\" }",
+      "purpose": "Import runtime digest / faults",
+      "when": "optional unless fault import needed"
+    },
+    {
+      "order": 10,
+      "tool": "studio_verify { action: \"verify_operation_run\" }",
+      "purpose": "operation.prove (cold-restart / T4 when tagged)",
+      "when": "when catalog op exists for the claim"
+    },
+    {
+      "order": 11,
+      "tool": "studio_client { action: \"client_workflow_guide\", mode: \"acceptance-prove\" }",
+      "purpose": "Obscur acceptance export path after ladder",
+      "when": "ladderComplete or exporting evidence"
+    }
+  ],
+  "openQuestions": [
+    "Is the claim user-visible (requires clientSatisfied) or backend-only?",
+    "Current rung `operationProve` — which MCP tool is next?"
+  ],
+  "doesNotProve": [
+    "T0/T1 scenario or catalog pass ≠ user-visible functional verify (CVE1)",
+    "Map/NMAP hop ≠ user experience — orient only (CVE1)",
+    "Functional verification = real-time client verification (live session + assert)",
+    "Soft L3 / harness green ≠ clientSatisfied (FG)",
+    "Orientation pack ≠ client validation ladder complete",
+    "workspaceAligned alone ≠ user-visible verified",
+    "CDP open / screenshot ≠ assert pass",
+    "OXD2: Blocked / stale csess ≠ interact Fail — prune before click",
+    "Ladder status ≠ Obscur product complete (subject-owned bugs remain)"
+  ],
+  "proves": [
+    "Fail-closed rung order for user-visible claims",
+    "clientSatisfied maps to CVE2 connect+interact+assert",
+    "OXD2: Blocked rung distinct from interact Fail",
+    "All required ladder rungs satisfied for this evaluation"
+  ],
+  "notes": [
+    "OFP2 client validation ladder — prefer this over improvising a prove tour",
+    "FG honesty: Soft L3 / quarantined digests cannot be cited as ship proof",
+    "OXD2: stale/closed session → currentRung=blocked + recoveryRecipes",
+    "Obscur workspace: use webview2-cdp + interact recipe / stepLabels from pack",
+    "clientSatisfied=true for this session contract"
+  ]
+}

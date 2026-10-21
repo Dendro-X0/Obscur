@@ -58,27 +58,30 @@ describe("community-mode-contract", () => {
         expect(gate.reasonCode).toBe("not_managed");
     });
 
-    it("blocks managed workspace management on public-default relays", () => {
+    it("allows managed workspace on public-default relays with honesty ack (CU-UX-5)", () => {
         const gate = resolveManagedWorkspaceRelayGate({
             communityMode: "managed_workspace",
             enabledRelayUrls: ["wss://nos.lol", "wss://relay.damus.io"],
             communityRelayUrl: "wss://nos.lol",
         });
 
-        expect(gate.allowed).toBe(false);
-        expect(gate.reasonCode).toBe("relay_tier_insufficient");
-        expect(gate.userMessage).toContain("Managed Workspace");
+        expect(gate.allowed).toBe(true);
+        expect(gate.reasonCode).toBe("public_default_honest");
+        expect(gate.requiresHonestyAck).toBe(true);
+        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(false);
+        expect(gate.userMessage).toMatch(/public Quiet/i);
     });
 
-    it("blocks managed workspace create when community relay host is public-default", () => {
+    it("does not hard-block managed create when community relay host is public-default", () => {
         const gate = resolveManagedWorkspaceRelayGate({
             communityMode: "managed_workspace",
             enabledRelayUrls: ["wss://relay.internal"],
             communityRelayUrl: "wss://nos.lol",
         });
 
-        expect(gate.allowed).toBe(false);
-        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(true);
+        expect(gate.allowed).toBe(true);
+        expect(gate.requiresHonestyAck).toBe(true);
+        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(false);
     });
 
     it("allows managed workspace management on intranet relays", () => {
@@ -100,11 +103,13 @@ describe("community-mode-contract", () => {
         expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(false);
     });
 
-    it("isManagedWorkspaceRelayGateBlocking is true when managed tier is insufficient", () => {
+    it("isManagedWorkspaceRelayGateBlocking is false for public Quiet honesty path", () => {
         const gate = resolveManagedWorkspaceRelayGate({
             communityMode: "managed_workspace",
             enabledRelayUrls: ["wss://nos.lol"],
+            communityRelayUrl: "wss://nos.lol",
         });
-        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(true);
+        expect(gate.requiresHonestyAck).toBe(true);
+        expect(isManagedWorkspaceRelayGateBlocking(gate)).toBe(false);
     });
 });

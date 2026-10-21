@@ -149,6 +149,7 @@ Ephemeral Node relay (`scripts/dev-relay-ephemeral.mjs`) is **not** for VPS.
 
 ## Related
 
+- [t1-private-trust-standup-sop-draft-2026-10.md](./t1-private-trust-standup-sop-draft-2026-10.md) — PB1-B happy path (install → bind → DM → group)  
 - [relay-latency-source-label-design-2026-07.md](../../specs/backend/relay-latency-source-label-design-2026-07.md) — Connect vs RTT labels  
 - [relay-in-pool-app-rtt-design-2026-07.md](../../specs/backend/relay-in-pool-app-rtt-design-2026-07.md) — in-pool RTT  
 - [obscur-conduit-mesh-concept-2026-06.md](./obscur-conduit-mesh-concept-2026-06.md) — team / custom conduit framing  

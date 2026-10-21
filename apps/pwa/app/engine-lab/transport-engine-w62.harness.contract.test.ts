@@ -13,10 +13,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w62 — mechanical production subtraction harness", () => {
   it("links W61 archive-aware reads to W62 subtracted port module", () => {
     const w61 = readFromRepo(
-      "docs/program/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w61-standalone-legacy-production-deletion-execution.md",
     );
     const w62 = readFromRepo(
-      "docs/program/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
     );
     expect(w61).toContain("resolveTransportEngineStandaloneLegacyReadPath");
     expect(w62).toContain("relay-standalone-publish-port-subtracted.ts");
@@ -25,7 +25,7 @@ describe("transport-engine w62 — mechanical production subtraction harness", (
 
   it("documents W63+ port swap in subtraction charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
     );
     expect(charter).toContain("STANDALONE_LEGACY_FILES_TO_DELETE");
     expect(charter).toContain("No deletion of production");

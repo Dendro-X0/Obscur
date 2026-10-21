@@ -73,8 +73,8 @@ export const ConnectionCard = ({ contact, groups, onSelect }: ConnectionCardProp
                         {contact.bio}
                     </p>
                 ) : (
-                    <p className="truncate text-[10px] uppercase tracking-[0.14em] text-zinc-400">
-                        Identity hidden
+                    <p className="truncate text-[10px] tracking-[0.08em] text-zinc-400">
+                        Trusted connection
                     </p>
                 )}
 

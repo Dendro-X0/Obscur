@@ -1,13 +1,16 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use tauri::AppHandle;
 
 use crate::data_root::resolve_effective_data_root;
 
 const LEASE_FILE: &str = "active_session_leases.json";
-pub const ACTIVE_SESSION_LEASE_TTL_MS: u64 = 12_000;
+pub const ACTIVE_SESSION_LEASE_TTL_MS: u64 = 60_000;
+/// N1: touch heartbeats must not rewrite leases.json every poll (JS heartbeat 30s).
+const TOUCH_PERSIST_MIN_INTERVAL_MS: u64 = 25_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +26,7 @@ type LeaseMap = HashMap<String, ActiveSessionLeaseRecord>;
 
 pub struct ActiveSessionLeaseState {
     inner: Mutex<LeaseMap>,
+    last_touch_persist_unix_ms: AtomicU64,
 }
 
 fn lease_file_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
@@ -70,6 +74,7 @@ impl ActiveSessionLeaseState {
         prune_stale_leases(&mut map, now_unix_ms());
         Ok(Self {
             inner: Mutex::new(map),
+            last_touch_persist_unix_ms: AtomicU64::new(0),
         })
     }
 
@@ -90,10 +95,14 @@ impl ActiveSessionLeaseState {
         };
         let now_ms = now_unix_ms();
         let mut map = self.inner.lock().map_err(|_| "Active session lease lock poisoned".to_string())?;
+        let before = map.len();
         prune_stale_leases(&mut map, now_ms);
+        let pruned = map.len() != before;
         let Some(lease) = map.get(&target).cloned() else {
             drop(map);
-            self.persist(app)?;
+            if pruned {
+                self.persist(app)?;
+            }
             return Ok(None);
         };
         if !is_lease_fresh(&lease, now_ms) {
@@ -107,10 +116,16 @@ impl ActiveSessionLeaseState {
         if let (Some(profile_id), Some(window_label)) = (exclude_profile_id, exclude_window_label) {
             if lease.profile_id == profile_id && lease.window_label == window_label {
                 drop(map);
+                if pruned {
+                    self.persist(app)?;
+                }
                 return Ok(None);
             }
         }
         drop(map);
+        if pruned {
+            self.persist(app)?;
+        }
         Ok(Some(lease))
     }
 
@@ -159,16 +174,26 @@ impl ActiveSessionLeaseState {
         }
         existing.updated_at_unix_ms = now_ms;
         drop(map);
+        let last = self.last_touch_persist_unix_ms.load(Ordering::Relaxed);
+        if now_ms.saturating_sub(last) < TOUCH_PERSIST_MIN_INTERVAL_MS {
+            return Ok(());
+        }
+        self.last_touch_persist_unix_ms.store(now_ms, Ordering::Relaxed);
         self.persist(app)
     }
 
     pub fn list_active_session_leases(&self, app: &AppHandle) -> Result<Vec<ActiveSessionLeaseRecord>, String> {
         let now_ms = now_unix_ms();
         let mut map = self.inner.lock().map_err(|_| "Active session lease lock poisoned".to_string())?;
+        let before = map.len();
         prune_stale_leases(&mut map, now_ms);
+        let pruned = map.len() != before;
         let leases: Vec<ActiveSessionLeaseRecord> = map.values().cloned().collect();
         drop(map);
-        self.persist(app)?;
+        // Slice 3d: picker polls every 4s — only rewrite disk when TTL prune mutated the map.
+        if pruned {
+            self.persist(app)?;
+        }
         Ok(leases)
     }
 
@@ -191,7 +216,10 @@ impl ActiveSessionLeaseState {
             map.remove(&target);
         }
         drop(map);
-        self.persist(app)
+        if should_remove {
+            self.persist(app)?;
+        }
+        Ok(())
     }
 }
 

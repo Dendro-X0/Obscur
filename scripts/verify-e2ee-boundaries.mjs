@@ -29,11 +29,15 @@ const ENCRYPT_BEFORE_PUBLISH_PATHS = [
   },
   {
     relativePath: "apps/pwa/app/features/messaging/controllers/v2/dm-send-pipeline.ts",
-    requiredPatterns: [/encryptGiftWrap/],
+    requiredPatterns: [/encryptGiftWrap/, /preferredFormat\s*=\s*"nip17"/],
   },
   {
     relativePath: "apps/pwa/app/features/groups/services/group-service.ts",
     requiredPatterns: [/encryptGroupMessage/],
+  },
+  {
+    relativePath: "apps/pwa/app/features/groups/services/community-coordination-room-key-owner.ts",
+    requiredPatterns: [/encryptNIP44/, /ROOM_KEY_WRAP_SCHEME_V2/],
   },
 ];
 

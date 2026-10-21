@@ -16,7 +16,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w40 — Rust network publish wiring charter (design-only)", () => {
   it("pins network wiring charter referencing protocol publish surfaces", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w40-rust-network-publish-wiring-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w40-rust-network-publish-wiring-charter.md");
     expect(charter).toContain("Rust Network Publish Wiring Charter");
     expect(charter).toContain("publish_with_quorum_attempts");
     expect(charter).toContain("design + contract only");

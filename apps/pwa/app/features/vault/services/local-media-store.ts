@@ -1489,12 +1489,14 @@ export const deleteLocalMediaCacheItem = async (remoteUrl: string): Promise<bool
     return true;
 };
 
+export type DownloadAttachmentToUserPathResult = "saved" | "cancelled" | "failed";
+
 export const downloadAttachmentToUserPath = async (params: Readonly<{
     attachment: Attachment;
     sourceUrl?: string;
-}>): Promise<boolean> => {
+}>): Promise<DownloadAttachmentToUserPathResult> => {
     const sourceUrl = params.sourceUrl?.trim() || params.attachment.url.trim();
-    if (!sourceUrl) return false;
+    if (!sourceUrl) return "failed";
 
     if (isTauriRuntime()) {
         try {
@@ -1506,17 +1508,20 @@ export const downloadAttachmentToUserPath = async (params: Readonly<{
                 ? await nativeLocalMediaAdapter.joinPaths(cfg.downloadRootPath.trim(), fileName)
                 : fileName;
             const targetPath = await nativeLocalMediaAdapter.pickSavePath({ defaultPath });
-            if (!targetPath) return false;
+            if (!targetPath) return "cancelled";
             const bytes = (
                 await readLocalAttachmentBytesForDownload(params.attachment.url)
             ) ?? (
                 await fetchBytes(sourceUrl, params.attachment.contentType)
             );
+            if (!bytes || bytes.byteLength === 0) {
+                return "failed";
+            }
             await nativeLocalMediaAdapter.writeBytes({
                 path: targetPath,
                 bytes,
             });
-            return true;
+            return "saved";
         } catch (error) {
             logRuntimeEvent(
                 "local_media_store.download_attachment_failed",
@@ -1528,12 +1533,12 @@ export const downloadAttachmentToUserPath = async (params: Readonly<{
                 }],
                 { windowMs: 15_000, maxPerWindow: 2, summaryEverySuppressed: 10 }
             );
-            return false;
+            return "failed";
         }
     }
 
     if (typeof window === "undefined" || typeof document === "undefined") {
-        return false;
+        return "failed";
     }
 
     const anchor = document.createElement("a");
@@ -1544,7 +1549,7 @@ export const downloadAttachmentToUserPath = async (params: Readonly<{
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
-    return true;
+    return "saved";
 };
 
 /** Explicit plaintext exit for encrypted sandbox policy. */

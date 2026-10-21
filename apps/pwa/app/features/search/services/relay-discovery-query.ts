@@ -4,6 +4,11 @@ import type { NostrFilter } from "@/app/features/relays/types/nostr-filter";
 import { INVITE_CODE_PREFIX } from "@/app/features/invites/utils/invite-code-format";
 import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache, type DiscoveryProfileRecord } from "./discovery-cache";
+import {
+    FRIEND_CODE_ALIAS_KIND,
+    parseFriendCodeAliasEvent,
+    profileRecordFromFriendCodeAlias,
+} from "./friend-code-alias";
 
 type RelayMessageHandler = (params: Readonly<{ url: string; message: string }>) => void;
 
@@ -29,6 +34,7 @@ type QueryRelayProfilesParams = Readonly<{
 }>;
 
 const QUERY_TIMEOUT_MS = 5_500;
+const INVITE_ALIAS_HOLD_MS = 800;
 const INVITE_PROFILE_WINDOW_SECONDS = 60 * 60 * 24 * 180;
 const TEXT_PROFILE_WINDOW_SECONDS = 60 * 60 * 24 * 120;
 const LEGACY_INVITE_CODE_PREFIX = "OBSCUR";
@@ -135,6 +141,7 @@ const buildFilters = (mode: RelayDiscoveryMode, query: string): ReadonlyArray<No
     if (mode === "invite") {
         const inviteCode = query.trim().toUpperCase();
         return [
+            { kinds: [FRIEND_CODE_ALIAS_KIND], "#d": [inviteCode], limit: 8 },
             { kinds: [0], "#i": [inviteCode], limit: 16 },
             { kinds: [0], "#code": [inviteCode], limit: 16 },
             { kinds: [0], search: inviteCode, limit: 48 },
@@ -197,9 +204,15 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
         let settled = false;
         let unsubscribe: (() => void) | null = null;
 
+        let aliasHoldTimer: ReturnType<typeof setTimeout> | null = null;
+
         const finalize = (): void => {
             if (settled) return;
             settled = true;
+            if (aliasHoldTimer) {
+                clearTimeout(aliasHoldTimer);
+                aliasHoldTimer = null;
+            }
             try {
                 params.pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
             } catch {
@@ -212,6 +225,17 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
             resolve(Array.from(resultsMap.values()));
         };
 
+        const maybeFinalizeInvite = (record: DiscoveryProfileRecord): void => {
+            const hasDisplay = Boolean(record.name || record.displayName);
+            if (hasDisplay) {
+                finalize();
+                return;
+            }
+            if (!aliasHoldTimer) {
+                aliasHoldTimer = setTimeout(finalize, INVITE_ALIAS_HOLD_MS);
+            }
+        };
+
         unsubscribe = params.pool.subscribeToMessages(({ message }) => {
             if (settled) return;
             try {
@@ -219,7 +243,25 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
                 if (!Array.isArray(parsed)) return;
                 if (parsed[0] !== "EVENT" || parsed[1] !== subId) return;
                 const event = parsed[2];
-                if (!event || typeof event !== "object" || event.kind !== 0 || typeof event.pubkey !== "string") {
+                if (!event || typeof event !== "object" || typeof event.pubkey !== "string") {
+                    return;
+                }
+
+                if (params.mode === "invite" && event.kind === FRIEND_CODE_ALIAS_KIND) {
+                    const alias = parseFriendCodeAliasEvent(event);
+                    if (!alias) return;
+                    if (alias.inviteCode.toUpperCase() !== query.trim().toUpperCase()) return;
+                    const existing = resultsMap.get(alias.pubkey);
+                    const record: DiscoveryProfileRecord = existing
+                        ? { ...existing, inviteCode: alias.inviteCode, pubkey: alias.pubkey }
+                        : profileRecordFromFriendCodeAlias(alias);
+                    resultsMap.set(record.pubkey, record);
+                    discoveryCache.upsertProfile(record);
+                    maybeFinalizeInvite(record);
+                    return;
+                }
+
+                if (event.kind !== 0) {
                     return;
                 }
                 const record = profileFromEvent({
@@ -236,8 +278,12 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
                         : recordMatchesTextQuery(record, query);
                 if (!matches) return;
 
-                resultsMap.set(record.pubkey, record);
-                discoveryCache.upsertProfile(record);
+                const existing = resultsMap.get(record.pubkey);
+                const merged: DiscoveryProfileRecord = existing
+                    ? { ...existing, ...record, inviteCode: record.inviteCode ?? existing.inviteCode }
+                    : record;
+                resultsMap.set(merged.pubkey, merged);
+                discoveryCache.upsertProfile(merged);
                 if ((params.mode === "invite" || params.mode === "author") && resultsMap.size >= 1) {
                     finalize();
                     return;

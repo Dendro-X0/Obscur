@@ -8,6 +8,8 @@ export const DM_ENGINE_METHODS = {
   upsertConversation: "upsertConversation",
   listTombstones: "listTombstones",
   insertTombstone: "insertTombstone",
+  /** Batch insert — one IPC for many tombstones (unlock hydrate stampede cut). */
+  insertTombstones: "insertTombstones",
   deleteAllTombstones: "deleteAllTombstones",
   deleteMessages: "deleteMessages",
   deleteMessage: "deleteMessage",
@@ -33,6 +35,11 @@ export type DmInsertTombstonePayload = Readonly<{
   deleted_by: string;
 }>;
 
+/** Wire payload for `insertTombstones` — array of tombstone records. */
+export type DmInsertTombstonesPayload = Readonly<{
+  records: ReadonlyArray<DmInsertTombstonePayload>;
+}>;
+
 export type DmDeleteAllTombstonesPayload = Readonly<Record<string, never>>;
 
 export type DmDeleteMessagesPayload = Readonly<{
@@ -50,6 +57,7 @@ export const isDmEngineMethod = (method: string): method is DmEngineMethod => (
   || method === DM_ENGINE_METHODS.upsertConversation
   || method === DM_ENGINE_METHODS.listTombstones
   || method === DM_ENGINE_METHODS.insertTombstone
+  || method === DM_ENGINE_METHODS.insertTombstones
   || method === DM_ENGINE_METHODS.deleteAllTombstones
   || method === DM_ENGINE_METHODS.deleteMessages
   || method === DM_ENGINE_METHODS.deleteMessage
@@ -102,6 +110,20 @@ export const buildDmInsertTombstoneRequest = (params: Readonly<{
 }>): EngineInvokeRequest => ({
   engine: "dm",
   method: DM_ENGINE_METHODS.insertTombstone,
+  scope: {
+    profileId: params.profileId,
+    ...(params.windowLabel ? { windowLabel: params.windowLabel } : {}),
+  },
+  payload: params.payload,
+});
+
+export const buildDmInsertTombstonesRequest = (params: Readonly<{
+  profileId: string;
+  windowLabel?: string;
+  payload: DmInsertTombstonesPayload;
+}>): EngineInvokeRequest => ({
+  engine: "dm",
+  method: DM_ENGINE_METHODS.insertTombstones,
   scope: {
     profileId: params.profileId,
     ...(params.windowLabel ? { windowLabel: params.windowLabel } : {}),

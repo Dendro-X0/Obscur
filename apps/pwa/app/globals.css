@@ -373,7 +373,8 @@
     }
   }
 
-  .obscur-community-action-orbit {
+  /* Decorative hub only — never attach this class to step cards / copy. */
+  .obscur-community-action-orbit-ring {
     animation: obscur-community-action-orbit 14s linear infinite;
     transform-origin: center center;
     will-change: transform;
@@ -643,13 +644,13 @@
    * stay animated via :not() so we do not fight Tailwind utilities layer order.
    */
   .desktop-safe-ui
-    *:not(.animate-spin):not(.obscur-indeterminate-spin):not(.obscur-community-action-orbit):not(.animate-pulse):not(
+    *:not(.animate-spin):not(.obscur-indeterminate-spin):not(.obscur-community-action-orbit-ring):not(.animate-pulse):not(
       [class*="animate-pulse"]
     ),
   .desktop-safe-ui *::before,
   .desktop-safe-ui *::after,
   .reduce-motion
-    *:not(.animate-spin):not(.obscur-indeterminate-spin):not(.obscur-community-action-orbit):not(.animate-pulse):not(
+    *:not(.animate-spin):not(.obscur-indeterminate-spin):not(.obscur-community-action-orbit-ring):not(.animate-pulse):not(
       [class*="animate-pulse"]
     ),
   .reduce-motion *::before,
@@ -767,10 +768,10 @@
  */
 html.desktop-safe-ui .animate-spin,
 html.desktop-safe-ui .obscur-indeterminate-spin,
-html.desktop-safe-ui .obscur-community-action-orbit,
+html.desktop-safe-ui .obscur-community-action-orbit-ring,
 html.reduce-motion .animate-spin,
 html.reduce-motion .obscur-indeterminate-spin,
-html.reduce-motion .obscur-community-action-orbit,
+html.reduce-motion .obscur-community-action-orbit-ring,
 html.desktop-safe-ui svg.animate-spin,
 html.reduce-motion svg.animate-spin {
   animation-duration: 0.8s !important;
@@ -781,8 +782,8 @@ html.reduce-motion svg.animate-spin {
   will-change: transform;
 }
 
-html.desktop-safe-ui .obscur-community-action-orbit,
-html.reduce-motion .obscur-community-action-orbit {
+html.desktop-safe-ui .obscur-community-action-orbit-ring,
+html.reduce-motion .obscur-community-action-orbit-ring {
   animation-duration: 14s !important;
 }
 
@@ -798,7 +799,7 @@ html.reduce-motion .obscur-indeterminate-spin {
   animation-name: obscur-indeterminate-spin !important;
 }
 
-html.desktop-safe-ui .obscur-community-action-orbit,
-html.reduce-motion .obscur-community-action-orbit {
+html.desktop-safe-ui .obscur-community-action-orbit-ring,
+html.reduce-motion .obscur-community-action-orbit-ring {
   animation-name: obscur-community-action-orbit !important;
 }

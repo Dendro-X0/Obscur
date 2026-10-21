@@ -18,5 +18,5 @@ export const STANDALONE_LEGACY_MECHANICAL_SUBTRACTION_SCRIPT = (
 );
 
 export const STANDALONE_LEGACY_MECHANICAL_SUBTRACTION_CHARTER = (
-  "docs/program/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md"
+  "docs/archive/program/inactive-2026-08/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md"
 );

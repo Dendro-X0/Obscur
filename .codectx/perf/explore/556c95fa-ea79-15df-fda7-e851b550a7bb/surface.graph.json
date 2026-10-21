@@ -1,0 +1,1095 @@
+{
+  "edges": [
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:Import_local_profile_and_sync_account_data_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/auth_create_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:auth_create_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/delete_profile_window_isolation_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:delete_profile_window_isolation_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/export_local_profile_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:export_local_profile_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/group_invite_member_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:group_invite_member_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:multimedia_files_upload_and_transfer_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/preview_files_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:preview_files_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/relay_enable_disable_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:relay_enable_disable_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/relay_overview_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:relay_overview_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:oversized:apps/website/public/guide-media/settings_panel_1.mp4",
+      "kind": "flags",
+      "to": "asset:apps:website:public:guide-media:settings_panel_1.mp4",
+      "weight": 0.8799999952316284
+    },
+    {
+      "from": "finding:perf:asset:raw-img:apps/website/src/app/ambient-demo-video.tsx",
+      "kind": "flags",
+      "to": "module:apps:website:src:app:ambient-demo-video.tsx",
+      "weight": 0.7200000286102295
+    },
+    {
+      "from": "finding:perf:asset:raw-img:apps/website/src/app/guide/guide-docs-shell.tsx",
+      "kind": "flags",
+      "to": "module:apps:website:src:app:guide:guide-docs-shell.tsx",
+      "weight": 0.7200000286102295
+    },
+    {
+      "from": "finding:perf:asset:raw-img:apps/website/src/app/hero-stage.tsx",
+      "kind": "flags",
+      "to": "module:apps:website:src:app:hero-stage.tsx",
+      "weight": 0.7200000286102295
+    },
+    {
+      "from": "finding:perf:asset:raw-img:apps/website/src/app/page.tsx",
+      "kind": "flags",
+      "to": "module:apps:website:src:app:page.tsx",
+      "weight": 0.7200000286102295
+    },
+    {
+      "from": "finding:perf:bundle:missing-optimize-imports:apps/website",
+      "kind": "flags",
+      "to": "package:website",
+      "weight": 0.7799999713897705
+    },
+    {
+      "from": "finding:perf:stack:next:apps/website",
+      "kind": "flags",
+      "to": "package:website",
+      "weight": 0.949999988079071
+    }
+  ],
+  "exploreId": "556c95fa-ea79-15df-fda7-e851b550a7bb",
+  "nodes": [
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/file.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:file.svg",
+      "kind": "asset",
+      "label": "apps/website/public/file.svg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/globe.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:globe.svg",
+      "kind": "asset",
+      "label": "apps/website/public/globe.svg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:Import_local_profile_and_sync_account_data_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:Import_local_profile_and_sync_account_data_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/accept_a_contact_request_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:accept_a_contact_request_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/accept_a_contact_request_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/accept_a_contact_request_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:accept_a_contact_request_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/accept_a_contact_request_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/auth_create_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:auth_create_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/auth_create_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/auth_create_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:auth_create_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/auth_create_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/auth_unlock_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:auth_unlock_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/auth_unlock_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/auth_unlock_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:auth_unlock_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/auth_unlock_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/auth_unlock_2.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:auth_unlock_2.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/auth_unlock_2.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/auth_unlock_2.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:auth_unlock_2.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/auth_unlock_2.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/community_group_send_receive_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:community_group_send_receive_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/community_group_send_receive_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/community_group_send_receive_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:community_group_send_receive_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/community_group_send_receive_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/delete_profile_window_isolation_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:delete_profile_window_isolation_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/delete_profile_window_isolation_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/delete_profile_window_isolation_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:delete_profile_window_isolation_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/delete_profile_window_isolation_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/e2e-dm-base_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:e2e-dm-base_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/e2e-dm-base_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/e2e-dm-base_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:e2e-dm-base_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/e2e-dm-base_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/emoji_icons_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:emoji_icons_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/emoji_icons_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/emoji_icons_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:emoji_icons_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/emoji_icons_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/export_local_profile_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:export_local_profile_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/export_local_profile_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/export_local_profile_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:export_local_profile_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/export_local_profile_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/group_create_managed_workspace_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:group_create_managed_workspace_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/group_create_managed_workspace_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/group_create_managed_workspace_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:group_create_managed_workspace_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/group_create_managed_workspace_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/group_invite_member_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:group_invite_member_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/group_invite_member_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/group_invite_member_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:group_invite_member_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/group_invite_member_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/group_participants_settings_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:group_participants_settings_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/group_participants_settings_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/group_participants_settings_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:group_participants_settings_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/group_participants_settings_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:multimedia_files_upload_and_transfer_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:multimedia_files_upload_and_transfer_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/preview_files_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:preview_files_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/preview_files_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/preview_files_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:preview_files_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/preview_files_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/relay_enable_disable_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:relay_enable_disable_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/relay_enable_disable_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/relay_enable_disable_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:relay_enable_disable_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/relay_enable_disable_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/relay_overview_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:relay_overview_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/relay_overview_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/relay_overview_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:relay_overview_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/relay_overview_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/search_message_history_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:search_message_history_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/search_message_history_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/search_message_history_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:search_message_history_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/search_message_history_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/send_a_contact_request_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:send_a_contact_request_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/send_a_contact_request_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/send_a_contact_request_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:send_a_contact_request_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/send_a_contact_request_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/send_voice_note_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:send_voice_note_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/send_voice_note_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/send_voice_note_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:send_voice_note_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/send_voice_note_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/settings_panel_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:settings_panel_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/settings_panel_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/settings_panel_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:settings_panel_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/settings_panel_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/start_a_voice_call_1.mp4"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:start_a_voice_call_1.mp4",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/start_a_voice_call_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/guide-media/start_a_voice_call_1.poster.jpg"
+        }
+      ],
+      "id": "asset:apps:website:public:guide-media:start_a_voice_call_1.poster.jpg",
+      "kind": "asset",
+      "label": "apps/website/public/guide-media/start_a_voice_call_1.poster.jpg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/hero-media/README.md"
+        }
+      ],
+      "id": "asset:apps:website:public:hero-media:README.md",
+      "kind": "asset",
+      "label": "apps/website/public/hero-media/README.md"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/next.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:next.svg",
+      "kind": "asset",
+      "label": "apps/website/public/next.svg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/obscur-logo-dark.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:obscur-logo-dark.svg",
+      "kind": "asset",
+      "label": "apps/website/public/obscur-logo-dark.svg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/obscur-logo-light.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:obscur-logo-light.svg",
+      "kind": "asset",
+      "label": "apps/website/public/obscur-logo-light.svg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/vercel.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:vercel.svg",
+      "kind": "asset",
+      "label": "apps/website/public/vercel.svg"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/public/window.svg"
+        }
+      ],
+      "id": "asset:apps:website:public:window.svg",
+      "kind": "asset",
+      "label": "apps/website/public/window.svg"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6e90353c823f0ce41ff8ae2fd3816a9b230a4204049d4b45278fd99105ef1d0b",
+          "path": "apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/Import_local_profile_and_sync_account_data_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:9aab086b5e7783cef3be34c2f67da998c809758c1c984cc9f51257344993e97b",
+          "path": "apps/website/public/guide-media/auth_create_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/auth_create_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/auth_create_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:e7d2037c0c48ba7d604568cb1a54fd9c1d95f16d7273de6a43597499e8b8096d",
+          "path": "apps/website/public/guide-media/delete_profile_window_isolation_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/delete_profile_window_isolation_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/delete_profile_window_isolation_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:794698fe554d90e9ee1e279fd21640e54727de2a3064a83f008f76e2030888d2",
+          "path": "apps/website/public/guide-media/export_local_profile_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/export_local_profile_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/export_local_profile_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:7e5ed773a6d9cca44ed08a9a1f13fa5098a22362963e2a6f4adaee8a76aacec6",
+          "path": "apps/website/public/guide-media/group_invite_member_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/group_invite_member_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/group_invite_member_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:dffa4a7117dec5ecec47f9359c58d7b9abcf5823b808d36970974df5e653db8f",
+          "path": "apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/multimedia_files_upload_and_transfer_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:99a96d259e37d61b7b6112bb3759fa383b8a1ad4c0f28236c39f2a14fd440890",
+          "path": "apps/website/public/guide-media/preview_files_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/preview_files_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/preview_files_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:d49d47f84dd4a7a03a2396927dedc04e2d004d8fa23f11a39ed02efdb817a8b0",
+          "path": "apps/website/public/guide-media/relay_enable_disable_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/relay_enable_disable_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/relay_enable_disable_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:4ba31dde91847ec8e105344398a3969ec3d78c7618616efb287ae0d4af7c9be1",
+          "path": "apps/website/public/guide-media/relay_overview_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/relay_overview_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/relay_overview_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:852b56605373851e045f4b72c3e7cc9f15d9a33391c5f15d1fb14729bc7ec8e8",
+          "path": "apps/website/public/guide-media/settings_panel_1.mp4"
+        }
+      ],
+      "id": "finding:perf:asset:oversized:apps/website/public/guide-media/settings_panel_1.mp4",
+      "kind": "finding",
+      "label": "perf:asset:oversized:apps/website/public/guide-media/settings_panel_1.mp4"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:4ba77724af530e3af5525667b9447670ad060e6c0f7dc3e1dd5f169249661e6a",
+          "path": "apps/website/src/app/ambient-demo-video.tsx",
+          "symbol": "img"
+        }
+      ],
+      "id": "finding:perf:asset:raw-img:apps/website/src/app/ambient-demo-video.tsx",
+      "kind": "finding",
+      "label": "perf:asset:raw-img:apps/website/src/app/ambient-demo-video.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:d0edaa8caa75f109f3bd441cd655437838786697c4243d02aec468b21d46bd14",
+          "path": "apps/website/src/app/guide/guide-docs-shell.tsx",
+          "symbol": "img"
+        }
+      ],
+      "id": "finding:perf:asset:raw-img:apps/website/src/app/guide/guide-docs-shell.tsx",
+      "kind": "finding",
+      "label": "perf:asset:raw-img:apps/website/src/app/guide/guide-docs-shell.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:80ca8ea2b78b191ba2604123f5c9608282634b98614c35e3f132f131d73640f5",
+          "path": "apps/website/src/app/hero-stage.tsx",
+          "symbol": "img"
+        }
+      ],
+      "id": "finding:perf:asset:raw-img:apps/website/src/app/hero-stage.tsx",
+      "kind": "finding",
+      "label": "perf:asset:raw-img:apps/website/src/app/hero-stage.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:da137d6d136521d44a8bf5e9f81d32b6a315a9b769d5c74115fead4831ecd08e",
+          "path": "apps/website/src/app/page.tsx",
+          "symbol": "img"
+        }
+      ],
+      "id": "finding:perf:asset:raw-img:apps/website/src/app/page.tsx",
+      "kind": "finding",
+      "label": "perf:asset:raw-img:apps/website/src/app/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:8d2a4d0fc1a8054fe8656dfc39f03ab64922c39d063d56253a0b0415c9050c7d",
+          "path": "apps/website/next.config.ts",
+          "symbol": "optimizePackageImports"
+        }
+      ],
+      "id": "finding:perf:bundle:missing-optimize-imports:apps/website",
+      "kind": "finding",
+      "label": "perf:bundle:missing-optimize-imports:apps/website"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6cb7bae23e8a5c7bd1576a7ef305acf961a12315a0cbad9e8239f7f9b4c502be",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
+          "symbol": "tauri"
+        },
+        {
+          "path": "apps/desktop/vite.config.ts",
+          "symbol": "vite"
+        }
+      ],
+      "id": "finding:perf:dev:tauri-vite-shell:apps/desktop",
+      "kind": "finding",
+      "label": "perf:dev:tauri-vite-shell:apps/desktop"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:159d94268de169e2bdce836ae564c63e512505ee46f2186e6166c2f19edbc421",
+          "path": "apps/website/src/app/changelog/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/changelog/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/changelog/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:8a820f2639299d101001c81b45c40483259efd43d760b8262f1913f69da240d1",
+          "path": "apps/website/src/app/download/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/download/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/download/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:fda928186fb0bb376f349825c5c290c60560b54ef183eaf37b5c4ddb1cf075e8",
+          "path": "apps/website/src/app/features/[slug]/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/features/[slug]/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:2c0e3bf2991ffe6faf14d14f43dcea8ef84cb4465b419d6211c49e3491c37266",
+          "path": "apps/website/src/app/guide/[slug]/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/guide/[slug]/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/guide/[slug]/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:b0952b36ef90e3a2285584caa88b6740384f6943a5bbaa4268f5960c5a403353",
+          "path": "apps/website/src/app/guide/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/guide/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/guide/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:71947187754a5b7077282e9df7423b4f37e0486bbec2380fd4152ea39332f6d4",
+          "path": "apps/website/src/app/limitations/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/limitations/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/limitations/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:da137d6d136521d44a8bf5e9f81d32b6a315a9b769d5c74115fead4831ecd08e",
+          "path": "apps/website/src/app/page.tsx",
+          "symbol": "page"
+        }
+      ],
+      "id": "finding:perf:route:missing-loading:apps/website/src/app/page.tsx",
+      "kind": "finding",
+      "label": "perf:route:missing-loading:apps/website/src/app/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:afa3e5ca7e8dc77d5f28009db0dc388d652cf337983975295b7ceb4d2b7e94bb",
+          "path": "apps/website/package.json"
+        }
+      ],
+      "id": "finding:perf:stack:next:apps/website",
+      "kind": "finding",
+      "label": "perf:stack:next:apps/website"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/ambient-demo-video.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:ambient-demo-video.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/ambient-demo-video.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/changelog/changelog-pagination.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:changelog:changelog-pagination.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/changelog/changelog-pagination.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/changelog/changelog-timestamp.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:changelog:changelog-timestamp.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/changelog/changelog-timestamp.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/changelog/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:changelog:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/changelog/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/changelog/parse-changelog.ts"
+        }
+      ],
+      "id": "module:apps:website:src:app:changelog:parse-changelog.ts",
+      "kind": "module",
+      "label": "apps/website/src/app/changelog/parse-changelog.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/download/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:download:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/download/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/features/[slug]/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:features:[slug]:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/features/[slug]/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/guide/[slug]/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:guide:[slug]:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/guide/[slug]/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/guide/guide-docs-shell.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:guide:guide-docs-shell.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/guide/guide-docs-shell.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/guide/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:guide:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/guide/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/hero-stage.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:hero-stage.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/hero-stage.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/layout.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:layout.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/layout.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/limitations/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:limitations:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/limitations/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/obscur-logo.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:obscur-logo.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/obscur-logo.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/page.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:page.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/page.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/reveal-on-view.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:reveal-on-view.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/reveal-on-view.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/site-content.ts"
+        }
+      ],
+      "id": "module:apps:website:src:app:site-content.ts",
+      "kind": "module",
+      "label": "apps/website/src/app/site-content.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/src/app/site-nav.tsx"
+        }
+      ],
+      "id": "module:apps:website:src:app:site-nav.tsx",
+      "kind": "module",
+      "label": "apps/website/src/app/site-nav.tsx"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/website/package.json"
+        }
+      ],
+      "id": "package:website",
+      "kind": "package",
+      "label": "website"
+    }
+  ],
+  "schema": "perf.surface.graph@1.0.0"
+}

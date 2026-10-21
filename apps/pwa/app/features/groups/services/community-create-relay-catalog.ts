@@ -43,17 +43,21 @@ export const resolveCommunityCreateRelayOptions = (params: Readonly<{
     /** When true, private/intranet hosts stay selectable even if the socket is disconnected (coordination-only dev). */
     allowDisconnectedPrivateRelays?: boolean;
 }>): ReadonlyArray<CommunityCreateRelayOption> => {
-    const forManagedWorkspace = params.forManagedWorkspace !== false;
     const allowDisconnectedPrivateRelays = params.allowDisconnectedPrivateRelays === true;
     const options: CommunityCreateRelayOption[] = [];
 
     for (const relay of params.relays) {
-        if (!relay.enabled || !isCommunityRelayCandidateUrl(relay.url)) {
+        if (!relay.enabled) {
             continue;
         }
         const relayUrl = normalizeRelayUrlForMatch(relay.url);
         const host = hostFromRelayUrl(relayUrl);
         const isPublicDefault = isPublicDefaultRelayHost(host);
+        // CU-UX-5: include public Quiet in create catalog (honesty ack in UI).
+        // Keep excluding non-candidate non-public URLs from the community picker.
+        if (!isCommunityRelayCandidateUrl(relay.url) && !isPublicDefault) {
+            continue;
+        }
         const connection = findConnectionForRelay(relayUrl, params.connections);
         const metrics = params.getHealth?.(relayUrl);
         const nodeStatus = deriveRelayNodeStatus({
@@ -68,11 +72,12 @@ export const resolveCommunityCreateRelayOptions = (params: Readonly<{
 
         if (!selectable) {
             disabledReason = "Not a writable Nostr relay (needs wss:// with a real host/port).";
-        } else if (forManagedWorkspace && isPublicDefault) {
-            selectable = false;
-            disabledReason = "Public relays cannot host Managed Workspace communities.";
         } else if (nodeStatus.status === "unavailable") {
-            if (allowDisconnectedPrivateRelays && !isPublicDefault) {
+            // CU-UX-5: public Quiet stays selectable (honesty ack in create UI) even if pool not open yet.
+            if (isPublicDefault) {
+                selectable = true;
+                disabledReason = undefined;
+            } else if (allowDisconnectedPrivateRelays) {
                 selectable = true;
                 disabledReason = undefined;
             } else {

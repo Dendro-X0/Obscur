@@ -27,7 +27,7 @@ Messages are encrypted on your device first; public Nostr relays only carry ciph
 
 | # | Check |
 |---|--------|
-| 1 | **Release exe** just built — stamp **`shell-2026-08-17T16:37:20Z`** · path `apps/desktop/src-tauri/target/release/obscur_desktop_app.exe` · **do not** run `pnpm dev:desktop:online` at the same time |
+| 1 | **Release exe** just built — stamp **`shell-2026-08-23T17:15:41Z`** (or newer) · path `apps/desktop/src-tauri/target/release/obscur_desktop_app.exe` · **do not** run `pnpm dev:desktop:online` at the same time |
 | 2 | Profile **unlocked** after Segment B (same Tester profile is fine) |
 | 3 | **Tor OFF** — Security → **Tor Network (Onion)** disabled · no Warming / 10% / PENDING on screen |
 | 4 | Clearnet online · Relays tab shows **≥1 open socket** (2/3 or 3/3 ideal; 1/3 OK) |

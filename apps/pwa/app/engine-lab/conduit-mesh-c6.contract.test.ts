@@ -7,10 +7,12 @@ const PACKAGE_ROOT = join(REPO_ROOT, "packages/obscur-conduit-mesh");
 const CONTRACTS_ROOT = join(REPO_ROOT, "packages/obscur-conduit-mesh-contracts");
 
 describe("conduit-mesh-c6 — nostr_ws driver wiring", () => {
-  it("exports nostr_ws driver factory and wire port", () => {
+  it("exports nostr_ws driver factory; test wire port lives under /testing", () => {
     const indexSource = readFileSync(join(PACKAGE_ROOT, "src/index.ts"), "utf8");
+    const testingSource = readFileSync(join(PACKAGE_ROOT, "src/testing.ts"), "utf8");
     expect(indexSource).toMatch(/createNostrWsConduitDriver/);
-    expect(indexSource).toMatch(/createInMemoryNostrWsWire/);
+    expect(indexSource).not.toMatch(/createInMemoryNostrWsWire/);
+    expect(testingSource).toMatch(/createInMemoryNostrWsWire/);
   });
 
   it("driver factory handles nostr_ws dialect", () => {

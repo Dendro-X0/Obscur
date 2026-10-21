@@ -36,7 +36,7 @@ if (!gateApproved || !baselineReady) {
 }
 
 console.log("execute-transport-standalone-legacy-subtraction: gate open — run W66 maintainer mechanical subtraction commit:");
-console.log("See docs/program/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md");
+console.log("See docs/archive/program/inactive-2026-08/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md");
 console.log("1. Delete STANDALONE_LEGACY_FILES_TO_DELETE");
 console.log("2. Copy relay-standalone-publish-port-thin.ts into relay-standalone-publish-port.ts");
 console.log("3. Remove transport-kernel-standalone-publish.test.ts or retarget archive");

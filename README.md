@@ -6,9 +6,11 @@
 [![Platform](https://img.shields.io/badge/platform-PWA%20%7C%20Desktop%20%7C%20Mobile-0ea5e9)](#platform-coverage)
 [![Architecture](https://img.shields.io/badge/architecture-decentralized-22c55e)](#core-positioning)
 [![Security](https://img.shields.io/badge/security-E2EE-ef4444)](#core-positioning)
-![License](https://img.shields.io/github/license/Dendro-X0/Obscur)
+![License](https://img.shields.io/badge/license-Source--Available-important)
 
 Obscur is a cross-platform, decentralized, end-to-end encrypted (E2EE) communication app focused on user privacy, ownership, and self-custody identity.
+
+**License:** This repository is **source-available (all rights reserved)** — published for transparency, audit, and feedback, **not** OSI Open Source. You may view and run locally for personal study; you may **not** redistribute, repackage, rebrand, or commercialize without written permission. **Suggestions welcome; the maintainer applies code changes.** Terms: [`LICENSE`](./LICENSE) · [`CONTRIBUTING.md`](./CONTRIBUTING.md) · [`NOTICE.md`](./NOTICE.md) · [`ai.txt`](./ai.txt).
 
 Project phase: **v1.9.x** on `main` ([execution contract](docs/program/v1.9.x-execution-contract.md) · [v1.9.16 scope](docs/program/v1.9.16-scope.md))
 
@@ -27,7 +29,7 @@ Project phase: **v1.9.x** on `main` ([execution contract](docs/program/v1.9.x-ex
 
 Changelog: [CHANGELOG.md](CHANGELOG.md) · Design goals: [docs/program/design-goals-and-constraints.md](docs/program/design-goals-and-constraints.md) · Scope: [v1.9.16](docs/program/v1.9.16-scope.md)
 
-The project remains independently developed, community-maintained, privacy-first, and local-first.
+The project remains independently developed and maintainer-directed, privacy-first, and local-first. Public review and suggestions are welcome; see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## Core Positioning
 
@@ -35,7 +37,7 @@ The project remains independently developed, community-maintained, privacy-first
 - Privacy-first messaging and community interactions.
 - End-to-end encryption for private communications.
 - User sovereignty through key-based identity and local-first ownership.
-- Independently developed and community-maintained in public (not operated by a corporation or government agency).
+- Independently developed and maintainer-directed in public (not operated by a corporation or government agency).
 
 ## Trust and Transparency
 
@@ -98,17 +100,10 @@ Current v1.9.x captures live in `docs/assets/gifs/`. Legacy April 2026 six-pack 
 
 ![Group participants demo](docs/assets/gifs/group_participants_settings_1.gif)
 
-### Still to record
+### Demo GIFs
 
-| Topic | Target filename | Notes |
-|-------|-----------------|-------|
-| Settings panel | `settings_panel_1.gif` | Settings nav + security surfaces |
-| Add contact | `add_contact_1.gif` | Network → add by key / QR |
-| Media upload | `multimedia_files_upload_and_transfer_1.gif` | DM attach + transfer |
-| Voice notes | `voice_notes_1.gif` | Record, send, playback in thread |
-| Voice calls | `voice_calls_1.gif` | Outgoing call + accept/join UI |
-
-Full inventory: [docs/assets/demo/v2.0.0/gif-inventory.md](docs/assets/demo/v2.0.0/gif-inventory.md)
+**22 / 22** captured — see [gif-inventory](docs/assets/demo/v2.0.0/gif-inventory.md).  
+Contact path filename is `send_a_contact_request_1.gif` (not `add_contact_1`). Voice note stem is `send_voice_note_1.gif`. No “still to record” queue for Launch EXIT.
 
 ## Platform Coverage
 
@@ -188,3 +183,20 @@ The `/docs` tree is the project encyclopedia. **Start:** [docs/START-HERE.md](do
 - `apps/website`: official website and download surface
 - `packages/dweb-*`: shared core/crypto/nostr/storage/UI packages
 - `docs`: canonical architecture, operations, and roadmap docs
+
+## License
+
+**Source-available — not Open Source.** See [`LICENSE`](./LICENSE) · participation: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+| Allowed without asking | Not allowed without written permission |
+|------------------------|----------------------------------------|
+| Read / clone for personal study | Redistribute source or binaries |
+| Local build & security audit | Repackage / rebrand / sell as your product |
+| Feedback, bug reports, review comments | Unsolicited feature/roadmap PRs (may be closed) |
+| Short attributed quotes in research/news | Train or harvest for commercial AI / datasets |
+
+**Governance (early stage):** outsiders may **suggest**; the **maintainer** decides and lands all code updates so the project does not get steered off its intended path.
+
+Official public installs come from the **website download / update channel** named in this repo. Third-party “Obscur” builds are unauthorized unless they have a separate written grant.
+
+This is a clear ownership statement for a solo maintainer without a legal budget — **not a substitute for a lawyer**. Edit the copyright line in `LICENSE` to your legal name when you can.

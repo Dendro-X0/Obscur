@@ -24,12 +24,14 @@ describe("conduit-mesh-c7b — default-on mesh pool policy", () => {
     expect(policy).not.toMatch(/CONDUIT_MESH_POOL === "1"/);
   });
 
-  it("tri-route prefers mesh before transport-kernel enhanced pool", () => {
+  it("canonical hook delegates to conduit mesh pool (no legacy tri-route)", () => {
     const hookPort = readFileSync(
       join(REPO_ROOT, "apps/pwa/app/features/relays/hooks/relay-pool-hook-port.ts"),
       "utf8",
     );
-    expect(hookPort).toMatch(/if \(useConduitMesh\) return meshPool/);
-    expect(hookPort).toMatch(/shouldUseConduitMeshRelayPoolHook/);
+    expect(hookPort).toMatch(/useConduitMeshRelayPool/);
+    expect(hookPort).toMatch(/useRelayPoolRuntime/);
+    expect(hookPort).not.toMatch(/enhanced-relay-pool-legacy/);
+    expect(hookPort).not.toMatch(/if \(useConduitMesh\) return meshPool/);
   });
 });

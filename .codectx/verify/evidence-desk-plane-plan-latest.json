@@ -1,0 +1,77 @@
+{
+  "schema": "studio.evidence.desk.plane.plan@1.0.0",
+  "band": "H-ED3",
+  "residualStatus": "partial",
+  "title": "Evidence Desk plane plan",
+  "id": "evidence.desk.plane.plan",
+  "pathway": "pathways.evidenceDesk",
+  "summary": "Recommend a named evidence plane (env + shell recipe) and label subsequent bundle exports. Does not launch the subject. Soft L3 Fixed never claimed.",
+  "profile": "obscur",
+  "plane": "chrome",
+  "planeTitle": "Obscur chrome plane (hydrate stubs)",
+  "intent": "Binary-search chrome vs hydrate — Run A2 class",
+  "env": {
+    "OBSCUR_PERF_PLANE": "chrome",
+    "OBSCUR_CDP_MAIN": "0"
+  },
+  "shellRecipe": "OBSCUR_PERF_PLANE=chrome OBSCUR_CDP_MAIN=0 pnpm dev:desktop:no-coord",
+  "cdpOff": true,
+  "cdpRecommended": "off",
+  "catalog": [
+    {
+      "id": "local",
+      "title": "Obscur local plane (Tor/network out)",
+      "intent": "Binary-search hydrate vs network — Run A class",
+      "cdpRecommended": "off"
+    },
+    {
+      "id": "chrome",
+      "title": "Obscur chrome plane (hydrate stubs)",
+      "intent": "Binary-search chrome vs hydrate — Run A2 class",
+      "cdpRecommended": "off"
+    },
+    {
+      "id": "full",
+      "title": "Obscur full plane",
+      "intent": "Full stack soak — still prefer CDP off when attach poisons",
+      "cdpRecommended": "off"
+    }
+  ],
+  "hubRel": ".codectx/verify/evidence-desk-plane-plan-latest.json",
+  "citeAsSoftL3Fixed": false,
+  "citeAsObscurProductFixed": false,
+  "citeAsCdpRequired": false,
+  "citeAsSubjectLaunched": false,
+  "citeAsBundleExportShipped": true,
+  "doesNotProve": [
+    "soft_l3_fixed",
+    "obscur_product_fixed",
+    "obscur_heap_fixed",
+    "cdp_required",
+    "subject_launched",
+    "ghidra_replacement",
+    "product_fixed"
+  ],
+  "nextMcpSequence": [
+    "studio_repo { action: \"studio_evidence_desk_plane_plan\", profile, plane }",
+    "Operator runs shellRecipe in the subject repo (Studio does not spawn)",
+    "studio_repo { action: \"studio_evidence_desk_export_bundle\", planeHint: \"chrome\", planeProfile: \"obscur\" }",
+    "Stop — citeAsSoftL3Fixed=false · citeAsSubjectLaunched=false"
+  ],
+  "exportBundleArgs": {
+    "planeHint": "chrome",
+    "planeProfile": "obscur"
+  },
+  "operatorNotes": null,
+  "proves": [
+    "Returns named plane env + shell recipe without inventing Soft L3 Fixed",
+    "Labels plane for H-ED2 bundle export composition"
+  ],
+  "deferredTo": {
+    "H-ED4": "Journal cmd → owner file/symbol hop",
+    "H-ED5": "Host health strip before soak",
+    "H-ED6": "TRY-STUDIO / MCP-AGENT-GUIDE + Obscur Partial dogfood"
+  },
+  "persisted": true,
+  "persistPath": "E:\\Web Projects\\obscur\\.codectx\\verify\\evidence-desk-plane-plan-latest.json"
+}

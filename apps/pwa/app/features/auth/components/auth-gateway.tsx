@@ -14,6 +14,7 @@ import {
 import { SESSION_AUTO_UNLOCK_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { isDesktopShellProduct } from "@/app/features/runtime/shell-contract";
 import { ProfileBoundAuthShell } from "@/app/features/runtime/components/profile-bound-auth-shell";
 import { useWindowRuntime, windowRuntimeSupervisor } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { logAppEvent } from "@/app/shared/log-app-event";
@@ -21,6 +22,7 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { resolvePortabilityPrivateKeyHex } from "@/app/features/auth/services/resolve-portability-private-key-hex";
 import { PendingProfileImportResume } from "@/app/features/profiles/components/pending-profile-import-resume";
+import { PeerDisplayDeviceCacheSyncOwner } from "@/app/features/profiles/components/peer-display-device-cache-sync-owner";
 import { ProfileIdentityDraftSyncOwner } from "@/app/features/profiles/components/profile-identity-draft-sync-owner";
 import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import {
@@ -30,8 +32,15 @@ import {
   resolveLockedDesktopEntryRedirect,
   resolveLockedSingleProfilePublicRouteRedirect,
   resolveUnlockedDesktopRouteRedirect,
+  hasDesktopProfilePickerEntryBeenConsumed,
+  resolveUnlockedDesktopStartupPickerRedirect,
+  shouldDeferUnlockedMessagingShellForStartupPicker,
 } from "@/app/features/profiles/services/auth-public-routes";
-import { readShowProfilePickerOnStartup } from "@/app/features/profiles/services/profile-picker-startup-policy";
+import {
+  readRegisteredDesktopProfileCountFromStorage,
+  readShowProfilePickerOnStartup,
+} from "@/app/features/profiles/services/profile-picker-startup-policy";
+import { ProfileRegistryService } from "@/app/features/profiles/services/profile-registry-service";
 import { useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import {
   DESKTOP_PROFILE_BOOT_RECONCILED_EVENT,
@@ -85,7 +94,15 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     publicKeyHex: identity.state.publicKeyHex,
     runtimePhase: runtime.snapshot.phase,
   });
-  const isPublicProfileRoute = isAuthPublicProfileRoute(pathname) && hasNativeRuntime();
+  // E20: match AppSessionShell — desktop shell build OR live bridge (bridge flicker remounts heavy UI).
+  const isPublicProfileRoute = isAuthPublicProfileRoute(pathname)
+    && (isDesktopShellProduct() || hasNativeRuntime());
+  // N1d: isolation snapshot may still be the single default stub at keychain unlock — use storage max.
+  const registeredProfileCount = Math.max(
+    desktopProfileSnapshot.profiles.length,
+    readRegisteredDesktopProfileCountFromStorage(),
+    ProfileRegistryService.getState().profiles.length,
+  );
   const clearReloadUnlockedHint = (): void => {
     if (typeof window === "undefined" || !hasNativeRuntime()) {
       return;
@@ -284,7 +301,6 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     if (identity.state.status === "loading") {
       return;
     }
-    const registeredProfileCount = desktopProfileSnapshot.profiles.length;
     const redirectTarget = resolveLockedDesktopEntryRedirect({
       pathname,
       isDesktopNative: hasNativeRuntime(),
@@ -304,7 +320,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   }, [
     desktopProfileSnapshot.currentWindow.launchMode,
     desktopProfileSnapshot.currentWindow.windowLabel,
-    desktopProfileSnapshot.profiles.length,
+    registeredProfileCount,
     isUnlocked,
     pathname,
     router,
@@ -319,14 +335,14 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
       pathname,
       isDesktopNative: hasNativeRuntime(),
       isUnlocked,
-      registeredProfileCount: desktopProfileSnapshot.profiles.length,
+      registeredProfileCount,
     });
     if (!redirectTarget) {
       return;
     }
     router.replace(redirectTarget);
   }, [
-    desktopProfileSnapshot.profiles.length,
+    registeredProfileCount,
     isUnlocked,
     pathname,
     router,
@@ -336,7 +352,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   useEffect(() => {
     const redirectTarget = resolveUnlockedDesktopRouteRedirect({
       pathname,
-      isDesktopNative: hasNativeRuntime(),
+      isDesktopNative: hasNativeRuntime() || isDesktopShellProduct(),
       isUnlocked,
     });
     if (!redirectTarget) {
@@ -344,6 +360,37 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     }
     router.replace(redirectTarget);
   }, [isUnlocked, pathname, router]);
+
+  useEffect(() => {
+    if (identity.state.status === "loading") {
+      return;
+    }
+    const redirectTarget = resolveUnlockedDesktopStartupPickerRedirect({
+      pathname,
+      isDesktopNative: hasNativeRuntime() || isDesktopShellProduct(),
+      isUnlocked,
+      isPageReload: isPageReloadNavigation(),
+      showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
+      registeredProfileCount,
+      pickerEntryConsumed: hasDesktopProfilePickerEntryBeenConsumed(),
+      profileLaunchMode: resolveProfileLaunchMode(
+        desktopProfileSnapshot.currentWindow.windowLabel,
+        desktopProfileSnapshot.currentWindow.launchMode,
+      ),
+    });
+    if (!redirectTarget) {
+      return;
+    }
+    router.replace(redirectTarget);
+  }, [
+    desktopProfileSnapshot.currentWindow.launchMode,
+    desktopProfileSnapshot.currentWindow.windowLabel,
+    registeredProfileCount,
+    identity.state.status,
+    isUnlocked,
+    pathname,
+    router,
+  ]);
 
   useEffect(() => {
     if (startupState.identityStatus === "loading" || identity.state.status === "loading") {
@@ -593,6 +640,28 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     return <>{children}</>;
   }
 
+  // N1c: do not mount AppSessionShell/messaging while redirecting unlocked `/` → `/profiles`.
+  const deferMessagingForStartupPicker = shouldDeferUnlockedMessagingShellForStartupPicker({
+    pathname,
+    isDesktopNative: hasNativeRuntime() || isDesktopShellProduct(),
+    isUnlocked,
+    isPageReload: isPageReloadNavigation(),
+    showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
+    registeredProfileCount,
+    pickerEntryConsumed: hasDesktopProfilePickerEntryBeenConsumed(),
+    profileLaunchMode: resolveProfileLaunchMode(
+      desktopProfileSnapshot.currentWindow.windowLabel,
+      desktopProfileSnapshot.currentWindow.launchMode,
+    ),
+  });
+  if (deferMessagingForStartupPicker) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Opening profiles…</p>
+      </div>
+    );
+  }
+
   if (isUnlocked) {
     const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => (
       resolvePortabilityPrivateKeyHex({
@@ -610,6 +679,9 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
           resolveActivePrivateKeyHex={resolveActivePrivateKeyHex}
         />
         <ProfileIdentityDraftSyncOwner
+          publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
+        />
+        <PeerDisplayDeviceCacheSyncOwner
           publicKeyHex={(identity.state.publicKeyHex as PublicKeyHex | null) ?? null}
         />
         {children}

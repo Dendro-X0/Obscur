@@ -31,9 +31,9 @@ const ES_PATTERNS: SeLocalePatternGroups = {
     /\b(compra|paga|carga)\b.*\b(tarjetas? de regalo|tarjetas? prepago)\b/i,
   ],
   offPlatformRedirect: [
-    /\b(continu[aáeéií]|hablamos|escr[ií]beme|cont[aá]ctame)\b.*\b(en|por|v[ií]a|all[ií])\b.*\b(telegram|whatsapp|signal|discord)\b/i,
-    /\b(en|por)\s+(telegram|whatsapp|signal|discord)\b/i,
-    /\b(a[nñ][aá]deme en|encu[eé]ntrame en)\b.*\b(telegram|whatsapp|signal|discord)\b/i,
+    // Include conjugated forms (continuemos, continúa, …) — not bare "en Telegram".
+    /\b(continu\w*|hablamos|escr[ií]beme|cont[aá]ctame)\b.{0,40}\b(en|por|v[ií]a|all[ií])\b.{0,24}\b(telegram|whatsapp|signal|discord)\b/i,
+    /\b(a[nñ][aá]deme en|encu[eé]ntrame en)\b.{0,32}\b(telegram|whatsapp|signal|discord)\b/i,
   ],
   advanceFeeScam: [
     /\b(paga|env[ií]a|transfiere)\b.*\b(por adelantado|anticipado|antes de empezar)\b/i,

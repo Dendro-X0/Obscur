@@ -941,8 +941,31 @@ const parsePortableAccountBundle = (value: unknown): PortableAccountBundle | nul
     ...(typeof parsed.profileLabel === "string" && parsed.profileLabel.trim()
       ? { profileLabel: parsed.profileLabel.trim() }
       : {}),
+    ...(parsed.encryptionScheme === "nip44" || parsed.encryptionScheme === "nip04"
+      ? { encryptionScheme: parsed.encryptionScheme }
+      : {}),
     ciphertext: parsed.ciphertext,
   };
+};
+
+const decryptPortableBundleCiphertext = async (params: Readonly<{
+  bundle: PortableAccountBundle;
+  publicKeyHex: PublicKeyHex;
+  privateKeyHex: PrivateKeyHex;
+}>): Promise<string> => {
+  const scheme = params.bundle.encryptionScheme ?? "nip04";
+  if (scheme === "nip44") {
+    return cryptoService.decryptNIP44(
+      params.bundle.ciphertext,
+      params.publicKeyHex,
+      params.privateKeyHex,
+    );
+  }
+  return cryptoService.decryptDM(
+    params.bundle.ciphertext,
+    params.publicKeyHex,
+    params.privateKeyHex,
+  );
 };
 
 const fetchLatestBackupEvent = async (
@@ -1450,13 +1473,14 @@ export const encryptedAccountBackupService = {
       throw new Error("Portable bundle export skipped because private account state is empty.");
     }
     const plaintext = JSON.stringify(exportReadyPayload);
-    const ciphertext = await cryptoService.encryptDM(plaintext, params.publicKeyHex, params.privateKeyHex);
+    const ciphertext = await cryptoService.encryptNIP44(plaintext, params.publicKeyHex, params.privateKeyHex);
     const bundle: PortableAccountBundle = {
       version: 1,
       format: PORTABLE_ACCOUNT_BUNDLE_FORMAT,
       payloadVersion: 1,
       exportedAtUnixMs: Date.now(),
       publicKeyHex: params.publicKeyHex,
+      encryptionScheme: "nip44",
       ...(profileLabel ? { profileLabel } : {}),
       ciphertext,
     };
@@ -1492,7 +1516,11 @@ export const encryptedAccountBackupService = {
 
     let plaintext: string;
     try {
-      plaintext = await cryptoService.decryptDM(bundle.ciphertext, params.publicKeyHex, params.privateKeyHex);
+      plaintext = await decryptPortableBundleCiphertext({
+        bundle,
+        publicKeyHex: params.publicKeyHex,
+        privateKeyHex: params.privateKeyHex,
+      });
     } catch {
       throw new Error("Portable bundle could not be decrypted with the active account key.");
     }

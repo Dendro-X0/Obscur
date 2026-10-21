@@ -40,14 +40,14 @@ const getToastIcon = (type: ToastType) => {
 const getToastStyles = (type: ToastType): string => {
     switch (type) {
         case "success":
-            return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100";
+            return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100";
         case "error":
-            return "border-red-200 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/50 dark:text-red-100";
+            return "border-red-200 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100";
         case "warning":
-            return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100";
+            return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100";
         case "info":
         default:
-            return "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100";
+            return "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100";
     }
 };
 
@@ -81,7 +81,7 @@ const ToastItem = (props: ToastProps) => {
     return (
         <div
             className={cn(
-                "pointer-events-auto flex w-full max-w-sm transform items-start gap-3 rounded-xl border p-4 shadow-lg backdrop-blur transition-all duration-200",
+                "pointer-events-auto flex w-full max-w-sm transform items-start gap-3 rounded-xl border p-4 shadow-lg transition-all duration-200",
                 getToastStyles(toast.type),
                 isVisible && !isExiting
                     ? "translate-x-0 opacity-100"

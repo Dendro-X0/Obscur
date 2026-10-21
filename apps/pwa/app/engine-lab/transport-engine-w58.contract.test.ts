@@ -26,7 +26,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w58 — standalone legacy file deletion execution", () => {
   it("pins file deletion execution charter with manifest reference", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w58-standalone-legacy-file-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w58-standalone-legacy-file-deletion-execution.md",
     );
     expect(charter).toContain("Standalone Legacy File Deletion Execution");
     expect(charter).toContain("transport-kernel-standalone-deletion-subtraction-manifest.ts");

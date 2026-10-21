@@ -24,6 +24,7 @@ import {
   normalizeInviteCodeSuffixInput,
 } from "@/app/features/invites/utils/invite-code-format";
 import { useAccountSyncSnapshot } from "@/app/features/account-sync/hooks/use-account-sync-snapshot";
+import { runManualAccountSyncRestore } from "@/app/features/account-sync/services/account-sync-manual-intent";
 import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
 import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
@@ -68,6 +69,7 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
   const [profilePreflightError, setProfilePreflightError] = useState<string | null>(null);
   const [inviteCodeAvailabilityStatus, setInviteCodeAvailabilityStatus] = useState<InviteCodeAvailabilityStatus>("idle");
   const [inviteCodeAvailabilityMessage, setInviteCodeAvailabilityMessage] = useState<string>("");
+  const [isManualAccountRestoring, setIsManualAccountRestoring] = useState(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -373,14 +375,46 @@ export function useProfileSettingsModel(): SettingsTabPanelModel {
     toast.error(t("settings.profilePublishFailed"));
   };
 
+  const handleManualAccountRestore = useCallback(async (): Promise<void> => {
+    if (!publicKeyHex || isManualAccountRestoring) {
+      return;
+    }
+    setIsManualAccountRestoring(true);
+    try {
+      const privateKeyHex = await resolveActivePrivateKeyHex();
+      if (!privateKeyHex) {
+        toast.error("Unlock this account before restoring from relays.");
+        return;
+      }
+      const result = await runManualAccountSyncRestore({
+        publicKeyHex,
+        privateKeyHex,
+        pool: poolRef.current,
+      });
+      if (result.ok) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Manual account restore failed.");
+    } finally {
+      if (isMountedRef.current) {
+        setIsManualAccountRestoring(false);
+      }
+    }
+  }, [isManualAccountRestoring, poolRef, publicKeyHex]);
+
   return {
     INVITE_CODE_PREFIX,
     INVITE_CODE_SUFFIX_LENGTH,
     accountSyncSnapshot,
     getProfilePublishReportSnapshot,
+    handleManualAccountRestore,
     handleRandomInviteCode,
     handleSaveProfile,
     handleVerifyNip05,
+    isManualAccountRestoring,
     inviteCodeAvailabilityMessage,
     inviteCodeAvailabilityStatus,
     inviteCodeDraft,

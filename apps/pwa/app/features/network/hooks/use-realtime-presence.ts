@@ -85,9 +85,15 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
   const [clockNowMs, setClockNowMs] = useState<number>(() => Date.now());
   const duplicateSessionDetectedRef = useRef<boolean>(false);
   const duplicateSessionConflictHandlerRef = useRef<typeof params.onDuplicateSessionConflict>(params.onDuplicateSessionConflict);
-  const subscribeFn = params.relayPool.subscribe;
-  const unsubscribeFn = params.relayPool.unsubscribe;
-  const publishToAll = params.relayPool.publishToAll;
+  // Pool methods are recreated whenever conduit activity/connections snapshots change.
+  // Holding them in refs keeps heartbeat/subscribe effects from remounting into an
+  // online→offline→online sign_kind:30315 storm (E31 heap under scroll).
+  const subscribeFnRef = useRef(params.relayPool.subscribe);
+  const unsubscribeFnRef = useRef(params.relayPool.unsubscribe);
+  const publishToAllRef = useRef(params.relayPool.publishToAll);
+  subscribeFnRef.current = params.relayPool.subscribe;
+  unsubscribeFnRef.current = params.relayPool.unsubscribe;
+  publishToAllRef.current = params.relayPool.publishToAll;
   const selfSession = useMemo(
     () => (params.publicKeyHex ? readOrCreatePresenceSelfSession(params.publicKeyHex) : null),
     [params.publicKeyHex],
@@ -144,7 +150,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
         startedAtMs: selfStartedAtMs,
       });
       const signed = await cryptoService.signEvent(unsigned, params.privateKeyHex);
-      await publishToAll(JSON.stringify(["EVENT", signed]));
+      await publishToAllRef.current(JSON.stringify(["EVENT", signed]));
     } catch (error) {
       logRuntimeEvent(
         "network.presence.publish_failed",
@@ -153,7 +159,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
         { maxPerWindow: 2, windowMs: 15_000 }
       );
     }
-  }, [params.privateKeyHex, params.publicKeyHex, publishToAll, selfSessionId, selfStartedAtMs]);
+  }, [params.privateKeyHex, params.publicKeyHex, selfSessionId, selfStartedAtMs]);
 
   // Subscribe to presence events with race-safe author list
   useEffect(() => {
@@ -170,7 +176,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
       limit: 200,
     }];
 
-    const subId = subscribeFn(filters, (candidate) => {
+    const subId = subscribeFnRef.current(filters, (candidate) => {
       if (!candidate || typeof candidate !== "object") {
         return;
       }
@@ -207,7 +213,7 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
     });
 
     return () => {
-      unsubscribeFn(subId);
+      unsubscribeFnRef.current(subId);
     };
   }, [
     params.publicKeyHex,
@@ -215,8 +221,6 @@ export const useRealtimePresence = (params: UseRealtimePresenceParams): UseRealt
     selfStartedAtMs,
     subscriptionState.key,
     subscriptionState.hasAuthors,
-    subscribeFn,
-    unsubscribeFn,
   ]);
 
   useEffect(() => {

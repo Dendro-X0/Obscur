@@ -22,10 +22,17 @@ export const isPendingContactHandshake = (
   return status === "pending";
 };
 
-/** Chats sidebar visibility — relay-confirmed accept only (no trust-only shortcut). */
+/**
+ * Chats sidebar / compose unlock.
+ * Explicit local accept (peer trust) is sticky across restart even when the
+ * requests-inbox row briefly regresses to pending before projection catches up.
+ */
 export const resolveDmPeerEstablishedForUi = (
   params: ResolveDmPeerEstablishedForUiParams,
-): boolean => params.requestStatus?.status === "accepted";
+): boolean => (
+  params.isPeerAcceptedByTrust
+  || params.requestStatus?.status === "accepted"
+);
 
 export type ResolveDmPeerOutgoingWaitInitiatorForUiParams = Readonly<{
   requestStatus: DmPeerRequestStatusSnapshot;

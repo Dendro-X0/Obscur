@@ -7,6 +7,14 @@ vi.mock("@/app/features/runtime/native-host-adapter", () => ({
     openNativeExternal: vi.fn(async () => false),
 }));
 
+vi.mock("../hooks/use-chat-attachment-display-src", () => ({
+    useChatAttachmentDisplaySrc: (remoteUrl: string) => ({
+        displaySrc: remoteUrl,
+        recoverFromLoadFailure: vi.fn(async () => false),
+        isRecovering: false,
+    }),
+}));
+
 const setMediaTiming = (media: HTMLMediaElement, durationSeconds: number, initialCurrentTimeSeconds = 0): void => {
     let currentTimeSeconds = initialCurrentTimeSeconds;
     Object.defineProperty(media, "duration", {

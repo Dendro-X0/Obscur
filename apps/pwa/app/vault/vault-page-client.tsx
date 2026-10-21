@@ -77,6 +77,7 @@ function LesVaultPageBody(props: Readonly<{
     isLoading,
     error,
     refresh,
+    ensurePreview,
     downloadToLocalPath,
     deleteLocalCopy,
     openLocalFileLocation,
@@ -146,6 +147,7 @@ function LesVaultPageBody(props: Readonly<{
             downloadToLocalPath={downloadToLocalPath}
             deleteLocalCopy={deleteLocalCopy}
             openLocalFileLocation={openLocalFileLocation}
+            ensurePreview={ensurePreview}
           />
         </div>
       </div>

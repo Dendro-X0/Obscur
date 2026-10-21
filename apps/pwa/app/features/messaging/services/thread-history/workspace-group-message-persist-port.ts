@@ -14,6 +14,9 @@ import {
 
 let workspaceGroupMessagePersistHost: HostEnginePort | null = null;
 
+/** Slice 3b: kind-5 / hide paths re-insert the same tombstone → IPC storm. */
+const insertedGroupTombstoneKeys = new Set<string>();
+
 const getWorkspaceGroupMessagePersistHost = (): HostEnginePort => {
   workspaceGroupMessagePersistHost ??= createTauriEngineHost();
   return workspaceGroupMessagePersistHost;
@@ -23,6 +26,7 @@ const getWorkspaceGroupMessagePersistHost = (): HostEnginePort => {
 export const workspaceGroupMessagePersistPortInternals = {
   resetEngineHostForTests: (): void => {
     workspaceGroupMessagePersistHost = null;
+    insertedGroupTombstoneKeys.clear();
   },
   setEngineHostForTests: (host: HostEnginePort | null): void => {
     workspaceGroupMessagePersistHost = host;
@@ -66,6 +70,11 @@ export const insertWorkspaceGroupTombstoneRecord = async (
   if (!isTauri()) {
     return;
   }
+  const dedupeKey = `${tombstone.profile_id.trim()}:${tombstone.event_id.trim()}`;
+  if (!tombstone.event_id.trim() || insertedGroupTombstoneKeys.has(dedupeKey)) {
+    return;
+  }
+  insertedGroupTombstoneKeys.add(dedupeKey);
   await insertWorkspaceGroupTombstone({
     host: getWorkspaceGroupMessagePersistHost(),
     profileId: tombstone.profile_id,

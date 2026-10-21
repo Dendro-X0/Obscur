@@ -24,6 +24,22 @@ const nextConfig: NextConfig = {
   turbopack: process.env.VERCEL ? {} : {
     root: repoRoot
   },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/.codectx/**",
+          "**/.codegraph/**",
+          "**/target/**",
+          "**/.next/**",
+        ],
+      };
+    }
+    return config;
+  },
   transpilePackages: [
     "@dweb/core",
     "@dweb/crypto",

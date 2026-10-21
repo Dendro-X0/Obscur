@@ -1,0 +1,207 @@
+{
+  "schema": "studio.engagement.pathway@1.0.0",
+  "stages": [
+    {
+      "id": "bind",
+      "title": "Bind workspace",
+      "status": "operator",
+      "hub": "studio_workspace_binding",
+      "notes": [
+        "Confirm daemon workspace = Cursor subject root (WBI)"
+      ]
+    },
+    {
+      "id": "intake",
+      "title": "Maintenance intake",
+      "status": "ready",
+      "hub": ".codectx/verify/maintenance-intake-latest.json",
+      "notes": [
+        "verdict=remediate"
+      ]
+    },
+    {
+      "id": "orient",
+      "title": "Orient",
+      "status": "ready",
+      "hub": "orientation via MRI",
+      "notes": [
+        "coldSubject=false",
+        "codegraphStatus=detected"
+      ]
+    },
+    {
+      "id": "diagnose",
+      "title": "Diagnose",
+      "status": "ready",
+      "hub": "Perf fix-queue + chains + health",
+      "notes": [
+        "surfaces=1 issues=82",
+        "healthAllowlist=false"
+      ]
+    },
+    {
+      "id": "plan",
+      "title": "Bound plan",
+      "status": "ready",
+      "hub": "Deliver goals / surgical tasks",
+      "notes": [
+        "rwrPresent=false"
+      ]
+    },
+    {
+      "id": "prove",
+      "title": "Prove",
+      "status": "open",
+      "hub": "client_validation_ladder / living proof",
+      "notes": [
+        "runtimeProof=none"
+      ]
+    },
+    {
+      "id": "close",
+      "title": "Close / handoff",
+      "status": "ready",
+      "hub": ".codectx/verify/maintenance-track-latest.json",
+      "notes": [
+        "trackRows=82 emptyGreen=false"
+      ]
+    }
+  ],
+  "mri": {
+    "present": true,
+    "source": "hub",
+    "verdictKind": "remediate",
+    "surfaceCount": 1,
+    "issueCount": 82,
+    "runtimeProofStatus": "none",
+    "coldSubject": false,
+    "landmineCount": 5
+  },
+  "track": {
+    "present": true,
+    "rowCount": 82,
+    "emptyGreen": false,
+    "mriVerdict": "remediate"
+  },
+  "rwrPresent": false,
+  "healthAllowlistPresent": false,
+  "contract": {
+    "scopeHints": [
+      "Bound symptom class + owner paths before mutate",
+      "marketplace salvage: prefer subtraction over rewrite theater",
+      "local health probes only with subject allowlist"
+    ],
+    "claimAllowed": [
+      "engagement_scoped_with_oracles",
+      "mri_verdict_and_pathway_persisted",
+      "runtime_prove_when_living_client_cited"
+    ],
+    "claimForbidden": [
+      "soft_l3_fixed",
+      "mcp_settings_listing_fixed",
+      "obscur_or_subject_product_fixed_by_studio_ship",
+      "codegraph_blast_radius_equals_user_visible_proof",
+      "optimized_or_healthy_sql_without_oracle",
+      "auto_fixed_without_human_bounded_scope"
+    ],
+    "exitCriteria": [
+      "named oracles for each scoped claim",
+      "MTX or issues export lists open residuals honestly",
+      "client handoff pack cites evidence paths under .codectx/"
+    ]
+  },
+  "pathway": {
+    "id": "pathways.engagement",
+    "title": "Freelance salvage engagement (FS1)",
+    "steps": [
+      "studio_help → engagementPathway / pathways.engagement",
+      "studio_repo { action: \"studio_engagement_pathway\" }",
+      "Follow nextMcpSequence (MRI → diagnose → plan → prove → MTX)",
+      "Do not invent a parallel multi-desk tour",
+      "CodeGraph optional — structure only; never equals runtime prove"
+    ]
+  },
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.engagement + claim table"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_workspace_binding\" }",
+      "purpose": "Confirm subject binding (WBI)",
+      "when": "when answers look like the wrong repo"
+    },
+    {
+      "order": 3,
+      "tool": "studio_repo { action: \"studio_maintenance_intake\" }",
+      "purpose": "Refresh MRI if intake stale",
+      "when": "when refreshIntake or hubs drifted"
+    },
+    {
+      "order": 4,
+      "tool": "studio_perf { action: \"perf_workflow_guide\" }",
+      "purpose": "Diagnose Perf / optimize-health surfaces",
+      "when": "when surfaces thin or ranked queue needed"
+    },
+    {
+      "order": 5,
+      "tool": "studio_client { action: \"client_validation_ladder\" }",
+      "purpose": "Living client prove when in scope",
+      "when": "after surgical delta; cite proves/doesNotProve"
+    },
+    {
+      "order": 6,
+      "tool": "studio_repo { action: \"studio_maintenance_track\" }",
+      "purpose": "Refresh MTX before client handoff",
+      "when": "before claiming engagement closed"
+    }
+  ],
+  "codegraph": {
+    "schema": "studio.external.codegraph@1.0.0",
+    "status": "detected",
+    "optional": true,
+    "doesNotProve": [
+      "user_visible_client_prove",
+      "living_runtime",
+      "product_fixed"
+    ],
+    "notes": [
+      "CodeGraph is optional structure (call paths / blast radius).",
+      "FS2 owns deeper co-protocol; FS1 only records detect honesty."
+    ]
+  },
+  "emptyGreen": false,
+  "openQuestions": [
+    "Which hub is the surgical entry for the current task (not the whole monorepo)?",
+    "Is explore cache warm enough for hop/trail, or is repo_explore_run required first?",
+    "Owner conflicts dualOwnerCount=3 — which dual-owner edge blocks the claim?",
+    "Which O-* landmine class matches the user-visible symptom (cold restart, relay, groups)?",
+    "Has clientSatisfied / live CDP prove been run, or only unit/CI green?",
+    "Runtime proof not run — use pathways.apiRuntimeProof / perf_confirm_plan when API obligations matter",
+    "No health.allowlist — SQL/API health probes stay deferred (FS3 depth)"
+  ],
+  "doesNotProve": [
+    "CI / unit green ≠ cold-restart or packaged desktop truth",
+    "Empty or missing hubs must not be read as green / fixed",
+    "Landmine tags ≠ reproduced fault on this checkout",
+    "MRI intake is not live CDP / client prove",
+    "MRI intake is not production APM or latency proof",
+    "O-1…O-5 pointers ≠ Obscur product complete (subject-owned)",
+    "Orientation pack ≠ architecture complete or product fixed",
+    "Soft neural hubs ≠ authoritative map.neural.summary",
+    "Structural yellow counts alone do not imply rewrite — prefer remediate + ARP",
+    "Suggested MCP order ≠ executed prove / stress",
+    "codegraph_equals_prove",
+    "marketplace_client_acceptance_without_oracle",
+    "mcp_settings_listing_fixed",
+    "obscur_product_fixed",
+    "rewrite_candidate is a hint only — RWR owns Design rewrite/refactor standards",
+    "soft_l3_fixed"
+  ],
+  "notes": [
+    "FS1 engagement pathway — compose desks; do not invent a parallel tour.",
+    "MRI source=hub"
+  ]
+}

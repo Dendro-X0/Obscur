@@ -8,6 +8,7 @@ vi.mock("@/app/features/messaging/services/messaging-client-operations", () => (
 
 vi.mock("./dm-send-pipeline", () => ({
   sendDm: vi.fn(),
+  sendConnectionRequest: vi.fn(),
 }));
 
 import { deleteMessages } from "./dm-delete-pipeline";

@@ -5,16 +5,18 @@ import {
 } from "./community-create-relay-catalog";
 
 describe("resolveCommunityCreateRelayOptions", () => {
-    it("omits public default relays from workspace create catalog", () => {
+    it("keeps public Quiet selectable for Team create (CU-UX-5 honesty ack in UI)", () => {
         const options = resolveCommunityCreateRelayOptions({
             relays: [{ url: "wss://nos.lol", enabled: true }],
             connections: [{ url: "wss://nos.lol", status: "open", updatedAtUnixMs: Date.now() }],
             forManagedWorkspace: true,
         });
-        expect(options).toHaveLength(0);
+        expect(options).toHaveLength(1);
+        expect(options[0]?.isPublicDefault).toBe(true);
+        expect(options[0]?.selectable).toBe(true);
     });
 
-    it("prefers a healthy private relay as default", () => {
+    it("prefers a healthy private relay as default over public Quiet", () => {
         const options = resolveCommunityCreateRelayOptions({
             relays: [
                 { url: "ws://localhost:7000", enabled: true },
@@ -22,10 +24,11 @@ describe("resolveCommunityCreateRelayOptions", () => {
             ],
             connections: [
                 { url: "ws://localhost:7000", status: "open", updatedAtUnixMs: Date.now() },
+                { url: "wss://nos.lol", status: "open", updatedAtUnixMs: Date.now() },
             ],
             forManagedWorkspace: true,
         });
-        expect(options).toHaveLength(1);
+        expect(options.length).toBeGreaterThanOrEqual(2);
         expect(pickDefaultCommunityCreateRelayHost(options)).toBe("localhost:7000");
     });
 

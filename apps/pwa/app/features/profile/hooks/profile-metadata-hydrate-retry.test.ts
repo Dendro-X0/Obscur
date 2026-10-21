@@ -21,29 +21,39 @@ describe("profile-metadata-hydrate-retry", () => {
       live: true,
       hasRelayUrls: true,
       attemptCount: 0,
-      appliedEvent: false,
+      appliedRelayKind0: false,
     })).toBe(true);
     expect(shouldScheduleProfileMetadataHydrateRetry({
       needsHydration: true,
       live: true,
       hasRelayUrls: true,
       attemptCount: PROFILE_METADATA_HYDRATE_MAX_ATTEMPTS,
-      appliedEvent: false,
+      appliedRelayKind0: false,
     })).toBe(false);
     expect(shouldScheduleProfileMetadataHydrateRetry({
       needsHydration: true,
       live: true,
       hasRelayUrls: true,
       attemptCount: 1,
-      appliedEvent: true,
+      appliedRelayKind0: true,
     })).toBe(false);
     expect(shouldScheduleProfileMetadataHydrateRetry({
       needsHydration: false,
       live: true,
       hasRelayUrls: true,
       attemptCount: 0,
-      appliedEvent: false,
+      appliedRelayKind0: false,
     })).toBe(false);
+  });
+
+  it("keeps retrying when only a local displayName seed exists (no relay kind-0 yet)", () => {
+    expect(shouldScheduleProfileMetadataHydrateRetry({
+      needsHydration: true,
+      live: true,
+      hasRelayUrls: true,
+      attemptCount: 1,
+      appliedRelayKind0: false,
+    })).toBe(true);
   });
 
   it("retries on pool open-count recovery while still needing hydration", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createVoiceCallInvitePayload,
   createVoiceCallSignalPayload,
   isVoiceCallControlPayload,
   parseVoiceCallInvitePayload,
@@ -94,6 +95,50 @@ describe("realtime-voice-signaling", () => {
       invitedAtUnixMs: 777,
       expiresAtUnixMs: 888,
       fromPubkey: "b".repeat(64),
+    });
+  });
+
+  it("M1-A: parses invite callType and capabilities.video", () => {
+    const parsed = parseVoiceCallInvitePayload(JSON.stringify({
+      type: "voice-call-invite",
+      version: 1,
+      roomId: "room-av",
+      invitedAtUnixMs: 1,
+      expiresAtUnixMs: 2,
+      fromPubkey: "d".repeat(64),
+      callType: "av",
+      capabilities: { video: true },
+    }));
+    expect(parsed).toEqual({
+      type: "voice-call-invite",
+      version: 1,
+      roomId: "room-av",
+      invitedAtUnixMs: 1,
+      expiresAtUnixMs: 2,
+      fromPubkey: "d".repeat(64),
+      callType: "av",
+      capabilities: { video: true },
+    });
+  });
+
+  it("M1-A: createVoiceCallInvitePayload includes optional callType", () => {
+    const built = createVoiceCallInvitePayload({
+      roomId: "room-create",
+      fromPubkey: "e".repeat(64),
+      invitedAtUnixMs: 10,
+      expiresAtUnixMs: 20,
+      callType: "voice",
+      capabilities: { video: true },
+    });
+    expect(built).toEqual({
+      type: "voice-call-invite",
+      version: 1,
+      roomId: "room-create",
+      invitedAtUnixMs: 10,
+      expiresAtUnixMs: 20,
+      fromPubkey: "e".repeat(64),
+      callType: "voice",
+      capabilities: { video: true },
     });
   });
 

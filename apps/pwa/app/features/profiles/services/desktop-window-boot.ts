@@ -91,7 +91,16 @@ export const startDesktopWindowBoot = (): void => {
   }
 
   markDesktopShellBootReady();
-  void startLocalSaveLibraryWindowBootstrap();
+  // N1b / PL1: do not disk-scan saves while cold-start lands on the profile picker.
+  // Auth / sign-in surfaces still call startLocalSaveLibraryWindowBootstrap explicitly.
+  if (typeof window !== "undefined") {
+    window.setTimeout(() => {
+      if (window.location.pathname.startsWith("/profiles")) {
+        return;
+      }
+      void startLocalSaveLibraryWindowBootstrap();
+    }, 0);
+  }
 
   void (async () => {
     const windowLabel = bootWindowLabel ?? await resolveWindowLabelWithTimeout();

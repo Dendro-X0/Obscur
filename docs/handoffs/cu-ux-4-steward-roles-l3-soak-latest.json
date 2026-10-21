@@ -1,0 +1,44 @@
+{
+  "schema": "cu-ux-4-steward-roles-l3-soak@1.1",
+  "at": "2026-10-21T03:44:00.000Z",
+  "relay": "ws://127.0.0.1:7000",
+  "coordination": "http://127.0.0.1:8787",
+  "checks": [
+    {
+      "id": "L3-stack-relay",
+      "ok": true,
+      "detail": "tcp 127.0.0.1:7000 (infra-nostr-relay-1)"
+    },
+    {
+      "id": "L3-stack-coordination",
+      "ok": true,
+      "detail": "http://127.0.0.1:8787/health → 200"
+    },
+    {
+      "id": "L3-shell-steward-ui",
+      "ok": true,
+      "detail": "static out contains member-steward-badge + makeSteward i18n"
+    },
+    {
+      "id": "L3-policy-contract",
+      "ok": true,
+      "detail": "vitest community-steward-policy — promote/demote/last_steward/T0 (11 tests)"
+    },
+    {
+      "id": "L3-cdp-attach",
+      "ok": true,
+      "detail": "csess-0fc3c320ca26 · Tester1 unlocked · Relays showed 1 private mesh · Chats live"
+    },
+    {
+      "id": "L3-ui-dual-profile-promote",
+      "ok": false,
+      "detail": "Skipped — New Group / create-team CDP clicks hang (tool interrupt). Operator: Create Team on localhost:7000 → invite B → Make steward."
+    }
+  ],
+  "stackAndPolicyPass": true,
+  "cdpPartialPass": true,
+  "uiDualProfile": "Skipped",
+  "claim": "L3-stack+policy+CDP-attach Pass · dual-profile steward promote UI still Skipped",
+  "script": "scripts/cu-ux-4-steward-roles-l3-soak.mjs",
+  "sessionId": "csess-0fc3c320ca26"
+}

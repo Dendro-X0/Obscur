@@ -1,0 +1,748 @@
+{
+  "schema": "studio.issue.precision@1.1.0",
+  "fingerprintStable": true,
+  "exportManifestReadable": true,
+  "agentHandoffReadable": true,
+  "registerPath": ".codectx/verify/issues-register.json",
+  "issueCount": 71,
+  "rows": [
+    {
+      "fingerprint": "finding:cap-4a17a6f54e3d:client_assert",
+      "issueId": "verify:issue:assert:cap-4a17a6f54e3d",
+      "title": "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-5ad02d69dd30:client_assert",
+      "issueId": "verify:issue:assert:cap-5ad02d69dd30",
+      "title": "Client assert failed: textVisible — text not visible: Tester2",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-7c36691a2d41:client_assert",
+      "issueId": "verify:issue:assert:cap-7c36691a2d41",
+      "title": "Client assert failed: domExists — unsupported assert kind: domExists",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-9cd8b8df6aea:client_assert",
+      "issueId": "verify:issue:assert:cap-9cd8b8df6aea",
+      "title": "Client assert failed: textVisible — text not visible: Excluded",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-bbb6a1d4038e:client_assert",
+      "issueId": "verify:issue:assert:cap-bbb6a1d4038e",
+      "title": "Client assert failed: textVisible — text not visible: Restoring session",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-e9215a92a21b:client_assert",
+      "issueId": "verify:issue:assert:cap-e9215a92a21b",
+      "title": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-0dd352c0:runtime_digest",
+      "issueId": "verify:issue:fault:fault-0dd352c0",
+      "title": "groups.ledger_migration_needed — count=80",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-0e1f7ecd:runtime_digest",
+      "issueId": "verify:issue:fault:fault-0e1f7ecd",
+      "title": "groups.membership_ledger_save — count=91",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-1285de34:runtime_digest",
+      "issueId": "verify:issue:fault:fault-1285de34",
+      "title": "groups.ledger_migration_needed — count=94",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-1a2cb746:runtime_digest",
+      "issueId": "verify:issue:fault:fault-1a2cb746",
+      "title": "groups.ledger_migration_needed — count=122",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-1df0fe98:runtime_digest",
+      "issueId": "verify:issue:fault:fault-1df0fe98",
+      "title": "relay.transport_engine_pool_subscribe — count=67",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-2c1367c9:runtime_digest",
+      "issueId": "verify:issue:fault:fault-2c1367c9",
+      "title": "messaging.delete_for_everyone_remote_result — count=130",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-2e9ceb7a:runtime_digest",
+      "issueId": "verify:issue:fault:fault-2e9ceb7a",
+      "title": "groups.membership_ledger_save — count=114",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-2f97294f:runtime_digest",
+      "issueId": "verify:issue:fault:fault-2f97294f",
+      "title": "groups.membership_ledger_save — count=89",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-317657e4:runtime_digest",
+      "issueId": "verify:issue:fault:fault-317657e4",
+      "title": "groups.ledger_validation_issues — count=111",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-404cdd17:runtime_digest",
+      "issueId": "verify:issue:fault:fault-404cdd17",
+      "title": "messaging.delete_for_everyone_remote_result — count=132",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-4720432c:runtime_digest",
+      "issueId": "verify:issue:fault:fault-4720432c",
+      "title": "groups.ledger_migration_needed — count=63",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-4a171a35:runtime_digest",
+      "issueId": "verify:issue:fault:fault-4a171a35",
+      "title": "groups.ledger_migration_needed — count=137",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-4ce5736c:runtime_digest",
+      "issueId": "verify:issue:fault:fault-4ce5736c",
+      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=92",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-5100471d:runtime_digest",
+      "issueId": "verify:issue:fault:fault-5100471d",
+      "title": "groups.ledger_migration_needed — count=51",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-52dd9177:runtime_digest",
+      "issueId": "verify:issue:fault:fault-52dd9177",
+      "title": "messaging.delete_for_everyone_remote_result — count=95",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-557a133d:runtime_digest",
+      "issueId": "verify:issue:fault:fault-557a133d",
+      "title": "messaging.delete_for_everyone_remote_result — count=64",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-58357786:runtime_digest",
+      "issueId": "verify:issue:fault:fault-58357786",
+      "title": "messaging.delete_for_everyone_remote_result — count=158",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-5f618e64:runtime_digest",
+      "issueId": "verify:issue:fault:fault-5f618e64",
+      "title": "messaging.delete_for_everyone_remote_result — count=153",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-6f961537:runtime_digest",
+      "issueId": "verify:issue:fault:fault-6f961537",
+      "title": "messaging.delete_for_everyone_remote_result — count=157",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-7be52e18:runtime_digest",
+      "issueId": "verify:issue:fault:fault-7be52e18",
+      "title": "messaging.delete_for_everyone_remote_result — count=72",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-7f9100c4:runtime_digest",
+      "issueId": "verify:issue:fault:fault-7f9100c4",
+      "title": "groups.ledger_validation_issues — count=118",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-91576178:runtime_digest",
+      "issueId": "verify:issue:fault:fault-91576178",
+      "title": "messaging.delete_for_everyone_remote_result — count=149",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-a017a981:runtime_digest",
+      "issueId": "verify:issue:fault:fault-a017a981",
+      "title": "groups.ledger_migration_needed — count=42",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-a8d78552:runtime_digest",
+      "issueId": "verify:issue:fault:fault-a8d78552",
+      "title": "groups.ledger_migration_needed — count=63",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-aca31c9d:runtime_digest",
+      "issueId": "verify:issue:fault:fault-aca31c9d",
+      "title": "workspace.thread.hydrate — count=120",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-b240536d:runtime_digest",
+      "issueId": "verify:issue:fault:fault-b240536d",
+      "title": "groups.membership_ledger_save — count=34",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-b2bb9bad:runtime_digest",
+      "issueId": "verify:issue:fault:fault-b2bb9bad",
+      "title": "messaging.delete_for_everyone_remote_result — count=97",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-b72efd02:runtime_digest",
+      "issueId": "verify:issue:fault:fault-b72efd02",
+      "title": "messaging.delete_for_everyone_remote_result — count=94",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-bf3a84e1:runtime_digest",
+      "issueId": "verify:issue:fault:fault-bf3a84e1",
+      "title": "groups.ledger_migration_needed — count=101",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-bfbf96a4:runtime_digest",
+      "issueId": "verify:issue:fault:fault-bfbf96a4",
+      "title": "groups.ledger_migration_needed — count=85",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-c2485378:runtime_digest",
+      "issueId": "verify:issue:fault:fault-c2485378",
+      "title": "workspace.thread.hydrate — count=84",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-cebc13ad:runtime_digest",
+      "issueId": "verify:issue:fault:fault-cebc13ad",
+      "title": "groups.ledger_migration_needed — count=42",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-d3266449:runtime_digest",
+      "issueId": "verify:issue:fault:fault-d3266449",
+      "title": "workspace.thread.hydrate — count=109",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-d730591d:runtime_digest",
+      "issueId": "verify:issue:fault:fault-d730591d",
+      "title": "messaging.delete_for_everyone_remote_result — count=107",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-d91cd690:runtime_digest",
+      "issueId": "verify:issue:fault:fault-d91cd690",
+      "title": "groups.ledger_migration_needed — count=117",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-da76af2d:runtime_digest",
+      "issueId": "verify:issue:fault:fault-da76af2d",
+      "title": "groups.ledger_migration_needed — count=36",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-dbc61eef:runtime_digest",
+      "issueId": "verify:issue:fault:fault-dbc61eef",
+      "title": "messaging.delete_for_everyone_remote_result — count=149",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-ddc3994e:runtime_digest",
+      "issueId": "verify:issue:fault:fault-ddc3994e",
+      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=89",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-dff9f60a:runtime_digest",
+      "issueId": "verify:issue:fault:fault-dff9f60a",
+      "title": "messaging.delete_for_everyone_remote_result — count=64",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-e45873e1:runtime_digest",
+      "issueId": "verify:issue:fault:fault-e45873e1",
+      "title": "messaging.delete_for_everyone_remote_result — count=64",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-f05dbc35:runtime_digest",
+      "issueId": "verify:issue:fault:fault-f05dbc35",
+      "title": "groups.membership_ledger_save — count=89",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-f6ffae1c:runtime_digest",
+      "issueId": "verify:issue:fault:fault-f6ffae1c",
+      "title": "groups.ledger_field_repair_applied — count=110",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-f9cb9bcd:runtime_digest",
+      "issueId": "verify:issue:fault:fault-f9cb9bcd",
+      "title": "groups.ledger_validation_issues — count=127",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-fc0c8590:runtime_digest",
+      "issueId": "verify:issue:fault:fault-fc0c8590",
+      "title": "groups.ledger_validation_issues — count=123",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-fc82c518:runtime_digest",
+      "issueId": "verify:issue:fault:fault-fc82c518",
+      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=90",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-fc9c865f:runtime_digest",
+      "issueId": "verify:issue:fault:fault-fc9c865f",
+      "title": "messaging.delete_for_everyone_remote_result — count=50",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-ff028f72:runtime_digest",
+      "issueId": "verify:issue:fault:fault-ff028f72",
+      "title": "messaging.delete_for_everyone_remote_result — count=176",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:health.allowlist.missing:security-surface",
+      "title": "OH3 health allowlist missing",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "security:health.allowlist.missing"
+      ]
+    },
+    {
+      "fingerprint": "finding:health.probe.no_allowlist:security-surface",
+      "title": "Health probe without allowlist",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "security:health.probe.no_allowlist"
+      ]
+    },
+    {
+      "fingerprint": "finding:honesty.cdp_open:security-surface",
+      "title": "CDP open ≠ auth secure",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "security:honesty.cdp_open"
+      ]
+    },
+    {
+      "fingerprint": "finding:honesty.stack_preflight:security-surface",
+      "title": "Stack preflight ≠ security audit",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "security:honesty.stack_preflight"
+      ]
+    },
+    {
+      "fingerprint": "finding:ladder-blocked:validation-ladder",
+      "title": "Validation ladder incomplete at blocked",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "validation-ladder:rung:blocked"
+      ]
+    },
+    {
+      "fingerprint": "finding:security.allowlist.absent:security-surface",
+      "title": "Optional security.allowlist absent",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "security:security.allowlist.absent"
+      ]
+    },
+    {
+      "fingerprint": "symptom:COM-RUN-11",
+      "issueId": "verify:issue:agent:1591f00d1d6bb8eb",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "title": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
+      "occurrenceCount": 9,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:O-1",
+      "title": "Rapid DMs → notification storm",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "orientation:landmine:O-1"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-2",
+      "title": "Outgoing DM vanishes after cold restart",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "orientation:landmine:O-2"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-3",
+      "title": "Relay offline flash on every refresh",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "orientation:landmine:O-3"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-4",
+      "title": "Group thread messages never appear from relay",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "orientation:landmine:O-4"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-5",
+      "title": "Shipped feeling despite broken core",
+      "occurrenceCount": 1,
+      "packRefs": [
+        "orientation:landmine:O-5"
+      ]
+    },
+    {
+      "fingerprint": "symptom:auth-keychain-restore-failed",
+      "issueId": "verify:issue:agent:65689a26d16d5fd0",
+      "chainId": "chain-r2-auth-cold-unlock-2026-07-04",
+      "title": "RIW-9 chain blocked: cold boot lands on /sign-in; auth.kernel_boot_restore_no_keychain; native auto-unlock absent",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:codactrl-missing-settings-step-label",
+      "issueId": "verify:issue:agent:58fba9ffbf278c6f",
+      "title": "No settings-tab stepLabel in Obscur selector pack",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:community-roster-divergence",
+      "issueId": "verify:issue:agent:64baee5012722dfa",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "title": "COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community",
+      "occurrenceCount": 10,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:coordination-membership-deltas-unreachable",
+      "issueId": "verify:issue:agent:3998a202591a45aa",
+      "title": "RIW-4 re-verify 2026-07-01: curl CORS OK; browser 0× REFUSED/CORS with 8787 up; desktop-only REFUSED still valid dev gap",
+      "occurrenceCount": 2,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-normalize-is-outgoing-mismatch",
+      "issueId": "verify:issue:fault:fault-edf6e955",
+      "title": "messaging.delete_for_everyone_remote_result — count=104",
+      "occurrenceCount": 10,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-normalize-outgoing-mismatch",
+      "issueId": "verify:issue:agent:b208fd14aa0d3b45",
+      "title": "RIW-3 re-verify 2026-07-01: 36 dm_normalize mismatches when locked; 0 after unlock with empty DM thread (RIW-2 mask)",
+      "occurrenceCount": 2,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-ui-split-brain",
+      "issueId": "verify:issue:agent:39938a676576819d",
+      "chainId": "chain-dm-split-brain-2026-07-02",
+      "title": "RIW-9 round2: warm Tester1 — Tester2 DM 11 msgs, O2 visible, splitBrainSuspected=false",
+      "occurrenceCount": 2,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-vanishes-cold-restart",
+      "issueId": "verify:issue:agent:10ae33ad355320dc",
+      "chainId": "chain-o2-cold-restart-phase1c-2026-07-04",
+      "title": "O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d)",
+      "occurrenceCount": 3,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:group-room-key-missing",
+      "issueId": "verify:issue:assert:cap-8ec91475da6b",
+      "chainId": "chain-r1-room-key-health-2026-07-04",
+      "title": "Client assert failed: textVisible — text not visible: Room key missing",
+      "occurrenceCount": 4,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:group-thread-relay-ingest",
+      "issueId": "verify:issue:fault:fault-90f591d2",
+      "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
+      "title": "messaging.delete_for_everyone_remote_result — count=62",
+      "occurrenceCount": 15,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:groups-ledger-validation",
+      "issueId": "verify:issue:agent:56d6ef6f5831f080",
+      "chainId": "chain-o4-group-ingest-2026-07-02",
+      "title": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
+      "occurrenceCount": 14,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:groups.room_key_missing_send_blocked",
+      "issueId": "verify:issue:agent:3aa8584ac1e8095f",
+      "chainId": "chain-com-run-11-phase1c-2026-07-04",
+      "title": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:high-tier-t0-steps",
+      "issueId": "verify:issue:false-green:verify:false-green:oxd6-high-tier-t0-steps:obscur-dev-lab-gate",
+      "title": "Scenario `obscur-dev-lab-gate` defaultTier=T4 but only T0 fileExists/fileContains steps",
+      "occurrenceCount": 1,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:navigation-settings-auth-kick",
+      "issueId": "verify:issue:fault:fault-9a209d25",
+      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "occurrenceCount": 6,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:projection-authority-not-ready",
+      "issueId": "verify:issue:agent:f6847ce03827c2e2",
+      "title": "RIW-2 re-verify 2026-07-01: authority oscillates projection_not_ready↔cutover; projection/sqlite count split; DM thread empty despite sidebar listing",
+      "occurrenceCount": 2,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:relay-partial-stack-desktop-only",
+      "issueId": "verify:issue:agent:e4a1ecdcaab37c63",
+      "chainId": "chain-transport-soak-2026-07-02",
+      "title": "Step 8 RIW-5 re-verify: relay healthy on public relays (writable 1/ subscribable 4); :7000 still down; O-3 offline flash NOT seen on Chats↔Network nav; coordination :8787 up",
+      "occurrenceCount": 2,
+      "packRefs": []
+    },
+    {
+      "fingerprint": "unmapped:capture-digest",
+      "issueId": "verify:issue:unmapped-captures",
+      "title": "Unmapped runtime capture digests (×25)",
+      "occurrenceCount": 25,
+      "packRefs": []
+    }
+  ],
+  "packLinks": [
+    {
+      "pack": "orientation",
+      "artifactPath": ".codectx/verify/orientation-pack-latest.json",
+      "findingKey": "landmine:O-1",
+      "fingerprint": "symptom:O-1",
+      "status": "orphan"
+    },
+    {
+      "pack": "orientation",
+      "artifactPath": ".codectx/verify/orientation-pack-latest.json",
+      "findingKey": "landmine:O-2",
+      "fingerprint": "symptom:O-2",
+      "status": "orphan"
+    },
+    {
+      "pack": "orientation",
+      "artifactPath": ".codectx/verify/orientation-pack-latest.json",
+      "findingKey": "landmine:O-3",
+      "fingerprint": "symptom:O-3",
+      "status": "orphan"
+    },
+    {
+      "pack": "orientation",
+      "artifactPath": ".codectx/verify/orientation-pack-latest.json",
+      "findingKey": "landmine:O-4",
+      "fingerprint": "symptom:O-4",
+      "status": "orphan"
+    },
+    {
+      "pack": "orientation",
+      "artifactPath": ".codectx/verify/orientation-pack-latest.json",
+      "findingKey": "landmine:O-5",
+      "fingerprint": "symptom:O-5",
+      "status": "orphan"
+    },
+    {
+      "pack": "validation-ladder",
+      "artifactPath": ".codectx/verify/client-validation-ladder-latest.json",
+      "findingKey": "rung:blocked",
+      "fingerprint": "finding:ladder-blocked:validation-ladder",
+      "status": "orphan"
+    },
+    {
+      "pack": "security",
+      "artifactPath": ".codectx/verify/security-surface-latest.json",
+      "findingKey": "health.allowlist.missing",
+      "fingerprint": "finding:health.allowlist.missing:security-surface",
+      "status": "orphan"
+    },
+    {
+      "pack": "security",
+      "artifactPath": ".codectx/verify/security-surface-latest.json",
+      "findingKey": "health.probe.no_allowlist",
+      "fingerprint": "finding:health.probe.no_allowlist:security-surface",
+      "status": "orphan"
+    },
+    {
+      "pack": "security",
+      "artifactPath": ".codectx/verify/security-surface-latest.json",
+      "findingKey": "honesty.cdp_open",
+      "fingerprint": "finding:honesty.cdp_open:security-surface",
+      "status": "orphan"
+    },
+    {
+      "pack": "security",
+      "artifactPath": ".codectx/verify/security-surface-latest.json",
+      "findingKey": "honesty.stack_preflight",
+      "fingerprint": "finding:honesty.stack_preflight:security-surface",
+      "status": "orphan"
+    },
+    {
+      "pack": "security",
+      "artifactPath": ".codectx/verify/security-surface-latest.json",
+      "findingKey": "security.allowlist.absent",
+      "fingerprint": "finding:security.allowlist.absent:security-surface",
+      "status": "orphan"
+    }
+  ],
+  "hub": {
+    "module": "verify",
+    "latestJson": ".codectx/verify/issue-precision-latest.json",
+    "reportMd": ".codectx/verify/issue-precision-report.md",
+    "exportManifest": ".codactrl/verify/issue-report/export-manifest.json",
+    "agentHandoff": ".codactrl/verify/issue-report/agent-handoff.md",
+    "agentHubHint": ".codactrl/verify/issue-precision/ (after studio_output_sync modules=[verify]); issue-report/ for export-manifest + agent-handoff"
+  },
+  "mcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "See issuePrecision quickstart"
+    },
+    {
+      "order": 2,
+      "tool": "studio_verify { action: \"issue_precision_evaluate\" }",
+      "purpose": "Fingerprint rows + pack links + hub readability"
+    },
+    {
+      "order": 3,
+      "tool": "studio_verify { action: \"verify_issues_list\" }",
+      "purpose": "Inspect register rows"
+    },
+    {
+      "order": 4,
+      "tool": "studio_verify { action: \"verify_issues_report_export\" }",
+      "purpose": "Write export-manifest + agent-handoff",
+      "when": "when hub handoff missing or stale"
+    },
+    {
+      "order": 5,
+      "tool": "studio_output { action: \"studio_output_sync\", modules: [\"verify\"] }",
+      "purpose": "Mirror issue-precision/ + issue-report/ under .codactrl/verify"
+    }
+  ],
+  "reportMarkdown": "# Issue precision (OFP5)\n\n- **schema:** `studio.issue.precision@1.1.0`\n- **ready:** true\n- **fingerprintStable:** true\n- **exportManifestReadable:** true\n- **agentHandoffReadable:** true\n- **issueCount:** 71\n\n## Rows\n\n- `finding:cap-4a17a6f54e3d:client_assert` — Client assert failed: cssClass — unsupported assert kind: cssClass (occ=1, issue=verify:issue:assert:cap-4a17a6f54e3d, packs=—)\n- `finding:cap-5ad02d69dd30:client_assert` — Client assert failed: textVisible — text not visible: Tester2 (occ=1, issue=verify:issue:assert:cap-5ad02d69dd30, packs=—)\n- `finding:cap-7c36691a2d41:client_assert` — Client assert failed: domExists — unsupported assert kind: domExists (occ=1, issue=verify:issue:assert:cap-7c36691a2d41, packs=—)\n- `finding:cap-9cd8b8df6aea:client_assert` — Client assert failed: textVisible — text not visible: Excluded (occ=1, issue=verify:issue:assert:cap-9cd8b8df6aea, packs=—)\n- `finding:cap-bbb6a1d4038e:client_assert` — Client assert failed: textVisible — text not visible: Restoring session (occ=1, issue=verify:issue:assert:cap-bbb6a1d4038e, packs=—)\n- `finding:cap-e9215a92a21b:client_assert` — Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559 (occ=1, issue=verify:issue:assert:cap-e9215a92a21b, packs=—)\n- `finding:fault-0dd352c0:runtime_digest` — groups.ledger_migration_needed — count=80 (occ=1, issue=verify:issue:fault:fault-0dd352c0, packs=—)\n- `finding:fault-0e1f7ecd:runtime_digest` — groups.membership_ledger_save — count=91 (occ=1, issue=verify:issue:fault:fault-0e1f7ecd, packs=—)\n- `finding:fault-1285de34:runtime_digest` — groups.ledger_migration_needed — count=94 (occ=1, issue=verify:issue:fault:fault-1285de34, packs=—)\n- `finding:fault-1a2cb746:runtime_digest` — groups.ledger_migration_needed — count=122 (occ=1, issue=verify:issue:fault:fault-1a2cb746, packs=—)\n- `finding:fault-1df0fe98:runtime_digest` — relay.transport_engine_pool_subscribe — count=67 (occ=1, issue=verify:issue:fault:fault-1df0fe98, packs=—)\n- `finding:fault-2c1367c9:runtime_digest` — messaging.delete_for_everyone_remote_result — count=130 (occ=1, issue=verify:issue:fault:fault-2c1367c9, packs=—)\n- `finding:fault-2e9ceb7a:runtime_digest` — groups.membership_ledger_save — count=114 (occ=1, issue=verify:issue:fault:fault-2e9ceb7a, packs=—)\n- `finding:fault-2f97294f:runtime_digest` — groups.membership_ledger_save — count=89 (occ=1, issue=verify:issue:fault:fault-2f97294f, packs=—)\n- `finding:fault-317657e4:runtime_digest` — groups.ledger_validation_issues — count=111 (occ=1, issue=verify:issue:fault:fault-317657e4, packs=—)\n- `finding:fault-404cdd17:runtime_digest` — messaging.delete_for_everyone_remote_result — count=132 (occ=1, issue=verify:issue:fault:fault-404cdd17, packs=—)\n- `finding:fault-4720432c:runtime_digest` — groups.ledger_migration_needed — count=63 (occ=1, issue=verify:issue:fault:fault-4720432c, packs=—)\n- `finding:fault-4a171a35:runtime_digest` — groups.ledger_migration_needed — count=137 (occ=1, issue=verify:issue:fault:fault-4a171a35, packs=—)\n- `finding:fault-4ce5736c:runtime_digest` — account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=92 (occ=1, issue=verify:issue:fault:fault-4ce5736c, packs=—)\n- `finding:fault-5100471d:runtime_digest` — groups.ledger_migration_needed — count=51 (occ=1, issue=verify:issue:fault:fault-5100471d, packs=—)\n- `finding:fault-52dd9177:runtime_digest` — messaging.delete_for_everyone_remote_result — count=95 (occ=1, issue=verify:issue:fault:fault-52dd9177, packs=—)\n- `finding:fault-557a133d:runtime_digest` — messaging.delete_for_everyone_remote_result — count=64 (occ=1, issue=verify:issue:fault:fault-557a133d, packs=—)\n- `finding:fault-58357786:runtime_digest` — messaging.delete_for_everyone_remote_result — count=158 (occ=1, issue=verify:issue:fault:fault-58357786, packs=—)\n- `finding:fault-5f618e64:runtime_digest` — messaging.delete_for_everyone_remote_result — count=153 (occ=1, issue=verify:issue:fault:fault-5f618e64, packs=—)\n- `finding:fault-6f961537:runtime_digest` — messaging.delete_for_everyone_remote_result — count=157 (occ=1, issue=verify:issue:fault:fault-6f961537, packs=—)\n- `finding:fault-7be52e18:runtime_digest` — messaging.delete_for_everyone_remote_result — count=72 (occ=1, issue=verify:issue:fault:fault-7be52e18, packs=—)\n- `finding:fault-7f9100c4:runtime_digest` — groups.ledger_validation_issues — count=118 (occ=1, issue=verify:issue:fault:fault-7f9100c4, packs=—)\n- `finding:fault-91576178:runtime_digest` — messaging.delete_for_everyone_remote_result — count=149 (occ=1, issue=verify:issue:fault:fault-91576178, packs=—)\n- `finding:fault-a017a981:runtime_digest` — groups.ledger_migration_needed — count=42 (occ=1, issue=verify:issue:fault:fault-a017a981, packs=—)\n- `finding:fault-a8d78552:runtime_digest` — groups.ledger_migration_needed — count=63 (occ=1, issue=verify:issue:fault:fault-a8d78552, packs=—)\n- `finding:fault-aca31c9d:runtime_digest` — workspace.thread.hydrate — count=120 (occ=1, issue=verify:issue:fault:fault-aca31c9d, packs=—)\n- `finding:fault-b240536d:runtime_digest` — groups.membership_ledger_save — count=34 (occ=1, issue=verify:issue:fault:fault-b240536d, packs=—)\n- `finding:fault-b2bb9bad:runtime_digest` — messaging.delete_for_everyone_remote_result — count=97 (occ=1, issue=verify:issue:fault:fault-b2bb9bad, packs=—)\n- `finding:fault-b72efd02:runtime_digest` — messaging.delete_for_everyone_remote_result — count=94 (occ=1, issue=verify:issue:fault:fault-b72efd02, packs=—)\n- `finding:fault-bf3a84e1:runtime_digest` — groups.ledger_migration_needed — count=101 (occ=1, issue=verify:issue:fault:fault-bf3a84e1, packs=—)\n- `finding:fault-bfbf96a4:runtime_digest` — groups.ledger_migration_needed — count=85 (occ=1, issue=verify:issue:fault:fault-bfbf96a4, packs=—)\n- `finding:fault-c2485378:runtime_digest` — workspace.thread.hydrate — count=84 (occ=1, issue=verify:issue:fault:fault-c2485378, packs=—)\n- `finding:fault-cebc13ad:runtime_digest` — groups.ledger_migration_needed — count=42 (occ=1, issue=verify:issue:fault:fault-cebc13ad, packs=—)\n- `finding:fault-d3266449:runtime_digest` — workspace.thread.hydrate — count=109 (occ=1, issue=verify:issue:fault:fault-d3266449, packs=—)\n- `finding:fault-d730591d:runtime_digest` — messaging.delete_for_everyone_remote_result — count=107 (occ=1, issue=verify:issue:fault:fault-d730591d, packs=—)\n- `finding:fault-d91cd690:runtime_digest` — groups.ledger_migration_needed — count=117 (occ=1, issue=verify:issue:fault:fault-d91cd690, packs=—)\n- `finding:fault-da76af2d:runtime_digest` — groups.ledger_migration_needed — count=36 (occ=1, issue=verify:issue:fault:fault-da76af2d, packs=—)\n- `finding:fault-dbc61eef:runtime_digest` — messaging.delete_for_everyone_remote_result — count=149 (occ=1, issue=verify:issue:fault:fault-dbc61eef, packs=—)\n- `finding:fault-ddc3994e:runtime_digest` — account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=89 (occ=1, issue=verify:issue:fault:fault-ddc3994e, packs=—)\n- `finding:fault-dff9f60a:runtime_digest` — messaging.delete_for_everyone_remote_result — count=64 (occ=1, issue=verify:issue:fault:fault-dff9f60a, packs=—)\n- `finding:fault-e45873e1:runtime_digest` — messaging.delete_for_everyone_remote_result — count=64 (occ=1, issue=verify:issue:fault:fault-e45873e1, packs=—)\n- `finding:fault-f05dbc35:runtime_digest` — groups.membership_ledger_save — count=89 (occ=1, issue=verify:issue:fault:fault-f05dbc35, packs=—)\n- `finding:fault-f6ffae1c:runtime_digest` — groups.ledger_field_repair_applied — count=110 (occ=1, issue=verify:issue:fault:fault-f6ffae1c, packs=—)\n- `finding:fault-f9cb9bcd:runtime_digest` — groups.ledger_validation_issues — count=127 (occ=1, issue=verify:issue:fault:fault-f9cb9bcd, packs=—)\n- `finding:fault-fc0c8590:runtime_digest` — groups.ledger_validation_issues — count=123 (occ=1, issue=verify:issue:fault:fault-fc0c8590, packs=—)\n- `finding:fault-fc82c518:runtime_digest` — account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=90 (occ=1, issue=verify:issue:fault:fault-fc82c518, packs=—)\n- `finding:fault-fc9c865f:runtime_digest` — messaging.delete_for_everyone_remote_result — count=50 (occ=1, issue=verify:issue:fault:fault-fc9c865f, packs=—)\n- `finding:fault-ff028f72:runtime_digest` — messaging.delete_for_everyone_remote_result — count=176 (occ=1, issue=verify:issue:fault:fault-ff028f72, packs=—)\n- `finding:health.allowlist.missing:security-surface` — OH3 health allowlist missing (occ=1, issue=—, packs=security:health.allowlist.missing)\n- `finding:health.probe.no_allowlist:security-surface` — Health probe without allowlist (occ=1, issue=—, packs=security:health.probe.no_allowlist)\n- `finding:honesty.cdp_open:security-surface` — CDP open ≠ auth secure (occ=1, issue=—, packs=security:honesty.cdp_open)\n- `finding:honesty.stack_preflight:security-surface` — Stack preflight ≠ security audit (occ=1, issue=—, packs=security:honesty.stack_preflight)\n- `finding:ladder-blocked:validation-ladder` — Validation ladder incomplete at blocked (occ=1, issue=—, packs=validation-ladder:rung:blocked)\n- `finding:security.allowlist.absent:security-surface` — Optional security.allowlist absent (occ=1, issue=—, packs=security:security.allowlist.absent)\n- `symptom:COM-RUN-11` — COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite (occ=9, issue=verify:issue:agent:1591f00d1d6bb8eb, packs=—)\n- `symptom:O-1` — Rapid DMs → notification storm (occ=1, issue=—, packs=orientation:landmine:O-1)\n- `symptom:O-2` — Outgoing DM vanishes after cold restart (occ=1, issue=—, packs=orientation:landmine:O-2)\n- `symptom:O-3` — Relay offline flash on every refresh (occ=1, issue=—, packs=orientation:landmine:O-3)\n- `symptom:O-4` — Group thread messages never appear from relay (occ=1, issue=—, packs=orientation:landmine:O-4)\n- `symptom:O-5` — Shipped feeling despite broken core (occ=1, issue=—, packs=orientation:landmine:O-5)\n- `symptom:auth-keychain-restore-failed` — RIW-9 chain blocked: cold boot lands on /sign-in; auth.kernel_boot_restore_no_keychain; native auto-unlock absent (occ=1, issue=verify:issue:agent:65689a26d16d5fd0, packs=—)\n- `symptom:codactrl-missing-settings-step-label` — No settings-tab stepLabel in Obscur selector pack (occ=1, issue=verify:issue:agent:58fba9ffbf278c6f, packs=—)\n- `symptom:community-roster-divergence` — COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community (occ=10, issue=verify:issue:agent:64baee5012722dfa, packs=—)\n- `symptom:coordination-membership-deltas-unreachable` — RIW-4 re-verify 2026-07-01: curl CORS OK; browser 0× REFUSED/CORS with 8787 up; desktop-only REFUSED still valid dev gap (occ=2, issue=verify:issue:agent:3998a202591a45aa, packs=—)\n- `symptom:dm-normalize-is-outgoing-mismatch` — messaging.delete_for_everyone_remote_result — count=104 (occ=10, issue=verify:issue:fault:fault-edf6e955, packs=—)\n- `symptom:dm-normalize-outgoing-mismatch` — RIW-3 re-verify 2026-07-01: 36 dm_normalize mismatches when locked; 0 after unlock with empty DM thread (RIW-2 mask) (occ=2, issue=verify:issue:agent:b208fd14aa0d3b45, packs=—)\n- `symptom:dm-ui-split-brain` — RIW-9 round2: warm Tester1 — Tester2 DM 11 msgs, O2 visible, splitBrainSuspected=false (occ=2, issue=verify:issue:agent:39938a676576819d, packs=—)\n- `symptom:dm-vanishes-cold-restart` — O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d) (occ=3, issue=verify:issue:agent:10ae33ad355320dc, packs=—)\n- `symptom:group-room-key-missing` — Client assert failed: textVisible — text not visible: Room key missing (occ=4, issue=verify:issue:assert:cap-8ec91475da6b, packs=—)\n- `symptom:group-thread-relay-ingest` — messaging.delete_for_everyone_remote_result — count=62 (occ=15, issue=verify:issue:fault:fault-90f591d2, packs=—)\n- `symptom:groups-ledger-validation` — RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress (occ=14, issue=verify:issue:agent:56d6ef6f5831f080, packs=—)\n- `symptom:groups.room_key_missing_send_blocked` — COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive (occ=1, issue=verify:issue:agent:3aa8584ac1e8095f, packs=—)\n- `symptom:high-tier-t0-steps` — Scenario `obscur-dev-lab-gate` defaultTier=T4 but only T0 fileExists/fileContains steps (occ=1, issue=verify:issue:false-green:verify:false-green:oxd6-high-tier-t0-steps:obscur-dev-lab-gate, packs=—)\n- `symptom:navigation-settings-auth-kick` — runtime.profile_binding_refresh_completed — count=2 (occ=6, issue=verify:issue:fault:fault-9a209d25, packs=—)\n- `symptom:projection-authority-not-ready` — RIW-2 re-verify 2026-07-01: authority oscillates projection_not_ready↔cutover; projection/sqlite count split; DM thread empty despite sidebar listing (occ=2, issue=verify:issue:agent:f6847ce03827c2e2, packs=—)\n- `symptom:relay-partial-stack-desktop-only` — Step 8 RIW-5 re-verify: relay healthy on public relays (writable 1/ subscribable 4); :7000 still down; O-3 offline flash NOT seen on Chats↔Network nav; coordination :8787 up (occ=2, issue=verify:issue:agent:e4a1ecdcaab37c63, packs=—)\n- `unmapped:capture-digest` — Unmapped runtime capture digests (×25) (occ=25, issue=verify:issue:unmapped-captures, packs=—)\n\n## Pack links\n\n- [orphan] orientation `landmine:O-1` → symptom:O-1 (orphan)\n- [orphan] orientation `landmine:O-2` → symptom:O-2 (orphan)\n- [orphan] orientation `landmine:O-3` → symptom:O-3 (orphan)\n- [orphan] orientation `landmine:O-4` → symptom:O-4 (orphan)\n- [orphan] orientation `landmine:O-5` → symptom:O-5 (orphan)\n- [orphan] validation-ladder `rung:blocked` → finding:ladder-blocked:validation-ladder (orphan)\n- [orphan] security `health.allowlist.missing` → finding:health.allowlist.missing:security-surface (orphan)\n- [orphan] security `health.probe.no_allowlist` → finding:health.probe.no_allowlist:security-surface (orphan)\n- [orphan] security `honesty.cdp_open` → finding:honesty.cdp_open:security-surface (orphan)\n- [orphan] security `honesty.stack_preflight` → finding:honesty.stack_preflight:security-surface (orphan)\n- [orphan] security `security.allowlist.absent` → finding:security.allowlist.absent:security-surface (orphan)\n\n## Does not prove\n\n- jira_replacement\n- cloud_issue_tracker\n- product_bug_fixed\n- SHELL-001 G1\n- minted landmine ≠ product Fixed / VERIFIED ship\n\n## Hub\n\n- export-manifest: `.codactrl/verify/issue-report/export-manifest.json`\n- agent-handoff: `.codactrl/verify/issue-report/agent-handoff.md`\n- precision: `.codactrl/verify/issue-precision/ (after studio_output_sync modules=[verify]); issue-report/ for export-manifest + agent-handoff`\n",
+  "openQuestions": [
+    "Have orientation/stress/security packs been persisted under .codectx/verify/?",
+    "Was verify_issues_report_export run so agent-handoff.md is current?",
+    "Are orphan pack links intentional (no register row yet)? Pass mintOrphans=true to mint.",
+    "Is report-rollup.md fresh vs live OFP5 / register (OXD10 A4.5)?"
+  ],
+  "doesNotProve": [
+    "jira_replacement",
+    "cloud_issue_tracker",
+    "product_bug_fixed",
+    "SHELL-001 G1",
+    "minted landmine ≠ product Fixed / VERIFIED ship"
+  ],
+  "proves": [
+    "Fingerprint-stable issue rows for surgical handoff",
+    "OFP pack findings link by fingerprint without minting duplicate register rows",
+    "export-manifest + agent-handoff path readability check",
+    "OXD10: mintOrphans can mint O-* landmine register rows (not forever orphan)"
+  ],
+  "notes": [
+    "OFP5/OXD10 issue precision — surgical hub rollup, not a Jira clone",
+    "Pack links append packRefs only unless mintOrphans=true",
+    "OXD10 A4.5: report-rollup.md STALE vs live hub `.codectx/verify/issues-register.json` — re-run verify_issues_report_export"
+  ],
+  "ready": true,
+  "rollupFresh": false,
+  "rollupFreshnessNote": "OXD10 A4.5: report-rollup.md STALE vs live hub `.codectx/verify/issues-register.json` — re-run verify_issues_report_export"
+}

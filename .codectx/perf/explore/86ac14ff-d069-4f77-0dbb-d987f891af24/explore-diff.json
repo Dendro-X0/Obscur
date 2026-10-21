@@ -1,0 +1,241 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-08-24T06:17:41.813169700+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-08-24T06:17:41.813169700+00:00",
+    "baseline": {
+      "exploreId": "2876d18a-d1e8-0109-fc96-fcee6b2546f4",
+      "graphHash": "sha256:b0a8714306179bb10f9201fe4726718bae643461cca883ba1ab9948bb10f9a3a",
+      "findingCount": 19,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 6,
+        "info": 13
+      }
+    },
+    "current": {
+      "exploreId": "86ac14ff-d069-4f77-0dbb-d987f891af24",
+      "graphHash": "sha256:acbeec53135489200dea469acb93f88a6966eb2b3cbb263891127c157b8e5aeb",
+      "findingCount": 1,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 1,
+        "info": 0
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": -5,
+      "info": -13,
+      "total": -18
+    },
+    "resolvedFindingIds": [
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:relay-gateway",
+      "perf:topology:critical-path-scope:apps:relay-gateway",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "newFindingIds": [
+      "perf:dev:tauri-vite-shell:apps/desktop"
+    ],
+    "unchangedFindingIds": [],
+    "severityChanges": [],
+    "improved": true,
+    "verification": {
+      "status": "improved",
+      "resolvedCount": 19,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": [
+        {
+          "findingId": "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:stack:next:apps/pwa",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:stack:next:apps/website",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:architecture-layout:apps:relay-gateway",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:critical-path-scope:apps:relay-gateway",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:db",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:dweb-auth",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:dweb-core",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:dweb-crypto",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:topology:shared-fanout:packages:obscur-engine-contracts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
+    },
+    "newFindings": [
+      {
+        "findingId": "perf:dev:tauri-vite-shell:apps/desktop",
+        "reason": "scopeExpanded"
+      }
+    ],
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 6,
+        "to": 0
+      },
+      "actionItems": {
+        "from": 0,
+        "to": 1
+      },
+      "infoInventory": {
+        "from": 13,
+        "to": 0
+      }
+    }
+  }
+}

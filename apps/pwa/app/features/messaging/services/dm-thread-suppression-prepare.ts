@@ -5,9 +5,6 @@
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { isTauri } from "@dweb/db";
-import { listDmTombstones } from "@obscur/dm-engine";
-import { createTauriEngineHost } from "@obscur/engine-host/tauri";
-import type { HostEnginePort } from "@obscur/engine-contracts";
 import type { AccountProjectionSnapshot } from "@/app/features/account-sync/account-event-contracts";
 import type { MessageDeleteTombstonesPersistencePort } from "@/app/features/profiles/types/storage-ports";
 import { messagingClientOperations } from "./messaging-client-operations";
@@ -22,16 +19,11 @@ export type PrepareDmThreadSuppressionParams = Readonly<{
   seedIds?: ReadonlySet<string>;
 }>;
 
-let suppressionTombstoneEngineHost: HostEnginePort | null = null;
-
-const getSuppressionTombstoneEngineHost = (): HostEnginePort => {
-  suppressionTombstoneEngineHost ??= createTauriEngineHost();
-  return suppressionTombstoneEngineHost;
-};
-
 /**
  * Loads durable tombstones, merges projection `removedMessageIds`, returns a mutable set
  * suitable for `persistedDeletedIds` refs and hydrate pipeline input.
+ *
+ * Slice 3g: `ensureReady` already hydrates SQLite tombstones — do not re-list / re-hydrate here.
  */
 export const prepareDmThreadSuppressionIds = async (
   params: PrepareDmThreadSuppressionParams,
@@ -44,34 +36,17 @@ export const prepareDmThreadSuppressionIds = async (
       profileId,
       accountPublicKeyHex: params.accountPublicKeyHex,
     }).catch(() => {});
-  }
-
-  if (isTauri()) {
-    await params.messageDeleteTombstones.hydrateMessageDeleteTombstonesFromSqlite(profileId).catch(() => {});
-  } else {
-    await params.messageDeleteTombstones.mergeMessageDeleteTombstonesFromIndexedDb(profileId).catch(() => {});
+  } else if (profileId) {
+    if (isTauri()) {
+      await params.messageDeleteTombstones.hydrateMessageDeleteTombstonesFromSqlite(profileId).catch(() => {});
+    } else {
+      await params.messageDeleteTombstones.mergeMessageDeleteTombstonesFromIndexedDb(profileId).catch(() => {});
+    }
   }
 
   params.messageDeleteTombstones.loadSuppressedMessageDeleteIds(Date.now(), profileId).forEach((id) => {
     target.add(id);
   });
-
-  if (isTauri() && profileId) {
-    try {
-      const rows = await listDmTombstones({
-        host: getSuppressionTombstoneEngineHost(),
-        profileId,
-      });
-      rows.forEach((row) => {
-        const eventId = row.event_id?.trim();
-        if (eventId) {
-          target.add(eventId);
-        }
-      });
-    } catch {
-      // non-fatal
-    }
-  }
 
   buildDmThreadSuppressionIdSet({
     durableSuppressedIds: target,

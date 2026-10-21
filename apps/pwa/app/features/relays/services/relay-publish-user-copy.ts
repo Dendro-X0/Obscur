@@ -140,15 +140,37 @@ export const assertRelayPublishSuccess = (
   }
 };
 
+const extractErrorText = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message.trim();
+  }
+  if (typeof error === "string") {
+    return error.trim();
+  }
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") {
+      return message.trim();
+    }
+  }
+  return "";
+};
+
+/** Soft-lock / DbState closed — do not blame relay scope. */
+export const resolveLockedDatabaseUserMessage = (message: string): string | null => {
+  if (!/Local database is locked|Unlock this profile to continue/i.test(message)) {
+    return null;
+  }
+  return "Local database is locked. Unlock this profile (device password or Import Key), then retry.";
+};
+
 export const resolveUserFacingErrorMessage = (
   error: unknown,
   fallback: string,
 ): string => {
-  if (error instanceof Error) {
-    const trimmed = error.message.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
+  const trimmed = extractErrorText(error);
+  if (trimmed.length > 0) {
+    return resolveLockedDatabaseUserMessage(trimmed) ?? trimmed;
   }
-  return fallback;
+  return resolveLockedDatabaseUserMessage(fallback) ?? fallback;
 };

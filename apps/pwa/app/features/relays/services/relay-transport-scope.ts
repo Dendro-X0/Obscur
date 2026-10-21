@@ -261,3 +261,38 @@ export const mergePublicBootIntoLoopbackOnlyList = (
   }
   return { relays: merged, changed: true };
 };
+
+/**
+ * Stuck profile heal: every relay `enabled:false` → open sockets stay 0 forever.
+ * Re-enable non-loopback rows already present; if only loopback remains, merge public boot.
+ * Does not run when any relay is already enabled (respects intentional bulk-disable… until next load
+ * after a full disable — see Settings Enable All CTA for explicit opt-in).
+ *
+ * Note: bulk-disable that leaves zero enabled will be healed on next cold load. That is intentional
+ * for Settings restore / DM path; users who want offline-only can leave Advanced → Disable All and
+ * re-disable after unlock if needed.
+ */
+export const reenableWhenNoRelaysEnabled = (
+  relays: ReadonlyArray<RelayListEntry>,
+  publicBootRows: ReadonlyArray<RelayListEntry>,
+): Readonly<{ relays: ReadonlyArray<RelayListEntry>; changed: boolean }> => {
+  if (relays.length === 0) {
+    if (publicBootRows.length === 0) {
+      return { relays, changed: false };
+    }
+    return {
+      relays: publicBootRows.map((row) => ({ url: row.url, enabled: row.enabled !== false })),
+      changed: true,
+    };
+  }
+  if (relays.some((relay) => relay.enabled)) {
+    return { relays, changed: false };
+  }
+  const withPublicOn = relays.map((relay) => (
+    isLoopbackRelayHost(relay.url) ? relay : { url: relay.url, enabled: true }
+  ));
+  if (withPublicOn.some((relay) => relay.enabled)) {
+    return { relays: withPublicOn, changed: true };
+  }
+  return mergePublicBootIntoLoopbackOnlyList(relays, publicBootRows);
+};

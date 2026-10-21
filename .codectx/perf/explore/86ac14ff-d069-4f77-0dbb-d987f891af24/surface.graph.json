@@ -1,0 +1,89 @@
+{
+  "edges": [
+    {
+      "from": "package:@obscur/relay-gateway",
+      "kind": "renders",
+      "to": "route_surface:apps:relay-gateway:dist:index.js"
+    }
+  ],
+  "exploreId": "86ac14ff-d069-4f77-0dbb-d987f891af24",
+  "nodes": [
+    {
+      "anchors": [
+        {
+          "content_hash": "sha256:6cb7bae23e8a5c7bd1576a7ef305acf961a12315a0cbad9e8239f7f9b4c502be",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
+          "symbol": "tauri"
+        },
+        {
+          "path": "apps/desktop/vite.config.ts",
+          "symbol": "vite"
+        }
+      ],
+      "id": "finding:perf:dev:tauri-vite-shell:apps/desktop",
+      "kind": "finding",
+      "label": "perf:dev:tauri-vite-shell:apps/desktop"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/relay-gateway/src/community-relay-hide-registry-persist.ts"
+        }
+      ],
+      "id": "module:apps:relay-gateway:src:community-relay-hide-registry-persist.ts",
+      "kind": "module",
+      "label": "apps/relay-gateway/src/community-relay-hide-registry-persist.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/relay-gateway/src/community-relay-hide-suppress.ts"
+        }
+      ],
+      "id": "module:apps:relay-gateway:src:community-relay-hide-suppress.ts",
+      "kind": "module",
+      "label": "apps/relay-gateway/src/community-relay-hide-suppress.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/relay-gateway/src/index.ts"
+        }
+      ],
+      "id": "module:apps:relay-gateway:src:index.ts",
+      "kind": "module",
+      "label": "apps/relay-gateway/src/index.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/relay-gateway/src/mesh-http-server.ts"
+        }
+      ],
+      "id": "module:apps:relay-gateway:src:mesh-http-server.ts",
+      "kind": "module",
+      "label": "apps/relay-gateway/src/mesh-http-server.ts"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/relay-gateway/package.json"
+        }
+      ],
+      "id": "package:@obscur/relay-gateway",
+      "kind": "package",
+      "label": "@obscur/relay-gateway"
+    },
+    {
+      "anchors": [
+        {
+          "path": "apps/relay-gateway/dist/index.js"
+        }
+      ],
+      "id": "route_surface:apps:relay-gateway:dist:index.js",
+      "kind": "route_surface",
+      "label": "apps/relay-gateway/dist/index.js"
+    }
+  ],
+  "schema": "perf.surface.graph@1.0.0"
+}

@@ -1,8 +1,11 @@
 import { isWorkspaceKernelAuthority } from "./workspace-kernel-policy";
 import { isWorkspaceKernelMembershipPortReady } from "./workspace-kernel-membership-port";
 
-/** Sovereign rooms on public relays are never a supported create path. */
-export const isNewSovereignRoomCreationAllowed = (): boolean => false;
+/**
+ * Quick group (T0) create — sovereign_room on Quiet public or any writable relay.
+ * Dual-tier charter 2026-08: allowed with honesty copy (not Managed Workspace guarantees).
+ */
+export const isNewSovereignRoomCreationAllowed = (): boolean => true;
 
 /**
  * Managed workspace create: legacy path when kernel is off; membership-port when kernel is on (W1).

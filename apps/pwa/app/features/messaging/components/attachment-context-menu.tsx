@@ -3,13 +3,18 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Copy, ExternalLink, HardDrive } from "lucide-react";
+import { Copy, Download, ExternalLink, HardDrive } from "lucide-react";
+import { toast } from "@dweb/ui-kit/toast";
 import type { Attachment } from "../types";
 import { cn } from "@/app/lib/utils";
+import { requiresAttachmentExportConfirm } from "@/app/features/dm-kernel/dm-kernel-trust-export-action-gate";
+import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
     canSaveChatAttachmentsToLocalVault,
     saveChatAttachmentWithOutcome,
 } from "@/app/features/vault/services/save-chat-attachment-to-vault";
+import { downloadAttachmentToUserPath } from "@/app/features/vault/services/local-media-store";
+import { AttachmentExportConfirmDialog } from "@/app/features/security/components/attachment-export-confirm-dialog";
 import { VaultWriteUnlockDialog } from "@/app/features/security/components/vault-write-unlock-dialog";
 
 export type AttachmentContextMenuState = Readonly<{
@@ -35,9 +40,51 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
     const [position, setPosition] = React.useState<Readonly<{ left: number; top: number }>>({ left: 0, top: 0 });
     const [isSavedToVault, setIsSavedToVault] = React.useState(false);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [isDownloading, setIsDownloading] = React.useState(false);
     const [showVaultUnlock, setShowVaultUnlock] = React.useState(false);
     const [pendingUnlockAttachment, setPendingUnlockAttachment] = React.useState<Attachment | null>(null);
+    const [pendingDownloadFileName, setPendingDownloadFileName] = React.useState<string | null>(null);
+    const pendingDownloadAttachmentRef = React.useRef<Attachment | null>(null);
     const canSaveToVault = canSaveChatAttachmentsToLocalVault();
+
+    const runDownloadToFolder = React.useCallback(async (attachment: Attachment): Promise<void> => {
+        setIsDownloading(true);
+        try {
+            const result = await downloadAttachmentToUserPath({ attachment });
+            if (result === "cancelled") {
+                onClose();
+                return;
+            }
+            if (result !== "saved") {
+                toast.error(t("vault.downloadToFolderFailed"));
+                return;
+            }
+            toast.success(t("vault.exportDecryptedCopySuccess"));
+            onClose();
+        } finally {
+            setIsDownloading(false);
+        }
+    }, [onClose, t]);
+
+    const requestDownloadToFolder = React.useCallback((attachment: Attachment): void => {
+        if (isDownloading) {
+            return;
+        }
+        const needsConfirm = requiresAttachmentExportConfirm({
+            peerPublicKeyHex: "",
+            isPeerAccepted: true,
+            attachmentFileName: attachment.fileName ?? "attachment",
+            messageTimestampUnixMs: Date.now(),
+            threadFirstPeerMessageAtUnixMs: null,
+            profileId: getResolvedProfileId(),
+        });
+        if (needsConfirm) {
+            pendingDownloadAttachmentRef.current = attachment;
+            setPendingDownloadFileName(attachment.fileName?.trim() || t("common.file"));
+            return;
+        }
+        void runDownloadToFolder(attachment);
+    }, [isDownloading, runDownloadToFolder, t]);
 
     React.useEffect(() => {
         if (typeof document === "undefined") {
@@ -67,14 +114,14 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
             if (menuRef.current?.contains(event.target as Node)) {
                 return;
             }
-            if (showVaultUnlock) {
+            if (showVaultUnlock || pendingDownloadFileName) {
                 return;
             }
             onClose();
         };
         window.addEventListener("pointerdown", onPointerDown, true);
         return () => window.removeEventListener("pointerdown", onPointerDown, true);
-    }, [onClose, showVaultUnlock, state]);
+    }, [onClose, pendingDownloadFileName, showVaultUnlock, state]);
 
     React.useEffect(() => {
         if (!state) {
@@ -87,12 +134,17 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
                     setPendingUnlockAttachment(null);
                     return;
                 }
+                if (pendingDownloadFileName) {
+                    pendingDownloadAttachmentRef.current = null;
+                    setPendingDownloadFileName(null);
+                    return;
+                }
                 onClose();
             }
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [onClose, showVaultUnlock, state]);
+    }, [onClose, pendingDownloadFileName, showVaultUnlock, state]);
 
     const retrySaveAfterUnlock = async (): Promise<void> => {
         const attachment = pendingUnlockAttachment;
@@ -130,6 +182,22 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
                 }}
                 onUnlocked={() => { void retrySaveAfterUnlock(); }}
             />
+            <AttachmentExportConfirmDialog
+                fileName={pendingDownloadFileName}
+                onClose={() => {
+                    pendingDownloadAttachmentRef.current = null;
+                    setPendingDownloadFileName(null);
+                }}
+                onConfirm={() => {
+                    const attachment = pendingDownloadAttachmentRef.current;
+                    pendingDownloadAttachmentRef.current = null;
+                    setPendingDownloadFileName(null);
+                    if (attachment) {
+                        void runDownloadToFolder(attachment);
+                    }
+                }}
+            />
+            {pendingDownloadFileName ? null : (
             <div
                 ref={menuRef}
                 data-escape-layer="open"
@@ -146,9 +214,9 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
                 {canSaveToVault ? (<button
                         type="button"
                         className={cn(itemClass, isSaving && "opacity-50")}
-                        disabled={isSaving}
+                        disabled={isSaving || isDownloading}
                         onClick={() => {
-                            if (isSaving) {
+                            if (isSaving || isDownloading) {
                                 return;
                             }
                             setIsSaving(true);
@@ -176,6 +244,18 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
                         {isSavedToVault ? t("vault.alreadyInVault") : t("vault.saveFromChat")}
                     </button>
                 ) : null}
+                <button
+                    type="button"
+                    className={cn(itemClass, isDownloading && "opacity-50")}
+                    disabled={isSaving || isDownloading}
+                    data-testid="attachment-download-to-folder"
+                    onClick={() => {
+                        requestDownloadToFolder(state.attachment);
+                    }}
+                >
+                    <Download className="h-3.5 w-3.5"/>
+                    {t("vault.downloadToFolder")}
+                </button>
                 <button
                     type="button"
                     className={itemClass}
@@ -207,6 +287,7 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
                     {t("common.openInNewTab")}
                 </button>
             </div>
+            )}
         </>,
         portalRoot,
     );

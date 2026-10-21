@@ -91,10 +91,10 @@ export const resolveContactRequestComposeMode = (params: Readonly<{
   isPeerAcceptedByTrust: boolean;
   requestStatus: DmPeerRequestStatusSnapshot;
 }>): ContactRequestComposeMode => {
-  const handshakeComplete = params.requestStatus?.status === "accepted";
-  if (handshakeComplete && params.isPeerAcceptedByTrust) {
-    return "full";
-  }
+  const handshakeComplete = (
+    params.isPeerAcceptedByTrust
+    || params.requestStatus?.status === "accepted"
+  );
   if (handshakeComplete) {
     return "full";
   }

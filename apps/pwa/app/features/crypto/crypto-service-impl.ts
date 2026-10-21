@@ -19,6 +19,7 @@ import type {
     InviteSignaturePayload,
     InviteData
 } from "./crypto-interfaces";
+import { canonicalizeInviteData } from "./invite-canonical";
 
 /**
  * Security utilities implementation
@@ -195,7 +196,7 @@ export class CryptoServiceImpl implements CryptoService {
     }
 
     async signInviteData(data: InviteSignaturePayload, privateKey: PrivateKeyHex): Promise<string> {
-        const canonicalData = this.canonicalizeData(data);
+        const canonicalData = canonicalizeInviteData(data);
         const encoder = new TextEncoder();
         const hashBuffer = await crypto.subtle.digest('SHA-256', toArrayBuffer(encoder.encode(canonicalData)));
         const hashHex = this.bytesToHex(new Uint8Array(hashBuffer));
@@ -205,7 +206,7 @@ export class CryptoServiceImpl implements CryptoService {
 
     async verifyInviteSignature(data: InviteSignaturePayload, signature: string, publicKey: PublicKeyHex): Promise<boolean> {
         try {
-            const canonicalData = this.canonicalizeData(data);
+            const canonicalData = canonicalizeInviteData(data);
             const encoder = new TextEncoder();
             const hashBuffer = await crypto.subtle.digest('SHA-256', toArrayBuffer(encoder.encode(canonicalData)));
             const hashHex = this.bytesToHex(new Uint8Array(hashBuffer));
@@ -395,8 +396,5 @@ export class CryptoServiceImpl implements CryptoService {
         return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    private canonicalizeData(data: any): string {
-        const keys = Object.keys(data).sort();
-        return keys.map(k => `${k}:${typeof data[k] === 'object' ? JSON.stringify(data[k]) : data[k]}`).join('|');
-    }
 }
+

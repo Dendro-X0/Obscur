@@ -120,22 +120,41 @@ export default function SettingsPage(): React.JSX.Element {
             });
         }
     }, [activeTab]);
-    return (<PageShell title={t("settings.title")} navBadgeCounts={navBadges.navBadgeCounts} hideHeader={!showMobileMenu} containScroll={compact}>
-      <div className={cn("mx-auto w-full max-w-6xl p-0", compact ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "p-4", !compact && "md:p-4")}>
-        <div className={cn("flex flex-col gap-8", compact ? "min-h-0 flex-1 overflow-hidden" : "md:flex-row")}>
-          <aside className={cn("w-64 shrink-0 sticky top-20 self-start h-fit", compact ? "hidden" : "block")}>
-            <SettingsSearchField className="mb-5" onNavigate={handleSettingsSearchNavigate}/>
-            <nav className="flex flex-col gap-6">
-              {SETTINGS_NAV_GROUPS.map((group) => (<div key={group.id} className="space-y-1">
+    return (<PageShell title={t("settings.title")} navBadgeCounts={navBadges.navBadgeCounts} hideHeader={!showMobileMenu} containScroll>
+      <div className={cn(
+        "mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden",
+        compact ? "p-0" : "p-4 md:p-4",
+      )}>
+        <div className={cn(
+          "flex min-h-0 flex-1 overflow-hidden",
+          compact ? "flex-col" : "flex-row gap-8",
+        )}>
+          <aside
+            className={cn(
+              "w-64 shrink-0",
+              // No overflow-hidden here — it clipped the active nav pill shadow/glow.
+              compact ? "hidden" : "flex min-h-0 flex-col",
+            )}
+            data-testid="settings-desktop-sidebar"
+          >
+            <SettingsSearchField className="mb-5 shrink-0" onNavigate={handleSettingsSearchNavigate}/>
+            <nav
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain pl-1.5 pr-3 [scrollbar-gutter:stable]"
+              data-testid="settings-desktop-sidebar-scroll"
+              aria-label={t("settings.title")}
+            >
+              {/* Extra pr clears WebView2 overlay scrollbar so active pill corners/glow are not cut. */}
+              <div className="flex flex-col gap-6 py-2 pb-6">
+              {SETTINGS_NAV_GROUPS.map((group) => (<div key={group.id} className="space-y-1.5">
                   <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
                     {t(group.labelKey)}
                   </h3>
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-2">
                     {group.items.map((item) => {
                 const Icon = item.icon;
                 const active = activeTab === item.id;
                 return (<button key={item.id} type="button" data-settings-tab={item.id} onClick={() => setActiveTab(item.id as SettingsTabId)} className={cn("group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all text-left outline-none", active
-                        ? "bg-gradient-primary border-none text-white shadow-md shadow-purple-500/25 font-bold scale-[1.02] active:scale-[0.98] ring-1 ring-white/10 dark:bg-zinc-800 dark:text-zinc-100"
+                        ? "bg-gradient-primary border-none text-white shadow-[0_4px_16px_-4px_rgba(168,85,247,0.55)] font-bold active:scale-[0.98] ring-1 ring-white/10 dark:bg-zinc-800 dark:text-zinc-100"
                         : "border-transparent text-zinc-600 hover:bg-black/5 hover:border-black/5 font-semibold dark:text-zinc-400 dark:hover:bg-zinc-900/40 dark:hover:border-white/5")}>
                           <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg transition-colors", active
                         ? "bg-white/20 shadow-sm dark:bg-black/20"
@@ -150,6 +169,7 @@ export default function SettingsPage(): React.JSX.Element {
             })}
                   </div>
                 </div>))}
+              </div>
             </nav>
           </aside>
 
@@ -197,8 +217,11 @@ export default function SettingsPage(): React.JSX.Element {
             </AnimatePresence>
           </div>
 
-          <main className={cn("min-w-0 flex-1", compact ? "hidden" : "block")}>
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <main className={cn(
+            "min-h-0 min-w-0 flex-1",
+            compact ? "hidden" : "overflow-y-auto overscroll-contain",
+          )}>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
               <DeferredSettingsTabPanel activeTab={activeTab}/>
             </div>
           </main>

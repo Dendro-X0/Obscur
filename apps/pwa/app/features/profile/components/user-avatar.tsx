@@ -9,6 +9,8 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
 import { User } from "lucide-react";
 import { isPeerPubkeyPlaceholderName } from "../utils/resolve-peer-display-name";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { normalizePublicUrl } from "@/app/shared/public-url";
 
 interface UserAvatarProps {
     pubkey: string;
@@ -48,6 +50,10 @@ export const UserAvatar = ({
     const fallbackInitials = hasHumanDisplayName && meaningfulDisplayName
         ? meaningfulDisplayName.slice(0, 2).toUpperCase()
         : null;
+    const discoveryPicture = normalizePublicUrl(discoveryCache.getProfile(pubkey)?.picture);
+    const avatarUrl = (!showDeletedFallback
+        ? (normalizePublicUrl(metadata?.avatarUrl) || discoveryPicture)
+        : "") || undefined;
 
     const handleClick = () => {
         if (!showProfileOnClick) return;
@@ -68,9 +74,9 @@ export const UserAvatar = ({
             )}
             onClick={handleClick}
         >
-            {metadata?.avatarUrl && !showDeletedFallback && (
-                <AvatarImage src={metadata.avatarUrl} alt={metadata.displayName || pubkey} />
-            )}
+            {avatarUrl ? (
+                <AvatarImage src={avatarUrl} alt={metadata?.displayName || pubkey} />
+            ) : null}
             <AvatarFallback
                 className={cn(
                     "font-bold uppercase",

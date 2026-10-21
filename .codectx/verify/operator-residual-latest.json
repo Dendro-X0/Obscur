@@ -1,0 +1,121 @@
+{
+  "schema": "studio.operator.residualPack@1.0.0",
+  "pathway": {
+    "id": "pathways.operatorResidual",
+    "title": "Operator residual pack — MCP-001 / OPS1 depth (H-OR1)",
+    "steps": [
+      "studio_help → operatorResidual / pathways.operatorResidual",
+      "studio_repo { action: \"studio_operator_residual\" }",
+      "pnpm run verify:ops1 — artifact preflight smoke (listing still operator)",
+      "Follow ops1Smoke.checklist — quit/reopen Cursor + toggle Enabled",
+      "Do not claim mcp_settings_listing_fixed from pack PASS"
+    ]
+  },
+  "residuals": [
+    {
+      "id": "MCP-001",
+      "title": "Studio MCP install surfaces in Cursor Settings",
+      "status": "mitigated_operator",
+      "listingFixed": false,
+      "notes": [
+        "OPS1 ships install artifact + post-write preflight",
+        "Cursor Settings enumeration remains operator restart/toggle checklist",
+        "Prefer user config when project .cursor/mcp.json is ignored on Windows"
+      ],
+      "evidencePaths": [
+        "docs/studio/evidence/ops1-mcp-install.md",
+        "docs/studio/KNOWN-ISSUES.md",
+        "docs/studio/issues/ISSUE-mcp-studio-install-regression.md"
+      ]
+    },
+    {
+      "id": "SHELL-001",
+      "title": "Desktop shell freeze / Not Responding",
+      "status": "mitigated",
+      "listingFixed": false,
+      "notes": [
+        "G0–G3 mitigated (2026-08-03) — do not reopen without new freeze repro",
+        "H-OR pack documents residual; does not re-open SHELL band"
+      ],
+      "evidencePaths": [
+        "docs/studio/KNOWN-ISSUES.md"
+      ]
+    }
+  ],
+  "ops1Smoke": {
+    "gate": "pnpm run verify:ops1",
+    "preflightSchema": "studio.mcp.install-preflight@0.1.0",
+    "depth": "artifact_preflight",
+    "listingClaim": false,
+    "checklist": [
+      "pnpm --filter @codactrl/mcp build",
+      "Studio → AI → Agents → MCP server built green → Install to workspace (or user config)",
+      "Confirm post-write preflight OK",
+      "Quit Cursor fully → open same folder as Studio",
+      "Settings → MCP → enable codactrl-studio",
+      "Call studio_help or studio_workspace_binding"
+    ],
+    "remediation": [
+      "Quit and reopen Cursor fully (not just reload window)",
+      "File → Open Folder on the same path as Studio (CODACTRL_WORKSPACE_ROOT)",
+      "Settings → MCP → enable codactrl-studio (toggle Disabled → Enabled if listed)",
+      "If project mcp.json ignored on Windows: Install to user config (~/.cursor/mcp.json)",
+      "Confirm packages/mcp/dist/server.js exists"
+    ],
+    "notes": [
+      "H-OR1 smoke depth = OPS1 config/preflight — not Cursor Settings listing Fixed",
+      "verify:hor1 / dogfood:hor1 run verify:ops1 as subordinate smoke"
+    ]
+  },
+  "residualGapId": "operator_residuals_shell_mcp",
+  "residualStatus": "operator",
+  "emptyGreen": false,
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.operatorResidual + honesty"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_operator_residual\" }",
+      "purpose": "Load MCP-001 / SHELL-001 residual pack"
+    },
+    {
+      "order": 3,
+      "tool": "(shell) pnpm run verify:ops1",
+      "purpose": "Artifact preflight smoke — listingClaim stays false",
+      "when": "after install write"
+    },
+    {
+      "order": 4,
+      "tool": "(operator) Cursor Settings → MCP toggle",
+      "purpose": "Listing remains operator — pack PASS ≠ Fixed",
+      "when": "if server not listed after reopen"
+    }
+  ],
+  "openQuestions": [
+    "If Cursor never lists codactrl-studio after user-config install — leave MCP-001 operator residual; do not claim Fixed",
+    "SHELL-001: reopen only with a new freeze / Not Responding repro"
+  ],
+  "doesNotProve": [
+    "mcp_settings_listing_fixed",
+    "soft_l3_fixed",
+    "shell_001_fixed",
+    "living_prove_closed",
+    "obscur_product_fixed",
+    "organizational_memory_closed",
+    "product_fixed"
+  ],
+  "proves": [
+    "operator_residual_pack_documented",
+    "mcp001_mitigated_operator_honest",
+    "ops1_smoke_depth_named"
+  ],
+  "notes": [
+    "H-OR1 operator residual pack — documents mitigated residuals; never Fixed vanity",
+    "residualStatus=operator",
+    "ops1Smoke.depth=artifact_preflight",
+    "ops1Smoke.listingClaim=false"
+  ]
+}

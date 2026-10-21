@@ -1,0 +1,1 @@
+{"enable_tor":true,"proxy_url":"socks5h://127.0.0.1:9050","note":"Studio FZD3 arming mirror only — live desktop uses %APPDATA%/app.obscur.desktop/tor_settings.json which is currently force-off"}

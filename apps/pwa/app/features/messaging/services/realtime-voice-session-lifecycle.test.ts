@@ -21,6 +21,8 @@ const SUPPORTED_CAPABILITY: RealtimeVoiceCapability = {
   hasPeerConnection: true,
   hasAddTrack: true,
   opusCapabilityStatus: "available",
+  videoCapabilityStatus: "available",
+  supportsVideo: true,
 };
 
 const UNSUPPORTED_CAPABILITY: RealtimeVoiceCapability = {
@@ -31,6 +33,8 @@ const UNSUPPORTED_CAPABILITY: RealtimeVoiceCapability = {
   hasPeerConnection: false,
   hasAddTrack: false,
   opusCapabilityStatus: "unknown",
+  videoCapabilityStatus: "unknown",
+  supportsVideo: false,
 };
 
 describe("realtime-voice-session-lifecycle", () => {

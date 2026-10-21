@@ -1,0 +1,98 @@
+{
+  "schema": "perf.explore.manifest@1.1.0",
+  "exploreId": "4730cabb-670e-62a5-bd03-7e1adbe8fa3c",
+  "target": {
+    "repoRoot": "E:\\Web Projects\\obscur",
+    "appRoot": "apps/coordination",
+    "stack": "next",
+    "exploreScope": "monorepo-critical-path",
+    "scopedPackages": [
+      "apps/coordination",
+      "apps/desktop/src-tauri",
+      "apps/pwa",
+      "apps/relay-gateway",
+      "apps/website",
+      "packages/db",
+      "packages/dweb-auth",
+      "packages/dweb-client-gateway",
+      "packages/dweb-coordination-contracts",
+      "packages/dweb-core",
+      "packages/dweb-crdt",
+      "packages/dweb-crypto",
+      "packages/dweb-nostr",
+      "packages/dweb-storage",
+      "packages/dweb-storage-contracts",
+      "packages/dweb-transport-contracts",
+      "packages/dweb-transport-coordination",
+      "packages/dweb-transport-nostr",
+      "packages/dweb-transport-team-relay",
+      "packages/libobscur",
+      "packages/obscur-auth-engine",
+      "packages/obscur-conduit-mesh",
+      "packages/obscur-conduit-mesh-contracts",
+      "packages/obscur-dm-engine",
+      "packages/obscur-engine-contracts",
+      "packages/obscur-engine-host",
+      "packages/obscur-persistence-engine",
+      "packages/obscur-transport-engine",
+      "packages/obscur-workspace-engine",
+      "packages/ui-kit"
+    ],
+    "primaryAppRoot": "apps/coordination",
+    "inferredAppRoots": [
+      "apps/pwa",
+      "apps/relay-gateway",
+      "apps/website"
+    ],
+    "authRouteProfile": {
+      "middlewarePath": null,
+      "sessionProviders": [],
+      "authGatedPrefixes": [
+        "/account",
+        "/admin",
+        "/billing",
+        "/dashboard",
+        "/org",
+        "/settings",
+        "/user"
+      ],
+      "publicPrefixes": [
+        "/",
+        "/about",
+        "/auth",
+        "/blog",
+        "/docs",
+        "/login",
+        "/marketing",
+        "/pricing",
+        "/register",
+        "/signup"
+      ],
+      "broadMatcher": false
+    },
+    "devServerPort": 3000
+  },
+  "scanSnapshotHash": "sha256:a35453de5f9a9cb91c4110da5973438bfa3d317bb53bc37f72b443f435a2ca48",
+  "graphHash": "sha256:36c344b013d19dfad9d5a14b84360d0c850e457cf54a5f463b9c5fcd1f7932fa",
+  "engineVersion": "0.1.0",
+  "startedAt": "2026-10-14T15:38:29.695576200+00:00",
+  "finishedAt": "2026-10-14T15:38:29.695581900+00:00",
+  "status": "completed",
+  "nonCoverage": "Static explore identifies transition risk factors (client-heavy routes, missing loading, StrictMode). Navigation latency and UI interaction lag require perf.confirm.run with interaction-probe (attachMode=dev for SaaS template dev sluggishness). Route-probe measures TTFB only.",
+  "environmentProfile": {
+    "analysisMode": "static",
+    "runtimeMeasured": false,
+    "devOverheadNote": "Findings describe code shape — not measured dev fluidity. Tauri+Vite shells can white-screen while CPU is idle; use studio-dev-probe (attachMode=dev, baseUrl=http://127.0.0.1:5173). Web apps: interaction-probe for route transitions.",
+    "confirmTierAvailable": [
+      "serve-oracle",
+      "http-health",
+      "route-probe",
+      "interaction-probe",
+      "studio-dev-probe"
+    ],
+    "recommendedAttachMode": "dev",
+    "recommendedConfirmMode": "dev",
+    "confirmAttachNote": "Studio/Tauri: studio-dev-probe while pnpm dev:studio is running. SaaS web: interaction-probe attachMode=dev. Production TTFB: route-probe attachMode=production."
+  },
+  "detectorCatalogHash": "sha256:d690cbec05eed083048c9b8875ca1bac7688a4932a6345388f4ed6e529da0435"
+}

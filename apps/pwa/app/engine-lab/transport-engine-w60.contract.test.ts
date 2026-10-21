@@ -35,7 +35,7 @@ const LEGACY_SEMANTIC_TOKENS = [
 describe("transport-engine w60 — standalone legacy mechanical deletion preparation", () => {
   it("pins mechanical deletion preparation charter with archive policy", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w60-standalone-legacy-mechanical-deletion-preparation.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w60-standalone-legacy-mechanical-deletion-preparation.md",
     );
     expect(charter).toContain("Mechanical Deletion Preparation");
     expect(charter).toContain("transport-kernel-standalone-publish-legacy.archive.ts");

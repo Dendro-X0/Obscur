@@ -11,6 +11,7 @@ import { isLocalDevWorkspaceRelayUrl } from "./relay-transport-scope";
 import {
   filterDemotedLocalLabUrls,
   isLocalLabAssistRelayUrl,
+  shouldAvoidLocalLabAsPrimary,
   shouldDemoteLocalLabFromActivePool,
 } from "./relay-local-lab-adapt";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
@@ -142,20 +143,31 @@ export const pickBestRelayUrl = (
   return candidates[0] ?? null;
 };
 
+/** Remote interaction URLs — public Nostr / VPS. Local lab WS/HTTP assists excluded. */
+const isRemoteInteractionRelayUrl = (url: string): boolean => (
+  !isLocalLabAssistRelayUrl(url)
+);
+
 export const resolveInitialRelaySelection = (
   orderedEnabledUrls: ReadonlyArray<string>,
   hints: ReadonlyArray<RelayHealthHint> = [],
+  retainLabUrl?: string | null,
 ): RelayPrimarySelection => {
   if (orderedEnabledUrls.length === 0) {
     return { primaryUrl: null, standbyUrls: [], entries: [] };
   }
-  const remotesEnabled = orderedEnabledUrls.some((url) => !isLocalDevWorkspaceRelayUrl(url));
+  const remotesEnabled = orderedEnabledUrls.some(isRemoteInteractionRelayUrl);
   const candidates = filterDemotedLocalLabUrls({
     orderedEnabledUrls,
     hints,
     remotesEnabled,
+    retainLabUrl,
   });
-  const pickFrom = candidates.length > 0 ? candidates : orderedEnabledUrls;
+  // Retained lab may stay in the dial set; primary still prefers remotes.
+  const remotes = orderedEnabledUrls.filter(isRemoteInteractionRelayUrl);
+  const pickFrom = remotesEnabled && remotes.length > 0
+    ? remotes
+    : (candidates.length > 0 ? candidates : orderedEnabledUrls);
   const best = pickBestRelayUrl(pickFrom, hints) ?? pickFrom[0];
   return buildSelection(orderedEnabledUrls, best);
 };
@@ -164,14 +176,19 @@ export const resolveFailoverRelaySelection = (
   current: RelayPrimarySelection,
   orderedEnabledUrls: ReadonlyArray<string>,
   hints: ReadonlyArray<RelayHealthHint> = [],
+  retainLabUrl?: string | null,
 ): RelayPrimarySelection => {
-  const remotesEnabled = orderedEnabledUrls.some((url) => !isLocalDevWorkspaceRelayUrl(url));
+  const remotesEnabled = orderedEnabledUrls.some(isRemoteInteractionRelayUrl);
   const candidates = filterDemotedLocalLabUrls({
     orderedEnabledUrls,
     hints,
     remotesEnabled,
+    retainLabUrl,
   });
-  const pickFrom = candidates.length > 0 ? candidates : orderedEnabledUrls;
+  const remotes = orderedEnabledUrls.filter(isRemoteInteractionRelayUrl);
+  const pickFrom = remotesEnabled && remotes.length > 0
+    ? remotes
+    : (candidates.length > 0 ? candidates : orderedEnabledUrls);
   const next = pickBestRelayUrl(pickFrom, hints, {
     excludeUrls: current.primaryUrl ? [current.primaryUrl] : [],
   });
@@ -205,10 +222,10 @@ export const reconcilePrimarySelection = (
   const primaryLive = isRelayHintLive(currentHint);
   const remotesEnabled = orderedEnabledUrls.some(isRemoteInteractionRelayUrl);
 
-  // Nostr-first: lab primary never owns transport when public/VPS remotes are enabled.
+  // Nostr-first: lab primary never owns transport when public/VPS remotes are enabled
+  // (even when Self T1 retains lab in the dial pool).
   if (
-    isLocalDevWorkspaceRelayUrl(current.primaryUrl)
-    && shouldDemoteLocalLabFromActivePool({
+    shouldAvoidLocalLabAsPrimary({
       localUrl: current.primaryUrl,
       remotesEnabled,
     })
@@ -235,13 +252,11 @@ export const reconcilePrimarySelection = (
     }
   }
 
-  // Do not re-promote a demoted Docker lab over enabled public/VPS remotes.
-  const demotedFiltered = filterDemotedLocalLabUrls({
-    orderedEnabledUrls,
-    hints,
-    remotesEnabled,
-  });
-  const candidates = demotedFiltered.length > 0 ? demotedFiltered : orderedEnabledUrls;
+  // Do not re-promote lab over enabled public/VPS remotes (retain is dial-only).
+  const remotesOnly = orderedEnabledUrls.filter(isRemoteInteractionRelayUrl);
+  const candidates = remotesEnabled && remotesOnly.length > 0
+    ? remotesOnly
+    : orderedEnabledUrls;
   const best = pickBestRelayUrl(candidates, hints);
   if (!best || best === current.primaryUrl) {
     return null;
@@ -267,11 +282,6 @@ const isCircuitOpenHint = (
   url: string,
   hints: ReadonlyArray<RelayHealthHint>,
 ): boolean => findHint(url, hints)?.isCircuitOpen ?? false;
-
-/** Remote interaction URLs — public Nostr / VPS. Local lab WS/HTTP assists excluded. */
-const isRemoteInteractionRelayUrl = (url: string): boolean => (
-  !isLocalLabAssistRelayUrl(url)
-);
 
 /**
  * E3/P6: dial preference order from probe/health hints.
@@ -340,6 +350,8 @@ export const resolveActivePoolRelayUrls = (params: Readonly<{
   selection: RelayPrimarySelection;
   hints?: ReadonlyArray<RelayHealthHint>;
   maxRedundancy?: number;
+  /** Operator workspace lab URL — Self T1 retain in dial pool with remotes. */
+  retainLabUrl?: string | null;
 }>): ReadonlyArray<string> => {
   const hints = params.hints ?? [];
   if (params.orderedEnabledUrls.length === 0) {
@@ -350,6 +362,7 @@ export const resolveActivePoolRelayUrls = (params: Readonly<{
     orderedEnabledUrls: params.orderedEnabledUrls,
     hints,
     remotesEnabled,
+    retainLabUrl: params.retainLabUrl,
   });
   // Never empty the dial set solely from demotion — fall back to full list.
   const orderedEnabledUrls = demotedFiltered.length > 0
@@ -360,10 +373,10 @@ export const resolveActivePoolRelayUrls = (params: Readonly<{
     const primaryCandidate = params.selection.primaryUrl ?? orderedEnabledUrls[0];
     const primaryDemoted = Boolean(
       primaryCandidate
-      && isLocalDevWorkspaceRelayUrl(primaryCandidate)
       && shouldDemoteLocalLabFromActivePool({
         localUrl: primaryCandidate,
         remotesEnabled,
+        retainLabUrl: params.retainLabUrl,
       }),
     );
     // Lab silo: remotes enabled → dial public/VPS only (localhost never ACTIVE TRANSPORT).
@@ -401,6 +414,22 @@ export const resolveActivePoolRelayUrls = (params: Readonly<{
           }
           return padded;
         }
+      }
+      // Self T1: remote primary keeps operator-retained lab dialed beside it.
+      const retainedLab = params.retainLabUrl
+        && isLocalDevWorkspaceRelayUrl(params.retainLabUrl)
+        ? params.orderedEnabledUrls.find((url) => workspaceRelayUrlsMatch(url, params.retainLabUrl!))
+        : undefined;
+      if (
+        retainedLab
+        && !shouldDemoteLocalLabFromActivePool({
+          localUrl: retainedLab,
+          remotesEnabled,
+          retainLabUrl: params.retainLabUrl,
+        })
+        && !workspaceRelayUrlsMatch(retainedLab, primary)
+      ) {
+        return [primary, retainedLab];
       }
       return [primary];
     }
@@ -488,10 +517,10 @@ export const resolveActivePoolRelayUrls = (params: Readonly<{
     primary
     && withRemote.includes(primary)
     && !(
-      isLocalDevWorkspaceRelayUrl(primary)
-      && shouldDemoteLocalLabFromActivePool({
+      shouldDemoteLocalLabFromActivePool({
         localUrl: primary,
         remotesEnabled,
+        retainLabUrl: params.retainLabUrl,
       })
     )
   ) {

@@ -101,6 +101,7 @@ fn emit_mesh_snapshot_changed(
     profile_id: &str,
     snapshot: &MeshSnapshotJson,
 ) {
+    crate::emit_pressure::note_webview_emit("mesh-snapshot-changed");
     let _ = window.emit(
         "mesh-snapshot-changed",
         serde_json::json!({

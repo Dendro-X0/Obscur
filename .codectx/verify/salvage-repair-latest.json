@@ -1,0 +1,60 @@
+{
+  "schema": "studio.verify.salvage-repair@1.0.0",
+  "subtractiveActions": [
+    {
+      "kind": "stop-writing-here",
+      "target": "apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts",
+      "reason": "Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified",
+      "tool": "studio_owner_conflicts_get"
+    },
+    {
+      "kind": "stop-writing-here",
+      "target": "apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts",
+      "reason": "Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified",
+      "tool": "studio_owner_conflicts_get"
+    },
+    {
+      "kind": "stop-writing-here",
+      "target": "apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts",
+      "reason": "Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified",
+      "tool": "studio_owner_conflicts_get"
+    },
+    {
+      "kind": "stop-writing-here",
+      "target": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts",
+      "reason": "Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified",
+      "tool": "studio_owner_conflicts_get"
+    },
+    {
+      "kind": "stop-writing-here",
+      "target": "apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts",
+      "reason": "Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified",
+      "tool": "studio_owner_conflicts_get"
+    }
+  ],
+  "suggestedSlice": {
+    "sliceId": "R-AUTH",
+    "title": "Default repair validation slice",
+    "tool": "verify_vertical_slice_evaluate",
+    "note": "No vertical-slice-latest.json — use R-AUTH template or propose slice for repair scope"
+  },
+  "clientReplay": {
+    "scenarioPackId": "salvage-vibe-ruin",
+    "tool": "verify_scenario_pack_run",
+    "note": "After repair scope: run scenario pack; add user-visible ops + live client assert before closing UX"
+  },
+  "falseGreen": {
+    "rule": "RC0 / wiring-only / T0–T1 cannot close user-visible issues (CVE1/CVE5)",
+    "tool": "verify_false_green_scan",
+    "note": "Link false-green findings before claiming repair closed UX gaps"
+  },
+  "subjectPatches": false,
+  "notes": [
+    "CVE5 repair is guide-only — CodaCtrl does not patch the subject repo",
+    "Subtractive actions: freeze / quarantine / stop-writing-here from owner conflicts + freeze-set",
+    "T0/T1 scenario or catalog pass ≠ user-visible functional verify (CVE1)",
+    "Map/NMAP hop ≠ user experience — orient only (CVE1)",
+    "Functional verification = real-time client verification (live session + assert)"
+  ],
+  "markdown": "## Repair (CVE5)\n\n**Subtractive (no subject patches):**\n- `stop-writing-here` `apps/pwa/app/features/groups/hooks/use-community-relay-pool-writable.ts` — Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified (`studio_owner_conflicts_get`)\n- `stop-writing-here` `apps/pwa/app/features/groups/services/local-workspace-relay-publish.ts` — Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified (`studio_owner_conflicts_get`)\n- `stop-writing-here` `apps/pwa/app/features/groups/services/sealed-community-relay-publish-retry.ts` — Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified (`studio_owner_conflicts_get`)\n- `stop-writing-here` `apps/pwa/app/features/relays/hooks/enhanced-relay-pool-port.ts` — Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified (`studio_owner_conflicts_get`)\n- `stop-writing-here` `apps/pwa/app/features/relays/hooks/enhanced-relay-pool-types.ts` — Dual-owner lifecycle `relay-publish` — stop writing until ownership clarified (`studio_owner_conflicts_get`)\n\n**Slice:** `R-AUTH` — Default repair validation slice (`verify_vertical_slice_evaluate`)\n**Client replay:** `salvage-vibe-ruin` via `verify_scenario_pack_run`\n**False-green:** RC0 / wiring-only / T0–T1 cannot close user-visible issues (CVE1/CVE5) (`verify_false_green_scan`)\n\n_subjectPatches: false_\n"
+}

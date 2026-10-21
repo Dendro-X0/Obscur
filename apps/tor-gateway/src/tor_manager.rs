@@ -175,14 +175,22 @@ impl TorLifecycle {
             eprintln!("[obscur-tor-gateway] bootstrap ready");
             return;
         }
-        if let Some(pct) = parse_bootstrap_percent(line) {
-            if matches!(guard.state, TorRuntimeState::Starting) && pct < 100 {
-                guard.detail = Some(format!("bootstrapped {pct}%"));
-            }
-        }
         if line.contains("Problem bootstrapping") {
             guard.detail = Some(line.trim().to_string());
             eprintln!("[obscur-tor-gateway] bootstrap problem: {line}");
+            return;
+        }
+        if let Some(pct) = parse_bootstrap_percent(line) {
+            if matches!(guard.state, TorRuntimeState::Starting) && pct < 100 {
+                // Do not clobber an explicit Stuck/TIMEOUT line with weak progress text.
+                let keep_problem = guard
+                    .detail
+                    .as_ref()
+                    .is_some_and(|d| d.contains("Problem bootstrapping") || d.contains("Stuck at "));
+                if !keep_problem {
+                    guard.detail = Some(format!("bootstrapped {pct}%"));
+                }
+            }
         }
         if line_signals_socks_conflict(line) {
             guard.state = TorRuntimeState::Error;

@@ -1,0 +1,38 @@
+- text: Relay connection issue
+- button "Dismiss"
+- paragraph: Couldn't reach relay.damus.io. The network or that relay may be temporarily unavailable.
+- group: Technical details
+- button "Retry"
+- main:
+  - img "Obscur"
+  - text: Profiles
+  - button "Minimize window"
+  - button "Restore window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu": D
+  - button "Change Language"
+  - img "Obscur"
+  - heading "Who's using Obscur?" [level=1]
+  - paragraph: Each profile is an isolated desktop window. Open any account side by side — windows do not depend on one another.
+  - button "Avatar for DemoUser DemoUser Sign in here":
+    - button
+    - text: D DemoUser Sign in here
+  - button "Avatar Profile slot Needs setup":
+    - button
+    - text: "? Profile slot Needs setup"
+  - button "Add New profile"
+  - button "Advanced profile management"
+  - checkbox "Show on startup" [checked]
+  - text: Show on startup
+- alert

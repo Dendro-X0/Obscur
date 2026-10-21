@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ROOM_KEY_WRAP_SCHEME_V1,
+  ROOM_KEY_WRAP_SCHEME_V2,
   signRoomKeyWrap,
   verifyRoomKeyWrapSignature,
 } from "@dweb/coordination-contracts";
@@ -61,13 +62,15 @@ const buildWrapRecord = async (params: Readonly<{
   wrapSeq: number;
   ciphertext: string;
   createdAtUnixMs?: number;
+  scheme?: typeof ROOM_KEY_WRAP_SCHEME_V1 | typeof ROOM_KEY_WRAP_SCHEME_V2;
 }>): Promise<CoordinationRoomKeyWrapRecord> => {
   const createdAtUnixMs = params.createdAtUnixMs ?? 1_700_000_000 + params.wrapSeq;
+  const scheme = params.scheme ?? ROOM_KEY_WRAP_SCHEME_V2;
   const signature = await signRoomKeyWrap({
     communityId,
     subjectPubkey: actorPub,
     wrapSeq: params.wrapSeq,
-    scheme: ROOM_KEY_WRAP_SCHEME_V1,
+    scheme,
     ciphertext: params.ciphertext,
     actorPubkey: actorPub,
     createdAtUnixMs,
@@ -78,7 +81,7 @@ const buildWrapRecord = async (params: Readonly<{
     communityId,
     subjectPubkey: actorPub,
     wrapSeq: params.wrapSeq,
-    scheme: ROOM_KEY_WRAP_SCHEME_V1,
+    scheme,
     ciphertext: params.ciphertext,
     actorPubkey: actorPub,
     createdAtUnixMs,
@@ -100,7 +103,7 @@ describe("community-coordination-room-key-owner", () => {
     expect(parseRoomKeyWrapInnerPayload(JSON.stringify(inner))).toEqual(inner);
   });
 
-  it("nip04 wrap and unwrap roundtrip for self-wrap", async () => {
+  it("nip44 wrap and unwrap roundtrip for self-wrap", async () => {
     const wrapped = await wrapRoomKeyForCoordination({
       groupId,
       roomKeyHex,
@@ -111,12 +114,14 @@ describe("community-coordination-room-key-owner", () => {
     if (!wrapped.ok) {
       return;
     }
+    expect(wrapped.scheme).toBe(ROOM_KEY_WRAP_SCHEME_V2);
 
     const unwrapped = await unwrapRoomKeyFromCoordinationCiphertext({
       ciphertext: wrapped.ciphertext,
       actorPubkey: actorPub,
       recipientPrivateKeyHex: actorPriv,
       expectedGroupId: groupId,
+      scheme: wrapped.scheme,
     });
     expect(unwrapped).toEqual({ ok: true, roomKeyHex, groupId });
   });
@@ -203,13 +208,14 @@ describe("community-coordination-room-key-owner", () => {
       communityId,
       subjectPubkey: actorPub,
       wrapSeq: 1,
-      scheme: ROOM_KEY_WRAP_SCHEME_V1,
+      scheme: ROOM_KEY_WRAP_SCHEME_V2,
       ciphertext: body.ciphertext,
       actorPubkey: actorPub,
       createdAtUnixMs: 1_700_000_100,
       signature: body.signature,
     });
     expect(valid).toBe(true);
+    expect(body.scheme).toBe(ROOM_KEY_WRAP_SCHEME_V2);
     expect(logAppEvent).toHaveBeenCalledWith(expect.objectContaining({
       name: "groups.coordination_room_key_wrap_published",
     }));
@@ -230,7 +236,7 @@ describe("community-coordination-room-key-owner", () => {
     const store = new RoomKeyStore();
     const wraps = [
       await buildWrapRecord({ wrapSeq: 1, ciphertext: `${wrapped.ciphertext}-old` }),
-      await buildWrapRecord({ wrapSeq: 2, ciphertext: wrapped.ciphertext }),
+      await buildWrapRecord({ wrapSeq: 2, ciphertext: wrapped.ciphertext, scheme: wrapped.scheme }),
     ];
 
     const result = await materializeRoomKeysFromCoordinationWraps({
@@ -259,7 +265,7 @@ describe("community-coordination-room-key-owner", () => {
     if (!wrapped.ok) {
       throw new Error("wrap failed");
     }
-    const wraps = [await buildWrapRecord({ wrapSeq: 1, ciphertext: wrapped.ciphertext })];
+    const wraps = [await buildWrapRecord({ wrapSeq: 1, ciphertext: wrapped.ciphertext, scheme: wrapped.scheme })];
     const otherPub = ("b".repeat(64)) as PublicKeyHex;
 
     const result = await materializeRoomKeysFromCoordinationWraps({
@@ -304,7 +310,7 @@ describe("community-coordination-room-key-owner", () => {
     if (!wrapped.ok) {
       throw new Error("wrap failed");
     }
-    const wrapRecord = await buildWrapRecord({ wrapSeq: 1, ciphertext: wrapped.ciphertext });
+    const wrapRecord = await buildWrapRecord({ wrapSeq: 1, ciphertext: wrapped.ciphertext, scheme: wrapped.scheme });
 
     fetchCoordinationWithTimeout.mockResolvedValue(new Response(
       JSON.stringify({ ok: true, data: { wraps: [wrapRecord] } }),
@@ -457,7 +463,7 @@ describe("community-coordination-room-key-owner", () => {
     if (!wrapped.ok) {
       throw new Error("wrap failed");
     }
-    const wrapRecord = await buildWrapRecord({ wrapSeq: 1, ciphertext: wrapped.ciphertext });
+    const wrapRecord = await buildWrapRecord({ wrapSeq: 1, ciphertext: wrapped.ciphertext, scheme: wrapped.scheme });
 
     fetchCoordinationWithTimeout.mockResolvedValue(new Response(
       JSON.stringify({ ok: true, data: { wraps: [wrapRecord] } }),

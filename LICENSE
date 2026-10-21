@@ -1,0 +1,89 @@
+Obscur Source-Available License (All Rights Reserved)
+
+Copyright (c) 2024–2026 the Obscur copyright holders.
+All rights reserved.
+
+IMPORTANT: This is not an OSI Open Source / OSI-approved license.
+This file states the copyright holders' terms for this public repository.
+It is not legal advice. If you need certainty for commercial use, consult a lawyer
+or email the maintainers for a separate written grant.
+
+----------------------------------------------------------------------
+1. Intent
+----------------------------------------------------------------------
+
+The source code in this repository is published for transparency, security
+review, feedback, and personal learning. It is NOT published as free software
+for others to repackage, rebrand, sell, or operate as a competing product.
+Early-stage maintenance and all code changes remain under the copyright
+holders' direction.
+
+----------------------------------------------------------------------
+2. What you MAY do (without a separate written license)
+----------------------------------------------------------------------
+
+a. View, read, and clone this repository for personal, non-commercial study.
+b. Build and run the software locally for personal evaluation and security audit.
+c. Quote short excerpts in security research, academic citation, or news
+   coverage with clear attribution to the Obscur project and a link to this
+   repository.
+d. Offer suggestions, bug reports, and review comments through the project's
+   public channels (for example Issues). Unsolicited pull requests are not
+   requested; the copyright holders alone decide whether and how to change the
+   codebase. If you nevertheless submit a patch and it is used, you grant the
+   copyright holders a perpetual, worldwide, royalty-free license to use,
+   modify, and redistribute that material as part of Obscur.
+
+----------------------------------------------------------------------
+3. What you may NOT do (without prior written permission)
+----------------------------------------------------------------------
+
+a. Redistribute this software (source or binaries), in whole or in part,
+   including mirrors that present it as your product.
+b. Repackage, rebrand, fork-and-publish, or wrap this software (or a
+   substantial portion of it) as another messenger, client, SaaS, installer,
+   or paid/free download.
+c. Sell, license, or commercialize this software or derivative works.
+d. Remove or obscure copyright, license, or attribution notices.
+e. Use this repository's contents to train, fine-tune, or evaluate machine
+   learning / AI systems intended for redistribution or commercial use
+   (including dataset assembly for that purpose), except as required by
+   applicable law or with prior written permission.
+f. Use trademarks, logos, or product names of Obscur in a way that suggests
+   endorsement or that your product is an official Obscur release.
+
+----------------------------------------------------------------------
+4. Official builds
+----------------------------------------------------------------------
+
+Only builds published by the copyright holders (for example via the official
+Obscur website download / update channel named in this repository) are
+authorized public distributions. Third-party "Obscur" installers are not
+authorized unless they carry a separate written grant.
+
+----------------------------------------------------------------------
+5. No warranty
+----------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+----------------------------------------------------------------------
+6. Permission requests
+----------------------------------------------------------------------
+
+For commercial licensing, redistribution rights, or AI/training exceptions,
+contact the maintainers through the project's public repository channels and
+request a written grant. Silence is not permission.
+
+----------------------------------------------------------------------
+7. Relationship to default copyright
+----------------------------------------------------------------------
+
+Except for the limited permissions in Section 2, no rights are granted by
+implication, estoppel, or otherwise. All other rights are reserved.

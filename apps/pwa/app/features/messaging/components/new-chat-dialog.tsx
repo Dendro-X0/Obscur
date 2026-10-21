@@ -21,6 +21,7 @@ import {
   assertNoBlockedSecretMaterial,
   SECRET_INPUT_FIREWALL_MESSAGE,
 } from "@/app/features/security/services/secret-input-firewall";
+import { useEscapeDismissLayer } from "@/app/lib/use-escape-dismiss-layer";
 type NostrProfileMetadata = Readonly<{
     name?: string;
     display_name?: string;
@@ -73,6 +74,7 @@ interface NewChatDialogProps {
 }
 export function NewChatDialog({ isOpen, onClose, pubkey, setPubkey, displayName, setDisplayName, onCreate, verifyRecipient, searchProfiles, isAccepted, sendConnectionRequest, onRequestSent }: NewChatDialogProps) {
     const { t } = useTranslation();
+    useEscapeDismissLayer({ enabled: isOpen, onClose });
     const [isSearching, setIsSearching] = useState(false);
     const [verificationStatus, setVerificationStatus] = useState<'idle' | 'found' | 'not_found'>('idle');
     const [foundProfile, setFoundProfile] = useState<FoundProfile | null>(null);
@@ -308,8 +310,8 @@ export function NewChatDialog({ isOpen, onClose, pubkey, setPubkey, displayName,
     };
     if (!isOpen)
         return null;
-    return (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm modal-transition">
-            <Card title={t("network.addContact")} description={t("network.addContactDesc")} className="w-full max-w-md shadow-2xl border-black/10 dark:border-white/10">
+    return (<div data-escape-layer="open" data-testid="new-chat-dialog-layer" className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 dark:bg-black/80 modal-transition">
+            <Card title={t("network.addContact")} description={t("network.addContactDesc")} className="w-full max-w-md shadow-2xl border-black/10 bg-white backdrop-blur-none dark:border-zinc-800 dark:bg-zinc-950">
                 <div className="space-y-6">
                     <div className="space-y-3">
                         <Label htmlFor="new-chat-pubkey" className="text-xs font-bold uppercase tracking-wider text-zinc-500">{t("messaging.findRecipient")}</Label>

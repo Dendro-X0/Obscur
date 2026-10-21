@@ -1,0 +1,936 @@
+{
+  "checks": {
+    "requiredApis": {
+      "appEvents": true,
+      "relayRuntime": true,
+      "relayTransportJournal": false,
+      "windowRuntime": true
+    }
+  },
+  "events": {
+    "crossDeviceDigest": {
+      "events": {
+        "account_sync.backup_payload_hydration_diagnostics": [],
+        "account_sync.backup_payload_projection_fallback": [],
+        "account_sync.backup_publish_result": [
+          {
+            "atUnixMs": 1791733307685,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733316043,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "failed"
+            },
+            "level": "warn"
+          },
+          {
+            "atUnixMs": 1791733325382,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733327490,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733334066,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "ok"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733342986,
+            "context": {
+              "guardEnabled": false,
+              "reason": "message_delete_tombstones_changed",
+              "result": "failed"
+            },
+            "level": "warn"
+          }
+        ],
+        "account_sync.backup_restore_apply_diagnostics": [],
+        "account_sync.backup_restore_history_regression": [],
+        "account_sync.backup_restore_merge_diagnostics": [],
+        "account_sync.backup_restore_profile_scope_mismatch": [],
+        "account_sync.backup_restore_result": [
+          {
+            "atUnixMs": 1791732993735,
+            "context": {
+              "convergenceLatencyMs": null,
+              "guardEnabled": false,
+              "reason": "interval",
+              "result": "no_backup"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733113718,
+            "context": {
+              "convergenceLatencyMs": null,
+              "guardEnabled": false,
+              "reason": "interval",
+              "result": "no_backup"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733233736,
+            "context": {
+              "convergenceLatencyMs": null,
+              "guardEnabled": false,
+              "reason": "interval",
+              "result": "no_backup"
+            },
+            "level": "info"
+          },
+          {
+            "atUnixMs": 1791733353731,
+            "context": {
+              "convergenceLatencyMs": null,
+              "guardEnabled": false,
+              "reason": "interval",
+              "result": "no_backup"
+            },
+            "level": "info"
+          }
+        ],
+        "auth.auto_unlock_scope_drift_detected": [],
+        "groups.coordination_room_key_materialized": [],
+        "groups.coordination_room_key_resolve": [],
+        "groups.leave_proof_published": [],
+        "groups.membership_ledger_load": [],
+        "groups.membership_recovery_hydrate": [],
+        "groups.room_key_missing_send_blocked": [],
+        "messaging.chat_state_groups_update": [],
+        "messaging.chat_state_replaced": [],
+        "messaging.conversation_history_authority_selected": [],
+        "messaging.conversation_hydration_diagnostics": [],
+        "messaging.conversation_hydration_id_split_detected": [],
+        "messaging.conversation_list_authority_selected": [],
+        "messaging.delete_for_everyone_local_applied": [],
+        "messaging.delete_for_everyone_rejected": [],
+        "messaging.delete_for_everyone_remote_result": [],
+        "messaging.delete_for_everyone_requested": [],
+        "messaging.legacy_migration_diagnostics": [],
+        "messaging.m10.cp2_stability_gate": [],
+        "messaging.m10.cp3_readiness_gate": [],
+        "messaging.m10.cp3_suite_gate": [],
+        "messaging.m10.cp4_closeout_gate": [],
+        "messaging.m10.v130_closeout_gate": [],
+        "messaging.m10.v130_evidence_gate": [],
+        "messaging.realtime_voice.connect_timeout_diagnostics": [],
+        "messaging.realtime_voice.connecting_watchdog_gate": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_bundle": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_closeout_self_test": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_evidence": [],
+        "messaging.realtime_voice.connecting_watchdog_incident_gate_self_test": [],
+        "messaging.realtime_voice.connecting_watchdog_self_test": [],
+        "messaging.realtime_voice.cp4_checkpoint_gate": [],
+        "messaging.realtime_voice.cp4_release_evidence_gate": [],
+        "messaging.realtime_voice.cp4_release_readiness_gate": [],
+        "messaging.realtime_voice.invite_join_attempt": [],
+        "messaging.realtime_voice.invite_join_result": [],
+        "messaging.realtime_voice.invite_send_attempt": [],
+        "messaging.realtime_voice.invite_send_result": [],
+        "messaging.realtime_voice.long_session_gate": [],
+        "messaging.realtime_voice.media_access_failed": [],
+        "messaging.realtime_voice.rtc_state": [],
+        "messaging.realtime_voice.session_event_ignored": [],
+        "messaging.realtime_voice.session_transition": [],
+        "messaging.realtime_voice.signal_received": [],
+        "messaging.realtime_voice.signal_send_result": [],
+        "messaging.realtime_voice.v120_closeout_gate": [],
+        "messaging.request.incoming_quarantined": [],
+        "messaging.search_jump_requested": [],
+        "messaging.search_jump_resolved": [],
+        "messaging.search_jump_unresolved": [],
+        "messaging.voice_note.recording_complete": [],
+        "messaging.voice_note.recording_empty": [],
+        "messaging.voice_note.recording_start_failed": [],
+        "messaging.voice_note.recording_unsupported": [],
+        "navigation.page_transition_effects_disabled": [],
+        "navigation.page_transition_watchdog_timeout": [],
+        "navigation.route_mount_performance_guard_enabled": [],
+        "navigation.route_mount_probe_settled": [],
+        "navigation.route_mount_probe_slow": [],
+        "navigation.route_request": [],
+        "navigation.route_settled": [],
+        "navigation.route_stall_hard_fallback": [],
+        "runtime.activation.degraded": [],
+        "runtime.activation.profile_scope_mismatch": [],
+        "runtime.activation.timeout": [],
+        "runtime.profile_boot_stall_timeout": [],
+        "runtime.startup_auth_state_transition": [],
+        "workspace.leave.committed": [],
+        "workspace.leave.rejected": []
+      },
+      "generatedAtUnixMs": 1791733360960,
+      "recentWarnOrError": [
+        {
+          "atUnixMs": 1791733140256,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733149200,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733157590,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733183161,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733191568,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733218234,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733257547,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733265709,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733287827,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733295941,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733316043,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        },
+        {
+          "atUnixMs": 1791733342986,
+          "level": "warn",
+          "message": null,
+          "name": "account_sync.backup_publish_result",
+          "reasonCode": "message_delete_tombstones_changed"
+        }
+      ],
+      "summary": {
+        "accountSwitchScopeConvergence": {
+          "autoUnlockScopeDriftDetectedCount": 0,
+          "backupRestoreProfileScopeMismatchCount": 0,
+          "latestAutoUnlockReasonCode": null,
+          "latestBackupRestoreReasonCode": null,
+          "latestRuntimeActivationReasonCode": null,
+          "riskLevel": "none",
+          "runtimeActivationProfileScopeMismatchCount": 0
+        },
+        "asyncVoiceNote": {
+          "latestReasonCode": null,
+          "recordingCompleteCount": 0,
+          "recordingEmptyCount": 0,
+          "recordingStartFailedCount": 0,
+          "recordingUnsupportedCount": 0,
+          "riskLevel": "none"
+        },
+        "communityLifecycleConvergence": {
+          "latestHiddenByLedgerStatusCount": null,
+          "latestHydratedFromLedgerOnlyCount": null,
+          "latestHydratedFromPersistedFallbackCount": null,
+          "latestHydratedFromPersistedWithLedgerCount": null,
+          "latestLocalMemberBackfillCount": null,
+          "latestMissingLedgerCoverageCount": null,
+          "latestPersistedDuplicateMergeCount": null,
+          "latestPersistedGroupCount": null,
+          "latestPlaceholderDisplayNameRecoveredCount": null,
+          "recoveryRepairSignalCount": 0,
+          "riskLevel": "none"
+        },
+        "deleteConvergence": {
+          "latestChannel": null,
+          "latestReasonCode": null,
+          "latestResultCode": null,
+          "localAppliedCount": 0,
+          "rejectedCount": 0,
+          "remoteConfirmedCount": 0,
+          "remoteFailedCount": 0,
+          "remoteQueuedCount": 0,
+          "requestedCount": 0,
+          "riskLevel": "none"
+        },
+        "incomingRequestAntiAbuse": {
+          "globalRateLimitedCount": 0,
+          "latestCooldownRemainingMs": null,
+          "latestPeerPubkeyPrefix": null,
+          "latestReasonCode": null,
+          "peerCooldownActiveCount": 0,
+          "peerRateLimitedCount": 0,
+          "quarantinedCount": 0,
+          "riskLevel": "none",
+          "uniquePeerPrefixCount": 0
+        },
+        "m10TrustControls": {
+          "cp2StabilityGateCount": 0,
+          "cp2StabilityGateFailCount": 0,
+          "cp2StabilityGatePassCount": 0,
+          "cp2StabilityGateUnexpectedFailCount": 0,
+          "cp3ReadinessGateCount": 0,
+          "cp3ReadinessGateFailCount": 0,
+          "cp3ReadinessGatePassCount": 0,
+          "cp3ReadinessGateUnexpectedFailCount": 0,
+          "cp3SuiteGateCount": 0,
+          "cp3SuiteGateFailCount": 0,
+          "cp3SuiteGatePassCount": 0,
+          "cp3SuiteGateUnexpectedFailCount": 0,
+          "cp4CloseoutGateCount": 0,
+          "cp4CloseoutGateFailCount": 0,
+          "cp4CloseoutGatePassCount": 0,
+          "cp4CloseoutGateUnexpectedFailCount": 0,
+          "latestCp3ExpectedStable": null,
+          "latestCp3FailedCheckSample": null,
+          "latestCp3Pass": null,
+          "latestCp3SuiteExpectedStable": null,
+          "latestCp3SuiteFailedCheckSample": null,
+          "latestCp3SuitePass": null,
+          "latestCp4CloseoutExpectedStable": null,
+          "latestCp4CloseoutFailedCheckSample": null,
+          "latestCp4CloseoutPass": null,
+          "latestExpectedStable": null,
+          "latestFailedCheckSample": null,
+          "latestPass": null,
+          "latestV130CloseoutExpectedStable": null,
+          "latestV130CloseoutFailedCheckSample": null,
+          "latestV130CloseoutPass": null,
+          "latestV130EvidenceExpectedStable": null,
+          "latestV130EvidenceFailedCheckSample": null,
+          "latestV130EvidencePass": null,
+          "riskLevel": "none",
+          "v130CloseoutGateCount": 0,
+          "v130CloseoutGateFailCount": 0,
+          "v130CloseoutGatePassCount": 0,
+          "v130CloseoutGateUnexpectedFailCount": 0,
+          "v130EvidenceGateCount": 0,
+          "v130EvidenceGateFailCount": 0,
+          "v130EvidenceGatePassCount": 0,
+          "v130EvidenceGateUnexpectedFailCount": 0
+        },
+        "mediaHydrationParity": {
+          "attachmentDropRegressionCount": 0,
+          "criticalHydrationDriftCount": 0,
+          "latestAppliedDmAttachmentCount": null,
+          "latestAppliedGroupAttachmentCount": null,
+          "latestHydratedDmAttachmentCount": null,
+          "latestHydratedGroupAttachmentCount": null,
+          "latestMergedDmAttachmentCount": null,
+          "latestMergedGroupAttachmentCount": null,
+          "riskLevel": "none"
+        },
+        "membershipSendability": {
+          "joinedMembershipRoomKeyMismatchCount": 0,
+          "latestChatStateGroupCount": null,
+          "latestReasonCode": null,
+          "latestVisibleGroupCount": null,
+          "localProfileScopeRoomKeyMissingCount": 0,
+          "noLocalRoomKeysCount": 0,
+          "riskLevel": "none",
+          "roomKeyMissingSendBlockedCount": 0
+        },
+        "realtimeVoiceSession": {
+          "checkpointGateCount": 0,
+          "checkpointGateFailCount": 0,
+          "checkpointGatePassCount": 0,
+          "closeoutGateCount": 0,
+          "closeoutGateFailCount": 0,
+          "closeoutGatePassCount": 0,
+          "connectTimeoutDiagnosticsCount": 0,
+          "connectTimeoutNoOpenRelayCount": 0,
+          "connectingWatchdogGateCount": 0,
+          "connectingWatchdogGateFailCount": 0,
+          "connectingWatchdogGatePassCount": 0,
+          "connectingWatchdogIncidentBundleCount": 0,
+          "connectingWatchdogIncidentBundleFailCount": 0,
+          "connectingWatchdogIncidentBundlePassCount": 0,
+          "connectingWatchdogIncidentGateCloseoutCount": 0,
+          "connectingWatchdogIncidentGateCloseoutFailCount": 0,
+          "connectingWatchdogIncidentGateCloseoutPassCount": 0,
+          "connectingWatchdogIncidentGateCloseoutSelfTestCount": 0,
+          "connectingWatchdogIncidentGateCloseoutSelfTestFailCount": 0,
+          "connectingWatchdogIncidentGateCloseoutSelfTestPassCount": 0,
+          "connectingWatchdogIncidentGateCount": 0,
+          "connectingWatchdogIncidentGateEvidenceCount": 0,
+          "connectingWatchdogIncidentGateEvidenceFailCount": 0,
+          "connectingWatchdogIncidentGateEvidencePassCount": 0,
+          "connectingWatchdogIncidentGateFailCount": 0,
+          "connectingWatchdogIncidentGatePassCount": 0,
+          "connectingWatchdogIncidentGateSelfTestCount": 0,
+          "connectingWatchdogIncidentGateSelfTestFailCount": 0,
+          "connectingWatchdogIncidentGateSelfTestPassCount": 0,
+          "connectingWatchdogSelfTestCount": 0,
+          "connectingWatchdogSelfTestFailCount": 0,
+          "connectingWatchdogSelfTestPassCount": 0,
+          "degradedCount": 0,
+          "latestCheckpointGateFailedCheckSample": null,
+          "latestCheckpointGatePass": null,
+          "latestCloseoutGateFailedCheckSample": null,
+          "latestCloseoutGatePass": null,
+          "latestConnectTimeoutOpenRelayCount": null,
+          "latestConnectTimeoutRtcConnectionState": null,
+          "latestConnectingWatchdogGateFailedCheckSample": null,
+          "latestConnectingWatchdogGatePass": null,
+          "latestConnectingWatchdogIncidentBundleFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentBundlePass": null,
+          "latestConnectingWatchdogIncidentGateCloseoutFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateCloseoutPass": null,
+          "latestConnectingWatchdogIncidentGateCloseoutSelfTestFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateCloseoutSelfTestPass": null,
+          "latestConnectingWatchdogIncidentGateEvidenceFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateEvidencePass": null,
+          "latestConnectingWatchdogIncidentGateFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGatePass": null,
+          "latestConnectingWatchdogIncidentGateSelfTestFailedCheckSample": null,
+          "latestConnectingWatchdogIncidentGateSelfTestPass": null,
+          "latestConnectingWatchdogSelfTestFailedCheckSample": null,
+          "latestConnectingWatchdogSelfTestPass": null,
+          "latestIgnoredReasonCode": null,
+          "latestLongSessionGateFailedCheckSample": null,
+          "latestLongSessionGatePass": null,
+          "latestReasonCode": null,
+          "latestReleaseEvidenceGateFailedCheckSample": null,
+          "latestReleaseEvidenceGatePass": null,
+          "latestReleaseReadinessGateFailedCheckSample": null,
+          "latestReleaseReadinessGatePass": null,
+          "latestToPhase": null,
+          "longSessionGateCount": 0,
+          "longSessionGateFailCount": 0,
+          "longSessionGatePassCount": 0,
+          "recoveryExhaustedCount": 0,
+          "releaseEvidenceGateCount": 0,
+          "releaseEvidenceGateFailCount": 0,
+          "releaseEvidenceGatePassCount": 0,
+          "releaseReadinessGateCount": 0,
+          "releaseReadinessGateFailCount": 0,
+          "releaseReadinessGatePassCount": 0,
+          "riskLevel": "none",
+          "staleEventIgnoredCount": 0,
+          "transitionCount": 0,
+          "unexpectedCheckpointGateFailCount": 0,
+          "unexpectedCloseoutGateFailCount": 0,
+          "unexpectedConnectingWatchdogGateFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentBundleFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateCloseoutFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateCloseoutSelfTestFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateEvidenceFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateFailCount": 0,
+          "unexpectedConnectingWatchdogIncidentGateSelfTestFailCount": 0,
+          "unexpectedConnectingWatchdogSelfTestFailCount": 0,
+          "unexpectedLongSessionGateFailCount": 0,
+          "unexpectedReleaseEvidenceGateFailCount": 0,
+          "unexpectedReleaseReadinessGateFailCount": 0,
+          "unsupportedCount": 0
+        },
+        "searchJumpNavigation": {
+          "domUnresolvedCount": 0,
+          "latestResolutionMode": null,
+          "latestUnresolvedReasonCode": null,
+          "loadExhaustedUnresolvedCount": 0,
+          "requestedCount": 0,
+          "resolvedCount": 0,
+          "riskLevel": "none",
+          "timestampFallbackResolvedCount": 0,
+          "unresolvedCount": 0
+        },
+        "selfAuthoredDmContinuity": {
+          "idSplitDetectedCount": 0,
+          "latestHistoryAuthority": null,
+          "latestHistoryAuthorityReason": null,
+          "latestHydratedOutgoingCount": null,
+          "latestMergedOutgoingCount": null,
+          "persistedRecoveryIndexedEmptyCount": 0,
+          "persistedRecoveryIndexedMissingIncomingCount": 0,
+          "persistedRecoveryIndexedMissingOutgoingCount": 0,
+          "riskLevel": "none",
+          "sparseOutgoingEvidence": null
+        },
+        "uiResponsiveness": {
+          "latestPageTransitionWatchdogElapsedMs": null,
+          "latestRouteMountProbeElapsedMs": null,
+          "latestRouteStallElapsedMs": null,
+          "latestRouteSurface": null,
+          "latestStartupProfileBootPhase": null,
+          "pageTransitionEffectsDisabledCount": 0,
+          "pageTransitionWatchdogTimeoutCount": 0,
+          "riskLevel": "none",
+          "routeMountPerformanceGuardEnabledCount": 0,
+          "routeMountProbeSettledWarnCount": 0,
+          "routeMountProbeSlowCount": 0,
+          "routeRequestCount": 0,
+          "routeSettledCount": 0,
+          "routeStallHardFallbackCount": 0,
+          "startupProfileBootStallTimeoutCount": 0
+        }
+      },
+      "totalBufferedEvents": 500,
+      "windowSize": 300
+    },
+    "digest": {
+      "byLevel": {
+        "debug": 0,
+        "error": 0,
+        "info": 281,
+        "warn": 19
+      },
+      "recentErrors": [],
+      "topNames": [
+        {
+          "count": 68,
+          "name": "account_sync.backup_publish_mutation_suppressed_restore_in_flight"
+        },
+        {
+          "count": 45,
+          "name": "account_sync.backup_publish_result"
+        },
+        {
+          "count": 44,
+          "name": "account_sync.backup_publish_attempt"
+        },
+        {
+          "count": 44,
+          "name": "groups.membership_ledger_save"
+        },
+        {
+          "count": 44,
+          "name": "groups.ledger_field_repair_applied"
+        },
+        {
+          "count": 44,
+          "name": "account_sync.backup_publish_ordering"
+        },
+        {
+          "count": 4,
+          "name": "account_sync.backup_restore_selection"
+        },
+        {
+          "count": 4,
+          "name": "account_sync.backup_restore_result"
+        }
+      ],
+      "total": 500,
+      "warmUpSummary": [],
+      "windowSize": 300
+    },
+    "focusedByCategory": {
+      "media_hydration": [],
+      "navigation": [],
+      "startup": [],
+      "sync_restore": [
+        {
+          "atUnixMs": 1791732753750,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "no_backup"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1791732873732,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "no_backup"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1791732993735,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "no_backup"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1791733113718,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "no_backup"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1791733233736,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "no_backup"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        },
+        {
+          "atUnixMs": 1791733353731,
+          "context": {
+            "convergenceLatencyMs": null,
+            "guardEnabled": false,
+            "reason": "interval",
+            "result": "no_backup"
+          },
+          "level": "info",
+          "name": "account_sync.backup_restore_result",
+          "scope": {
+            "action": "backup_restore",
+            "feature": "account_sync"
+          }
+        }
+      ],
+      "voice_realtime": []
+    }
+  },
+  "generatedAtUnixMs": 1791733360956,
+  "proofTier": "t3",
+  "snapshots": {
+    "relayRuntime": {
+      "activeSubscriptionCount": 0,
+      "enabledRelayUrls": [
+        "ws://localhost:7000"
+      ],
+      "engineCheckpointRelayUrls": [],
+      "engineConfiguredRelayUrls": [],
+      "engineOnlyRelayUrls": [],
+      "engineRelayCheckpointCount": 0,
+      "fallbackRelayUrls": [],
+      "instanceId": "b4f37fe5-d51b-474d-9da4-a8e8c0305971",
+      "lastSuccessfulPublishAtUnixMs": 1791729250175,
+      "pendingOutboundCount": 0,
+      "pendingSubscriptionBatchCount": 0,
+      "phase": "healthy",
+      "profileId": "default",
+      "publicKeyHexSummary": "e07f67dcb8a5",
+      "recovery": {
+        "coolingDownRelayCount": 1,
+        "fallbackRelayUrls": [],
+        "fallbackWritableRelayCount": 0,
+        "lastSuccessfulPublishAtUnixMs": 1791729250175,
+        "readiness": "healthy",
+        "recoveryAttemptCount": 0,
+        "subscribableRelayCount": 1,
+        "writableRelayCount": 1,
+        "writeBlockedRelayCount": 0
+      },
+      "recoveryAttemptCount": 0,
+      "subscribableRelayCount": 1,
+      "supervisorRelayUrlCandidates": [
+        "ws://localhost:7000"
+      ],
+      "transportRoutingMode": "direct",
+      "updatedAtUnixMs": 1791729250175,
+      "windowLabel": "main",
+      "writableRelayCount": 1
+    },
+    "relayTransportJournal": null,
+    "routeMountDiagnostics": {
+      "consecutiveSlowSampleCount": 0,
+      "lastSlowAtUnixMs": null,
+      "recentSamples": [],
+      "slowSampleCount": 0,
+      "worstElapsedMs": 0
+    },
+    "uiResponsiveness": null,
+    "windowRuntime": {
+      "degradedReason": "none",
+      "messagingTransportRuntime": {
+        "activeIncomingOwnerCount": 0,
+        "activeQueueProcessorCount": 0,
+        "updatedAtUnixMs": 1791727108408
+      },
+      "phase": "auth_required",
+      "phaseEnteredAtUnixMs": 1791729248088,
+      "relationshipRuntime": {
+        "acceptedPeerCount": 0,
+        "pendingIncomingCount": 0,
+        "pendingOutgoingCount": 0,
+        "updatedAtUnixMs": 1791727108408
+      },
+      "relayRuntime": {
+        "activeSubscriptionCount": 0,
+        "enabledRelayUrls": [],
+        "engineCheckpointRelayUrls": [],
+        "engineConfiguredRelayUrls": [],
+        "engineOnlyRelayUrls": [],
+        "engineRelayCheckpointCount": 0,
+        "fallbackRelayUrls": [],
+        "instanceId": "relay-runtime",
+        "pendingOutboundCount": 0,
+        "pendingSubscriptionBatchCount": 0,
+        "phase": "booting",
+        "profileId": "default",
+        "recovery": {
+          "coolingDownRelayCount": 0,
+          "fallbackRelayUrls": [],
+          "fallbackWritableRelayCount": 0,
+          "readiness": "offline",
+          "recoveryAttemptCount": 0,
+          "subscribableRelayCount": 0,
+          "writableRelayCount": 0,
+          "writeBlockedRelayCount": 0
+        },
+        "recoveryAttemptCount": 0,
+        "subscribableRelayCount": 0,
+        "supervisorRelayUrlCandidates": [],
+        "transportRoutingMode": "direct",
+        "updatedAtUnixMs": 1791729248088,
+        "windowLabel": "main",
+        "writableRelayCount": 0
+      },
+      "session": {
+        "identityStatus": "locked",
+        "profileId": "default",
+        "profileLabel": "Default",
+        "startupState": {
+          "degradedReasonHint": "none",
+          "identityStatus": "locked",
+          "kind": "stored_locked",
+          "recoveryActions": [
+            "login",
+            "unlock_with_private_key"
+          ],
+          "runtimePhaseHint": "auth_required",
+          "storedPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56"
+        },
+        "storedPublicKeyHex": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+        "windowLabel": "main"
+      },
+      "traces": [
+        {
+          "completedAtUnixMs": 1791725007587,
+          "durationMs": 224,
+          "enteredAtUnixMs": 1791725007363,
+          "outcome": "completed",
+          "phase": "booting"
+        },
+        {
+          "completedAtUnixMs": 1791725007691,
+          "durationMs": 104,
+          "enteredAtUnixMs": 1791725007587,
+          "outcome": "completed",
+          "phase": "binding_profile"
+        },
+        {
+          "completedAtUnixMs": 1791725904630,
+          "durationMs": 896939,
+          "enteredAtUnixMs": 1791725007691,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791725908827,
+          "durationMs": 4197,
+          "enteredAtUnixMs": 1791725904630,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791725926833,
+          "durationMs": 18006,
+          "enteredAtUnixMs": 1791725908827,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791725930786,
+          "durationMs": 3953,
+          "enteredAtUnixMs": 1791725926833,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791725951284,
+          "durationMs": 20498,
+          "enteredAtUnixMs": 1791725930786,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791725955260,
+          "durationMs": 3976,
+          "enteredAtUnixMs": 1791725951284,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791727095500,
+          "durationMs": 1140240,
+          "enteredAtUnixMs": 1791725955260,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791727099006,
+          "durationMs": 3506,
+          "enteredAtUnixMs": 1791727095500,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791727099945,
+          "durationMs": 939,
+          "enteredAtUnixMs": 1791727099006,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791727099954,
+          "durationMs": 9,
+          "enteredAtUnixMs": 1791727099945,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791727104415,
+          "durationMs": 4461,
+          "enteredAtUnixMs": 1791727099954,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791727108408,
+          "durationMs": 3993,
+          "enteredAtUnixMs": 1791727104415,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791729247239,
+          "durationMs": 2138831,
+          "enteredAtUnixMs": 1791727108408,
+          "outcome": "failed",
+          "phase": "auth_required",
+          "reason": "unlock"
+        },
+        {
+          "completedAtUnixMs": 1791729248088,
+          "durationMs": 849,
+          "enteredAtUnixMs": 1791729247239,
+          "outcome": "completed",
+          "phase": "unlocking",
+          "reason": "unlock"
+        },
+        {
+          "enteredAtUnixMs": 1791729248088,
+          "outcome": "entered",
+          "phase": "auth_required"
+        }
+      ],
+      "transportQueue": {
+        "pendingCount": 0,
+        "updatedAtUnixMs": 1791727108408
+      }
+    }
+  },
+  "source": {
+    "locationHref": "http://127.0.0.1:1430/",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36 Edg/154.0.0.0"
+  },
+  "version": "obscur.m0.capture.v1"
+}

@@ -26,6 +26,8 @@ export interface PrivacySettings {
     attackModeSafetyProfileV121?: "standard" | "strict"; // Phase-M10 flag: local-first anti-abuse safety profile
     localMessageRetentionDays?: 0 | 30 | 90; // Local-only chat history window shown in UI
     showPublicKeyControlsInChat?: boolean; // Allow Share ID/public-key controls in chat header
+    /** PB2: opt-in URL-only reputation check before open (default off). */
+    linkSafetyOutboundCheckEnabled?: boolean;
 }
 
 export const defaultPrivacySettings: PrivacySettings = {
@@ -52,6 +54,7 @@ export const defaultPrivacySettings: PrivacySettings = {
     attackModeSafetyProfileV121: "standard",
     localMessageRetentionDays: 0,
     showPublicKeyControlsInChat: false,
+    linkSafetyOutboundCheckEnabled: false,
 };
 
 export type DiscoveryFeatureFlags = Readonly<{

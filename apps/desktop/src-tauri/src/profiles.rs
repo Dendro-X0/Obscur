@@ -185,6 +185,7 @@ fn load_registry(app: &AppHandle) -> PersistedProfileRegistry {
 }
 
 fn emit_profile_isolation_changed(app: &AppHandle) {
+    crate::emit_pressure::note_webview_emit(PROFILE_ISOLATION_CHANGED_EVENT);
     let _ = app.emit(PROFILE_ISOLATION_CHANGED_EVENT, ());
 }
 
@@ -373,14 +374,22 @@ pub(crate) fn main_window_boot_init_script(app: &AppHandle) -> String {
     window_boot_init_script("main", &profile_id, ProfileLaunchMode::Existing)
 }
 
+fn perf_plane_boot_prefix() -> String {
+    format!(
+        r#"window.__OBSCUR_PERF_PLANE__="{}";"#,
+        escape_js_string(crate::perf_plane::label())
+    )
+}
+
 fn window_boot_init_script(window_label: &str, profile_id: &str, launch_mode: ProfileLaunchMode) -> String {
     let launch_mode_json = match launch_mode {
         ProfileLaunchMode::Existing => "existing",
         ProfileLaunchMode::NewWindow => "new_window",
     };
     format!(
-        r#"{}{}"#,
+        r#"{}{}{}"#,
         experiment_shell_boot_prefix(),
+        perf_plane_boot_prefix(),
         format!(
             r#"window.__OBSCUR_WINDOW_BOOT__={{windowLabel:"{}",profileId:"{}",launchMode:"{}"}};"#,
             escape_js_string(window_label),
@@ -413,12 +422,32 @@ pub(crate) fn resolve_profile_window_url(app: &AppHandle) -> WebviewUrl {
 const DEV_WEBVIEW_DEFAULT_BROWSER_ARGS: &str =
     "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection";
 
+/// `0` / `off` / `false` / `no` disables remote debugging for dogfood A/B (lag Slice 1).
 #[cfg(debug_assertions)]
-fn resolve_dev_cdp_port(env_key: &str, default_port: &str) -> String {
-    std::env::var(env_key)
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .unwrap_or_else(|| default_port.to_string())
+fn env_disables_dev_cdp(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "0" | "off" | "false" | "no" | "disable" | "disabled"
+    )
+}
+
+/// `1` / `on` / `true` / `yes` means enable CDP on the default port (not port 1).
+#[cfg(debug_assertions)]
+fn env_enables_dev_cdp_default(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "1" | "on" | "true" | "yes" | "enable" | "enabled"
+    )
+}
+
+#[cfg(debug_assertions)]
+fn resolve_dev_cdp_port(env_key: &str, default_port: &str) -> Option<String> {
+    match std::env::var(env_key) {
+        Ok(value) if env_disables_dev_cdp(&value) => None,
+        Ok(value) if env_enables_dev_cdp_default(&value) => Some(default_port.to_string()),
+        Ok(value) if !value.trim().is_empty() => Some(value.trim().to_string()),
+        _ => Some(default_port.to_string()),
+    }
 }
 
 #[cfg(debug_assertions)]
@@ -428,16 +457,25 @@ fn dev_webview_browser_args(port: &str) -> String {
 
 /// Per-window CDP for main (debug). Do not rely on WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS — it
 /// applies process-wide and prevents a second port on profile WebView2 environments.
+/// Set `OBSCUR_CDP_MAIN=0` (or off/false) to skip CDP for lag dogfood without a release build.
 #[cfg(debug_assertions)]
 pub(crate) fn main_window_additional_browser_args() -> Option<String> {
-    let port = resolve_dev_cdp_port("OBSCUR_CDP_MAIN", "9230");
-    Some(dev_webview_browser_args(&port))
+    match resolve_dev_cdp_port("OBSCUR_CDP_MAIN", "9230") {
+        Some(port) => Some(dev_webview_browser_args(&port)),
+        None => {
+            eprintln!("[obscur] Main window CDP disabled (OBSCUR_CDP_MAIN=0/off)");
+            Some(DEV_WEBVIEW_DEFAULT_BROWSER_ARGS.to_string())
+        }
+    }
 }
 
 fn profile_window_additional_browser_args() -> Option<String> {
     #[cfg(debug_assertions)]
     {
-        let port = resolve_dev_cdp_port("OBSCUR_CDP_PROFILE", "9231");
+        let Some(port) = resolve_dev_cdp_port("OBSCUR_CDP_PROFILE", "9231") else {
+            eprintln!("[PROFILES] Profile window CDP disabled (OBSCUR_CDP_PROFILE=0/off)");
+            return Some(DEV_WEBVIEW_DEFAULT_BROWSER_ARGS.to_string());
+        };
         let args = dev_webview_browser_args(&port);
         eprintln!("[PROFILES] Profile window CDP args: {args}");
         return Some(args);
@@ -445,6 +483,30 @@ fn profile_window_additional_browser_args() -> Option<String> {
     #[cfg(not(debug_assertions))]
     {
         None
+    }
+}
+
+#[cfg(all(test, debug_assertions))]
+mod cdp_dogfood_tests {
+    use super::env_disables_dev_cdp;
+
+    #[test]
+    fn cdp_off_tokens() {
+        assert!(env_disables_dev_cdp("0"));
+        assert!(env_disables_dev_cdp("off"));
+        assert!(env_disables_dev_cdp("FALSE"));
+        assert!(!env_disables_dev_cdp("9230"));
+        assert!(!env_disables_dev_cdp(""));
+    }
+
+    #[test]
+    fn cdp_enable_tokens_are_not_literal_ports() {
+        use super::env_enables_dev_cdp_default;
+        assert!(env_enables_dev_cdp_default("1"));
+        assert!(env_enables_dev_cdp_default("true"));
+        assert!(env_enables_dev_cdp_default("yes"));
+        assert!(!env_enables_dev_cdp_default("9230"));
+        assert!(!env_enables_dev_cdp_default("0"));
     }
 }
 
@@ -493,6 +555,8 @@ fn build_profile_window(app: &AppHandle, binding: &ProfileWindowBinding) -> Resu
         let window = builder
             .build()
             .map_err(|e| e.to_string())?;
+
+        crate::webview_media_permissions::install_webview_media_permissions(&window);
 
         let reveal_window = window.clone();
         let app_handle = app.clone();

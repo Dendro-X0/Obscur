@@ -19,12 +19,16 @@ export const shouldScheduleProfileMetadataHydrateRetry = (params: Readonly<{
   live: boolean;
   hasRelayUrls: boolean;
   attemptCount: number;
-  appliedEvent: boolean;
+  /**
+   * True only after a relay kind-0 event was applied — not after local name seeds.
+   * Local displayName alone must not stop avatar hydrate retries.
+   */
+  appliedRelayKind0: boolean;
 }>): boolean => {
   if (!params.live || !params.needsHydration || !params.hasRelayUrls) {
     return false;
   }
-  if (params.appliedEvent) {
+  if (params.appliedRelayKind0) {
     return false;
   }
   return params.attemptCount < PROFILE_METADATA_HYDRATE_MAX_ATTEMPTS;

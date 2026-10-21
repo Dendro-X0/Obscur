@@ -1,6 +1,7 @@
 # Demo Segment B — Create identity · Profile · lock / unlock (v1.9.16)
 
-**Status:** Recording plan (maintainer) · follows Segment A (~45 s)  
+**Status:** Segment B recorded · silent trim · **~52 s** · 2026-08-17  
+**Next:** [segment-c-relays-transport-v1.9.16.md](./segment-c-relays-transport-v1.9.16.md)  
 **Continues from:** Welcome / auth card after install  
 **Tone:** Calm · moderate pace · short lines (leave air between sentences)  
 **Budget:** Target **~90–150 s** trimmed · full video still **&lt; 10 min**  

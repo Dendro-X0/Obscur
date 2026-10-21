@@ -5,6 +5,13 @@ import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
 import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 
+/** Slice 3h: presence/sign fallbacks must not re-invoke get_session_nsec every tick. */
+let cachedNativeSessionPrivateKeyHex: PrivateKeyHex | null = null;
+
+export const clearResolvedActivePrivateKeyCache = (): void => {
+  cachedNativeSessionPrivateKeyHex = null;
+};
+
 export const resolveActivePrivateKeyHex = async (params: Readonly<{
   privateKeyHex?: PrivateKeyHex;
   expectedPublicKeyHex?: PublicKeyHex;
@@ -31,6 +38,17 @@ export const resolveActivePrivateKeyHex = async (params: Readonly<{
     return decoded;
   }
 
+  if (cachedNativeSessionPrivateKeyHex) {
+    if (
+      params.expectedPublicKeyHex
+      && derivePublicKeyHex(cachedNativeSessionPrivateKeyHex) !== params.expectedPublicKeyHex
+    ) {
+      cachedNativeSessionPrivateKeyHex = null;
+    } else {
+      return cachedNativeSessionPrivateKeyHex;
+    }
+  }
+
   const nsecResult = await invokeNativeCommand<string>("get_session_nsec");
   if (!nsecResult.ok || !nsecResult.value) {
     throw new Error("Unlock session expired. Lock and import your key again.");
@@ -43,5 +61,6 @@ export const resolveActivePrivateKeyHex = async (params: Readonly<{
   if (params.expectedPublicKeyHex && derivePublicKeyHex(decoded) !== params.expectedPublicKeyHex) {
     throw new Error("Private key does not match stored identity.");
   }
+  cachedNativeSessionPrivateKeyHex = decoded;
   return decoded;
 };

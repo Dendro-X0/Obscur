@@ -24,6 +24,7 @@ vi.mock("react-i18next", () => ({
       "settings.tabs.identity": "Identity",
       "settings.tabs.security": "Security",
       "settings.tabs.relays": "Relays",
+      "settings.tabs.protocols": "Protocols/Network",
       "settings.tabs.storage": "Storage",
       "settings.tabs.blocklist": "Blocklist",
       "settings.tabs.privacy": "Privacy",
@@ -162,5 +163,17 @@ describe("SettingsPage mobile section nav", () => {
     const panelScroll = await screen.findByTestId("settings-mobile-panel-scroll");
     expect(within(panelScroll).getByTestId("settings-tab-panel")).toHaveTextContent("security");
     expect(within(panelScroll.parentElement as HTMLElement).getByRole("heading", { name: "Security" })).toBeInTheDocument();
+  });
+
+  it("desktop sidebar uses an independent overflow scroller for nav groups", () => {
+    settingsPageMocks.compactLayout = false;
+    render(<SettingsPage />);
+
+    const sidebar = screen.getByTestId("settings-desktop-sidebar");
+    const sidebarScroll = screen.getByTestId("settings-desktop-sidebar-scroll");
+    expect(sidebar).toHaveClass("min-h-0");
+    expect(sidebarScroll).toHaveClass("overflow-y-auto");
+    expect(within(sidebarScroll).getByText("System")).toBeInTheDocument();
+    expect(within(sidebarScroll).getByRole("button", { name: "Updates" })).toBeInTheDocument();
   });
 });

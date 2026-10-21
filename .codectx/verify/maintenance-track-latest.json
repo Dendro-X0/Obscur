@@ -1,0 +1,877 @@
+{
+  "schema": "studio.maintenance.track@1.0.0",
+  "inputs": {
+    "issuesPresent": true,
+    "issueRowCount": 82,
+    "fingerprintStable": true,
+    "surfacesPresent": true,
+    "surfaceItemCount": 1,
+    "mriPresent": true,
+    "mriVerdict": "remediate",
+    "rwrPresent": false,
+    "rwrMode": null,
+    "sources": [
+      ".codectx/verify/issue-precision-latest.json",
+      ".codactrl/perf/agent/fix-queue.json",
+      ".codectx/verify/maintenance-intake-latest.json"
+    ]
+  },
+  "rows": [
+    {
+      "fingerprint": "finding:cap-4a17a6f54e3d:client_assert",
+      "title": "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-4a17a6f54e3d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-5ad02d69dd30:client_assert",
+      "title": "Client assert failed: textVisible — text not visible: Tester2",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-5ad02d69dd30",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-7c36691a2d41:client_assert",
+      "title": "Client assert failed: domExists — unsupported assert kind: domExists",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-7c36691a2d41",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-9cd8b8df6aea:client_assert",
+      "title": "Client assert failed: textVisible — text not visible: Excluded",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-9cd8b8df6aea",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-bbb6a1d4038e:client_assert",
+      "title": "Client assert failed: textVisible — text not visible: Restoring session",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-bbb6a1d4038e",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:cap-e9215a92a21b:client_assert",
+      "title": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-e9215a92a21b",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-0dd352c0:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=80",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-0dd352c0",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-0e1f7ecd:runtime_digest",
+      "title": "groups.membership_ledger_save — count=91",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-0e1f7ecd",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-1285de34:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=94",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-1285de34",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-1a2cb746:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=122",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-1a2cb746",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-1df0fe98:runtime_digest",
+      "title": "relay.transport_engine_pool_subscribe — count=67",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-1df0fe98",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-2c1367c9:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=130",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-2c1367c9",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-2e9ceb7a:runtime_digest",
+      "title": "groups.membership_ledger_save — count=114",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-2e9ceb7a",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-2f97294f:runtime_digest",
+      "title": "groups.membership_ledger_save — count=89",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-2f97294f",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-317657e4:runtime_digest",
+      "title": "groups.ledger_validation_issues — count=111",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-317657e4",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-404cdd17:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=132",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-404cdd17",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-4720432c:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=63",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-4720432c",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-4a171a35:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=137",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-4a171a35",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-4ce5736c:runtime_digest",
+      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=92",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-4ce5736c",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-5100471d:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=51",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-5100471d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-52dd9177:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=95",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-52dd9177",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-557a133d:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=64",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-557a133d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-58357786:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=158",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-58357786",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-5f618e64:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=153",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-5f618e64",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-6f961537:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=157",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-6f961537",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-7be52e18:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=72",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-7be52e18",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-7f9100c4:runtime_digest",
+      "title": "groups.ledger_validation_issues — count=118",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-7f9100c4",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-91576178:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=149",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-91576178",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-a017a981:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=42",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-a017a981",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-a8d78552:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=63",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-a8d78552",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-aca31c9d:runtime_digest",
+      "title": "workspace.thread.hydrate — count=120",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-aca31c9d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-b240536d:runtime_digest",
+      "title": "groups.membership_ledger_save — count=34",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-b240536d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-b2bb9bad:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=97",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-b2bb9bad",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-b72efd02:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=94",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-b72efd02",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-bf3a84e1:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=101",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-bf3a84e1",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-bfbf96a4:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=85",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-bfbf96a4",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-c2485378:runtime_digest",
+      "title": "workspace.thread.hydrate — count=84",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-c2485378",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-cebc13ad:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=42",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-cebc13ad",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-d3266449:runtime_digest",
+      "title": "workspace.thread.hydrate — count=109",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-d3266449",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-d730591d:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=107",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-d730591d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-d91cd690:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=117",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-d91cd690",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-da76af2d:runtime_digest",
+      "title": "groups.ledger_migration_needed — count=36",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-da76af2d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-dbc61eef:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=149",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-dbc61eef",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-ddc3994e:runtime_digest",
+      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=89",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-ddc3994e",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-dff9f60a:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=64",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-dff9f60a",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-e45873e1:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=64",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-e45873e1",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-f05dbc35:runtime_digest",
+      "title": "groups.membership_ledger_save — count=89",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-f05dbc35",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-f6ffae1c:runtime_digest",
+      "title": "groups.ledger_field_repair_applied — count=110",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-f6ffae1c",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-f9cb9bcd:runtime_digest",
+      "title": "groups.ledger_validation_issues — count=127",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-f9cb9bcd",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-fc0c8590:runtime_digest",
+      "title": "groups.ledger_validation_issues — count=123",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-fc0c8590",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-fc82c518:runtime_digest",
+      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=90",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-fc82c518",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-fc9c865f:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=50",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-fc9c865f",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:fault-ff028f72:runtime_digest",
+      "title": "messaging.delete_for_everyone_remote_result — count=176",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-ff028f72",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "finding:health.allowlist.missing:security-surface",
+      "title": "OH3 health allowlist missing",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "security:health.allowlist.missing"
+      ]
+    },
+    {
+      "fingerprint": "finding:health.probe.no_allowlist:security-surface",
+      "title": "Health probe without allowlist",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "security:health.probe.no_allowlist"
+      ]
+    },
+    {
+      "fingerprint": "finding:honesty.cdp_open:security-surface",
+      "title": "CDP open ≠ auth secure",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "security:honesty.cdp_open"
+      ]
+    },
+    {
+      "fingerprint": "finding:honesty.stack_preflight:security-surface",
+      "title": "Stack preflight ≠ security audit",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "security:honesty.stack_preflight"
+      ]
+    },
+    {
+      "fingerprint": "finding:ladder-blocked:validation-ladder",
+      "title": "Validation ladder incomplete at blocked",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "validation-ladder:rung:blocked"
+      ]
+    },
+    {
+      "fingerprint": "finding:security.allowlist.absent:security-surface",
+      "title": "Optional security.allowlist absent",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "security:security.allowlist.absent"
+      ]
+    },
+    {
+      "fingerprint": "symptom:COM-RUN-11",
+      "title": "COM-RUN-11 round23: Tester2 DM shows only superseded/canceled NewTest 2 invite cards — no live invite",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:1591f00d1d6bb8eb",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:O-1",
+      "title": "Rapid DMs → notification storm",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "orientation:landmine:O-1"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-2",
+      "title": "Outgoing DM vanishes after cold restart",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "orientation:landmine:O-2"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-3",
+      "title": "Relay offline flash on every refresh",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "orientation:landmine:O-3"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-4",
+      "title": "Group thread messages never appear from relay",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "orientation:landmine:O-4"
+      ]
+    },
+    {
+      "fingerprint": "symptom:O-5",
+      "title": "Shipped feeling despite broken core",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "packRefs": [
+        "orientation:landmine:O-5"
+      ]
+    },
+    {
+      "fingerprint": "symptom:auth-keychain-restore-failed",
+      "title": "RIW-9 chain blocked: cold boot lands on /sign-in; auth.kernel_boot_restore_no_keychain; native auto-unlock absent",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:65689a26d16d5fd0",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:codactrl-missing-settings-step-label",
+      "title": "No settings-tab stepLabel in Obscur selector pack",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:58fba9ffbf278c6f",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:community-roster-divergence",
+      "title": "COM-RUN-01 round21: Tester2 Group sidebar empty — NewTest 2 not listed while T1 has community",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:64baee5012722dfa",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:coordination-membership-deltas-unreachable",
+      "title": "RIW-4 re-verify 2026-07-01: curl CORS OK; browser 0× REFUSED/CORS with 8787 up; desktop-only REFUSED still valid dev gap",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:3998a202591a45aa",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-normalize-is-outgoing-mismatch",
+      "title": "messaging.delete_for_everyone_remote_result — count=104",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-edf6e955",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-normalize-outgoing-mismatch",
+      "title": "RIW-3 re-verify 2026-07-01: 36 dm_normalize mismatches when locked; 0 after unlock with empty DM thread (RIW-2 mask)",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:b208fd14aa0d3b45",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-ui-split-brain",
+      "title": "RIW-9 round2: warm Tester1 — Tester2 DM 11 msgs, O2 visible, splitBrainSuspected=false",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:39938a676576819d",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:dm-vanishes-cold-restart",
+      "title": "O-2 Phase1C t4 VERIFIED: O2-phase1c-coldrestart-070T0559 persists after taskkill + password unlock (eventId 168d95740472995d)",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:10ae33ad355320dc",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:group-room-key-missing",
+      "title": "Client assert failed: textVisible — text not visible: Room key missing",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:assert:cap-8ec91475da6b",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:group-thread-relay-ingest",
+      "title": "messaging.delete_for_everyone_remote_result — count=62",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-90f591d2",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:groups-ledger-validation",
+      "title": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:56d6ef6f5831f080",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:groups.room_key_missing_send_blocked",
+      "title": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:3aa8584ac1e8095f",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:high-tier-t0-steps",
+      "title": "Scenario `obscur-dev-lab-gate` defaultTier=T4 but only T0 fileExists/fileContains steps",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:false-green:verify:false-green:oxd6-high-tier-t0-steps:obscur-dev-lab-gate",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:navigation-settings-auth-kick",
+      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:fault:fault-9a209d25",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:projection-authority-not-ready",
+      "title": "RIW-2 re-verify 2026-07-01: authority oscillates projection_not_ready↔cutover; projection/sqlite count split; DM thread empty despite sidebar listing",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:f6847ce03827c2e2",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "symptom:relay-partial-stack-desktop-only",
+      "title": "Step 8 RIW-5 re-verify: relay healthy on public relays (writable 1/ subscribable 4); :7000 still down; O-3 offline flash NOT seen on Chats↔Network nav; coordination :8787 up",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:agent:e4a1ecdcaab37c63",
+      "packRefs": []
+    },
+    {
+      "fingerprint": "unmapped:capture-digest",
+      "title": "Unmapped runtime capture digests (×25)",
+      "domain": "verify",
+      "stage": "prove",
+      "source": "issue-precision",
+      "issueId": "verify:issue:unmapped-captures",
+      "packRefs": []
+    }
+  ],
+  "stages": [
+    "triage",
+    "prove",
+    "remediate",
+    "blocked",
+    "parked"
+  ],
+  "pathway": {
+    "id": "pathways.maintenanceTrack",
+    "title": "Cross-domain maintenance track (MTX)",
+    "steps": [
+      "studio_help → maintenanceTrack / pathways.maintenanceTrack",
+      "Prefer when triage spans Perf + Verify (+ Design/Deliver); OFP5-only when precision hub alone suffices",
+      "studio_repo { action: \"studio_maintenance_track\" }",
+      "Optional domain=perf|verify|design|deliver filter — empty filtered set ≠ green",
+      "Follow nextMcpSequence (OFP5 / Perf / MRI / RWR as needed)"
+    ],
+    "whenToUse": [
+      "Issues + surfaces (or MRI/RWR) need one surgical list",
+      "After MRI remediate when multi-desk work remains",
+      "After OFP5 when agents start inventing parallel trackers"
+    ],
+    "preferOverOfp5Only": [
+      "Need Perf fix-queue rows beside Verify fingerprints",
+      "Need MRI/RWR pointers on the same track",
+      "Need domain/stage labels for surgical ordering"
+    ],
+    "domainFilters": [
+      "domain=perf — structural surface / API / data rows",
+      "domain=verify — prove / stress / security / orientation-linked",
+      "domain=design — RWR standards pointer",
+      "domain=deliver — handoff / Jobs-linked (when present)",
+      "Missing hubs with filter → empty rows; emptyGreen stays false"
+    ],
+    "stageHonesty": [
+      "triage — unknown / cold / decide next desk",
+      "prove — Verify ladder / ARP / stress before ship cite",
+      "remediate — finite surgical fix (MRI remediate path)",
+      "blocked — waiting on hub/export/alignment",
+      "parked — rewrite/design hold; not abandoned silently",
+      "Stages are labels, not a workflow engine"
+    ],
+    "doesNotProve": [
+      "jira_replacement",
+      "product_fixed",
+      "live_cdp",
+      "empty_hubs_mean_green"
+    ]
+  },
+  "links": [
+    {
+      "kind": "issue-precision",
+      "path": ".codectx/verify/issue-precision-latest.json",
+      "status": "present",
+      "note": "OFP5 hub — fingerprint rows linked without minting duplicates"
+    },
+    {
+      "kind": "fix-queue",
+      "path": ".codactrl/perf/agent/fix-queue.json",
+      "status": "present",
+      "note": "Perf structural surfaces (hub-first)"
+    },
+    {
+      "kind": "maintenance-intake",
+      "path": ".codectx/verify/maintenance-intake-latest.json",
+      "status": "present",
+      "note": "MRI verdict / surfaces summary"
+    },
+    {
+      "kind": "rewrite-standards",
+      "path": ".codectx/verify/rewrite-standards-latest.json",
+      "status": "absent",
+      "note": "RWR pack pointer (design domain)"
+    }
+  ],
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_repo { action: \"studio_maintenance_track\" }",
+      "purpose": "Already done — cross-domain maintenance track"
+    },
+    {
+      "order": 2,
+      "tool": "studio_perf { action: \"perf_findings_list\" }",
+      "purpose": "Inspect Perf surface findings already on the track",
+      "when": "surfaces.present=true"
+    },
+    {
+      "order": 3,
+      "tool": "studio_verify { action: \"verify_issues_list\" }",
+      "purpose": "Read register rows without inventing a second tracker"
+    }
+  ],
+  "emptyGreen": false,
+  "openQuestions": [],
+  "doesNotProve": [
+    "MTX track pack is not a Jira replacement",
+    "MTX does not prove product fixed or live CDP",
+    "MTX does not mutate subject repos or rebuild registers",
+    "MTX does not claim Design ZIP / Deliver apply",
+    "Empty track rows with missing hubs ≠ green clearance"
+  ],
+  "notes": [
+    "MTX1/MTX2 cross-domain track: prefer this over inventing parallel issue lists",
+    "Composed 82 track rows from hubs only (no explore/CDP forced)",
+    "emptyGreen=false — missing hubs never imply all-clear"
+  ]
+}

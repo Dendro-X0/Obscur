@@ -27,7 +27,10 @@ import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref"
 import { useRelayCapabilities } from "@/app/features/relays/hooks/use-relay-capabilities";
 import { isManagedWorkspaceRelayGateBlocking, resolveManagedWorkspaceRelayGate, } from "../services/community-mode-contract";
 import type { CommunityMode } from "../types/community-mode";
-import { resolveCommunityStewardPolicy } from "../services/community-steward-policy";
+import { assessCommunityModeHostingConvert } from "../services/community-mode-convert-policy";
+import { probeCoordinationHealth } from "../services/community-coordination-health";
+import { resolveCommunityStewardPolicy, resolveStewardRoleMutation } from "../services/community-steward-policy";
+import { normalizeWorkspaceRelayUrl } from "../services/workspace-relay-url";
 import { resolveCommunityDirectoryMaterializationHonesty } from "../services/community-directory-materialization-policy";
 import { readMembershipSyncMode } from "../services/community-membership-sync-mode";
 import type { MembershipEvidenceUiContext } from "../utils/community-membership-evidence-display";
@@ -80,7 +83,7 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
     const poolRef = useRelayPoolRef(pool);
     const router = useRouter();
     const { t } = useTranslation();
-    const { communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId } = useGroups();
+    const { communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, updateGroup } = useGroups();
     const { presence } = useNetwork();
     const localMemberPubkey = myPublicKeyHex;
     const initialMemberSeed = React.useMemo<ReadonlyArray<PublicKeyHex>>(() => getResolvedClientGateway().communityRoster.resolveSeedMemberPubkeysFromDirectory({
@@ -121,6 +124,10 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
     const [editAccess, setEditAccess] = useState<GroupAccessMode>("invite-only");
     const [editBotPubkeys, setEditBotPubkeys] = useState<ReadonlyArray<PublicKeyHex>>([]);
     const [editBotTriggers, setEditBotTriggers] = useState<ReadonlyArray<CommunityBotTriggerEntry>>([]);
+    const [editCommunityMode, setEditCommunityMode] = useState<CommunityMode>("sovereign_room");
+    const [editRelayHost, setEditRelayHost] = useState("");
+    const [convertHonestyAcked, setConvertHonestyAcked] = useState(false);
+    const [coordinationHealthy, setCoordinationHealthy] = useState<boolean | null>(null);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [provisionalOverlayEpoch, setProvisionalOverlayEpoch] = useState(0);
     const [mutedMembers, setMutedMembers] = useState<string[]>([]);
@@ -128,7 +135,13 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
     const getScopedMutedMembersKey = (groupId: string): string => (getScopedStorageKey(`obscur_group_muted_members_${groupId}`, getResolvedProfileId()));
     const getLegacyMutedMembersKey = (groupId: string): string => `obscur_group_muted_members_${groupId}`;
     const notificationPreferenceProfileId = getResolvedProfileId();
-    const isLocalAdmin = group.adminPubkeys?.includes(myPublicKeyHex || "") || false;
+    const isLocalAdmin = Boolean(
+        myPublicKeyHex
+        && (
+            group.adminPubkeys?.includes(myPublicKeyHex)
+            || group.creatorPubkey === myPublicKeyHex
+        ),
+    );
     const isAdmin = state.membership.role === "member" || isLocalAdmin;
     const isOwner = isAdmin;
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -254,6 +267,24 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
             setEditBotTriggers(readBotTriggersFromMetadataField(state.metadata.botTriggers));
         }
     }, [state.metadata, group.communityId, group.displayName, group.groupId]);
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+        const mode = (state.metadata?.communityMode ?? group.communityMode) === "managed_workspace"
+            ? "managed_workspace"
+            : "sovereign_room";
+        setEditCommunityMode(mode);
+        setEditRelayHost(group.relayUrl.replace(/^wss?:\/\//i, "").replace(/\/$/, ""));
+        setConvertHonestyAcked(false);
+        setCoordinationHealthy(null);
+        void probeCoordinationHealth({ force: true }).then((snapshot) => {
+            setCoordinationHealthy(snapshot.healthy);
+        });
+    }, [group.communityMode, group.relayUrl, isOpen, state.metadata?.communityMode]);
+    useEffect(() => {
+        setConvertHonestyAcked(false);
+    }, [editCommunityMode, editRelayHost]);
     useEffect(() => {
         setEditBotTriggers((current) => normalizeBotTriggersForDescriptor(current, editBotPubkeys));
     }, [editBotPubkeys]);
@@ -402,7 +433,43 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
         state.metadata?.communityMode,
         state.metadata?.stewardPubkeys,
     ]);
-    const requiresMemberVote = stewardPolicy.requiresGovernanceVoteForDescriptor;
+    const stewardPubkeysEmpty = (state.metadata?.stewardPubkeys?.length ?? 0) === 0;
+    // CU-UX-6: designated stewards, solo direct, or local admin bootstrapping empty steward list.
+    const canConvertDirect = stewardPolicy.canDirectDescriptorUpdate
+        || stewardPolicy.isDesignatedSteward
+        || (isLocalAdmin && stewardPubkeysEmpty);
+    const convertAssessment = React.useMemo(() => assessCommunityModeHostingConvert({
+        currentMode: state.metadata?.communityMode ?? group.communityMode,
+        currentRelayUrl: group.relayUrl,
+        nextMode: editCommunityMode,
+        nextRelayHostOrUrl: editRelayHost,
+        actorPublicKeyHex: myPublicKeyHex,
+        actorCanConvertDirect: canConvertDirect,
+        honestyAcked: convertHonestyAcked,
+        coordinationHealthy: coordinationHealthy === true
+            ? true
+            : coordinationHealthy === false
+                ? false
+                : undefined,
+        enabledRelayUrls: relayList.state.relays.map((relay) => relay.url),
+        currentStewardPubkeys: state.metadata?.stewardPubkeys,
+    }), [
+        canConvertDirect,
+        convertHonestyAcked,
+        coordinationHealthy,
+        editCommunityMode,
+        editRelayHost,
+        group.communityMode,
+        group.relayUrl,
+        myPublicKeyHex,
+        relayList.state.relays,
+        state.metadata?.communityMode,
+        state.metadata?.stewardPubkeys,
+    ]);
+    const convertBlocksSave = (convertAssessment.modeChanged || convertAssessment.hostChanged)
+        && !convertAssessment.allowed;
+    const requiresMemberVote = stewardPolicy.requiresGovernanceVoteForDescriptor
+        && !canConvertDirect;
     React.useEffect(() => {
         const profileId = getResolvedProfileId();
         const terminalChanged = stripTerminalCommunityMembersWithActiveEvidence({
@@ -505,6 +572,58 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
             setKickingMemberPubkey(null);
         }
     };
+    const canManageStewards = (state.metadata?.communityMode ?? group.communityMode) === "managed_workspace"
+        && stewardPolicy.isDesignatedSteward
+        && stewardPolicy.canDirectDescriptorUpdate
+        && !managedWorkspaceActionsBlocked;
+    const stewardPubkeySet = React.useMemo(
+        () => new Set((state.metadata?.stewardPubkeys ?? []).map((entry) => entry.trim().toLowerCase())),
+        [state.metadata?.stewardPubkeys],
+    );
+    const handleToggleSteward = async (memberPubkey: string) => {
+        if (!requireManagedWorkspaceRelayGate()) {
+            return;
+        }
+        const normalizedTarget = memberPubkey.trim().toLowerCase();
+        const isSteward = stewardPubkeySet.has(normalizedTarget);
+        const mutation = resolveStewardRoleMutation({
+            communityMode: state.metadata?.communityMode ?? group.communityMode,
+            stewardPubkeys: state.metadata?.stewardPubkeys,
+            actorPublicKeyHex: myPublicKeyHex,
+            targetPublicKeyHex: memberPubkey,
+            action: isSteward ? "demote" : "promote",
+            activeMemberPubkeys: activeMembers,
+        });
+        if (!mutation.allowed) {
+            const message = mutation.reasonCode === "last_steward"
+                ? t("groups.management.members.lastStewardBlocked")
+                : t("groups.management.members.stewardRoleBlocked");
+            toast.error(message);
+            return;
+        }
+        try {
+            await updateMetadata({
+                id: group.groupId,
+                name: state.metadata?.name || group.displayName || group.groupId,
+                about: state.metadata?.about,
+                picture: state.metadata?.picture,
+                access: state.metadata?.access ?? group.access ?? "invite-only",
+                communityMode: state.metadata?.communityMode ?? group.communityMode,
+                relayCapabilityTier: state.metadata?.relayCapabilityTier ?? group.relayCapabilityTier,
+                hostingTier: state.metadata?.hostingTier ?? group.hostingTier,
+                stewardPubkeys: [...mutation.nextStewardPubkeys],
+                botPubkeys: state.metadata?.botPubkeys,
+                botTriggers: state.metadata?.botTriggers,
+                descriptorVersion: state.metadata?.descriptorVersion,
+            });
+            toast.success(isSteward
+                ? t("groups.management.members.stewardRemoved")
+                : t("groups.management.members.stewardAdded"));
+        }
+        catch (error) {
+            toast.error(resolveUserFacingErrorMessage(error, t("groups.management.members.stewardRoleFailed")));
+        }
+    };
     const handleRotateKey = async () => {
         if (!requireManagedWorkspaceRelayGate()) {
             return;
@@ -539,27 +658,71 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
     if (!isOpen)
         return null;
     const handleSaveGeneral = async () => {
-        if (!requireManagedWorkspaceRelayGate()) {
+        const converting = convertAssessment.modeChanged || convertAssessment.hostChanged;
+        if (converting) {
+            if (!convertAssessment.allowed) {
+                toast.error(convertAssessment.userMessage || t("groups.manage.convert.blockedToast"));
+                return;
+            }
+        }
+        else if (!requireManagedWorkspaceRelayGate()) {
             return;
         }
         setIsSaving(true);
         try {
+            const nextMode = converting ? convertAssessment.nextCommunityMode : (state.metadata?.communityMode ?? group.communityMode);
+            const nextHostingTier = converting
+                ? convertAssessment.nextHostingTier
+                : (state.metadata?.hostingTier ?? group.hostingTier);
+            const nextRelayCapabilityTier = converting
+                ? convertAssessment.nextRelayCapabilityTier
+                : (state.metadata?.relayCapabilityTier ?? group.relayCapabilityTier);
+            let nextStewardPubkeys = converting
+                ? [...convertAssessment.seedStewardPubkeys]
+                : [...(state.metadata?.stewardPubkeys ?? [])];
+            // Self-heal managed teams with empty steward list (member-vote trap).
+            if (nextMode === "managed_workspace" && nextStewardPubkeys.length === 0 && myPublicKeyHex && canConvertDirect) {
+                nextStewardPubkeys = [myPublicKeyHex];
+            }
+            const nextRelayUrl = converting
+                ? convertAssessment.nextRelayUrl
+                : normalizeWorkspaceRelayUrl(group.relayUrl);
             const metadataPayload = {
                 id: group.groupId,
                 name: editName,
                 about: editAbout,
                 picture: editPicture,
                 access: editAccess,
+                communityMode: nextMode,
+                hostingTier: nextHostingTier,
+                relayCapabilityTier: nextRelayCapabilityTier,
+                stewardPubkeys: nextStewardPubkeys,
                 botPubkeys: editBotPubkeys,
                 botTriggers: normalizeBotTriggersForDescriptor(editBotTriggers, editBotPubkeys),
+                descriptorVersion: state.metadata?.descriptorVersion,
             };
-            if (requiresMemberVote) {
+            if (requiresMemberVote && !converting) {
                 await proposeDescriptorUpdate(metadataPayload);
                 toast.success("Governance proposal created");
             }
             else {
                 await updateMetadata(metadataPayload);
-                toast.success("Community settings updated");
+                if (converting) {
+                    updateGroup({
+                        groupId: group.groupId,
+                        relayUrl: group.relayUrl,
+                        conversationId: group.id,
+                        updates: {
+                            communityMode: nextMode,
+                            hostingTier: nextHostingTier,
+                            relayCapabilityTier: nextRelayCapabilityTier,
+                            relayUrl: nextRelayUrl,
+                        },
+                    });
+                }
+                toast.success(converting
+                    ? t("groups.manage.convert.savedToast")
+                    : "Community settings updated");
             }
         }
         catch (error) {
@@ -637,19 +800,19 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
                             <Button type="button" variant="ghost" onClick={onClose} className="rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
                                 {t("common.cancel")}
                             </Button>
-                                        <Button type="button" onClick={() => void handleSaveGeneral()} disabled={isSaving || managedWorkspaceActionsBlocked} className="rounded-lg bg-violet-600 px-6 hover:bg-violet-500">
+                                        <Button type="button" onClick={() => void handleSaveGeneral()} disabled={isSaving || convertBlocksSave || (!convertAssessment.modeChanged && !convertAssessment.hostChanged && managedWorkspaceActionsBlocked)} className="rounded-lg bg-violet-600 px-6 hover:bg-violet-500" data-testid="group-manage-save">
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                                {requiresMemberVote ? t("groups.management.proposeChanges") : t("groups.management.saveChanges")}
+                                {requiresMemberVote && !convertAssessment.modeChanged && !convertAssessment.hostChanged ? t("groups.management.proposeChanges") : t("groups.management.saveChanges")}
                                         </Button>
                                         </div>) : undefined}>
-                {activeTab === "general" ? (<GroupManagementGeneralPanel editName={editName} setEditName={setEditName} editAbout={editAbout} setEditAbout={setEditAbout} editPicture={editPicture} editAccess={editAccess} setEditAccess={setEditAccess} isAdmin={isAdmin} isUploading={isUploading} onPickAvatar={() => void handlePickAvatar()} requiresMemberVote={requiresMemberVote} stewardPolicy={stewardPolicy} communityMode={group.communityMode} relayUrl={group.relayUrl} relayCapabilities={relayCapabilities} isRelayCapabilitiesLoading={isRelayCapabilitiesLoading} managedWorkspaceRelayGate={managedWorkspaceRelayGate} editBotPubkeys={editBotPubkeys} onEditBotPubkeysChange={setEditBotPubkeys} editBotTriggers={editBotTriggers} onEditBotTriggersChange={setEditBotTriggers} requiresGovernanceProposal={requiresMemberVote}/>) : null}
+                {activeTab === "general" ? (<GroupManagementGeneralPanel editName={editName} setEditName={setEditName} editAbout={editAbout} setEditAbout={setEditAbout} editPicture={editPicture} editAccess={editAccess} setEditAccess={setEditAccess} isAdmin={isAdmin} isUploading={isUploading} onPickAvatar={() => void handlePickAvatar()} requiresMemberVote={requiresMemberVote} stewardPolicy={stewardPolicy} communityMode={group.communityMode} relayUrl={group.relayUrl} relayCapabilities={relayCapabilities} isRelayCapabilitiesLoading={isRelayCapabilitiesLoading} managedWorkspaceRelayGate={managedWorkspaceRelayGate} editBotPubkeys={editBotPubkeys} onEditBotPubkeysChange={setEditBotPubkeys} editBotTriggers={editBotTriggers} onEditBotTriggersChange={setEditBotTriggers} requiresGovernanceProposal={requiresMemberVote} canConvertDirect={canConvertDirect} showStewardBootstrapHint={canConvertDirect && stewardPubkeysEmpty && (editCommunityMode === "managed_workspace" || (state.metadata?.communityMode ?? group.communityMode) === "managed_workspace")} editCommunityMode={editCommunityMode} setEditCommunityMode={setEditCommunityMode} editRelayHost={editRelayHost} setEditRelayHost={setEditRelayHost} convertHonestyAcked={convertHonestyAcked} setConvertHonestyAcked={setConvertHonestyAcked} convertAssessment={convertAssessment}/>) : null}
 
                 {activeTab === "members" ? (<GroupManagementMembersPanel visibleMemberPubkeys={visibleMemberRegistry} relayBackedMemberPubkeys={activeMembers} provisionalMemberPubkeys={provisionalMemberPubkeys} memberSearchQuery={memberSearchQuery} setMemberSearchQuery={setMemberSearchQuery} resolvedNames={resolvedNames} onlineMemberCount={onlineMemberCount} operatorHealth={operatorHealth} myPublicKeyHex={myPublicKeyHex} isAdmin={isAdmin} mutedMembers={mutedMembers} kickingMemberPubkey={kickingMemberPubkey} currentTime={currentTime} onInvite={() => {
                 if (!requireManagedWorkspaceRelayGate()) {
                     return;
                 }
                 setIsInviteModalOpen(true);
-            }} onToggleMute={toggleMute} onVoteKick={(pubkey) => void handleVoteKick(pubkey)} syncConfidenceLevel={syncConfidenceLevel} isPoolConnected={pool !== null} terminalRecordCount={terminalRecordCount} onReconcileMembership={handleReconcileMembership} onClearTerminalMembership={handleClearTerminalMembership} managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked} directoryHonesty={directoryHonesty} membershipEvidenceUiContext={membershipEvidenceUiContext}/>) : null}
+            }} onToggleMute={toggleMute} onVoteKick={(pubkey) => void handleVoteKick(pubkey)} stewardPubkeys={state.metadata?.stewardPubkeys ?? []} canManageStewards={canManageStewards} onToggleSteward={(pubkey) => void handleToggleSteward(pubkey)} syncConfidenceLevel={syncConfidenceLevel} isPoolConnected={pool !== null} terminalRecordCount={terminalRecordCount} onReconcileMembership={handleReconcileMembership} onClearTerminalMembership={handleClearTerminalMembership} managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked} directoryHonesty={directoryHonesty} membershipEvidenceUiContext={membershipEvidenceUiContext}/>) : null}
 
                 {activeTab === "governance" ? (<GroupManagementGovernancePanel proposals={activeGovernanceProposals} myPublicKeyHex={myPublicKeyHex} describeProposal={describeGovernanceProposal} onVote={(params) => void castGovernanceVote(params)} managedWorkspaceActionsBlocked={managedWorkspaceActionsBlocked}/>) : null}
 

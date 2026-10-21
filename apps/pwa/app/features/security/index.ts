@@ -87,7 +87,42 @@ export { SendCeremonyDialog } from "./components/send-ceremony-dialog";
 export { LinkOpenConfirmDialog } from "./components/link-open-confirm-dialog";
 export { VaultWriteUnlockDialog } from "./components/vault-write-unlock-dialog";
 export { AttachmentExportConfirmDialog } from "./components/attachment-export-confirm-dialog";
-export { useGuardedExternalLinkOpen } from "./hooks/use-guarded-external-link-open";
+export {
+  useGuardedExternalLinkOpen,
+  type LinkOpenDialogPhase,
+  type GuardedExternalLinkOpen,
+} from "./hooks/use-guarded-external-link-open";
+
+export {
+  buildUrlHausFormBody,
+  fetchUrlReputation,
+  fetchUrlReputationForRequest,
+  mapUrlHausResponseToVerdict,
+  URLHAUS_URL_LOOKUP_ENDPOINT,
+  type UrlReputationLookupResult,
+  type UrlReputationVerdict,
+} from "./services/link-safety-reputation-client";
+
+export {
+  buildLinkSafetyConsentCopy,
+  isLinkSafetyOutboundCheckEnabled,
+  LINK_SAFETY_DEFAULT_PROVIDER_LABEL,
+  resolveLinkSafetyAfterCancel,
+  resolveLinkSafetyOpenDecision,
+  type LinkSafetyCancelBehavior,
+  type LinkSafetyConsentCopy,
+  type LinkSafetyOpenDecision,
+  type LinkSafetyPolicyInput,
+} from "./services/link-safety-policy";
+
+export {
+  buildUrlReputationRequest,
+  reputationRequestPayloadKeys,
+  type UrlReputationBuildRejectReason,
+  type UrlReputationBuildResult,
+  type UrlReputationBuilderInput,
+  type UrlReputationRequest,
+} from "./services/link-safety-request-builder";
 
 export {
   acknowledgeSendCeremony,

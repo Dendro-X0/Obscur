@@ -98,6 +98,28 @@ describe("ContactRequestThreadBanner (ASE-1d-e)", () => {
     expect(screen.getByRole("button", { name: /cancel request/i })).toBeInTheDocument();
   });
 
+  it("shows relay-pending banner with retry button when relayPending is true", async () => {
+    const onRetry = vi.fn(async () => {});
+    renderBanner(
+      <ContactRequestThreadBanner
+        displayName="DemoUser"
+        peerPublicKeyHex={PEER}
+        isInitiator={false}
+        onAcceptConfirm={vi.fn()}
+        onDecline={vi.fn()}
+        relayPending
+        onRetryRelayNotification={onRetry}
+      />,
+    );
+
+    expect(screen.getByTestId("contact-request-relay-pending-banner")).toBeInTheDocument();
+    expect(screen.getByText(/relay notification pending/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /retry now/i }));
+    await waitFor(() => {
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("shows resend affordance for outgoing declined requests", async () => {
     const onResendRequest = vi.fn(async () => {});
     renderBanner(

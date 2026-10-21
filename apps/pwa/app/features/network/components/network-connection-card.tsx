@@ -5,8 +5,14 @@ import { ChevronRight, ShieldCheck } from "lucide-react";
 import { cn } from "@dweb/ui-kit/cn";
 import { useTranslation } from "react-i18next";
 import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-profile-metadata";
-const PRIVATE_CONTACT_LABEL = "Unknown contact";
-const PRIVATE_CONTACT_IDENTITY_HINT = "Identity hidden";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { resolvedIdentityCache } from "@/app/features/search/services/resolved-identity-cache";
+import {
+    formatInviteConnectionPubkeyPreview,
+    isInviteConnectionHumanDisplayName,
+} from "@/app/features/groups/components/invite-connection-display";
+import { resolveInviteConnectionPresentation } from "@/app/features/groups/components/resolve-invite-connection-presentation";
+
 interface ConnectionCardProps {
     pubkey: string;
     displayName?: string;
@@ -15,11 +21,25 @@ interface ConnectionCardProps {
     className?: string;
     viewMode?: "list" | "grid";
 }
+
 export const ConnectionCard = ({ pubkey, displayName, online = false, onClick, className, viewMode = "list" }: ConnectionCardProps) => {
     const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(pubkey);
-    const resolvedName = metadata?.displayName || displayName;
-    const handle = resolvedName ?? PRIVATE_CONTACT_LABEL;
+    const metadata = useResolvedProfileMetadata(pubkey, { live: true });
+    const cachedProfile = discoveryCache.getProfile(pubkey);
+    const resolved = resolvedIdentityCache.getByPubkey(pubkey);
+    const presentation = resolveInviteConnectionPresentation({
+        pubkey,
+        connectionDisplayName: displayName,
+        metadataDisplayName: metadata?.displayName,
+        metadataAvatarUrl: metadata?.avatarUrl,
+        cachedDisplayName: cachedProfile?.displayName || cachedProfile?.name,
+        resolvedDisplayName: resolved?.display,
+    });
+    const label = presentation.displayName;
+    const hasHumanName = isInviteConnectionHumanDisplayName(label, pubkey);
+    const subtitle = hasHumanName
+        ? formatInviteConnectionPubkeyPreview(pubkey)
+        : t("network.trusted");
     const statusLabel = online ? t("network.online") : t("network.offline");
     const statusTone = online
         ? "bg-emerald-500 text-emerald-50 border-emerald-300/50"
@@ -35,12 +55,12 @@ export const ConnectionCard = ({ pubkey, displayName, online = false, onClick, c
                     <div className="flex-1 min-w-0 pr-4">
                         <div className="flex items-center gap-2 mb-0.5">
                             <h4 className="font-bold text-sm text-foreground truncate">
-                                {resolvedName || PRIVATE_CONTACT_LABEL}
+                                {label}
                             </h4>
                             <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0"/>
                         </div>
-                        <p className="text-[10px] sm:text-[11px] text-muted-foreground uppercase tracking-[0.14em] truncate">
-                            {PRIVATE_CONTACT_IDENTITY_HINT}
+                        <p className="text-[10px] sm:text-[11px] text-muted-foreground tracking-[0.08em] truncate">
+                            {subtitle}
                         </p>
                     </div>
                 </div>
@@ -67,12 +87,12 @@ export const ConnectionCard = ({ pubkey, displayName, online = false, onClick, c
             <div className="text-center w-full space-y-1 mb-4">
                 <div className="flex items-center justify-center gap-1.5">
                     <h4 className="font-black text-base text-foreground truncate max-w-[140px]">
-                        {handle}
+                        {label}
                     </h4>
                     <ShieldCheck className="h-4 w-4 text-emerald-500"/>
                 </div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-[0.14em] truncate max-w-full px-4">
-                    {PRIVATE_CONTACT_IDENTITY_HINT}
+                <p className="text-[10px] text-muted-foreground tracking-[0.08em] truncate max-w-full px-4">
+                    {subtitle}
                 </p>
             </div>
 

@@ -30,6 +30,8 @@ OUT OF SCOPE:         Soft L3 Docker ship · public Nostr SLA · AUTH-SESSION
 
 Latency heuristics cannot distinguish useful Soft L3 from a useless listener on `:7000`.
 
+**Self T1 amendment (2026-10):** Operator-retained lab (`readOperatorWorkspaceRelayUrl()` matching local WS `:7000`) may stay in the **dial pool** with remotes enabled — see [self-t1-local-lab-retain-design-2026-10.md](./self-t1-local-lab-retain-design-2026-10.md). Average-user demote (no operator workspace lab) is unchanged. Primary still prefers remotes.
+
 ---
 
 ## Contract

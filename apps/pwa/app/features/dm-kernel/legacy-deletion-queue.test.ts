@@ -22,9 +22,10 @@ describe("legacy deletion queue", () => {
     expect(threadMessages).not.toContain("legacyHydrate");
   });
 
-  it("messaging-provider routes sidebar through dm-kernel sidebar port", () => {
+  it("messaging-provider routes sidebar through protocol adaptation", () => {
     const source = read("app/features/messaging/providers/messaging-provider.tsx");
-    expect(source).toContain("loadDmKernelSidebar");
-    expect(source).toContain("dm-kernel-sidebar-port");
+    expect(source).toContain("listDmConversations");
+    expect(source).toContain("protocol-adaptation");
+    expect(source).not.toContain("dm-kernel-sidebar-port");
   });
 });

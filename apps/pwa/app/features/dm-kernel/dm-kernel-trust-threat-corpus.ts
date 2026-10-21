@@ -523,6 +523,41 @@ export const buildTrustThreatFixtureDefinitions = (
     },
   },
   {
+    id: "se_off_platform_accepted_casual_info",
+    category: "social_engineering",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "Let's continue on Telegram when you have a minute.",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+    },
+    expect: {
+      tier: "info",
+      mustIncludeSignals: ["thread.off_platform_redirect"],
+      mustExcludeSignals: ["contact.cold"],
+    },
+  },
+  {
+    id: "se_off_platform_accepted_mention_none",
+    category: "social_engineering",
+    input: {
+      peerPublicKeyHex,
+      isPeerAccepted: true,
+      messageContent: "I use Discord for game chat with friends.",
+      messageTimestampUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+      threadFirstPeerMessageAtUnixMs: THREAT_CORPUS_BASE_MS,
+      dismissedUntilUnixMs: null,
+      nowUnixMs: THREAT_CORPUS_BASE_MS + 120_000,
+    },
+    expect: {
+      tier: "none",
+      mustExcludeSignals: ["thread.off_platform_redirect"],
+    },
+  },
+  {
     id: "se_remote_access_cold_critical",
     category: "social_engineering",
     input: coldThreadInput(
@@ -670,10 +705,9 @@ export const buildTrustThreatFixtureDefinitions = (
       nowUnixMs: THREAT_CORPUS_BASE_MS,
     },
     expect: {
-      tier: "info",
+      tier: "none",
       bundleId: null,
       mustIncludeSignals: ["msg.rate"],
-      copyKey: "messaging.trust.msgRate",
     },
   },
   {

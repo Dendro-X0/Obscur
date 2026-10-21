@@ -38,3 +38,13 @@ export const shouldStartVoiceCallInviteSession = (params: Readonly<{
   isVoiceCallInviteDeliveryAccepted(params.deliveryStatus)
   || isVoiceCallInviteDeliveryProvisional(params)
 );
+
+/**
+ * PB1-C dial preflight — do not publish an invite when no relay socket is open.
+ * Matches hitch honesty when the chrome shows Offline 0/0 active relays.
+ */
+export const canStartVoiceCallInviteDial = (params: Readonly<{
+  openRelayCount: number;
+}>): boolean => (
+  Number.isFinite(params.openRelayCount) && params.openRelayCount > 0
+);

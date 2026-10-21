@@ -60,6 +60,7 @@ import { AuthAssistantPanel } from "@/app/features/auth-kernel/components/auth-a
 import { AuthAssistantSavePrompt } from "@/app/features/auth-kernel/components/auth-assistant-save-prompt";
 import { AuthNativeMismatchBannerActions, AuthSurfaceConflictBanner } from "./auth-surface-conflict-banner";
 import { resolveAuthSurfaceConflicts } from "@/app/features/auth/services/resolve-auth-surface-conflict";
+import { readIdentityRecordFromLocalStorage } from "@/app/features/auth/utils/identity-persistence";
 import type { AuthAssistantEntry } from "@dweb/auth";
 const authPrimaryButtonClass = "w-full h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-base font-bold shadow-lg shadow-purple-500/20";
 const resolveAuthSecurityErrorMessage = (error: unknown, t: (key: string, options?: Record<string, unknown>) => string): string | null => {
@@ -195,7 +196,20 @@ export function AuthScreen() {
         ? isRetiredIdentityPublicKey(importCandidatePublicKeyHex)
         : false;
     const hasAppliedInitialEntryRouteRef = useRef(false);
-    const storedUsernameHint = identity.state.stored?.username?.trim();
+    const storedUsernameHint = React.useMemo(() => {
+        const fromLocalStorage = readIdentityRecordFromLocalStorage(boundProfileId)?.username?.trim();
+        return fromLocalStorage || identity.state.stored?.username?.trim();
+    }, [boundProfileId, identity.state.stored?.username]);
+    const occupantUsernameForConflict = React.useMemo(() => {
+        const identityUsername = identity.state.stored?.username?.trim();
+        if (!accountConflict) {
+            return identityUsername;
+        }
+        // Prefer slot-local evidence so the warning can name the occupant even when
+        // identity.state.stored is empty/unnamed on some lock-screen bands.
+        const fromLocalStorage = readIdentityRecordFromLocalStorage(boundProfileId)?.username?.trim();
+        return fromLocalStorage || identityUsername;
+    }, [accountConflict, boundProfileId, identity.state.stored?.username]);
     const previousIdentityStatusRef = useRef(identity.state.status);
     React.useEffect(() => {
         if (identity.state.status !== "locked" || !isPasswordlessNativeOnlyIdentity(identity.state.stored)) {
@@ -1382,7 +1396,7 @@ export function AuthScreen() {
                 setAuthError(null);
             }}/>) : null}
 
-                    {accountConflict && pendingAuthAction ? (<ProfileSlotAccountConflictInline profileLabel={boundProfileLabel} occupantUsername={identity.state.stored?.username} occupantPublicKeyHex={accountConflict.occupantPublicKeyHex} incomingPublicKeyHex={pendingAuthAction.kind === "import_key"
+                    {accountConflict && pendingAuthAction ? (<ProfileSlotAccountConflictInline profileLabel={boundProfileLabel} occupantUsername={occupantUsernameForConflict} occupantPublicKeyHex={accountConflict.occupantPublicKeyHex} incomingPublicKeyHex={pendingAuthAction.kind === "import_key"
                 ? derivePublicKeyHex(pendingAuthAction.privateKeyHex)
                 : accountConflict.occupantPublicKeyHex} intent={pendingAuthAction.kind === "create" ? "create_account" : "import_account"} isBusy={isConflictBusy || isLoading} canOpenAnotherWindow={hasNativeRuntime()} onOpenAnotherWindow={() => { void handleOpenAnotherProfileWindow(); }} onClearWindow={() => { void clearWindowAndRetryLogin(false); }} onExportAndClear={() => { void clearWindowAndRetryLogin(true); }} onClose={() => {
                 setAccountConflict(null);

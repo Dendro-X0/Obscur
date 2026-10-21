@@ -1,4 +1,7 @@
-import { writeOperatorWorkspaceRelayUrl } from "@/app/features/groups/services/operator-trust-config";
+import {
+  readOperatorWorkspaceRelayUrl,
+  writeOperatorWorkspaceRelayUrl,
+} from "@/app/features/groups/services/operator-trust-config";
 import {
   normalizeWorkspaceRelayUrl,
 } from "@/app/features/groups/services/workspace-relay-url";
@@ -188,14 +191,23 @@ export const reconcileLocalDevWorkspaceRelay = async (params: Readonly<{
   let workspaceRelayUrl = localRelayUrl;
 
   const remotesEnabled = hasEnabledNonLocalRelay(relays, localRelayUrl);
+  const operatorWorkspaceRelayUrl = readOperatorWorkspaceRelayUrl();
 
-  // When public/VPS remotes are enabled, keep lab assists off (average-user path).
+  // When public/VPS remotes are enabled, keep lab assists off (average-user path),
+  // but never force-off the operator Team workspace relay the user just Saved.
   if (remotesEnabled) {
-    const forceOffLab = relays.map((relay) => (
-      relay.enabled && isLocalLabAssistRelayUrl(relay.url)
-        ? { url: relay.url, enabled: false }
-        : relay
-    ));
+    const forceOffLab = relays.map((relay) => {
+      if (!relay.enabled || !isLocalLabAssistRelayUrl(relay.url)) {
+        return relay;
+      }
+      if (
+        operatorWorkspaceRelayUrl
+        && relayUrlsMatch(relay.url, operatorWorkspaceRelayUrl)
+      ) {
+        return relay;
+      }
+      return { url: relay.url, enabled: false };
+    });
     if (forceOffLab.some((relay, index) => relay.enabled !== relays[index]?.enabled)) {
       return {
         relays: forceOffLab,

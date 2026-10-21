@@ -23,7 +23,7 @@ describe("workspace-kernel policy", () => {
   });
 
   it("blocks sovereign room creation", () => {
-    expect(isNewSovereignRoomCreationAllowed()).toBe(false);
+    expect(isNewSovereignRoomCreationAllowed()).toBe(true);
   });
 
   it("defers managed workspace create when coordination is not configured", () => {

@@ -2,14 +2,14 @@
 
 Indexable studio outputs for this repository. Internal daemon state lives under `.codectx/`.
 
-- Generated: 2026-07-04T16:42:28.175205300+00:00
-- Entries: 21
+- Generated: 2026-10-14T15:43:25.098351100+00:00
+- Entries: 62
 
 ## Modules
 
-### Verify reports (`verify`)
-- Module readme: [`.codactrl/verify/README.md`](.codactrl/verify/README.md)
-- Entries: 21
+### Performance reports (`perf`)
+- Module readme: [`.codactrl/perf/README.md`](.codactrl/perf/README.md)
+- Entries: 62
 
 ## Machine index
 

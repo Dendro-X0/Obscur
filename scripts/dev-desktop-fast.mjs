@@ -12,6 +12,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import { spawnPnpm } from "./lib/spawn-pnpm.mjs";
 import {
   buildPwaDevStackFingerprint,
   freePwaDevPort,
@@ -118,11 +119,10 @@ const run = async () => {
     process.exit(143);
   });
 
-  const desktop = spawn("pnpm", ["-C", "apps/desktop", "dev:live"], {
+  const desktop = spawnPnpm(["-C", "apps/desktop", "dev:live"], {
     cwd: repoRoot,
     env,
     stdio: "inherit",
-    shell: process.platform === "win32",
   });
 
   desktop.on("exit", (code) => {

@@ -32,12 +32,15 @@ import {
   type DesktopProfilePreview,
 } from "@/app/features/profiles/services/desktop-profile-switcher-view";
 import {
-  ACTIVE_SESSION_LEASE_HEARTBEAT_MS,
+  ACTIVE_SESSION_LEASE_TTL_MS,
   listActiveSessionLeasesAsync,
   type ActiveSessionLeaseRecord,
 } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { resolveDesktopProfileAccountPresenceLabelKey } from "@/app/features/profiles/services/desktop-profile-account-presence-label";
-import { PROFILE_SIGN_IN_ROUTE } from "@/app/features/profiles/services/auth-public-routes";
+import {
+  markDesktopProfilePickerEntryConsumed,
+  PROFILE_SIGN_IN_ROUTE,
+} from "@/app/features/profiles/services/auth-public-routes";
 import { resolveDesktopProfileCardDisplay } from "@/app/features/profiles/services/desktop-profile-card-display";
 import { canRemoveDesktopProfileEntry } from "@/app/features/profiles/services/can-remove-desktop-profile";
 
@@ -79,14 +82,23 @@ export default function ProfilesPage(): React.JSX.Element {
     return identity.state.privateKeyHex as PrivateKeyHex;
   };
 
+  const profilePreviewFingerprint = useMemo(
+    () => snapshot.profiles.map((profileSummary) => (
+      `${profileSummary.profileId}\0${profileSummary.label ?? ""}`
+    )).join("\n"),
+    [snapshot.profiles],
+  );
+
   useEffect(() => {
     let cancelled = false;
-    void loadDesktopProfilePreviewMap(
-      snapshot.profiles.map((profileSummary) => ({
-        profileId: profileSummary.profileId,
-        label: profileSummary.label,
-      })),
-    )
+    const profiles = profilePreviewFingerprint
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [profileId, label = ""] = line.split("\0");
+        return { profileId, label };
+      });
+    void loadDesktopProfilePreviewMap(profiles)
       .then((previews) => {
         if (!cancelled) {
           setPreviewByProfileId(previews);
@@ -100,14 +112,19 @@ export default function ProfilesPage(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [snapshot.profiles]);
+  }, [profilePreviewFingerprint]);
 
   useEffect(() => {
-    if (!isPublicPickerMode) {
+    // Keychain-unlocked picker still needs presence badges; gate on native + /profiles surface,
+    // not runtime phase (phase can lag identity and remount this effect → lease IPC race).
+    if (!hasNativeRuntime()) {
       return;
     }
     let cancelled = false;
     const refreshLeases = (): void => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
       void listActiveSessionLeasesAsync()
         .then((leases) => {
           if (!cancelled) {
@@ -121,28 +138,55 @@ export default function ProfilesPage(): React.JSX.Element {
         });
     };
     refreshLeases();
-    const intervalId = window.setInterval(refreshLeases, ACTIVE_SESSION_LEASE_HEARTBEAT_MS);
+    // N1b: poll at TTL, not heartbeat — presence badges do not need 30s IPC.
+    const intervalId = window.setInterval(refreshLeases, ACTIVE_SESSION_LEASE_TTL_MS);
+    // N1e: visibility must not bypass the poll budget (CDP/focus churn was ~1 list/2s).
+    const LEASE_VISIBILITY_REFRESH_MIN_MS = 30_000;
+    let lastVisibilityRefreshAtMs = 0;
+    const onVisibility = (): void => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      const nowMs = Date.now();
+      if (nowMs - lastVisibilityRefreshAtMs < LEASE_VISIBILITY_REFRESH_MIN_MS) {
+        return;
+      }
+      lastVisibilityRefreshAtMs = nowMs;
+      refreshLeases();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [isPublicPickerMode, snapshot.currentWindow.profileId, snapshot.currentWindow.windowLabel]);
+    // Deliberately omit snapshot window ids — remounting on isolation refresh caused concurrent list IPC.
+  }, []);
 
   useEffect(() => {
     if (!hasNativeRuntime()) {
       return;
     }
+    const FOCUS_ISOLATION_REFRESH_MIN_MS = 30_000;
+    let lastRefreshAtMs = 0;
     const refreshSnapshot = (): void => {
+      const nowMs = Date.now();
+      if (nowMs - lastRefreshAtMs < FOCUS_ISOLATION_REFRESH_MIN_MS) {
+        return;
+      }
+      lastRefreshAtMs = nowMs;
       void desktopProfileRuntime.refresh();
     };
-    window.addEventListener("focus", refreshSnapshot);
-    document.addEventListener("visibilitychange", () => {
+    const onVisibility = (): void => {
       if (document.visibilityState === "visible") {
         refreshSnapshot();
       }
-    });
+    };
+    window.addEventListener("focus", refreshSnapshot);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("focus", refreshSnapshot);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -154,7 +198,7 @@ export default function ProfilesPage(): React.JSX.Element {
       currentProfileAvatarUrl: profile.state.profile.avatarUrl,
       currentPublicKeyHex,
       sessionMismatch,
-      activeLeases: isPublicPickerMode ? activeLeases : undefined,
+      activeLeases: hasNativeRuntime() ? activeLeases : undefined,
     });
   }, [activeLeases, currentPublicKeyHex, isPublicPickerMode, previewByProfileId, profile.state.profile.avatarUrl, profile.state.profile.username, sessionMismatch, snapshot]);
 
@@ -165,8 +209,11 @@ export default function ProfilesPage(): React.JSX.Element {
     if (!entry) {
       return;
     }
+    // N1e: intentional picker exit — allow unlock→`/` without bouncing back to /profiles.
+    markDesktopProfilePickerEntryConsumed();
     if (entry.isCurrentWindow) {
-      router.push(PROFILE_SIGN_IN_ROUTE);
+      // Already unlocked (keychain rehydrate): enter the app; locked: show sign-in.
+      router.push(identity.state.status === "unlocked" ? "/" : PROFILE_SIGN_IN_ROUTE);
       return;
     }
     if (entry.shouldFocusExistingWindow && entry.focusTargetProfileId) {

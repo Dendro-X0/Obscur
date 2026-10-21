@@ -49,10 +49,14 @@ class MockRelaySocket {
 }
 
 describe("conduit-mesh-nostr-ws-client", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     MockRelaySocket.instances = [];
     relaySocketMocks.createRelayWebSocket.mockImplementation((url: string) => new MockRelaySocket(url));
+    const { clearProcessPublicWarmupDials } = await import(
+      "@/app/features/relays/services/relay-warmup-dial-cap"
+    );
+    clearProcessPublicWarmupDials();
   });
 
   it("exports a factory for live client wiring", async () => {
@@ -71,27 +75,37 @@ describe("conduit-mesh-nostr-ws-client", () => {
 
     client.setRelayUrls(["wss://relay.damus.io", "wss://nos.lol"]);
 
-    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledTimes(2);
-    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://relay.damus.io");
-    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
-    expect(client.getConnectionSnapshots()).toEqual([
-      expect.objectContaining({ url: "wss://relay.damus.io", status: "connecting" }),
-      expect.objectContaining({ url: "wss://nos.lol", status: "connecting" }),
-    ]);
-    expect(healthMocks.recordConnectionAttempt).toHaveBeenCalledWith("wss://relay.damus.io");
-    expect(healthMocks.recordConnectionAttempt).toHaveBeenCalledWith("wss://nos.lol");
+    // Slice 2b: public-only pool dials zero Quiet (cap=0); private still uses factory.
+    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalled();
+    expect(client.getConnectionSnapshots()).toEqual([]);
+    client.setRelayUrls(["ws://localhost:7000", "wss://nos.lol"]);
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledTimes(1);
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("ws://localhost:7000");
+  });
+
+  it("Slice 2b: public-only Quiet URLs do not dial under cap=0", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const first = createConduitMeshNostrWsClient();
+    const second = createConduitMeshNostrWsClient();
+
+    first.setRelayUrls(["wss://nos.lol"]);
+    second.setRelayUrls(["wss://relay.primal.net"]);
+
+    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalled();
+    first.dispose();
+    second.dispose();
   });
 
   it("records connection success on open (P3 sample wiring)", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();
-    client.setRelayUrls(["wss://nos.lol"]);
+    client.setRelayUrls(["ws://localhost:7000"]);
 
     const socket = MockRelaySocket.instances[0]!;
     socket.onopen?.call(socket as unknown as WebSocket, new Event("open"));
 
     expect(healthMocks.recordConnectionSuccess).toHaveBeenCalledTimes(1);
-    expect(healthMocks.recordConnectionSuccess).toHaveBeenCalledWith("wss://nos.lol");
+    expect(healthMocks.recordConnectionSuccess).toHaveBeenCalledWith("ws://localhost:7000");
     expect(healthMocks.recordConnectionFailure).not.toHaveBeenCalled();
     expect(client.getConnectionSnapshots()[0]?.status).toBe("open");
   });
@@ -114,7 +128,7 @@ describe("conduit-mesh-nostr-ws-client", () => {
   it("records disconnection without failure when an open socket closes", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();
-    client.setRelayUrls(["wss://nos.lol"]);
+    client.setRelayUrls(["ws://localhost:7000"]);
 
     const socket = MockRelaySocket.instances[0]!;
     socket.onopen?.call(socket as unknown as WebSocket, new Event("open"));
@@ -122,7 +136,7 @@ describe("conduit-mesh-nostr-ws-client", () => {
 
     socket.onclose?.call(socket as unknown as WebSocket, new CloseEvent("close"));
 
-    expect(healthMocks.recordDisconnection).toHaveBeenCalledWith("wss://nos.lol");
+    expect(healthMocks.recordDisconnection).toHaveBeenCalledWith("ws://localhost:7000");
     expect(healthMocks.recordConnectionFailure).not.toHaveBeenCalled();
     expect(client.getConnectionSnapshots()[0]?.status).toBe("closed");
   });
@@ -154,7 +168,7 @@ describe("conduit-mesh-nostr-ws-client", () => {
   it("re-arms REQ on socket open when subscribe ran while connecting (F-RECV-LIVE)", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();
-    client.setRelayUrls(["wss://nos.lol"]);
+    client.setRelayUrls(["ws://localhost:7000"]);
 
     const socket = MockRelaySocket.instances[0]!;
     const sent: string[] = [];
@@ -206,13 +220,13 @@ describe("conduit-mesh-nostr-ws-client", () => {
       }),
     );
 
-    expect(received).toEqual([{ id: "live-dm-1", url: "wss://nos.lol" }]);
+    expect(received).toEqual([{ id: "live-dm-1", url: "ws://localhost:7000" }]);
   });
 
   it("resubscribeAll re-sends REQ to every open socket", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();
-    client.setRelayUrls(["wss://nos.lol", "wss://relay.primal.net"]);
+    client.setRelayUrls(["ws://localhost:7000", "ws://127.0.0.1:7001"]);
 
     const sentByUrl = new Map<string, string[]>();
     for (const socket of MockRelaySocket.instances) {
@@ -240,28 +254,28 @@ describe("conduit-mesh-nostr-ws-client", () => {
   it("forceReconnectAll tears down sockets and redials provided URLs", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();
-    client.setRelayUrls(["wss://nos.lol"]);
+    client.setRelayUrls(["ws://localhost:7000"]);
     const first = MockRelaySocket.instances[0]!;
     first.readyState = MockRelaySocket.OPEN;
     first.onopen?.call(first as unknown as WebSocket, new Event("open"));
 
     const closeSpy = vi.spyOn(first, "close");
-    client.forceReconnectAll(["wss://nos.lol", "wss://relay.damus.io"]);
+    client.forceReconnectAll(["ws://localhost:7000", "wss://nos.lol"]);
 
     expect(closeSpy).toHaveBeenCalled();
-    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
-    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://relay.damus.io");
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("ws://localhost:7000");
     expect(client.getConnectionSnapshots()).toEqual([
-      expect.objectContaining({ url: "wss://nos.lol", status: "connecting" }),
-      expect.objectContaining({ url: "wss://relay.damus.io", status: "connecting" }),
+      expect.objectContaining({ url: "ws://localhost:7000", status: "connecting" }),
     ]);
+    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalledWith("wss://nos.lol");
+    client.dispose();
   });
 
-  it("forceReconnectAll with empty prior map still dials explicit URLs", async () => {
+  it("forceReconnectAll with empty prior map still dials explicit private URLs", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();
-    client.forceReconnectAll(["wss://nos.lol"]);
-    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
+    client.forceReconnectAll(["ws://localhost:7000"]);
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("ws://localhost:7000");
     expect(client.getConnectionSnapshots()[0]?.status).toBe("connecting");
   });
 });

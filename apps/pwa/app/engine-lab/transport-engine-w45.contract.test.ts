@@ -11,7 +11,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w45 — desktop async publish command", () => {
   it("pins async publish command charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w45-desktop-async-publish-command-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w45-desktop-async-publish-command-charter.md",
     );
     expect(charter).toContain("Desktop Async Publish Command Charter");
     expect(charter).toContain("engine_invoke_transport_publish_relay_event");

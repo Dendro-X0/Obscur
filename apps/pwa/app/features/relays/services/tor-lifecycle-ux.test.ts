@@ -57,6 +57,14 @@ describe("tor-lifecycle-ux (TI-3)", () => {
     expect(getTorLifecycleUxDefaultCopy("degraded", {
       gatewayReachable: true,
       startFailed: true,
-    })).toContain("failed to start or bootstrap");
+    })).toMatch(/bootstrap not Ready|stuck reason|clearnet/i);
+  });
+
+  it("prefers stall reason over generic degraded copy", () => {
+    expect(getTorLifecycleUxDefaultCopy("degraded", {
+      gatewayReachable: true,
+      startFailed: true,
+      stallReason: "Tor bootstrap stuck (~10%): TLS blocked",
+    })).toContain("TLS blocked");
   });
 });

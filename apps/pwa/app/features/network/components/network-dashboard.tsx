@@ -22,6 +22,9 @@ import { AddConnectionModal } from "./add-connection-modal";
 import { useMobileCompactLayout, useTabletSecondaryLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { ConnectionCard } from "./network-connection-card";
 import { GroupCard } from "./group-card";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { resolvedIdentityCache } from "@/app/features/search/services/resolved-identity-cache";
+import { resolveInviteConnectionPresentation } from "@/app/features/groups/components/resolve-invite-connection-presentation";
 import { resolveLeaveOutboxScopeId, useCommunityLeaveOutboxIndex, } from "@/app/features/groups/hooks/use-community-leave-outbox-index";
 import { resolveCommunityLeavePublishSurfaceCopy } from "@/app/features/groups/services/community-leave-publish-copy";
 import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
@@ -119,7 +122,9 @@ export function NetworkDashboard() {
     }, [createdGroups, searchQuery]);
     const filteredAcceptedPeers = useMemo(() => {
         return peerTrust.state.acceptedPeers.filter(pk => {
-            const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
+            const connection = createdConnections.find(
+                        (c) => c.kind === "dm" && c.pubkey.trim().toLowerCase() === pk.trim().toLowerCase(),
+                    );
             const searchStr = (connection?.displayName || pk).toLowerCase();
             return searchStr.includes(searchQuery.toLowerCase());
         });
@@ -267,7 +272,9 @@ export function NetworkDashboard() {
                         ? "grid grid-cols-1 gap-3 sm:grid-cols-2"
                         : "flex flex-col"}>
                                         {filteredAcceptedPeers.map(pk => {
-                    const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
+                    const connection = createdConnections.find(
+                        (c) => c.kind === "dm" && c.pubkey.trim().toLowerCase() === pk.trim().toLowerCase(),
+                    );
                     return (<ConnectionCard key={pk} pubkey={pk} displayName={connection?.displayName} online={presence.isPeerOnline(pk as PublicKeyHex)} onClick={() => router.push(getPublicProfileHref(pk))} viewMode={viewMode}/>);
                 })}
                                     </div>)}
@@ -316,10 +323,9 @@ export function NetworkDashboard() {
                                 peerPublicKeyHex: req.peerPublicKeyHex as PublicKeyHex,
                                 requestEventId: req.eventId,
                             }).then((outcome) => {
-                                if (outcome.status === "failed" || outcome.status === "queued") {
-                                    addToast({ type: "warning", message: "Request acceptance is pending relay confirmation." });
-                                }
-                                else {
+                                if (outcome.relayConfirmed === false) {
+                                    addToast({ type: "success", message: "Contact accepted. Relay notification will retry automatically." });
+                                } else {
                                     addToast({ type: "success", message: "Request accepted." });
                                 }
                             });
@@ -605,8 +611,15 @@ function PendingRequestCard({ req, onAccept, onBlock, }: {
     onBlock: () => void;
 }) {
     const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
-    const displayName = metadata?.displayName || "Unknown contact";
+    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex, { live: true });
+    const cached = discoveryCache.getProfile(req.peerPublicKeyHex);
+    const resolved = resolvedIdentityCache.getByPubkey(req.peerPublicKeyHex);
+    const displayName = resolveInviteConnectionPresentation({
+        pubkey: req.peerPublicKeyHex,
+        metadataDisplayName: metadata?.displayName,
+        cachedDisplayName: cached?.displayName || cached?.name,
+        resolvedDisplayName: resolved?.display,
+    }).displayName;
     return (<Card className="p-4 border-amber-500/10 bg-amber-500/5 backdrop-blur-sm rounded-[24px]">
             <div className="flex items-center gap-4">
                 <UserAvatar pubkey={req.peerPublicKeyHex} size="sm" className="rounded-xl border-2 border-amber-500/20"/>
@@ -645,8 +658,15 @@ function InvitationCard({ req, isRevealed, onReveal, onAccept, onBlock, onMute }
     onMute: () => void;
 }) {
     const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
-    const displayName = metadata?.displayName || "Unknown contact";
+    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex, { live: true });
+    const cached = discoveryCache.getProfile(req.peerPublicKeyHex);
+    const resolved = resolvedIdentityCache.getByPubkey(req.peerPublicKeyHex);
+    const displayName = resolveInviteConnectionPresentation({
+        pubkey: req.peerPublicKeyHex,
+        metadataDisplayName: metadata?.displayName,
+        cachedDisplayName: cached?.displayName || cached?.name,
+        resolvedDisplayName: resolved?.display,
+    }).displayName;
     return (<Card className="p-6 border-border bg-card/40 backdrop-blur-xl rounded-[32px] hover:border-primary/40 transition-all duration-500 group relative overflow-hidden">
             <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="relative shrink-0">
@@ -702,8 +722,15 @@ function DeclinedRequestRow({ req, onRestore, onRemove }: {
     onRemove: (pk: PublicKeyHex) => void;
 }) {
     const { t } = useTranslation();
-    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex);
-    const displayName = metadata?.displayName || "Unknown contact";
+    const metadata = useResolvedProfileMetadata(req.peerPublicKeyHex, { live: true });
+    const cached = discoveryCache.getProfile(req.peerPublicKeyHex);
+    const resolved = resolvedIdentityCache.getByPubkey(req.peerPublicKeyHex);
+    const displayName = resolveInviteConnectionPresentation({
+        pubkey: req.peerPublicKeyHex,
+        metadataDisplayName: metadata?.displayName,
+        cachedDisplayName: cached?.displayName || cached?.name,
+        resolvedDisplayName: resolved?.display,
+    }).displayName;
     return (<div key={req.peerPublicKeyHex} className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-[24px]">
             <div className="flex items-center gap-3">
                 <UserAvatar pubkey={req.peerPublicKeyHex} size="sm" className="opacity-50"/>

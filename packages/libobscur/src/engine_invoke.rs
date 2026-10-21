@@ -214,6 +214,42 @@ fn dispatch_dm(
                 Err(e) => err("db_error", e.to_string()),
             }
         }
+        "insertTombstones" => {
+            #[derive(serde::Deserialize)]
+            struct InsertTombstonesPayload {
+                records: Vec<TombstoneRecord>,
+            }
+            let parsed: InsertTombstonesPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid insertTombstones payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "insertTombstones requires payload"),
+            };
+            if parsed.records.is_empty() {
+                return ok(serde_json::json!({ "inserted": 0 }));
+            }
+            for record in &parsed.records {
+                if record.profile_id.trim() != scope.profile_id.trim() {
+                    return err(
+                        "invalid_scope",
+                        "tombstone.profile_id must match scope.profileId",
+                    );
+                }
+                if record.event_id.trim().is_empty() {
+                    return err("invalid_payload", "event_id is required");
+                }
+            }
+            match db.insert_tombstones(&parsed.records) {
+                Ok(()) => ok(serde_json::json!({ "inserted": parsed.records.len() })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
         "deleteAllTombstones" => match db.delete_all_tombstones_for_profile(&scope.profile_id) {
             Ok(()) => ok(serde_json::json!({ "deleted": true })),
             Err(e) => err("db_error", e.to_string()),
@@ -1927,16 +1963,18 @@ mod tests {
             &db,
             &EngineInvokeRequest {
                 engine: "dm".to_string(),
-                method: "insertTombstone".to_string(),
+                method: "insertTombstones".to_string(),
                 scope: EngineScope {
                     profile_id: "p".to_string(),
                     window_label: None,
                 },
                 payload: Some(serde_json::json!({
-                    "event_id": "evt-del-1",
-                    "profile_id": "p",
-                    "deleted_at": 1_700_000_000_000i64,
-                    "deleted_by": ""
+                    "records": [{
+                        "event_id": "evt-del-1",
+                        "profile_id": "p",
+                        "deleted_at": 1_700_000_000_000i64,
+                        "deleted_by": ""
+                    }]
                 })),
             },
         );

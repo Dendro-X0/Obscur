@@ -10,6 +10,7 @@ import { hasPasswordProtectedUnlockOnDevice } from "@/app/features/profiles/serv
 import { requiresFreshProfileWindowForGreenfieldAuth } from "@/app/features/profiles/services/profile-slot-greenfield-auth-routing";
 import { openFreshProfileWindowForSignIn } from "@/app/features/profiles/services/profile-slot-account-switch";
 import en from "@/app/lib/i18n/locales/en.json";
+import { readIdentityRecordFromLocalStorage } from "@/app/features/auth/utils/identity-persistence";
 
 const authScreenMocks = vi.hoisted(() => ({
   isNativeRuntime: false,
@@ -143,6 +144,16 @@ vi.mock("@/app/features/profiles/services/identity-passphrase-unlock", () => ({
   hasPasswordProtectedUnlockOnDevice: vi.fn(async () => true),
 }));
 
+vi.mock("@/app/features/auth/utils/identity-persistence", async () => {
+  const actual = await vi.importActual<typeof import("@/app/features/auth/utils/identity-persistence")>(
+    "@/app/features/auth/utils/identity-persistence",
+  );
+  return {
+    ...actual,
+    readIdentityRecordFromLocalStorage: vi.fn(),
+  };
+});
+
 vi.mock("@/app/features/auth/hooks/use-identity", () => ({
   useIdentity: () => ({
     state: authScreenMocks.hasStoredIdentity
@@ -267,6 +278,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     vi.mocked(requiresFreshProfileWindowForGreenfieldAuth).mockReturnValue(false);
     vi.mocked(openFreshProfileWindowForSignIn).mockClear();
     vi.mocked(getLastBoundAccountPublicKeyHex).mockReturnValue(null);
+    vi.mocked(readIdentityRecordFromLocalStorage).mockReset();
     authScreenMocks.manualLockActive = false;
   });
 
@@ -467,6 +479,36 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.getByText(/already holds local data for DemoUser/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Clear this window and continue/i })).toBeInTheDocument();
     expect(authScreenMocks.authKernel.importIdentityForBoundProfile).not.toHaveBeenCalled();
+  });
+
+  it("names the occupant even when identity.state.stored.username is missing", async () => {
+    const occupant = "a".repeat(64);
+    const differentPrivateKey = "c09832d637eb265d90b29c12eb8dfcfffe165b8fb34094af75236d5be4d97884" as PrivateKeyHex;
+    expect(derivePublicKeyHex(differentPrivateKey)).not.toBe(occupant);
+
+    vi.mocked(getLastBoundAccountPublicKeyHex).mockReturnValue(occupant as never);
+    vi.mocked(readIdentityRecordFromLocalStorage).mockReturnValue({
+      publicKeyHex: occupant,
+      encryptedPrivateKey: "encrypted" as never,
+      username: "DemoUser",
+    } as never);
+
+    // Simulate a lock-screen band where identity.state.stored is present but unnamed.
+    authScreenMocks.identityState = {
+      status: "locked",
+      stored: {
+        publicKeyHex: occupant,
+      },
+    };
+
+    render(<AuthScreen />);
+    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
+      target: { value: differentPrivateKey },
+    });
+
+    expect(await screen.findByRole("region", { name: /profile account conflict/i })).toBeInTheDocument();
+    expect(screen.getByText(/already holds local data for DemoUser/i)).toBeInTheDocument();
   });
 
   it("shows the protect-your-identity note once on Import Key (no duplicate banner)", async () => {

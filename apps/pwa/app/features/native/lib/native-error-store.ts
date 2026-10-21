@@ -47,10 +47,10 @@ export const shouldNotifySoftRelayToastUi = (params: Readonly<{
 };
 
 /** Soft relay toast UI re-paint interval — host flaps must not flash every few seconds. */
-export const RELAY_UI_NOTIFY_THROTTLE_MS = 45_000;
+export const RELAY_UI_NOTIFY_THROTTLE_MS = 90_000;
 
 /** After user dismisses soft relay toast, suppress reappearance (DMs may still work). */
-export const RELAY_SOFT_DISMISS_SNOOZE_MS = 15 * 60_000;
+export const RELAY_SOFT_DISMISS_SNOOZE_MS = 30 * 60_000;
 
 export const isSoftRelaySnoozed = (params: Readonly<{
     nowMs: number;

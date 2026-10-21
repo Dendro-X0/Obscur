@@ -3,8 +3,6 @@ import { UploadService, getAttachmentKind, getMimeType } from "./upload-service"
 import { compressImage } from "./media-processor";
 import {
     BEST_EFFORT_STORAGE_NOTE,
-    getMediaKindForPolicy,
-    shouldPreferBrowserUploadForRuntimeSafety,
     shouldCompressByPolicy,
     validateMediaFileForBestEffortUpload
 } from "./media-upload-policy";
@@ -47,9 +45,6 @@ const HEX_PRIVATE_KEY_REGEX = /^[0-9a-f]{64}$/i;
 const DEV_UPLOAD_BROWSER_FIRST =
     process.env.NEXT_PUBLIC_UPLOAD_DEV_BROWSER_FIRST === "1"
     || process.env.NEXT_PUBLIC_UPLOAD_DEV_BROWSER_FIRST === "true";
-const DEV_ALLOW_TAURI_BROWSER_FALLBACK =
-    process.env.NEXT_PUBLIC_UPLOAD_ALLOW_TAURI_BROWSER_FALLBACK === "1"
-    || process.env.NEXT_PUBLIC_UPLOAD_ALLOW_TAURI_BROWSER_FALLBACK === "true";
 const WEB_UPLOAD_ENABLE_LOCAL_API_FALLBACK =
     process.env.NEXT_PUBLIC_UPLOAD_ENABLE_LOCAL_API_FALLBACK === "1"
     || process.env.NEXT_PUBLIC_UPLOAD_ENABLE_LOCAL_API_FALLBACK === "true";
@@ -89,7 +84,6 @@ type UploadOutcome = Readonly<{
 type UploadTransportPath =
     | "browser"
     | "tauri"
-    | "tauri_browser_fallback"
     | "local_api_fallback";
 
 const classifyUploadError = (error: UploadError): UploadOutcome => {
@@ -237,26 +231,6 @@ export class Nip96UploadService implements UploadService {
             return false;
         }
         return getRuntimeHostInfo().isLocalDevelopment;
-    }
-
-    private shouldAllowBrowserFallback(providerUrl: string, file?: File): boolean {
-        if (!this.isTauri()) {
-            return true;
-        }
-        if (typeof window === "undefined") {
-            return true;
-        }
-        const isLocalDevHost = getRuntimeHostInfo().isLocalDevelopment;
-        if (isLocalDevHost && !DEV_ALLOW_TAURI_BROWSER_FALLBACK) {
-            const kind = file ? getMediaKindForPolicy(file) : null;
-            if (kind === "video") {
-                return true;
-            }
-            return false;
-        }
-        // If explicitly enabled, allow fallback even in tauri dev.
-        void providerUrl;
-        return true;
     }
 
     private shouldUseLocalApiFallbackInWeb(): boolean {
@@ -446,49 +420,24 @@ export class Nip96UploadService implements UploadService {
             return this.resolvedFallbackPrivateKeyHex;
         }
 
+        // Explicit hex only — never pull get_session_nsec into JS on Tauri.
+        // Native uploads sign NIP-98 in Rust (upload.rs). Browser path needs constructor hex.
+        // @see specs/backend/nip96-session-nsec-fallback-subtract-design-2026-10.md
         if (this.privateKeyHex && HEX_PRIVATE_KEY_REGEX.test(this.privateKeyHex)) {
             this.resolvedFallbackPrivateKeyHex = this.privateKeyHex;
             return this.resolvedFallbackPrivateKeyHex;
-        }
-
-        if (!this.isTauri()) {
-            this.resolvedFallbackPrivateKeyHex = null;
-            return null;
-        }
-
-        try {
-            const sessionKeyResult = await invokeNativeCommand<string>("get_session_nsec");
-            if (sessionKeyResult.ok && typeof sessionKeyResult.value === "string" && HEX_PRIVATE_KEY_REGEX.test(sessionKeyResult.value)) {
-                this.resolvedFallbackPrivateKeyHex = sessionKeyResult.value;
-                return sessionKeyResult.value;
-            }
-        } catch {
-            // Ignore and keep fallback disabled.
         }
 
         this.resolvedFallbackPrivateKeyHex = null;
         return null;
     }
 
-    private isRetryableNativeUploadError(error: UploadError): boolean {
-        if (error.code === UploadErrorCode.NO_SESSION || error.code === UploadErrorCode.AUTH_MISSING_KEY) {
-            return false;
-        }
-        if (error.code === UploadErrorCode.NETWORK_ERROR) {
-            return true;
-        }
-        const message = error.message.toLowerCase();
-        return message.includes("timeout") ||
-            message.includes("network") ||
-            message.includes("timed out");
-    }
-
-    private async uploadViaTauriWithFallback(
+    /** Tauri production path — native only (no browser NIP-98 / session-nsec fallback). */
+    private async uploadViaTauriNative(
         file: File,
         providerUrl: string,
         attemptIndex: number,
         nativeTimeoutMs = TAURI_PROVIDER_TIMEOUT_MS,
-        browserFallbackTimeoutMs = BROWSER_PROVIDER_TIMEOUT_MS
     ): Promise<Attachment> {
         try {
             this.logTransportAttempt({
@@ -504,10 +453,10 @@ export class Nip96UploadService implements UploadService {
                 nativeTimeoutMs,
                 `native provider ${providerUrl}`
             );
-        } catch (err: any) {
+        } catch (err: unknown) {
             const nativeError = err instanceof UploadError
                 ? err
-                : new UploadError(UploadErrorCode.UNKNOWN, err?.message || String(err));
+                : new UploadError(UploadErrorCode.UNKNOWN, err instanceof Error ? err.message : String(err));
             const normalizedNativeOutcome = classifyUploadError(nativeError);
 
             this.logTransportAttempt({
@@ -522,40 +471,7 @@ export class Nip96UploadService implements UploadService {
                 retryable: normalizedNativeOutcome.retryable,
                 errorMessage: normalizedNativeOutcome.message,
             });
-
-            if (!this.isRetryableNativeUploadError(nativeError)) {
-                throw nativeError;
-            }
-
-            if (!this.shouldAllowBrowserFallback(providerUrl, file)) {
-                if (nativeError.code === UploadErrorCode.NETWORK_ERROR) {
-                    throw new UploadError(
-                        UploadErrorCode.NETWORK_ERROR,
-                        `${nativeError.message} (browser fallback disabled in tauri dev to avoid CORS false-failures)`
-                    );
-                }
-                throw nativeError;
-            }
-
-            const browserFallbackKey = await this.resolveFallbackPrivateKeyHex();
-            if (!browserFallbackKey) {
-                throw nativeError;
-            }
-
-            console.warn("[NIP96] Native upload failed, trying browser fallback for provider:", providerUrl, nativeError.message);
-            this.logTransportAttempt({
-                stage: "started",
-                attemptIndex,
-                providerUrl,
-                file,
-                transportPath: "tauri_browser_fallback",
-                timeoutBudgetMs: browserFallbackTimeoutMs,
-            });
-            return this.withTimeout(
-                this.uploadViaBrowser(file, providerUrl, browserFallbackKey, browserFallbackTimeoutMs),
-                browserFallbackTimeoutMs,
-                `browser fallback provider ${providerUrl}`
-            );
+            throw nativeError;
         }
     }
 
@@ -567,7 +483,6 @@ export class Nip96UploadService implements UploadService {
 
         let uploadFile = file;
         const kind = getAttachmentKind(uploadFile);
-        const preferBrowserForRuntimeSafety = shouldPreferBrowserUploadForRuntimeSafety(uploadFile, this.isTauri());
         if (kind === "image" && shouldCompressByPolicy(uploadFile)) {
             uploadFile = await compressImage(uploadFile);
         }
@@ -617,37 +532,7 @@ export class Nip96UploadService implements UploadService {
             try {
                 let attachment: Attachment;
                 if (this.isTauri()) {
-                    if (preferBrowserForRuntimeSafety) {
-                        const timeoutMs = resolveUploadTimeoutMs({
-                            fileSizeBytes: uploadFile.size,
-                            baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
-                        });
-                        const browserKey = await this.resolveFallbackPrivateKeyHex();
-                        if (!browserKey) {
-                            throw new UploadError(
-                                UploadErrorCode.FILE_TOO_LARGE,
-                                `${uploadFile.name} is too large for the native upload path on this runtime. Use a smaller file or external link. ${BEST_EFFORT_STORAGE_NOTE}`
-                            );
-                        }
-                        this.logTelemetry("upload.attempt", {
-                            providerUrl,
-                            path: "browser-runtime-safety",
-                            timeoutMs
-                        });
-                        this.logTransportAttempt({
-                            stage: "started",
-                            attemptIndex: providerIndex + 1,
-                            providerUrl,
-                            file: uploadFile,
-                            transportPath: "browser",
-                            timeoutBudgetMs: timeoutMs,
-                        });
-                        attachment = await this.withTimeout(
-                            this.uploadViaBrowser(uploadFile, providerUrl, browserKey, timeoutMs),
-                            timeoutMs,
-                            `browser runtime-safe provider ${providerUrl}`
-                        );
-                    } else if (this.shouldPreferBrowserPathInDev()) {
+                    if (this.shouldPreferBrowserPathInDev()) {
                         const browserTimeoutMs = resolveUploadTimeoutMs({
                             fileSizeBytes: uploadFile.size,
                             baselineTimeoutMs: DEV_BROWSER_PROVIDER_TIMEOUT_MS,
@@ -700,31 +585,25 @@ export class Nip96UploadService implements UploadService {
                             );
                         }
                     } else {
+                        // Track B6 — native only; no tauri_browser_fallback.
+                        // @see specs/backend/nip96-tauri-browser-fallback-subtract-design-2026-10.md
                         const nativeTimeoutMs = this.shouldUseFastDevNativeTimeouts()
                             ? DEV_TAURI_PROVIDER_TIMEOUT_MS
                             : TAURI_PROVIDER_TIMEOUT_MS;
-                        const browserFallbackTimeoutMs = this.shouldUseFastDevNativeTimeouts()
-                            ? DEV_BROWSER_PROVIDER_TIMEOUT_MS
-                            : BROWSER_PROVIDER_TIMEOUT_MS;
                         const resolvedNativeTimeoutMs = resolveUploadTimeoutMs({
                             fileSizeBytes: uploadFile.size,
                             baselineTimeoutMs: nativeTimeoutMs,
                         });
-                        const resolvedBrowserFallbackTimeoutMs = resolveUploadTimeoutMs({
-                            fileSizeBytes: uploadFile.size,
-                            baselineTimeoutMs: browserFallbackTimeoutMs,
-                        });
                         this.logTelemetry("upload.attempt", {
                             providerUrl,
-                            path: "tauri-native-with-fallback",
+                            path: "tauri-native",
                             timeoutMs: resolvedNativeTimeoutMs
                         });
-                        attachment = await this.uploadViaTauriWithFallback(
+                        attachment = await this.uploadViaTauriNative(
                             uploadFile,
                             providerUrl,
                             providerIndex + 1,
                             resolvedNativeTimeoutMs,
-                            resolvedBrowserFallbackTimeoutMs
                         );
                     }
                 } else {
@@ -804,9 +683,7 @@ export class Nip96UploadService implements UploadService {
                     providerUrl,
                     file: uploadFile,
                     transportPath: this.isTauri()
-                        ? (preferBrowserForRuntimeSafety || this.shouldPreferBrowserPathInDev()
-                            ? "browser"
-                            : "tauri")
+                        ? (this.shouldPreferBrowserPathInDev() ? "browser" : "tauri")
                         : "browser",
                     timeoutBudgetMs: 0,
                     success: true,
@@ -819,9 +696,7 @@ export class Nip96UploadService implements UploadService {
                     : new UploadError(UploadErrorCode.UNKNOWN, err.message || String(err));
                 const normalizedOutcome = classifyUploadError(uploadError);
                 const transportPath: UploadTransportPath = this.isTauri()
-                    ? (preferBrowserForRuntimeSafety || this.shouldPreferBrowserPathInDev()
-                        ? "browser"
-                        : "tauri")
+                    ? (this.shouldPreferBrowserPathInDev() ? "browser" : "tauri")
                     : "browser";
                 const baselineTimeoutMs = transportPath === "tauri"
                     ? (this.shouldUseFastDevNativeTimeouts() ? DEV_TAURI_PROVIDER_TIMEOUT_MS : TAURI_PROVIDER_TIMEOUT_MS)
@@ -1189,4 +1064,10 @@ export const nip96UploadInternals = {
     computeFilePayloadHashHex,
     toRootUploadVariants: Nip96UploadService.toRootUploadVariants,
     wellKnownDiscoveryTimeoutMs: WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
+    /** Test/helper: resolve constructor-hex only (no get_session_nsec). */
+    resolveFallbackPrivateKeyHex: (service: Nip96UploadService) => (
+        (service as unknown as {
+            resolveFallbackPrivateKeyHex(): Promise<string | null>;
+        }).resolveFallbackPrivateKeyHex()
+    ),
 };

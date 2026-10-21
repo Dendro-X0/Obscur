@@ -1,8 +1,32 @@
 {
   "schema": "verify.issues.register.summary@0.2.0",
-  "updatedAt": "2026-07-06T14:51:07.851636500+00:00",
-  "issueCount": 47,
+  "updatedAt": "2026-08-23T18:33:43.972594200+00:00",
+  "issueCount": 74,
   "topIssues": [
+    {
+      "id": "verify:issue:false-green:verify:false-green:oxd6-high-tier-t0-steps:obscur-dev-lab-gate",
+      "symptomId": "high-tier-t0-steps",
+      "title": "Scenario `obscur-dev-lab-gate` defaultTier=T4 but only T0 fileExists/fileContains steps",
+      "severity": "open",
+      "source": "false_green",
+      "fingerprint": "symptom:high-tier-t0-steps",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/false-green.json",
+      "canonicalTitle": "Scenario `obscur-dev-lab-gate` defaultTier=T4 but only T0 fileExists/fileContains steps",
+      "chapterCount": 1
+    },
+    {
+      "id": "verify:issue:false-green:verify:false-green:oxd6-orphan-landmine:orphan",
+      "symptomId": "orphan-landmine",
+      "title": "Orphan pack landmine `orphan` (no register mint)",
+      "severity": "open",
+      "source": "false_green",
+      "fingerprint": "symptom:orphan-landmine",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/false-green.json",
+      "canonicalTitle": "Orphan pack landmine `orphan` (no register mint)",
+      "chapterCount": 1
+    },
     {
       "id": "verify:issue:fault:fault-90f591d2",
       "symptomId": "group-thread-relay-ingest",
@@ -11,7 +35,7 @@
       "source": "agent",
       "fingerprint": "symptom:group-thread-relay-ingest",
       "occurrenceCount": 15,
-      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-c9e4cc0c3649/captures/cap-3b9283b9eb83/snapshot.yaml",
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-6461739df98d/captures/cap-2213f5ef81f0/screenshot.png",
       "trackerStep": 7,
       "chainId": "chain-r5-o4-ingest-chrome-2026-07-04",
       "symptomClass": "group_thread_relay_ingest",
@@ -98,7 +122,7 @@
       "source": "agent",
       "fingerprint": "symptom:community-roster-divergence",
       "occurrenceCount": 10,
-      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-b91e16538053/captures/cap-fac2a764d545/snapshot.yaml",
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-56331621b1d9/captures/cap-e0750287c64a/screenshot.png",
       "trackerStep": 5,
       "chainId": "chain-o4-group-ingest-2026-07-02",
       "symptomClass": "community-roster-divergence",
@@ -160,7 +184,7 @@
       "source": "agent",
       "fingerprint": "symptom:COM-RUN-11",
       "occurrenceCount": 9,
-      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-675769c36e27/captures/bcap-1ff2e5524933/manifest.json",
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-d39f4ab009ee/captures/bcap-82d3ad04daf9/bridge-result.json",
       "trackerStep": 5,
       "chainId": "chain-o4-group-ingest-2026-07-02",
       "symptomClass": "COM_RUN_11",
@@ -217,7 +241,7 @@
       "source": "agent",
       "fingerprint": "symptom:group-room-key-missing",
       "occurrenceCount": 4,
-      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-94f4ca6d3332/captures/cap-8ec91475da6b/manifest.json",
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-87ec64010847/captures/cap-29d052b53b74/screenshot.png",
       "trackerStep": 7,
       "chainId": "chain-r1-room-key-health-2026-07-04",
       "symptomClass": "group-room-key-missing",
@@ -275,13 +299,13 @@
       "severity": "p1",
       "source": "agent",
       "fingerprint": "symptom:groups-ledger-validation",
-      "occurrenceCount": 40,
-      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-aa3a9eab9c36/captures/cap-cfae3752ba87/digest.json",
+      "occurrenceCount": 14,
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-f2191e90e578/captures/cap-ed6cb6ba5840/screenshot.png",
       "trackerStep": 1,
       "chainId": "chain-o4-group-ingest-2026-07-02",
       "symptomClass": "groups_ledger_validation",
       "canonicalTitle": "RIW-1 round23 pre-rebuild: ledger invalidEntries=7/7 on warm Tester1; shell rebuild in progress",
-      "chapterCount": 40,
+      "chapterCount": 14,
       "priorChapters": [
         {
           "id": "verify:issue:agent:0c914a5d3cb0912d",
@@ -292,136 +316,6 @@
           "id": "verify:issue:agent:289e783f035b6129",
           "title": "RIW-1 re-verify 2026-07-01: 18/20 ledger invalid unchanged; migration stall; dm_kernel.sqlite_write_failed x12 on profile nav",
           "ingestedAt": "2026-07-01T06:18:04.046860+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-d91cd690",
-          "title": "groups.ledger_migration_needed — count=117",
-          "ingestedAt": "2026-07-01T14:09:46.841767900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-317657e4",
-          "title": "groups.ledger_validation_issues — count=111",
-          "ingestedAt": "2026-07-01T14:11:16.163370100+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-4a171a35",
-          "title": "groups.ledger_migration_needed — count=137",
-          "ingestedAt": "2026-07-01T16:54:59.571036600+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-fc0c8590",
-          "title": "groups.ledger_validation_issues — count=123",
-          "ingestedAt": "2026-07-01T16:57:25.982901900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-bf3a84e1",
-          "title": "groups.ledger_migration_needed — count=101",
-          "ingestedAt": "2026-07-01T17:13:59.827276300+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-1285de34",
-          "title": "groups.ledger_migration_needed — count=94",
-          "ingestedAt": "2026-07-01T17:28:48.023176700+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-1a2cb746",
-          "title": "groups.ledger_migration_needed — count=122",
-          "ingestedAt": "2026-07-01T17:33:18.484745200+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-7f9100c4",
-          "title": "groups.ledger_validation_issues — count=118",
-          "ingestedAt": "2026-07-01T17:33:55.763225600+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-f9cb9bcd",
-          "title": "groups.ledger_validation_issues — count=127",
-          "ingestedAt": "2026-07-01T17:34:38.526594100+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-d3266449",
-          "title": "workspace.thread.hydrate — count=109",
-          "ingestedAt": "2026-07-01T17:46:43.979538400+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-aca31c9d",
-          "title": "workspace.thread.hydrate — count=120",
-          "ingestedAt": "2026-07-01T17:47:24.919557+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-4720432c",
-          "title": "groups.ledger_migration_needed — count=63",
-          "ingestedAt": "2026-07-01T18:00:36.797852800+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-5100471d",
-          "title": "groups.ledger_migration_needed — count=51",
-          "ingestedAt": "2026-07-01T22:05:27.534353500+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-bfbf96a4",
-          "title": "groups.ledger_migration_needed — count=85",
-          "ingestedAt": "2026-07-01T22:06:09.732414300+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-a017a981",
-          "title": "groups.ledger_migration_needed — count=42",
-          "ingestedAt": "2026-07-01T22:33:29.829256900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-cebc13ad",
-          "title": "groups.ledger_migration_needed — count=42",
-          "ingestedAt": "2026-07-01T22:35:29.823804500+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-0dd352c0",
-          "title": "groups.ledger_migration_needed — count=80",
-          "ingestedAt": "2026-07-01T22:36:06.835279600+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-fc9c865f",
-          "title": "messaging.delete_for_everyone_remote_result — count=50",
-          "ingestedAt": "2026-07-02T08:35:32.592667700+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-1df0fe98",
-          "title": "relay.transport_engine_pool_subscribe — count=67",
-          "ingestedAt": "2026-07-02T08:44:28.141642200+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-c2485378",
-          "title": "workspace.thread.hydrate — count=84",
-          "ingestedAt": "2026-07-02T08:44:53.852083700+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-52dd9177",
-          "title": "messaging.delete_for_everyone_remote_result — count=95",
-          "ingestedAt": "2026-07-02T09:59:13.608201900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-a8d78552",
-          "title": "groups.ledger_migration_needed — count=63",
-          "ingestedAt": "2026-07-02T11:03:28.797505400+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-b72efd02",
-          "title": "messaging.delete_for_everyone_remote_result — count=94",
-          "ingestedAt": "2026-07-02T12:47:47.363478+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-da76af2d",
-          "title": "groups.ledger_migration_needed — count=36",
-          "ingestedAt": "2026-07-02T13:23:46.605540400+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-d730591d",
-          "title": "messaging.delete_for_everyone_remote_result — count=107",
-          "ingestedAt": "2026-07-02T14:45:27.500610900+00:00"
-        },
-        {
-          "id": "verify:issue:fault:fault-91576178",
-          "title": "messaging.delete_for_everyone_remote_result — count=149",
-          "ingestedAt": "2026-07-02T14:53:26.447302+00:00"
         },
         {
           "id": "verify:issue:fault:fault-32b01a0e",
@@ -541,6 +435,46 @@
       ]
     },
     {
+      "id": "verify:issue:fault:fault-9a209d25",
+      "symptomId": "navigation-settings-auth-kick",
+      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "severity": "p1",
+      "source": "runtime_digest",
+      "fingerprint": "symptom:navigation-settings-auth-kick",
+      "occurrenceCount": 6,
+      "primaryEvidenceRef": ".codectx/verify/faults/fault-f493d43a.json",
+      "symptomClass": "navigation_settings_auth_kick",
+      "canonicalTitle": "runtime.profile_binding_refresh_completed — count=2",
+      "chapterCount": 6,
+      "priorChapters": [
+        {
+          "id": "verify:issue:fault:fault-f493d43a",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T04:49:23.660166100+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-3610d923",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:11:26.590088800+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-1bfb48bc",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:11:32.714260200+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-d5664a30",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:13:08.623246600+00:00"
+        },
+        {
+          "id": "verify:issue:fault:fault-ed9c8eaa",
+          "title": "runtime.profile_binding_refresh_completed — count=2",
+          "ingestedAt": "2026-07-04T16:30:38.847883700+00:00"
+        }
+      ]
+    },
+    {
       "id": "verify:issue:agent:3aa8584ac1e8095f",
       "symptomId": "groups.room_key_missing_send_blocked",
       "title": "COM-RUN-11 Phase 1C: profile-2 missing room key blocks dual-profile group send/receive",
@@ -554,6 +488,17 @@
       "chapterCount": 1
     },
     {
+      "id": "verify:issue:assert:cap-4a17a6f54e3d",
+      "title": "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "severity": "p1",
+      "source": "client_assert",
+      "fingerprint": "finding:cap-4a17a6f54e3d:client_assert",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-4a17a6f54e3d/snapshot.yaml",
+      "canonicalTitle": "Client assert failed: cssClass — unsupported assert kind: cssClass",
+      "chapterCount": 1
+    },
+    {
       "id": "verify:issue:assert:cap-5ad02d69dd30",
       "title": "Client assert failed: textVisible — text not visible: Tester2",
       "severity": "p1",
@@ -562,6 +507,17 @@
       "occurrenceCount": 1,
       "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-19f7e24e61bd/captures/cap-5ad02d69dd30/manifest.json",
       "canonicalTitle": "Client assert failed: textVisible — text not visible: Tester2",
+      "chapterCount": 1
+    },
+    {
+      "id": "verify:issue:assert:cap-7c36691a2d41",
+      "title": "Client assert failed: domExists — unsupported assert kind: domExists",
+      "severity": "p1",
+      "source": "client_assert",
+      "fingerprint": "finding:cap-7c36691a2d41:client_assert",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-41dadb0e48c9/captures/cap-7c36691a2d41/snapshot.yaml",
+      "canonicalTitle": "Client assert failed: domExists — unsupported assert kind: domExists",
       "chapterCount": 1
     },
     {
@@ -587,6 +543,28 @@
       "chapterCount": 1
     },
     {
+      "id": "verify:issue:assert:cap-c83f5561abd3",
+      "title": "Client assert failed: textVisible — text not visible: E2E Encrypted",
+      "severity": "p1",
+      "source": "client_assert",
+      "fingerprint": "finding:cap-c83f5561abd3:client_assert",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-c83f5561abd3/snapshot.yaml",
+      "canonicalTitle": "Client assert failed: textVisible — text not visible: E2E Encrypted",
+      "chapterCount": 1
+    },
+    {
+      "id": "verify:issue:assert:cap-d750192b42c3",
+      "title": "Client assert failed: textVisible — text not visible: beta-smoke-20260823-t1-nip17",
+      "severity": "p1",
+      "source": "client_assert",
+      "fingerprint": "finding:cap-d750192b42c3:client_assert",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-1bf455470e0d/captures/cap-d750192b42c3/snapshot.yaml",
+      "canonicalTitle": "Client assert failed: textVisible — text not visible: beta-smoke-20260823-t1-nip17",
+      "chapterCount": 1
+    },
+    {
       "id": "verify:issue:assert:cap-e9215a92a21b",
       "title": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
       "severity": "p1",
@@ -595,6 +573,17 @@
       "occurrenceCount": 1,
       "primaryEvidenceRef": ".codectx/verify/client-sessions/csess-4c4583330873/captures/cap-e9215a92a21b/manifest.json",
       "canonicalTitle": "Client assert failed: textVisible — text not visible: O2-phase1c-coldrestart-070T0559",
+      "chapterCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-0dd352c0",
+      "title": "groups.ledger_migration_needed — count=80",
+      "severity": "p1",
+      "source": "runtime_digest",
+      "fingerprint": "finding:fault-0dd352c0:runtime_digest",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/faults/fault-0dd352c0.json",
+      "canonicalTitle": "groups.ledger_migration_needed — count=80",
       "chapterCount": 1
     },
     {
@@ -609,14 +598,36 @@
       "chapterCount": 1
     },
     {
-      "id": "verify:issue:fault:fault-1bfb48bc",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
+      "id": "verify:issue:fault:fault-1285de34",
+      "title": "groups.ledger_migration_needed — count=94",
       "severity": "p1",
       "source": "runtime_digest",
-      "fingerprint": "finding:fault-1bfb48bc:runtime_digest",
+      "fingerprint": "finding:fault-1285de34:runtime_digest",
       "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-1bfb48bc.json",
-      "canonicalTitle": "runtime.profile_binding_refresh_completed — count=2",
+      "primaryEvidenceRef": ".codectx/verify/faults/fault-1285de34.json",
+      "canonicalTitle": "groups.ledger_migration_needed — count=94",
+      "chapterCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-1a2cb746",
+      "title": "groups.ledger_migration_needed — count=122",
+      "severity": "p1",
+      "source": "runtime_digest",
+      "fingerprint": "finding:fault-1a2cb746:runtime_digest",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/faults/fault-1a2cb746.json",
+      "canonicalTitle": "groups.ledger_migration_needed — count=122",
+      "chapterCount": 1
+    },
+    {
+      "id": "verify:issue:fault:fault-1df0fe98",
+      "title": "relay.transport_engine_pool_subscribe — count=67",
+      "severity": "p1",
+      "source": "runtime_digest",
+      "fingerprint": "finding:fault-1df0fe98:runtime_digest",
+      "occurrenceCount": 1,
+      "primaryEvidenceRef": ".codectx/verify/faults/fault-1df0fe98.json",
+      "canonicalTitle": "relay.transport_engine_pool_subscribe — count=67",
       "chapterCount": 1
     },
     {
@@ -629,118 +640,8 @@
       "primaryEvidenceRef": ".codectx/verify/faults/fault-2c1367c9.json",
       "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=130",
       "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-2e9ceb7a",
-      "title": "groups.membership_ledger_save — count=114",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-2e9ceb7a:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-2e9ceb7a.json",
-      "canonicalTitle": "groups.membership_ledger_save — count=114",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-2f97294f",
-      "title": "groups.membership_ledger_save — count=89",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-2f97294f:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-2f97294f.json",
-      "canonicalTitle": "groups.membership_ledger_save — count=89",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-3610d923",
-      "title": "runtime.profile_binding_refresh_completed — count=2",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-3610d923:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-3610d923.json",
-      "canonicalTitle": "runtime.profile_binding_refresh_completed — count=2",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-404cdd17",
-      "title": "messaging.delete_for_everyone_remote_result — count=132",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-404cdd17:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-404cdd17.json",
-      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=132",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-4ce5736c",
-      "title": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=92",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-4ce5736c:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-4ce5736c.json",
-      "canonicalTitle": "account_sync.backup_publish_mutation_suppressed_restore_in_flight — count=92",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-557a133d",
-      "title": "messaging.delete_for_everyone_remote_result — count=64",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-557a133d:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-557a133d.json",
-      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=64",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-58357786",
-      "title": "messaging.delete_for_everyone_remote_result — count=158",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-58357786:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-58357786.json",
-      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=158",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-5f618e64",
-      "title": "messaging.delete_for_everyone_remote_result — count=153",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-5f618e64:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-5f618e64.json",
-      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=153",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-6f961537",
-      "title": "messaging.delete_for_everyone_remote_result — count=157",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-6f961537:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-6f961537.json",
-      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=157",
-      "chapterCount": 1
-    },
-    {
-      "id": "verify:issue:fault:fault-7be52e18",
-      "title": "messaging.delete_for_everyone_remote_result — count=72",
-      "severity": "p1",
-      "source": "runtime_digest",
-      "fingerprint": "finding:fault-7be52e18:runtime_digest",
-      "occurrenceCount": 1,
-      "primaryEvidenceRef": ".codectx/verify/faults/fault-7be52e18.json",
-      "canonicalTitle": "messaging.delete_for_everyone_remote_result — count=72",
-      "chapterCount": 1
     }
   ],
-  "triageIssueCount": 46,
+  "triageIssueCount": 73,
   "unmappedCaptureCount": 25
 }

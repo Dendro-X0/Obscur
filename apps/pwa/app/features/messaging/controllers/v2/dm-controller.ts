@@ -25,7 +25,12 @@ import type {
   DmControllerState,
 } from "./dm-controller-types";
 import { toast } from "@dweb/ui-kit/toast";
-import { sendDm, sendConnectionRequest, type SendConfirmation } from "./dm-send-pipeline";
+import {
+  sendDm,
+  sendConnectionRequest,
+  ProtocolAdaptationLayer,
+  type SendConfirmation,
+} from "@/app/features/protocol-adaptation";
 import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import {
   assertDmOutboundAllowed,
@@ -676,34 +681,43 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
     }
 
     const peerPublicKeyHex = sendParams.peerPublicKeyInput.trim();
-    const composeMode = resolveContactRequestComposeMode({
-      isPeerAcceptedByTrust: peerTrustRef.current?.isAccepted({ publicKeyHex: peerPublicKeyHex }) ?? false,
-      requestStatus: requestsInboxRef.current?.getRequestStatus({ peerPublicKeyHex }) ?? null,
-    });
-    const outboundGate = assertDmOutboundAllowed({
-      composeMode,
-      plaintext: sendParams.plaintext,
-      attachmentCount: sendParams.attachments?.length ?? 0,
-      customTags: sendParams.customTags,
-    });
-    if (!outboundGate.ok) {
-      return {
-        success: false,
-        deliveryStatus: "failed",
-        messageId: "",
-        eventId: "",
-        relayResults: [],
-        error: outboundGate.message,
-      };
+    const isMatrixRoomSend = (
+      ProtocolAdaptationLayer.getActiveProtocolId() === "matrix"
+      || peerPublicKeyHex.startsWith("!")
+    );
+
+    if (!isMatrixRoomSend) {
+      const composeMode = resolveContactRequestComposeMode({
+        isPeerAcceptedByTrust: peerTrustRef.current?.isAccepted({ publicKeyHex: peerPublicKeyHex }) ?? false,
+        requestStatus: requestsInboxRef.current?.getRequestStatus({ peerPublicKeyHex }) ?? null,
+      });
+      const outboundGate = assertDmOutboundAllowed({
+        composeMode,
+        plaintext: sendParams.plaintext,
+        attachmentCount: sendParams.attachments?.length ?? 0,
+        customTags: sendParams.customTags,
+      });
+      if (!outboundGate.ok) {
+        return {
+          success: false,
+          deliveryStatus: "failed",
+          messageId: "",
+          eventId: "",
+          relayResults: [],
+          error: outboundGate.message,
+        };
+      }
     }
 
     // Optimistic message
     const optimisticId = crypto.randomUUID();
     const isCommand = sendParams.plaintext.startsWith("__dweb_cmd__");
-    const optimisticConversationId = toDmConversationId({
-      myPublicKeyHex,
-      peerPublicKeyHex: sendParams.peerPublicKeyInput,
-    }) ?? [myPublicKeyHex, sendParams.peerPublicKeyInput].sort().join(":");
+    const optimisticConversationId = isMatrixRoomSend
+      ? peerPublicKeyHex
+      : (toDmConversationId({
+        myPublicKeyHex,
+        peerPublicKeyHex: sendParams.peerPublicKeyInput,
+      }) ?? [myPublicKeyHex, sendParams.peerPublicKeyInput].sort().join(":"));
     const outgoingAttachments = sendParams.attachments && sendParams.attachments.length > 0
       ? sendParams.attachments
       : undefined;

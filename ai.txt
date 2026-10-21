@@ -1,0 +1,12 @@
+# AI access preferences for this repository
+# https://www.ietf.org/archive/id/draft-ietf-ai-control-00.html (emerging)
+# This is a preference signal, not a technical enforcement mechanism.
+
+User-Agent: *
+# Disallow training / dataset harvesting of repository contents.
+Disallow-Train: /
+Disallow-AI: /
+# Ordinary human browsing and security review remain covered by LICENSE §2.
+
+Contact: See repository maintainer channels; written grant required for exceptions.
+License: LICENSE

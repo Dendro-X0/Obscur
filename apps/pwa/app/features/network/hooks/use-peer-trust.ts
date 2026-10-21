@@ -20,6 +20,7 @@ import {
   getLegacyPeerTrustStorageKey,
   getPeerTrustStorageKey,
 } from "@/app/features/network/services/peer-trust-storage-key";
+import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 type PeerTrustState = Readonly<{
@@ -196,6 +197,23 @@ const extractAcceptedPeersFromPersistedChatState = (
   return Array.from(new Set(acceptedFromRequests));
 };
 
+const extractAcceptedPeersFromRequestEvidence = (
+  profileId: string = getResolvedProfileId(),
+): ReadonlyArray<PublicKeyHex> => {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const state = requestFlowEvidenceStoreInternals.readState(profileId);
+    return Object.entries(state.byPeer)
+      .filter(([, evidence]) => evidence.acceptSeen === true)
+      .map(([peer]) => normalizePublicKeyHex(peer))
+      .filter((peer): peer is PublicKeyHex => peer !== null);
+  } catch {
+    return [];
+  }
+};
+
 export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => {
   const projectionSnapshot = useAccountProjectionSnapshot();
   const optionalProfileBus = useOptionalProfileMessageBus();
@@ -254,10 +272,12 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(
         messagingChatStateReadPort.load(currentPublicKeyHex),
       );
-      if (acceptedFromChat.length === 0) {
+      const acceptedFromEvidence = extractAcceptedPeersFromRequestEvidence(profileIdRef.current);
+      const recovered = Array.from(new Set([...acceptedFromChat, ...acceptedFromEvidence]));
+      if (recovered.length === 0) {
         return prev;
       }
-      const merged = Array.from(new Set([...prev.acceptedPeers, ...acceptedFromChat]));
+      const merged = Array.from(new Set([...prev.acceptedPeers, ...recovered]));
       if (
         merged.length === prev.acceptedPeers.length
         && merged.every((peer) => prev.acceptedPeers.includes(peer))
@@ -518,4 +538,5 @@ export const peerTrustInternals = {
   loadFromStorage,
   saveToStorage,
   extractAcceptedPeersFromPersistedChatState,
+  extractAcceptedPeersFromRequestEvidence,
 };

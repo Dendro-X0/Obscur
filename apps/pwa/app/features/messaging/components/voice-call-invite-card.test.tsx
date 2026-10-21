@@ -35,6 +35,23 @@ describe("VoiceCallInviteCard", () => {
     expect(screen.queryByText("Room")).not.toBeInTheDocument();
   });
 
+  it("labels video invite cards from wire callType", () => {
+    render(
+      <VoiceCallInviteCard
+        isOutgoing
+        invite={{
+          type: "voice-call-invite",
+          roomId: "dm-voice-video-room",
+          callType: "video",
+          capabilities: { video: true },
+        }}
+      />
+    );
+
+    expect(screen.getByText("Video Call Invite")).toBeInTheDocument();
+    expect(screen.getByText("Video call invitation sent.")).toBeInTheDocument();
+  });
+
   it("triggers join callback for incoming invite", () => {
     const onJoinCall = vi.fn();
     render(
@@ -168,7 +185,9 @@ describe("VoiceCallInviteCard", () => {
     );
 
     expect(screen.getAllByText("Call failed")).toHaveLength(2);
-    expect(screen.getByText("The call could not be completed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Network interrupted — call did not stay connected"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("voice-call-invite-card").className).toContain("ring-rose-500/40");
     expect(screen.queryByRole("button", { name: "Call Back" })).not.toBeInTheDocument();
   });

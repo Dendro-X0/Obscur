@@ -51,7 +51,11 @@ type RequestTransportDependencies = Readonly<{
     peerPublicKeyInput: string;
     plaintext: string;
     customTags?: string[][];
+    waitForConfirmation?: boolean;
+    suppressPublishFeedbackToast?: boolean;
   }>) => Promise<SendResult>;
+  /** Wait until at least one writable relay is open (accept ceremony preflight). */
+  waitForWritableRelay?: (timeoutMs: number) => Promise<boolean>;
   requestsInbox?: {
     getRequestStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => RequestInboxStatus;
     setStatus: (params: Readonly<{
@@ -77,6 +81,8 @@ export type RequestTransportOutcome = Readonly<{
   relaySuccessCount: number;
   relayTotal: number;
   retryAtUnixMs?: number;
+  /** Accept ceremony: local trust committed regardless of relay; false when relay notify pending. */
+  relayConfirmed?: boolean;
 }>;
 
 const hasRelayDeliveryEvidence = (result: Pick<SendResult, "deliveryStatus" | "relayResults">): boolean => {
@@ -203,6 +209,159 @@ const canCommitTerminalRequestState = (
   return hasRelayDeliveryEvidence(result);
 };
 
+// ---------------------------------------------------------------------------
+// Pending accept relay queue — survives page reload via localStorage
+// ---------------------------------------------------------------------------
+
+type PendingAcceptEntry = Readonly<{
+  peerPublicKeyHex: string;
+  plaintext: string;
+  requestEventId?: string;
+  enqueuedAtUnixMs: number;
+  /** Set after a relay send was attempted — blocks auto-retry duplicates on public relays. */
+  relaySendAttemptedAtUnixMs?: number;
+}>;
+
+const PENDING_ACCEPT_STORAGE_KEY = "obscur:pending-accept-relay-queue";
+const RETRY_INTERVAL_MS = 30_000;
+const MAX_ENTRY_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/** Accept ceremony: wait for relay connectivity before the one-shot publish. */
+export const ACCEPT_RELAY_PREFLIGHT_MS = 20_000;
+
+const readQueue = (): PendingAcceptEntry[] => {
+  try {
+    const raw = localStorage.getItem(PENDING_ACCEPT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as PendingAcceptEntry[];
+    if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
+    return parsed.filter((e) => now - e.enqueuedAtUnixMs < MAX_ENTRY_AGE_MS);
+  } catch {
+    return [];
+  }
+};
+
+const writeQueue = (entries: PendingAcceptEntry[]): void => {
+  try {
+    if (entries.length === 0) {
+      localStorage.removeItem(PENDING_ACCEPT_STORAGE_KEY);
+    } else {
+      localStorage.setItem(PENDING_ACCEPT_STORAGE_KEY, JSON.stringify(entries));
+    }
+  } catch {
+    // localStorage full or unavailable — best-effort
+  }
+};
+
+export const pendingAcceptRelayQueue = {
+  enqueue(params: Readonly<{
+    peerPublicKeyHex: string;
+    plaintext: string;
+    requestEventId?: string;
+    relaySendAttemptedAtUnixMs?: number;
+  }>): void {
+    const queue = readQueue();
+    const existingIndex = queue.findIndex((e) => e.peerPublicKeyHex === params.peerPublicKeyHex);
+    if (existingIndex >= 0) {
+      const next = [...queue];
+      next[existingIndex] = {
+        ...next[existingIndex],
+        ...params,
+        enqueuedAtUnixMs: next[existingIndex].enqueuedAtUnixMs,
+      };
+      writeQueue(next);
+      return;
+    }
+    queue.push({ ...params, enqueuedAtUnixMs: Date.now() });
+    writeQueue(queue);
+  },
+
+  dequeue(peerPublicKeyHex: string): void {
+    writeQueue(readQueue().filter((e) => e.peerPublicKeyHex !== peerPublicKeyHex));
+  },
+
+  getAll(): ReadonlyArray<PendingAcceptEntry> {
+    return readQueue();
+  },
+
+  hasPending(peerPublicKeyHex: string): boolean {
+    return readQueue().some((e) => e.peerPublicKeyHex === peerPublicKeyHex);
+  },
+
+  clear(): void {
+    writeQueue([]);
+  },
+};
+
+let retryTimerId: ReturnType<typeof setInterval> | null = null;
+
+export const startAcceptRelayRetryLoop = (sendDm: RequestTransportDependencies["sendDm"]): (() => void) => {
+  if (retryTimerId !== null) return () => {};
+  const tick = async () => {
+    const queue = pendingAcceptRelayQueue.getAll();
+    for (const entry of queue) {
+      // Auto-retry must not re-publish accept DMs — public relays retain history.
+      if (entry.relaySendAttemptedAtUnixMs) continue;
+      try {
+        const result = await sendDm({
+          peerPublicKeyInput: entry.peerPublicKeyHex,
+          plaintext: entry.plaintext,
+          customTags: entry.requestEventId
+            ? [["t", "connection-accept"], ["e", entry.requestEventId]]
+            : [["t", "connection-accept"]],
+        });
+        if (hasRelayDeliveryEvidence(result)) {
+          pendingAcceptRelayQueue.dequeue(entry.peerPublicKeyHex);
+          console.log("[accept-relay-retry] confirmed", entry.peerPublicKeyHex.slice(0, 16));
+        }
+      } catch {
+        // transient — will retry next tick
+      }
+    }
+  };
+  retryTimerId = setInterval(() => void tick(), RETRY_INTERVAL_MS);
+  void tick();
+  return () => {
+    if (retryTimerId !== null) {
+      clearInterval(retryTimerId);
+      retryTimerId = null;
+    }
+  };
+};
+
+export const retryAcceptRelayNotification = async (
+  peerPublicKeyHex: string,
+  sendDm: RequestTransportDependencies["sendDm"],
+): Promise<boolean> => {
+  const queue = pendingAcceptRelayQueue.getAll();
+  const entry = queue.find((e) => e.peerPublicKeyHex === peerPublicKeyHex);
+  if (!entry) return true;
+  try {
+    const result = await sendDm({
+      peerPublicKeyInput: entry.peerPublicKeyHex,
+      plaintext: entry.plaintext,
+      customTags: entry.requestEventId
+        ? [["t", "connection-accept"], ["e", entry.requestEventId]]
+        : [["t", "connection-accept"]],
+      waitForConfirmation: true,
+      suppressPublishFeedbackToast: true,
+    });
+    pendingAcceptRelayQueue.enqueue({
+      peerPublicKeyHex: entry.peerPublicKeyHex,
+      plaintext: entry.plaintext,
+      requestEventId: entry.requestEventId,
+      relaySendAttemptedAtUnixMs: Date.now(),
+    });
+    if (hasRelayDeliveryEvidence(result)) {
+      pendingAcceptRelayQueue.dequeue(peerPublicKeyHex);
+      return true;
+    }
+  } catch {
+    // transient
+  }
+  return false;
+};
+
 export const createRequestTransportService = (deps: RequestTransportDependencies) => {
   const evidenceStore = deps.evidenceStore ?? requestFlowEvidenceStore;
   const evidenceProfileId = deps.profileId ?? getResolvedProfileId();
@@ -307,61 +466,128 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     });
   };
 
+  const sendAcceptRelayNotification = async (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext: string;
+    requestEventId?: string;
+  }>): Promise<SendResult> => {
+    if (deps.waitForWritableRelay) {
+      await deps.waitForWritableRelay(ACCEPT_RELAY_PREFLIGHT_MS);
+    }
+    return deps.sendDm({
+      peerPublicKeyInput: params.peerPublicKeyHex,
+      plaintext: params.plaintext,
+      customTags: params.requestEventId
+        ? [["t", "connection-accept"], ["e", params.requestEventId]]
+        : [["t", "connection-accept"]],
+      waitForConfirmation: true,
+      suppressPublishFeedbackToast: true,
+    });
+  };
+
   const acceptIncomingRequest = async (params: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
     plaintext?: string;
     requestEventId?: string;
   }>): Promise<RequestTransportOutcome> => {
-    const result = await deps.sendDm({
-      peerPublicKeyInput: params.peerPublicKeyHex,
-      plaintext: params.plaintext || "Accepted",
-      customTags: params.requestEventId
-        ? [["t", "connection-accept"], ["e", params.requestEventId]]
-        : [["t", "connection-accept"]],
+    const acceptPlaintext = params.plaintext || "Accepted";
+    const existingInbox = deps.requestsInbox?.getRequestStatus({
+      peerPublicKeyHex: params.peerPublicKeyHex,
     });
-
-    const status = mapSendResultToStatus(result);
-    const shouldCommitAcceptedState = canCommitAcceptedState(status, result);
-
-    if (shouldCommitAcceptedState) {
-      evidenceStore.markAccept({
-        peerPublicKeyHex: params.peerPublicKeyHex,
-        requestEventId: params.requestEventId || undefined,
-        profileId: evidenceProfileId,
-      });
-      deps.peerTrust?.acceptPeer({ publicKeyHex: params.peerPublicKeyHex });
-      deps.requestsInbox?.setStatus({
-        peerPublicKeyHex: params.peerPublicKeyHex,
-        status: "accepted",
-        isOutgoing: false,
-      });
-      if (deps.accountPublicKeyHex) {
-        await appendCanonicalContactEvent({
-          accountPublicKeyHex: deps.accountPublicKeyHex,
-          peerPublicKeyHex: params.peerPublicKeyHex,
-          type: "CONTACT_ACCEPTED",
-          direction: "incoming",
-          requestEventId: params.requestEventId,
-          idempotencySuffix: params.requestEventId || result.messageId || params.peerPublicKeyHex,
-          source: "legacy_bridge",
-        });
+    if (existingInbox?.status === "accepted") {
+      if (pendingAcceptRelayQueue.hasPending(params.peerPublicKeyHex)) {
+        const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
+        return {
+          ...toRequestTransportOutcome({
+            status: "ok",
+            result: {
+              success: false,
+              deliveryStatus: "queued_retrying",
+              messageId: "",
+              eventId: "",
+              relayResults: [],
+            } as SendResult,
+            evidence,
+            inboxStatus: "accepted",
+          }),
+          relayConfirmed: false,
+        };
       }
-    } else if (status === "failed") {
-      evidenceStore.markTerminalFailure({
+      const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
+      return {
+        ...toRequestTransportOutcome({
+          status: "ok",
+          result: {
+            success: true,
+            deliveryStatus: "sent_quorum",
+            messageId: "",
+            eventId: "",
+            relayResults: [],
+          } as SendResult,
+          evidence,
+          inboxStatus: "accepted",
+        }),
+        relayConfirmed: true,
+      };
+    }
+
+    // --- Phase 1: Commit local accepted state UNCONDITIONALLY on user intent ---
+    // The user's explicit "Accept" IS the trust decision. Relay publish is a
+    // notification to the peer — failing to notify must not undo the trust decision.
+    evidenceStore.markAccept({
+      peerPublicKeyHex: params.peerPublicKeyHex,
+      requestEventId: params.requestEventId || undefined,
+      profileId: evidenceProfileId,
+    });
+    deps.peerTrust?.acceptPeer({ publicKeyHex: params.peerPublicKeyHex });
+    deps.requestsInbox?.setStatus({
+      peerPublicKeyHex: params.peerPublicKeyHex,
+      status: "accepted",
+      isOutgoing: false,
+    });
+    if (deps.accountPublicKeyHex) {
+      await appendCanonicalContactEvent({
+        accountPublicKeyHex: deps.accountPublicKeyHex,
         peerPublicKeyHex: params.peerPublicKeyHex,
-        profileId: evidenceProfileId,
+        type: "CONTACT_ACCEPTED",
+        direction: "incoming",
+        requestEventId: params.requestEventId,
+        idempotencySuffix: params.requestEventId || params.peerPublicKeyHex,
+        source: "legacy_bridge",
       });
     }
 
-    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
-    return toRequestTransportOutcome({
-      status,
-      result,
-      evidence,
-      inboxStatus: shouldCommitAcceptedState
-        ? "accepted"
-        : resolveInboxStatus(deps.requestsInbox, params.peerPublicKeyHex),
+    // --- Phase 2: One-shot relay notification (await OK; no auto-resend spam) ---
+    const result = await sendAcceptRelayNotification({
+      peerPublicKeyHex: params.peerPublicKeyHex,
+      plaintext: acceptPlaintext,
+      requestEventId: params.requestEventId,
     });
+
+    const status = mapSendResultToStatus(result);
+    const relayConfirmed = hasRelayDeliveryEvidence(result);
+
+    if (!relayConfirmed) {
+      pendingAcceptRelayQueue.enqueue({
+        peerPublicKeyHex: params.peerPublicKeyHex,
+        plaintext: acceptPlaintext,
+        requestEventId: params.requestEventId,
+        relaySendAttemptedAtUnixMs: Date.now(),
+      });
+    } else {
+      pendingAcceptRelayQueue.dequeue(params.peerPublicKeyHex);
+    }
+
+    const evidence = evidenceStore.get(params.peerPublicKeyHex, evidenceProfileId);
+    return {
+      ...toRequestTransportOutcome({
+        status: relayConfirmed ? status : "ok",
+        result,
+        evidence,
+        inboxStatus: "accepted",
+      }),
+      relayConfirmed,
+    };
   };
 
   const declineIncomingRequest = async (params: Readonly<{

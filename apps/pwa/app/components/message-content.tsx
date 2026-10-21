@@ -112,6 +112,10 @@ type MessageContentProps = Readonly<{
 const MessageContent = (props: MessageContentProps): React.JSX.Element | null => {
   const {
     pendingLinkUrl,
+    pendingLinkPhase,
+    reputationResult,
+    reputationChecking,
+    reputationProviderLabel,
     cancelPendingLink,
     confirmPendingLink,
     handleAnchorClick,
@@ -181,8 +185,12 @@ const MessageContent = (props: MessageContentProps): React.JSX.Element | null =>
       </p>
       <LinkOpenConfirmDialog
         url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
         onClose={cancelPendingLink}
-        onConfirm={() => confirmPendingLink()}
+        onConfirm={() => { void confirmPendingLink(); }}
       />
     </>
   );

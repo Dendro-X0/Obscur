@@ -52,6 +52,7 @@
     "@obscur/engine-contracts": "workspace:*",
     "@obscur/engine-host": "workspace:*",
     "@obscur/persistence-engine": "workspace:*",
+    "@obscur/protocol-nostr": "workspace:*",
     "@obscur/transport-engine": "workspace:*",
     "@obscur/workspace-engine": "workspace:*",
     "@radix-ui/react-avatar": "^1.2.1",

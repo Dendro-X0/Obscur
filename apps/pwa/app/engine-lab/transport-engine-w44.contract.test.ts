@@ -11,7 +11,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w44 — desktop relay pool injection charter", () => {
   it("pins relay pool injection charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w44-desktop-relay-pool-injection-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w44-desktop-relay-pool-injection-charter.md",
     );
     expect(charter).toContain("Desktop Relay Pool Injection Charter");
     expect(charter).toContain("RelayPool");

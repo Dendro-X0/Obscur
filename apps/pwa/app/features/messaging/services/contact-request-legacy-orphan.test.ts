@@ -56,6 +56,15 @@ describe("contact-request-legacy-orphan", () => {
     })).toBeNull();
   });
 
+  it("keeps accept sticky when trust is set even if inbox still says pending", () => {
+    expect(resolveEffectiveContactRequestStatus({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: true,
+      requestStatus: { status: "pending", isOutgoing: false },
+      hasDmThreadRow: true,
+    })).toEqual({ status: "accepted", isOutgoing: false });
+  });
+
   it("does not merge plain DM threads without request event evidence", () => {
     const merged = mergeLegacyOrphanRequestsInboxItems({
       inboxItems: [],

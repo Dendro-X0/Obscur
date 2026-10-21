@@ -219,7 +219,7 @@ export const sendDm = async (params: Readonly<{
     recipientPublicKeyHex,
     plaintext,
     customTags,
-    preferredFormat = "nip04",
+    preferredFormat = "nip17",
     onConfirmed,
     dedupSet,
     profileId,
@@ -250,7 +250,7 @@ export const sendDm = async (params: Readonly<{
 
     console.log("[dm-send-pipeline] Building event with tags", {
       baseTags: baseTags,
-      plaintext: plaintext.slice(0, 100),
+      format: preferredFormat,
     });
 
     // --- Build & encrypt ---

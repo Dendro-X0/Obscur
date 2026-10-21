@@ -174,20 +174,34 @@ export default async function LimitationsPage() {
         </div>
         <ul className="release-list" style={{ maxWidth: "48rem", padding: "0 0 0 1.25rem" }}>
           <li>
-            Obscur is a full encrypted communications stack — client, kernel, and transports you can
-            point at infrastructure you control.
+            Obscur is a <strong>sovereign</strong> encrypted stack — local keys, end-to-end encryption,
+            and relays or coordination you can point at infrastructure you control.
+          </li>
+          <li>
+            Sell <strong>clearnet private-trust</strong> (cell VPS · your keys · group live). Tor is an
+            optional routing underlay, not the product identity — leave it off for clearnet demos.
+          </li>
+          <li>
+            Do <strong>not</strong> brand Obscur as a dark-web messenger, gray-market hub, or
+            onion-first GTM. Illicit spaces can appear on any powerful host; response is raise
+            security for legitimate users, not that framing.
+          </li>
+          <li>
+            Attack-surface warnings (ASE) run <strong>on-device</strong> — they are not a cloud content
+            police or silent message-body upload.
+          </li>
+          <li>
+            Voice notes and 1:1 <strong>audio</strong> calls exist today. Video conferencing is not
+            shipped — do not demo a camera call.
           </li>
           <li>
             Public relays carry immutable ciphertext; private operator stacks unlock stronger removal
-            semantics.
+            semantics. Say <strong>hide on this device</strong> for local delete on public threads —
+            not &quot;deleted from the internet.&quot;
           </li>
           <li>
-            Desktop and Android installers are available with published SHA-256; verify before
-            sideloading unsigned builds.
-          </li>
-          <li>
-            Say <strong>hide on this device</strong> for local delete on public relay threads — not
-            &quot;deleted from the internet.&quot;
+            Desktop and Android installers ship with published SHA-256; verify before sideloading
+            unsigned builds.
           </li>
         </ul>
       </section>

@@ -51,6 +51,22 @@ describe("dm-peer-established-ui", () => {
     })).toBe(true);
   });
 
+  it("keeps accepted peers established after restart when inbox briefly regresses to pending", () => {
+    expect(resolveDmPeerEstablishedForUi({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: true,
+      requestStatus: { isOutgoing: false, status: "pending" },
+    })).toBe(true);
+  });
+
+  it("treats trust-only accept as established when inbox row is missing", () => {
+    expect(resolveDmPeerEstablishedForUi({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: true,
+      requestStatus: null,
+    })).toBe(true);
+  });
+
   it("marks only explicit outgoing-pending requests as initiator wait state", () => {
     expect(resolveDmPeerOutgoingWaitInitiatorForUi({
       requestStatus: { isOutgoing: true, status: "pending" },

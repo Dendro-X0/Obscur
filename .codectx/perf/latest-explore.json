@@ -1,7 +1,192 @@
 {
-  "appRoot": "apps/coordination",
-  "completedAt": "2026-07-07T08:32:52.974521600+00:00",
-  "exploreId": "7ba7bb2b-50e3-1b44-e9b2-a5120928a81e",
-  "findingCount": 1,
-  "graphHash": "sha256:45dd800b2548f284865f8334f6a4604932b7ff76abffd887642662a31c8c0f9e"
+  "aggregate": {
+    "discoveryCount": 172,
+    "obligationCount": 81,
+    "obligationSeverityCounts": {
+      "info": 0,
+      "red": 0,
+      "total": 81,
+      "yellow": 81
+    },
+    "severityCounts": {
+      "info": 91,
+      "red": 0,
+      "total": 172,
+      "yellow": 81
+    },
+    "targetMetrics": [
+      {
+        "appRoot": "apps/coordination",
+        "discoveryCount": 65,
+        "obligationCount": 35,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 35,
+          "yellow": 35
+        },
+        "severityCounts": {
+          "info": 30,
+          "red": 0,
+          "total": 65,
+          "yellow": 35
+        }
+      },
+      {
+        "appRoot": "apps/desktop",
+        "discoveryCount": 20,
+        "obligationCount": 5,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 5,
+          "yellow": 5
+        },
+        "severityCounts": {
+          "info": 15,
+          "red": 0,
+          "total": 20,
+          "yellow": 5
+        }
+      },
+      {
+        "appRoot": "apps/pwa",
+        "discoveryCount": 25,
+        "obligationCount": 10,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 10,
+          "yellow": 10
+        },
+        "severityCounts": {
+          "info": 15,
+          "red": 0,
+          "total": 25,
+          "yellow": 10
+        }
+      },
+      {
+        "appRoot": "apps/relay-gateway",
+        "discoveryCount": 20,
+        "obligationCount": 5,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 5,
+          "yellow": 5
+        },
+        "severityCounts": {
+          "info": 15,
+          "red": 0,
+          "total": 20,
+          "yellow": 5
+        }
+      },
+      {
+        "appRoot": "apps/website",
+        "discoveryCount": 42,
+        "obligationCount": 26,
+        "obligationSeverityCounts": {
+          "info": 0,
+          "red": 0,
+          "total": 26,
+          "yellow": 26
+        },
+        "severityCounts": {
+          "info": 16,
+          "red": 0,
+          "total": 42,
+          "yellow": 26
+        }
+      }
+    ]
+  },
+  "bundleId": "bundle-20261014153844.575872200+0000",
+  "completedAt": "2026-10-14T15:38:44.575872200+00:00",
+  "exploreScope": "monorepo-critical-path",
+  "mode": "all-apps",
+  "schema": "perf.explore.bundle@1.0.0",
+  "targets": [
+    {
+      "appRoot": "apps/coordination",
+      "completedAt": "2026-10-14T15:38:29.695581900+00:00",
+      "discoveryCount": 65,
+      "exploreId": "4730cabb-670e-62a5-bd03-7e1adbe8fa3c",
+      "findingCount": 65,
+      "graphHash": "sha256:36c344b013d19dfad9d5a14b84360d0c850e457cf54a5f463b9c5fcd1f7932fa",
+      "name": "@obscur/coordination-worker",
+      "obligationCount": 35,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 35,
+        "yellow": 35
+      }
+    },
+    {
+      "appRoot": "apps/desktop",
+      "completedAt": "2026-10-14T15:38:39.605665800+00:00",
+      "discoveryCount": 20,
+      "exploreId": "be7b3fc2-0f9b-3e00-d610-756976ffce4a",
+      "findingCount": 20,
+      "graphHash": "sha256:79a8be31d0b489bf7a3ea9d96508cfa149a159865c3e017c99104a399c6c5658",
+      "name": "@dweb/desktop",
+      "obligationCount": 5,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 5,
+        "yellow": 5
+      }
+    },
+    {
+      "appRoot": "apps/pwa",
+      "completedAt": "2026-10-14T15:38:40.564707200+00:00",
+      "discoveryCount": 25,
+      "exploreId": "ac57e93a-50d8-e155-ddd4-99c999d5fd45",
+      "findingCount": 25,
+      "graphHash": "sha256:4fb63623f57c53bcdf64db07b5863b55bb6c81caf4c7283909e835dfc6dc9d1c",
+      "name": "pwa",
+      "obligationCount": 10,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 10,
+        "yellow": 10
+      }
+    },
+    {
+      "appRoot": "apps/relay-gateway",
+      "completedAt": "2026-10-14T15:38:42.395068400+00:00",
+      "discoveryCount": 20,
+      "exploreId": "476dcfb5-5cb3-3dff-2ed6-4593bcb48f59",
+      "findingCount": 20,
+      "graphHash": "sha256:1647bcc2ec9e2546e19785592e99388cf94f4dac92f044f70a75028c962ac388",
+      "name": "@obscur/relay-gateway",
+      "obligationCount": 5,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 5,
+        "yellow": 5
+      }
+    },
+    {
+      "appRoot": "apps/website",
+      "completedAt": "2026-10-14T15:38:43.487848300+00:00",
+      "discoveryCount": 42,
+      "exploreId": "2fc339f0-ae92-c92d-9219-025a5180ec90",
+      "findingCount": 42,
+      "graphHash": "sha256:609caca0916f16ec971e9f36b2da1aabaa16dbcfe4d0f363bf84af2fca449604",
+      "name": "website",
+      "obligationCount": 26,
+      "obligationSeverityCounts": {
+        "info": 0,
+        "red": 0,
+        "total": 26,
+        "yellow": 26
+      }
+    }
+  ]
 }

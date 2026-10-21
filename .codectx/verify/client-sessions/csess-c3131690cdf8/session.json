@@ -1,0 +1,9 @@
+{
+  "schema": "client.session@0.1.0",
+  "sessionId": "csess-c3131690cdf8",
+  "provider": "playwright-chromium",
+  "proofTier": "t2",
+  "createdAt": "2026-10-21T00:34:58.159984100+00:00",
+  "repoRoot": "E:\\Web Projects\\obscur",
+  "url": "http://127.0.0.1:1430/profiles"
+}

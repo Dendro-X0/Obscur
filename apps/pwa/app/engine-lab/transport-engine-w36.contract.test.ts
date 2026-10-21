@@ -10,7 +10,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 
 describe("transport-engine w36 — Rust publish dry-run assembly charter (design-only)", () => {
   it("pins dry-run assembly charter without implementation", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w36-rust-publish-dry-run-assembly-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w36-rust-publish-dry-run-assembly-charter.md");
     expect(charter).toContain("Rust Publish Dry-Run Assembly Charter");
     expect(charter).toContain("dry-run");
     expect(charter).toContain("design + contract only");

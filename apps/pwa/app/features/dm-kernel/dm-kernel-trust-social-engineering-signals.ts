@@ -37,11 +37,12 @@ const GIFT_CARD_SCAM_PATTERNS: ReadonlyArray<RegExp> = [
 ];
 
 const OFF_PLATFORM_REDIRECT_PATTERNS: ReadonlyArray<RegExp> = [
-  /\b(move|switch|continue|chat|talk|reach me|message me)\b.*\b(on|to|via|at)\b.*\b(telegram|whatsapp|signal|discord|wechat|skype|line app)\b/i,
-  /\b(telegram|whatsapp|signal|discord)\b.*\b(dm|chat|message|group|channel)\b/i,
-  /\b(add me on|contact me on|find me on)\b.*\b(telegram|whatsapp|signal|discord|linkedin)\b/i,
-  /\b(off[- ]platform|outside (?:the )?(?:app|platform|marketplace))\b/i,
-  /\b(email me directly|personal email|leave the platform|reach me on google chat)\b/i,
+  // Redirect intent + named messenger — not bare "telegram chat" mentions.
+  /\b(move|switch|continue|chat|talk|reach me|message me)\b.{0,48}\b(on|to|via|at)\b.{0,24}\b(telegram|whatsapp|signal|discord|wechat|skype)\b/i,
+  /\b(let'?s (?:move|switch|continue|talk|chat))\b.{0,48}\b(telegram|whatsapp|signal|discord|wechat)\b/i,
+  /\b(add me on|contact me on|find me on|message me on)\b.{0,32}\b(telegram|whatsapp|signal|discord|linkedin)\b/i,
+  /\b(off[- ]platform|leave the (?:app|platform)|outside (?:the )?(?:app|platform|marketplace))\b/i,
+  /\b(email me directly|personal email|reach me on google chat)\b/i,
 ];
 
 const ADVANCE_FEE_SCAM_PATTERNS: ReadonlyArray<RegExp> = [

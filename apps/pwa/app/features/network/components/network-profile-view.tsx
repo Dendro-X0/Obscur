@@ -44,8 +44,15 @@ import { getDirectInvitationToastCopy } from "@/app/features/messaging/services/
 import { formatPublicKeyPreview } from "@/app/features/invites/utils/utils";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { ContactProfileTrustNotice } from "./contact-profile-trust-notice";
-const PRIVATE_CONTACT_LABEL = "Unknown contact";
-const PRIVATE_CONTACT_HANDLE = "@unknown";
+import { discoveryCache } from "@/app/features/search/services/discovery-cache";
+import { resolvedIdentityCache } from "@/app/features/search/services/resolved-identity-cache";
+import { seedLabPeerDisplayHintsIfNeeded } from "@/app/features/search/services/lab-peer-display-seed";
+import {
+    findDmConnectionByPubkey,
+    formatInviteConnectionPubkeyPreview,
+    isInviteConnectionHumanDisplayName,
+} from "@/app/features/groups/components/invite-connection-display";
+import { resolveInviteConnectionPresentation } from "@/app/features/groups/components/resolve-invite-connection-presentation";
 export default function ConnectionProfileView() {
     const { pubkey } = useParams();
     const searchParams = useSearchParams();
@@ -117,15 +124,31 @@ export default function ConnectionProfileView() {
         }
         router.replace("/settings#profile");
     }, [isCurrentAccountProfile, router]);
+    React.useEffect(() => {
+        seedLabPeerDisplayHintsIfNeeded();
+    }, []);
     if (!pk)
         return null;
     if (isCurrentAccountProfile)
         return null;
     const isBlocked = blocklist?.state?.blockedPublicKeys?.includes(pk as PublicKeyHex) ?? false;
     const isPeerOnline = presence.isPeerOnline(pk as PublicKeyHex);
-    const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
-    const resolvedName = metadata?.displayName || connection?.displayName || PRIVATE_CONTACT_LABEL;
-    const displayHandle = resolvedName ? `@${resolvedName}` : PRIVATE_CONTACT_HANDLE;
+    const connection = findDmConnectionByPubkey(createdConnections, pk);
+    const cachedProfile = discoveryCache.getProfile(pk);
+    const resolvedIdentity = resolvedIdentityCache.getByPubkey(pk);
+    const presentation = resolveInviteConnectionPresentation({
+        pubkey: pk,
+        connectionDisplayName: connection?.displayName,
+        metadataDisplayName: metadata?.displayName,
+        metadataAvatarUrl: metadata?.avatarUrl,
+        cachedDisplayName: cachedProfile?.displayName || cachedProfile?.name,
+        resolvedDisplayName: resolvedIdentity?.display,
+    });
+    const resolvedName = presentation.displayName;
+    const hasHumanName = isInviteConnectionHumanDisplayName(resolvedName, pk);
+    const displayHandle = hasHumanName
+        ? `@${resolvedName}`
+        : `@${formatInviteConnectionPubkeyPreview(pk)}`;
     const publicProfileUrl = toAbsoluteAppUrl(getPublicProfileHref(pk));
     const handleShareProfile = async () => {
         try {
@@ -258,7 +281,7 @@ export default function ConnectionProfileView() {
         const newConv = createDmConversation({
             myPublicKeyHex: myPk,
             peerPublicKeyHex: pk as PublicKeyHex,
-            displayName: resolvedName || PRIVATE_CONTACT_LABEL,
+            displayName: resolvedName,
         });
         if (!newConv) {
             toast.error("Invalid conversation identity for this profile.");
@@ -383,7 +406,7 @@ export default function ConnectionProfileView() {
             const openedConversation = createDmConversation({
                 myPublicKeyHex,
                 peerPublicKeyHex: pk as PublicKeyHex,
-                displayName: resolvedName || PRIVATE_CONTACT_LABEL,
+                displayName: resolvedName,
             });
             if (openedConversation) {
                 setCreatedConnections((previous) => upsertDmConversationInList(previous, {
@@ -446,9 +469,9 @@ export default function ConnectionProfileView() {
                         <div className={cn("relative z-10 flex flex-col items-center", compact ? "gap-4" : "gap-8")}>
                             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.6, ease: "easeOut" }} className={cn("relative bg-gradient-to-br from-indigo-500/25 to-cyan-500/20 p-1.5 shadow-2xl", compact ? "rounded-2xl" : "rounded-[42px]")}>
                                 <div className={cn("relative overflow-hidden border-[5px] border-white bg-slate-100 dark:border-[#07101f] dark:bg-[#101827]", compact ? "h-24 w-24 rounded-xl" : "h-36 w-36 rounded-[36px] sm:h-40 sm:w-40")}>
-                                    {metadata?.avatarUrl ? (<Image src={metadata.avatarUrl} alt={resolvedName} fill className="object-cover" unoptimized/>) : (<div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 dark:from-indigo-900/40 dark:to-black">
+                                    {(presentation.avatarUrl || metadata?.avatarUrl) ? (<Image src={presentation.avatarUrl || metadata?.avatarUrl || ""} alt={resolvedName} fill className="object-cover" unoptimized/>) : (<div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 dark:from-indigo-900/40 dark:to-black">
                                             <span className="text-6xl font-black text-zinc-900/80 dark:text-white/90">
-                                                {resolvedName.slice(0, 1).toUpperCase()}
+                                                {(hasHumanName ? resolvedName : "·").slice(0, 1).toUpperCase()}
                                             </span>
                                         </div>)}
                                 </div>

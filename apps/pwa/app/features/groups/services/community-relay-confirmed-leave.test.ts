@@ -173,7 +173,29 @@ describe("community-relay-confirmed-leave", () => {
 
     expect(confirmed).toBe(true);
     expect(publishCoordinationMembershipDeltaMock).toHaveBeenCalled();
-    expect(refreshCoordinationMembershipDirectoryMock).toHaveBeenCalled();
+    expect(refreshCoordinationMembershipDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ forceFull: false }),
+    );
+  });
+
+  it("skips directory refresh when skipDirectoryRefresh is set", async () => {
+    publishLeaveEventToRelayMock.mockResolvedValue({ success: false, errorMessage: "rejected" });
+    vi.stubEnv("NEXT_PUBLIC_WORKSPACE_R1_MEMBERSHIP", "1");
+    vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "http://127.0.0.1:8787");
+
+    const confirmed = await publishRelayConfirmedCommunityLeave({
+      pool: createPool() as never,
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      communityId: "v2_managed_workspace",
+      communityMode: "managed_workspace",
+      myPublicKeyHex: PUBLIC_KEY,
+      myPrivateKeyHex: PRIVATE_KEY,
+      skipDirectoryRefresh: true,
+    });
+
+    expect(confirmed).toBe(true);
+    expect(refreshCoordinationMembershipDirectoryMock).not.toHaveBeenCalled();
   });
 
   it("publishRelayConfirmedCommunityLeave returns true when relay publish succeeds", async () => {

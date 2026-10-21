@@ -1,0 +1,104 @@
+{
+  "schema": "studio.architecture.optimize@1.0.0",
+  "recommendedTrack": "remediate_via_perf_oh",
+  "mri": {
+    "present": true,
+    "verdictKind": "remediate",
+    "coldSubject": false,
+    "surfaceCount": 1,
+    "issueCount": 0
+  },
+  "perf": {
+    "present": true,
+    "totalItems": 1,
+    "apiCount": 0,
+    "dataCount": 0,
+    "topRefs": []
+  },
+  "rwr": {
+    "present": false,
+    "mode": null,
+    "claimExportAllowed": false,
+    "phaseCount": 0,
+    "goalsCount": 0
+  },
+  "health": {
+    "present": true,
+    "allowlistPresent": false
+  },
+  "oracles": [
+    {
+      "id": "o-intake-bound",
+      "track": "remediate_via_perf_oh",
+      "statement": "Architecture work is bound to MRI verdict + named owner paths",
+      "falsifier": "No MRI hub or verdict=unknown with agents mutating freely"
+    },
+    {
+      "id": "o-perf-surface",
+      "track": "remediate_via_perf_oh",
+      "statement": "Perf api/data obligations addressed or parked (api=0 data=0)",
+      "falsifier": "Claim optimized while ranked fix-queue items untouched without park note"
+    },
+    {
+      "id": "o-living-prove",
+      "track": "remediate_via_perf_oh",
+      "statement": "User-visible deltas have living prove (client ladder) when in scope",
+      "falsifier": "Claim done with MRI cold=false and no client_validation_ladder evidence"
+    }
+  ],
+  "pathway": {
+    "id": "pathways.architectureOptimize",
+    "title": "Architecture optimize (FS4)",
+    "steps": [
+      "studio_help → architectureOptimize / pathways.architectureOptimize",
+      "studio_repo { action: \"studio_architecture_optimize\" }",
+      "Follow recommendedTrack + oracles (Perf and/or RWR/Design)",
+      "Do not claim optimized without a falsifiable oracle"
+    ]
+  },
+  "nextMcpSequence": [
+    {
+      "order": 1,
+      "tool": "studio_help",
+      "purpose": "Read pathways.architectureOptimize + oracles"
+    },
+    {
+      "order": 2,
+      "tool": "studio_repo { action: \"studio_architecture_optimize\" }",
+      "purpose": "Refresh compose pack"
+    },
+    {
+      "order": 3,
+      "tool": "studio_perf { action: \"perf_workflow_guide\" } → pathways.optimizeHealth",
+      "purpose": "Static API/data architecture surfaces",
+      "when": "remediate / perf track"
+    },
+    {
+      "order": 4,
+      "tool": "studio_repo { action: \"studio_health_sql_depth\" }",
+      "purpose": "Optional FS3 health/SQL depth when data layer in scope",
+      "when": "data_surface or DB health needed"
+    },
+    {
+      "order": 5,
+      "tool": "studio_client { action: \"client_validation_ladder\" }",
+      "purpose": "Living prove after architectural delta",
+      "when": "user-visible scope"
+    }
+  ],
+  "emptyGreen": false,
+  "openQuestions": [],
+  "doesNotProve": [
+    "architecture_optimized_without_oracle",
+    "soft_l3_fixed",
+    "mcp_settings_listing_fixed",
+    "obscur_product_fixed",
+    "design_zip_present_without_claim_export_allowed",
+    "perf_fix_queue_equals_runtime_prove",
+    "product_fixed"
+  ],
+  "notes": [
+    "FS4 architecture optimize — compose Perf + Design/RWR; hub-first",
+    "recommendedTrack=remediate_via_perf_oh"
+  ]
+}

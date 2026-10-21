@@ -11,6 +11,7 @@ import {
   resolveDmAdapterListEntries,
   resolveDmTransportRelayUrls,
   mergePublicBootIntoLoopbackOnlyList,
+  reenableWhenNoRelaysEnabled,
   isLoopbackOnlyRelayList,
 } from "./relay-transport-scope";
 
@@ -128,6 +129,32 @@ describe("relay-transport-scope", () => {
   it("does not force-merge intentional non-loopback private lists", () => {
     const { changed } = mergePublicBootIntoLoopbackOnlyList(
       [{ url: "ws://192.168.0.100:7000", enabled: true }],
+      [{ url: "wss://nos.lol", enabled: true }],
+    );
+    expect(changed).toBe(false);
+  });
+
+  it("re-enables public rows when every stored relay is disabled", () => {
+    const { relays, changed } = reenableWhenNoRelaysEnabled(
+      [
+        { url: "ws://localhost:7000", enabled: false },
+        { url: "wss://nos.lol", enabled: false },
+        { url: "wss://relay.damus.io", enabled: false },
+      ],
+      [{ url: "wss://nos.lol", enabled: true }],
+    );
+    expect(changed).toBe(true);
+    expect(relays.find((entry) => entry.url === "wss://nos.lol")?.enabled).toBe(true);
+    expect(relays.find((entry) => entry.url === "wss://relay.damus.io")?.enabled).toBe(true);
+    expect(relays.find((entry) => entry.url === "ws://localhost:7000")?.enabled).toBe(false);
+  });
+
+  it("does not re-enable when any relay is already enabled", () => {
+    const { changed } = reenableWhenNoRelaysEnabled(
+      [
+        { url: "wss://nos.lol", enabled: false },
+        { url: "wss://relay.damus.io", enabled: true },
+      ],
       [{ url: "wss://nos.lol", enabled: true }],
     );
     expect(changed).toBe(false);

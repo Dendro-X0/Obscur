@@ -4,6 +4,7 @@ import type React from "react";
 import { usePathname } from "next/navigation";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { isDesktopShellProduct } from "@/app/features/runtime/shell-contract";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { isProfileWindowUnlockedForAppShell } from "@/app/features/runtime/services/window-runtime-contracts";
 import { UnlockedAppRuntimeShell } from "@/app/features/runtime/components/unlocked-app-runtime-shell";
@@ -19,9 +20,14 @@ export function AppSessionShell(props: Readonly<{ children: React.ReactNode }>):
     publicKeyHex: identity.state.publicKeyHex,
     runtimePhase: runtime.snapshot.phase,
   });
-  const isPublicProfileRoute = isAuthPublicProfileRoute(pathname) && hasNativeRuntime();
+  // E20: do not require live bridge alone — flicker of hasNativeRuntime() remounted
+  // UnlockedAppRuntimeShell under /profiles (desktop-warmup-progress + heap).
+  const isPublicProfileRoute = isAuthPublicProfileRoute(pathname)
+    && (isDesktopShellProduct() || hasNativeRuntime());
 
-  if (isPublicProfileRoute && !isUnlocked) {
+  // PL1 / N1: picker must stay light even after keychain rehydrate unlocks the window.
+  // Mounting UnlockedAppRuntimeShell on /profiles drove lease/relay/DM IPC storms (E19).
+  if (isPublicProfileRoute) {
     return <ProfileManagementShell>{props.children}</ProfileManagementShell>;
   }
 

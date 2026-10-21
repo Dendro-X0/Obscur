@@ -29,7 +29,7 @@ const createPwaFilesystem = (): StandaloneLegacySubtractionDryRunFilesystem => (
 describe("transport-engine w59 — standalone legacy physical deletion execution", () => {
   it("pins physical deletion execution charter with dry-run policy", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w59-standalone-legacy-physical-deletion-execution.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w59-standalone-legacy-physical-deletion-execution.md",
     );
     expect(charter).toContain("Standalone Legacy Physical Deletion Execution");
     expect(charter).toContain("evaluateStandaloneLegacySubtractionDryRun");

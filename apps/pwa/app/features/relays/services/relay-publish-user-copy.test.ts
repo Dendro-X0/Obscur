@@ -104,4 +104,19 @@ describe("relay-publish-user-copy", () => {
     );
     expect(resolveUserFacingErrorMessage({}, "Fallback")).toBe("Fallback");
   });
+
+  it("resolveUserFacingErrorMessage maps locked SQLite away from relay-scope fallback", () => {
+    expect(
+      resolveUserFacingErrorMessage(
+        new Error("Local database is locked. Unlock this profile to continue."),
+        "Failed to send group message. Check relay scope and retry.",
+      ),
+    ).toMatch(/Local database is locked/i);
+    expect(
+      resolveUserFacingErrorMessage(
+        "Local database is locked. Unlock this profile to continue.",
+        "Failed to send group message. Check relay scope and retry.",
+      ),
+    ).toMatch(/device password or Import Key/i);
+  });
 });

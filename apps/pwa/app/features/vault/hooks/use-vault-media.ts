@@ -234,10 +234,15 @@ export function useVaultMedia() {
                 attachment: item.attachment,
                 sourceUrl: item.remoteUrl,
             });
-            if (exported) {
-                toast.success(t("vault.exportDecryptedCopySuccess"));
+            if (exported === "cancelled") {
+                return false;
             }
-            return exported;
+            if (exported !== "saved") {
+                toast.error(t("vault.downloadToFolderFailed"));
+                return false;
+            }
+            toast.success(t("vault.exportDecryptedCopySuccess"));
+            return true;
         };
 
         if (!publicKeyHex) {

@@ -15,7 +15,7 @@ export function CommunityLegacySovereignNotice(props: Readonly<{
     communityMode: props.communityMode,
     relayUrl: props.relayUrl,
   });
-  if (!assessment.isLegacyReadOnly) {
+  if (!assessment.title) {
     return null;
   }
   return (

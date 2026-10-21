@@ -28,22 +28,26 @@ export type DesktopProfileCardDisplay = Readonly<{
 }>;
 
 /**
- * Profile cards show a real account name + avatar together, or neither.
- * Generic slot labels stay hidden until the profile has a stored identity.
+ * Profile cards show a real account name, or a pubkey preview when the account
+ * is bound but unnamed. Empty slots stay unlabeled ("Profile slot" in the UI).
  */
 export const resolveDesktopProfileCardDisplay = (
   entry: Pick<
     DesktopProfileMenuEntry,
-    "label" | "avatarName" | "avatarUrl" | "hasStoredIdentity" | "hasSavedAccountPresence" | "profileId"
+    "label" | "avatarName" | "avatarUrl" | "hasStoredIdentity" | "hasSavedAccountPresence" | "profileId" | "subtitle"
   >,
 ): DesktopProfileCardDisplay => {
   const candidateName = entry.avatarName.trim() || entry.label.trim();
   const hasMeaningfulName = candidateName.length > 0
     && !isGenericProfileSlotLabel(candidateName, entry.profileId);
-  const showAccountIdentity = entry.hasSavedAccountPresence
-    && (hasMeaningfulName || entry.hasStoredIdentity);
+  const hasAccount = entry.hasSavedAccountPresence || entry.hasStoredIdentity;
+  const subtitle = entry.subtitle.trim();
+  const identifiableFallback = subtitle.length > 0
+    && subtitle !== entry.profileId
+    ? subtitle
+    : null;
 
-  if (!showAccountIdentity) {
+  if (!hasAccount) {
     return {
       showAccountIdentity: false,
       displayName: null,
@@ -52,10 +56,14 @@ export const resolveDesktopProfileCardDisplay = (
     };
   }
 
+  const displayName = hasMeaningfulName
+    ? candidateName
+    : (identifiableFallback || candidateName || entry.profileId);
+
   return {
     showAccountIdentity: true,
-    displayName: candidateName,
-    avatarName: candidateName,
+    displayName,
+    avatarName: hasMeaningfulName ? candidateName : displayName,
     avatarUrl: entry.avatarUrl,
   };
 };

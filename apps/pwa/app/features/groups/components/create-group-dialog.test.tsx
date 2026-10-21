@@ -68,7 +68,7 @@ vi.mock("../services/community-membership-sync-mode", () => ({
 }));
 
 const devFlagsMock = vi.hoisted(() => ({
-    coordinationOnlyDev: true,
+    coordinationOnlyDev: false,
 }));
 
 vi.mock("../services/community-dev-flags", async (importOriginal) => {
@@ -105,30 +105,18 @@ vi.mock("../../../components/ui/dropdown-menu", () => ({
     DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-const fillValidCreateForm = async (): Promise<void> => {
-    fireEvent.change(screen.getByPlaceholderText("Enter community name"), {
-        target: { value: "Ops Room" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("e.g. groups.fiatjaf.com"), {
-        target: { value: "localhost:7000" },
-    });
-    await waitFor(() => {
-        expect(screen.getByRole("button", { name: "Create Group" })).toBeEnabled();
-    });
-};
-
 describe("CreateGroupDialog", () => {
     beforeEach(() => {
-        devFlagsMock.coordinationOnlyDev = true;
+        devFlagsMock.coordinationOnlyDev = false;
         vi.stubGlobal("crypto", {
             ...(globalThis.crypto ?? {}),
             randomUUID: () => "test-group-id",
         });
         vi.stubEnv("NEXT_PUBLIC_COORDINATION_URL", "http://127.0.0.1:8787");
-        relayListMock.relays = [{ url: "wss://relay.internal", enabled: true }];
+        relayListMock.relays = [{ url: "wss://relay.primal.net", enabled: true }];
     });
 
-    it("defaults to managed workspace on intranet relay when coordination is healthy", async () => {
+    it("defaults to quick group on public Quiet relays", async () => {
         render(
             <CreateGroupDialog
                 isOpen
@@ -138,52 +126,16 @@ describe("CreateGroupDialog", () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText("Intranet Workspace Candidate")).toBeInTheDocument();
-        });
-        expect(screen.getAllByText("Managed Workspace").length).toBeGreaterThan(0);
-
-        await fillValidCreateForm();
-    });
-
-    it("shows public relay roster honesty when relay baseline is public default", async () => {
-        devFlagsMock.coordinationOnlyDev = false;
-        relayListMock.relays = [{ url: "wss://nos.lol", enabled: true }];
-        render(
-            <CreateGroupDialog
-                isOpen
-                onClose={vi.fn()}
-                onCreate={vi.fn()}
-            />,
-        );
-
-        await waitFor(() => {
+            expect(screen.getByTestId("create-group-tier-quick")).toBeInTheDocument();
             expect(screen.getByTestId("create-group-public-relay-honesty")).toBeInTheDocument();
         });
-        expect(screen.getByText("Public relays do not guarantee live roster parity")).toBeInTheDocument();
+        expect(screen.getByText("Public relays")).toBeInTheDocument();
+        expect(screen.queryByTestId("create-group-relay-baseline")).not.toBeInTheDocument();
+        expect(screen.queryByTestId("create-group-mode-guarantees")).not.toBeInTheDocument();
+        expect(screen.queryByText("Sovereign Room")).not.toBeInTheDocument();
     });
 
-    it("blocks create on public relay hosts", async () => {
-        render(
-            <CreateGroupDialog
-                isOpen
-                onClose={vi.fn()}
-                onCreate={vi.fn()}
-            />,
-        );
-
-        await fillValidCreateForm();
-
-        fireEvent.change(screen.getByPlaceholderText("e.g. groups.fiatjaf.com"), {
-            target: { value: "nos.lol" },
-        });
-
-        await waitFor(() => {
-            expect(screen.getByRole("button", { name: "Create Group" })).toBeDisabled();
-            expect(screen.getByTestId("create-group-workspace-blocked")).toBeInTheDocument();
-        });
-    });
-
-    it("submits managed workspace with trusted relay", async () => {
+    it("enables create on public Quiet after honesty ack", async () => {
         const onCreate = vi.fn();
         render(
             <CreateGroupDialog
@@ -193,15 +145,108 @@ describe("CreateGroupDialog", () => {
             />,
         );
 
-        await fillValidCreateForm();
-
-        fireEvent.click(screen.getByRole("button", { name: "Create Group" }));
-
+        fireEvent.change(screen.getByPlaceholderText("Enter community name"), {
+            target: { value: "Friends" },
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId("create-group-public-limits-ack")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByTestId("create-group-public-limits-ack"));
+        await waitFor(() => {
+            expect(screen.getByTestId("create-group-submit")).toBeEnabled();
+        });
+        fireEvent.click(screen.getByTestId("create-group-submit"));
         expect(onCreate).toHaveBeenCalledTimes(1);
         expect(onCreate.mock.calls[0]?.[0]).toMatchObject({
-            host: "localhost:7000",
+            name: "Friends",
+            communityMode: "sovereign_room",
+            hostingTier: "public_quiet",
+        });
+    });
+
+    it("resets public limits ack when host changes", async () => {
+        render(
+            <CreateGroupDialog
+                isOpen
+                onClose={vi.fn()}
+                onCreate={vi.fn()}
+            />,
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId("create-group-public-limits-ack")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByTestId("create-group-public-limits-ack"));
+        expect(screen.getByTestId("create-group-public-limits-ack")).toBeChecked();
+
+        fireEvent.change(screen.getByPlaceholderText("e.g. groups.fiatjaf.com"), {
+            target: { value: "nos.lol" },
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId("create-group-public-limits-ack")).not.toBeChecked();
+        });
+    });
+
+    it("team tier on public Quiet requires honesty ack, not hard-block (CU-UX-5)", async () => {
+        const onCreate = vi.fn();
+        render(
+            <CreateGroupDialog
+                isOpen
+                onClose={vi.fn()}
+                onCreate={onCreate}
+            />,
+        );
+
+        fireEvent.click(screen.getByTestId("create-group-tier-team"));
+        fireEvent.change(screen.getByPlaceholderText("Enter community name"), {
+            target: { value: "Ops Room" },
+        });
+        fireEvent.change(screen.getByPlaceholderText("e.g. groups.fiatjaf.com"), {
+            target: { value: "nos.lol" },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId("create-group-public-relay-honesty")).toBeInTheDocument();
+            expect(screen.getByTestId("create-group-workspace-trust-panel")).toBeInTheDocument();
+            expect(screen.queryByTestId("create-group-workspace-blocked")).not.toBeInTheDocument();
+            expect(screen.getByTestId("create-group-relay-baseline")).toBeInTheDocument();
+            expect(screen.getByTestId("create-group-mode-guarantees")).toBeInTheDocument();
+            expect(screen.getByTestId("create-group-submit")).toBeDisabled();
+        });
+
+        fireEvent.click(screen.getByTestId("create-group-public-limits-ack"));
+        await waitFor(() => {
+            expect(screen.getByTestId("create-group-submit")).toBeEnabled();
+        });
+        fireEvent.click(screen.getByTestId("create-group-submit"));
+        expect(onCreate).toHaveBeenCalledTimes(1);
+        expect(onCreate.mock.calls[0]?.[0]).toMatchObject({
             name: "Ops Room",
             communityMode: "managed_workspace",
+            hostingTier: "public_quiet",
         });
+    });
+
+    it("Escape closes create dialog without history.back", async () => {
+        const onClose = vi.fn();
+        const backSpy = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
+        try {
+            render(
+                <CreateGroupDialog
+                    isOpen
+                    onClose={onClose}
+                    onCreate={vi.fn()}
+                />,
+            );
+            expect(screen.getByTestId("create-group-dialog-layer")).toHaveAttribute(
+                "data-escape-layer",
+                "open",
+            );
+            fireEvent.keyDown(window, { key: "Escape" });
+            expect(onClose).toHaveBeenCalledTimes(1);
+            expect(backSpy).not.toHaveBeenCalled();
+        } finally {
+            backSpy.mockRestore();
+        }
     });
 });

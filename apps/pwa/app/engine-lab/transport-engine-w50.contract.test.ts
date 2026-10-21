@@ -21,7 +21,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w50 — authority-gated port host routing", () => {
   it("pins authority port routing charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w50-authority-gated-port-host-routing.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w50-authority-gated-port-host-routing.md",
     );
     expect(charter).toContain("Authority-Gated Port Host Routing");
     expect(charter).toContain("shouldRouteHostTransportPublish");

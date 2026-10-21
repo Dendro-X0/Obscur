@@ -25,6 +25,7 @@ import { joinManagedWorkspaceMembership } from "@/app/features/workspace-kernel/
 import { useRelayList } from "../../relays/hooks/use-relay-list";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import type { GroupMetadata } from "@/app/features/groups/types";
+import { useEscapeDismissLayer } from "@/app/lib/use-escape-dismiss-layer";
 
 /**
  * Props for GroupJoinDialog
@@ -42,6 +43,10 @@ export type GroupJoinDialogProps = Readonly<{
  */
 export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSuccess }: GroupJoinDialogProps) => {
     const router = useRouter();
+    useEscapeDismissLayer({
+        enabled: open,
+        onClose: () => onOpenChange(false),
+    });
     const { relayPool: pool } = useRelay();
     const poolRef = useRelayPoolRef(pool);
     const { state: identityState } = useIdentity();
@@ -178,7 +183,7 @@ export const GroupJoinDialog = ({ open, onOpenChange, groupId, relayUrl, onSucce
     if (!open || !group) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div data-escape-layer="open" data-testid="group-join-dialog-layer" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="relative w-full max-w-[425px] bg-background rounded-[32px] overflow-hidden shadow-2xl border border-border/50 animate-in zoom-in-95 duration-200">
                 <button
                     onClick={() => onOpenChange(false)}

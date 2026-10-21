@@ -102,10 +102,14 @@ export function Lightbox(props: Omit<LightboxProps, "exportGate" | "onRequestOpe
     }, []);
     const exportGate = useAttachmentExportGate();
     const {
-        pendingLinkUrl,
-        cancelPendingLink,
-        confirmPendingLink,
-        requestOpenExternalLinkPreferNative,
+      pendingLinkUrl,
+      pendingLinkPhase,
+      reputationResult,
+      reputationChecking,
+      reputationProviderLabel,
+      cancelPendingLink,
+      confirmPendingLink,
+      requestOpenExternalLinkPreferNative,
     } = useGuardedExternalLinkOpen();
     React.useEffect(() => {
         if (!props.item) {
@@ -146,10 +150,14 @@ export function Lightbox(props: Omit<LightboxProps, "exportGate" | "onRequestOpe
           onConfirm={() => void exportGate.confirmExport()}
         />
         <LinkOpenConfirmDialog
-          url={pendingLinkUrl}
-          onClose={cancelPendingLink}
-          onConfirm={() => confirmPendingLink()}
-        />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
       </MessagingOverlayPortal>
     );
 }
@@ -214,13 +222,14 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
                 attachment: item.attachment,
                 sourceUrl: item.attachment.url,
             });
-            if (!downloaded) {
-                toast.error(t("vault.saveFromChatFailed"));
+            if (downloaded === "cancelled") {
                 return;
             }
-            if (item.attachment.url?.startsWith("blob:")) {
-                toast.success(t("vault.exportDecryptedCopySuccess"));
+            if (downloaded !== "saved") {
+                toast.error(t("vault.downloadToFolderFailed"));
+                return;
             }
+            toast.success(t("vault.exportDecryptedCopySuccess"));
         });
     };
     const onSaveToVault = async (event: React.MouseEvent) => {
@@ -426,13 +435,14 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
                 attachment: item!.attachment,
                 sourceUrl: item!.attachment.url,
             });
-            if (!downloaded) {
-                toast.error(t("vault.saveFromChatFailed"));
+            if (downloaded === "cancelled") {
                 return;
             }
-            if (item!.attachment.url?.startsWith("blob:")) {
-                toast.success(t("vault.exportDecryptedCopySuccess"));
+            if (downloaded !== "saved") {
+                toast.error(t("vault.downloadToFolderFailed"));
+                return;
             }
+            toast.success(t("vault.exportDecryptedCopySuccess"));
         });
     };
     const onSaveToVault = async (event: React.MouseEvent) => {

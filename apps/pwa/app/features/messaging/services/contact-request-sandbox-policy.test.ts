@@ -19,11 +19,15 @@ describe("contact-request-sandbox-policy (ASE-1d-c)", () => {
     })).toBe("sandbox_text");
   });
 
-  it("returns full only when handshake evidence is accepted", () => {
+  it("returns full when handshake is accepted or trust already accepted", () => {
     expect(resolveContactRequestComposeMode({
       isPeerAcceptedByTrust: true,
       requestStatus: null,
-    })).toBe("blocked");
+    })).toBe("full");
+    expect(resolveContactRequestComposeMode({
+      isPeerAcceptedByTrust: true,
+      requestStatus: { isOutgoing: false, status: "pending" },
+    })).toBe("full");
     expect(resolveContactRequestComposeMode({
       isPeerAcceptedByTrust: true,
       requestStatus: { isOutgoing: false, status: "accepted" },

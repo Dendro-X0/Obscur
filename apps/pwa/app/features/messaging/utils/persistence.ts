@@ -585,6 +585,12 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
     const communityMode = value.communityMode === "managed_workspace" || value.communityMode === "sovereign_room"
         ? value.communityMode
         : undefined;
+    const hostingTier =
+        value.hostingTier === "public_quiet"
+        || value.hostingTier === "operator"
+        || value.hostingTier === "custom"
+            ? value.hostingTier
+            : undefined;
     const relayCapabilityTier =
         value.relayCapabilityTier === "unconfigured"
         || value.relayCapabilityTier === "public_default"
@@ -620,6 +626,7 @@ const parsePersistedGroupConversation = (value: unknown): PersistedGroupConversa
         about,
         avatar,
         communityMode,
+        hostingTier,
         relayCapabilityTier,
     };
 };
@@ -874,6 +881,7 @@ export const toPersistedGroupConversation = (group: GroupConversation): Persiste
     avatar: group.avatar,
     about: group.about,
     communityMode: group.communityMode,
+    hostingTier: group.hostingTier,
     relayCapabilityTier: group.relayCapabilityTier,
 });
 
@@ -896,6 +904,7 @@ export const fromPersistedGroupConversation = (group: PersistedGroupConversation
     avatar: group.avatar,
     about: group.about,
     communityMode: group.communityMode,
+    hostingTier: group.hostingTier,
     relayCapabilityTier: group.relayCapabilityTier,
 });
 

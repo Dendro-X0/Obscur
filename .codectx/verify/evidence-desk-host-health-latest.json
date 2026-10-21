@@ -1,0 +1,61 @@
+{
+  "schema": "studio.evidence.desk.host.health@1.0.0",
+  "band": "H-ED5",
+  "residualStatus": "partial",
+  "title": "Evidence Desk host health",
+  "id": "evidence.desk.host.health",
+  "pathway": "pathways.evidenceDesk",
+  "summary": "Pre-soak host health on the subject volume: FreeMB (+ optional disk Active%). refuse/warn before dogfood when the volume is tight or pegged. One sample ≠ host Fixed.",
+  "measurePath": "E:\\Web Projects\\obscur",
+  "volumeRoot": "E:\\",
+  "platform": "win32",
+  "hostname": "XTZJ-20221014TG",
+  "freeBytes": 20604272640,
+  "freeMb": 19650,
+  "totalBytes": 143424126976,
+  "totalMb": 136780,
+  "freePct": 14.4,
+  "freeSource": "fs.statfsSync",
+  "diskActivePct": 0,
+  "diskActiveSource": "perf-counter",
+  "thresholds": {
+    "warnFreeMb": 2048,
+    "refuseFreeMb": 512,
+    "warnFreePct": 10,
+    "refuseFreePct": 5,
+    "warnDiskActivePct": 70,
+    "refuseDiskActivePct": 90
+  },
+  "verdict": "ok",
+  "reasons": [
+    "free space within thresholds"
+  ],
+  "recommendSoak": true,
+  "hubRel": ".codectx/verify/evidence-desk-host-health-latest.json",
+  "citeAsSoftL3Fixed": false,
+  "citeAsObscurProductFixed": false,
+  "citeAsHostHealthyFixed": false,
+  "doesNotProve": [
+    "soft_l3_fixed",
+    "obscur_product_fixed",
+    "host_healthy_fixed",
+    "continuous_disk_apm",
+    "product_fixed"
+  ],
+  "operatorAdvice": "Volume free space OK for soak (still Partial — re-check if machine freezes)",
+  "nextMcpSequence": [
+    "studio_repo { action: \"studio_evidence_desk_host_health\" }",
+    "Continue: studio_evidence_desk_plane_plan → operator shellRecipe → export_bundle",
+    "Stop — citeAsHostHealthyFixed=false · Soft L3 Fixed never from this strip"
+  ],
+  "operatorNotes": null,
+  "proves": [
+    "Returns subject-volume FreeMB (+ optional Active%) with warn/refuse soak advice",
+    "Does not claim Soft L3 Fixed or continuous host health Fixed"
+  ],
+  "deferredTo": {
+    "H-ED6": "TRY-STUDIO / MCP-AGENT-GUIDE + Obscur Partial dogfood"
+  },
+  "persisted": true,
+  "persistPath": "E:\\Web Projects\\obscur\\.codectx\\verify\\evidence-desk-host-health-latest.json"
+}

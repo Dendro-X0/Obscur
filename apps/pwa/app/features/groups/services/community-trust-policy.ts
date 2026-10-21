@@ -19,6 +19,7 @@ export type WorkspaceCommunityTrustReasonCode =
     | "coordination_unconfigured"
     | "coordination_unreachable"
     | "public_relay_blocked"
+    | "public_relay_honest"
     | "relay_unconfigured";
 
 export type WorkspaceCommunityTrustAssessment = Readonly<{
@@ -131,12 +132,13 @@ export const assessWorkspaceCommunityTrust = (params: Readonly<{
         };
     }
 
+    // CU-UX-5: public Quiet allowed for team when coordination is healthy — honesty via UI ack.
     if (relayAssessment.tier === "public_default") {
         return {
-            allowed: false,
-            reasonCode: "public_relay_blocked",
-            userMessage: "Public relays (nos.lol, damus.io, groups.fiatjaf.com, etc.) cannot host workspace membership. Use a trusted private relay plus coordination.",
-            settingsHint: "Disable public-default hosts for community scope; add your team relay URL in Settings → Relays.",
+            allowed: true,
+            reasonCode: "public_relay_honest",
+            userMessage: "Team on public Quiet: chat works; delete-for-all and enterprise directory need a private team relay.",
+            settingsHint: "Keep Quiet for trial teams, or add a private wss:// under Settings → Relays → Team workspace.",
             relayAssessment,
             coordinationConfigured,
             requiresManagedWorkspace: true,

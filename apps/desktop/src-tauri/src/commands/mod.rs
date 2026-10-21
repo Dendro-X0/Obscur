@@ -1,5 +1,6 @@
 // Tauri command handlers
 
+pub mod account_sync;
 pub mod auth_boot;
 pub mod login_assist;
 pub mod data_root;

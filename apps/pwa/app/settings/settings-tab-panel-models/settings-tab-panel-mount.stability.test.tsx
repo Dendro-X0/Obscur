@@ -13,12 +13,14 @@ import { NotificationsSettingsTabPanelModelProvider } from "./notifications-sett
 import { BlocklistSettingsTabPanelModelProvider } from "./blocklist-settings-tab-panel-model-provider";
 import { PrivacySettingsTabPanelModelProvider } from "./privacy-settings-tab-panel-model-provider";
 import { UpdatesSettingsTabPanelModelProvider } from "./updates-settings-tab-panel-model-provider";
+import { ProtocolsSettingsTabPanelModelProvider } from "./protocols-settings-tab-panel-model-provider";
 
 const providerByTab = {
   profile: ProfileSettingsTabPanelModelProvider,
   identity: IdentitySettingsTabPanelModelProvider,
   security: SecuritySettingsTabPanelModelProvider,
   relays: RelaysSettingsTabPanelModelProvider,
+  protocols: ProtocolsSettingsTabPanelModelProvider,
   storage: StorageSettingsTabPanelModelProvider,
   appearance: AppearanceSettingsTabPanelModelProvider,
   notifications: NotificationsSettingsTabPanelModelProvider,

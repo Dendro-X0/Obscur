@@ -7,6 +7,7 @@ export {
 export {
   listDmTombstones,
   insertDmTombstone,
+  insertDmTombstones,
   deleteAllDmTombstones,
   deleteDmMessages,
   deleteDmMessage,

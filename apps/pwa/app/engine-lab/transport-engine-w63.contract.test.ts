@@ -21,7 +21,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w63 — standalone legacy port swap rehearsal", () => {
   it("pins port swap rehearsal charter with delegation policy", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
     );
     expect(charter).toContain("Port Swap Rehearsal");
     expect(charter).toContain("shouldRouteSubtractedStandalonePublishPort");

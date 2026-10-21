@@ -59,19 +59,25 @@ export const TOR_LIFECYCLE_UX_DEFAULTS: Readonly<Record<
     "Tor gateway unavailable — temporarily using clearnet. Restart Tor or check gateway.",
 };
 
-/** When preference ON failed but control plane is up (e.g. tor.exe exited). */
+/** When preference ON failed but control plane is up (e.g. tor.exe exited / bootstrap stuck). */
 export const TOR_BOOTSTRAP_FAILED_COPY =
-  "Tor failed to start or bootstrap — temporarily using clearnet. Check Tor logs, then restart Tor.";
+  "Tor bootstrap not Ready — temporarily using clearnet. See the stuck reason below, or turn Tor off.";
 
 export const getTorLifecycleUxDefaultCopy = (
   phase: TorLifecycleUxPhase,
   options?: Readonly<{
     gatewayReachable?: boolean;
     startFailed?: boolean;
+    /** Operator-facing stall reason from gateway detail (TLS_ERROR / Stuck at N%). */
+    stallReason?: string | null;
   }>,
 ): string | null => {
   if (phase === "off") {
     return null;
+  }
+  const stall = options?.stallReason?.trim();
+  if (phase === "degraded" && stall && stall.length > 0) {
+    return stall;
   }
   if (
     phase === "degraded"

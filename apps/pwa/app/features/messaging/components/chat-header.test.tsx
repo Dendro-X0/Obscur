@@ -125,6 +125,22 @@ describe("ChatHeader", () => {
     expect(screen.queryByText(/Last active/i)).not.toBeInTheDocument();
   });
 
+  it("starts a video call from the DM header control", () => {
+    const onSendVideoCallInvite = vi.fn();
+    render(
+      <ChatHeader
+        {...createProps()}
+        onSendVoiceCallInvite={vi.fn()}
+        onSendVideoCallInvite={onSendVideoCallInvite}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("chat-header-video-call"));
+
+    expect(onSendVideoCallInvite).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("chat-header-video-call")).toHaveTextContent("messaging.videoCall");
+  });
+
   it("navigates to profile when dm avatar is clicked", () => {
     const onOpenProfile = vi.fn();
     const props = createProps();

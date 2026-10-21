@@ -21,10 +21,10 @@ const createPwaFilesystem = () => ({
 describe("transport-engine w66 — mechanical subtraction commit harness", () => {
   it("links W65 pin migration to W66 mechanical commit", () => {
     const w65 = readFromRepo(
-      "docs/program/transport-engine-w65-standalone-legacy-existence-pin-migration.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w65-standalone-legacy-existence-pin-migration.md",
     );
     const w66 = readFromRepo(
-      "docs/program/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md",
     );
     expect(w65).toContain("STANDALONE_LEGACY_GATE_CLOSED_EXISTENCE_PIN_CONTRACTS");
     expect(w66).toContain("preCommitBaselineReady");

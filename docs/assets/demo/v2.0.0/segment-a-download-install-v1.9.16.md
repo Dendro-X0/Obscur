@@ -1,131 +1,123 @@
-# Demo Segment A — Intro · site tour · download · install (v1.9.16)
+# Demo Segment A — Intro · site · download · install (v1.9.16)
 
-**Status:** Segment A recorded · Shotcut trim · **~45 s** · 2026-08-16  
+**Status:** VO rethink · **~50 s** trimmed section · site + install only  
 **Site:** https://obscur-website.vercel.app/  
-**Tone:** Calm · moderate pace · short lines (leave air between sentences)  
-**Budget:** Opening stitch recorded at **~45 s** (trimmed) · full video target **&lt; 10 min**  
-**Output:** `demo_01_site_download_install_v1.9.16.mp4` → later stitch into `apps/website/public/hero-media/showcase.mp4`
+**Tone:** Calm · moderate pace · **sparse lines** — let the site and installer carry visuals  
+**Output:** Opening of `showcase.mp4` / `demo_01_site_download_install_v1.9.16.mp4`
 
-**Not in this segment:** create identity · DM · relays · Tor.
+**Job of this section:** Name what Obscur *is* (purpose + stack) in one breath, then get the viewer to a installed app — **hand off to identity creation** in the next beat.
 
----
-
-## Distribution (one calm beat)
-
-| Channel | Role |
-|---------|------|
-| Website [`/download`](https://obscur-website.vercel.app/download) | **Primary** · checksums |
-| [GitHub Releases v1.9.16](https://github.com/Dendro-X0/Obscur/releases/tag/v1.9.16) | Secondary · same assets |
+**Not in this segment:** create identity · DM · relays deep-dive · Tor.
 
 ---
 
-## Shot list + voiceover
+## What viewers must leave with
 
-Read each line once, then pause. Do not stack sentences back-to-back.
-
-### 1 — Landing hold (intro)
-
-**On screen:** [Home](https://obscur-website.vercel.app/) · pause on hero (“Privacy kept close — releases you can verify”) · **Download v1.9.16** visible.  
-**Hold:** 6–8 s after you finish speaking.
-
-| VO |
-|----|
-| This is Obscur — private messaging you install and own locally. |
-| End-to-end encryption on the client. Releases you can verify. |
-
-≈ 12–15 s spoken + hold.
+1. **Purpose** — local-first encrypted messaging you install and own  
+2. **Stack** — Tauri v2 desktop · SQLite locally · Rust kernel · Nostr transport (public + custom relays)  
+3. **Sync model** — relay networks *or* portable profile export (two honest paths)  
+4. **Trust** — official site · verify releases · unsigned installer is expected  
+5. **Next** — installer done → identity segment
 
 ---
 
-### 2 — Scroll the official page
+## 50-second beat map
 
-**On screen:** Slow scroll — Chapter I (shipping) → product stages → Chapter III (Desktop primary) → Distribution strip. Do not open every card.
+| Time | On screen | VO role |
+|------|-----------|---------|
+| **0:00–0:12** | Home hero · hold on title + **Download v1.9.16** | Name Obscur + one-line purpose |
+| **0:12–0:28** | Slow scroll (shipping / desktop primary) *or* hold hero | Stack: Tauri · SQLite · relays · sync paths |
+| **0:28–0:40** | `/download` · platform card · checksums · download starts | Verify + Windows pick |
+| **0:40–0:50** | Installer launch · SmartScreen · NSIS · cut before welcome | Install + handoff |
 
-| VO |
-|----|
-| The site mirrors what’s actually shipping — not a separate product story. |
-| Desktop is the primary path. Android is sideload only. |
-
-≈ 10–12 s · scroll through while speaking · stop at Distribution / Download CTA.
-
----
-
-### 3 — Brief setup / install honesty
-
-**On screen:** Pause on Distribution (“Install from the download page — checksums included”) or click **Product scope** / **Signing** only if you want one honest beat — keep it **under 10 s** on that frame.
-
-| VO |
-|----|
-| Installers are unsigned by policy. |
-| Check the SHA-256, then sideload — SmartScreen is expected on Windows. |
-
-≈ 8–10 s.
+**Rule:** One sentence per beat, then **silence** while the mouse moves. Do not narrate every scroll pixel.
 
 ---
 
-### 4 — Download page
+## Recommended voiceover (~48–52 s spoken)
 
-**On screen:** Click **Download v1.9.16** → [`/download`](https://obscur-website.vercel.app/download) · show platform card · scroll checksums · start download.
+Read once per beat. Pause **1–2 s** between lines.
 
-| VO |
-|----|
-| Download lives here — pick your platform. |
-| I’m taking the Windows build for this demo. |
-| Same files are also on GitHub Releases, if you prefer the tag. |
+### Beat 1 — Hero (0:00)
 
-≈ 12–15 s.
+> **Obscur is a local-first encrypted messenger — a native desktop app you install and control.**
 
-*(Optional 4–6 s cut: GitHub Assets list for v1.9.16 — no extra VO, or add: “Same version on the release tag.”)*
+### Beat 2 — Stack (0:12)
 
----
+> **Built on Tauri v2: small footprint, fully featured — SQLite on your machine, with a Rust kernel underneath.**  
+> **It connects through public Nostr relays or your own — and you can sync via the network, or by exporting a portable profile.**
 
-### 5 — Install
+### Beat 3 — Download (0:28)
 
-**On screen:** Run `Obscur_1.9.16_x64-setup.exe` · SmartScreen → More info → Run anyway · advance NSIS quickly · stop when app can launch / first welcome card appears.
+> **This is the official site — releases you can verify.**  
+> **Download your platform, check the SHA-256, and grab the Windows build for this walkthrough.**
 
-| VO |
-|----|
-| Running the installer now. |
-| Next, we’ll create a local identity. |
+### Beat 4 — Install + handoff (0:40)
 
-≈ 8–10 s spoken · let UI carry the rest · **cut before** Create Identity.
+> **Running the installer now — unsigned builds may show SmartScreen; that’s expected.**  
+> **Next, we create a local identity.**
 
 ---
 
-## Full read-through (copy card)
+## Full read-through (teleprompter)
 
-Use this as a single teleprompter block if you prefer continuous delivery. Still leave half-beats between lines.
-
-> This is Obscur — private messaging you install and own locally.  
-> End-to-end encryption on the client. Releases you can verify.  
+> Obscur is a local-first encrypted messenger — a native desktop app you install and control.  
 >  
-> The site mirrors what’s actually shipping — not a separate product story.  
-> Desktop is the primary path. Android is sideload only.  
+> Built on Tauri v2: small footprint, fully featured — SQLite on your machine, with a Rust kernel underneath.  
+> It connects through public Nostr relays or your own — and you can sync via the network, or by exporting a portable profile.  
 >  
-> Installers are unsigned by policy.  
-> Check the SHA-256, then sideload — SmartScreen is expected on Windows.  
+> This is the official site — releases you can verify.  
+> Download your platform, check the SHA-256, and grab the Windows build for this walkthrough.  
 >  
-> Download lives here — pick your platform.  
-> I’m taking the Windows build for this demo.  
-> Same files are also on GitHub Releases, if you prefer the tag.  
->  
-> Running the installer now.  
-> Next, we’ll create a local identity.
+> Running the installer now — unsigned builds may show SmartScreen; that’s expected.  
+> Next, we create a local identity.
 
-**Word count:** ~95 words · ~45–55 s of speech at a calm pace · with holds/scroll ≈ **2–2½ min** on tape.
+**~95 words · ~50 s** at moderate pace with short pauses between stanzas.
+
+---
+
+## Alternate — stack-forward (if hero hold is short)
+
+Use when Beat 2 is only **8 s** on screen — merge stack into one tighter line:
+
+> **Tauri v2 desktop, local SQLite, Nostr — public relays or yours — sync online or with a portable export.**
+
+Drop the long Beat 2 pair; keep Beats 1, 3, 4 unchanged.
+
+---
+
+## Alternate — minimal (if install runs fast in trim)
+
+Cut Beat 3 second line; end at:
+
+> **Download from the official page and verify the hash.**  
+> **Installer’s running — next, a local identity.**
 
 ---
 
 ## Do not say
 
-- Better than Signal / WhatsApp  
-- Play Store / App Store / Microsoft-signed  
-- “No security warnings”  
-- Tor required to install  
-- “Website isn’t the real channel”
+| Avoid | Why |
+|-------|-----|
+| “Better than Signal / WhatsApp” | Not our story |
+| “Just a Nostr client” | Undersells the stack |
+| “Cloud account / our servers” | Local-first truth |
+| “Fully anonymous / uncrackable” | Overclaim |
+| Play Store · signed Microsoft installer | Not shipped |
+| Tor required to install | False |
+| “Bug-free” / “production-perfect” | Beta honesty lives in close |
 
 ---
 
 ## Pass when
 
-Viewer knows: what Obscur is · site is trustworthy · desktop primary · how to download · checksum / unsigned · installer finished · identity comes next.
+Viewer hears **purpose + Tauri/SQLite/relays + two sync paths** before download, and sees **verify + install** without drowning in prose. Cut lands on installer / pre-welcome — identity is explicitly **next**.
+
+---
+
+## Distribution (unchanged)
+
+| Channel | Role |
+|---------|------|
+| Website `/download` | Primary · checksums |
+| GitHub Releases v1.9.16 | Secondary · same assets |

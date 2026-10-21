@@ -2,6 +2,7 @@
   "name": "dweb-messenger",
   "private": true,
   "version": "1.9.16",
+  "license": "UNLICENSED",
   "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20.11.0"
@@ -9,6 +10,8 @@
   "scripts": {
     "cache:clear": "node scripts/clear-dev-cache.mjs",
     "kill:dev-stack": "node scripts/kill-obscur-dev-stack.mjs",
+    "dev:host-check": "node scripts/lib/host-pressure.mjs",
+    "dev:desktop:light": "node scripts/dev-workspace-stack.mjs --online --light",
     "purge:workspace": "node scripts/purge-workspace-communities.mjs",
     "purge:workspace:all": "node scripts/purge-workspace-communities.mjs --all-groups",
     "dev": "node scripts/dev-workspace-stack.mjs --online",
@@ -38,7 +41,8 @@
     "dev:coordination": "pnpm -C apps/coordination dev",
     "coordination:migrate": "pnpm -C apps/coordination db:migrate",
     "coordination:health": "node scripts/coordination-health.mjs",
-    "verify:phase1": "pnpm test:shell-invariants && pnpm -C apps/pwa exec vitest run app/features/runtime/experiment-shell-policy.test.ts app/features/runtime/components/runtime-activation-manager.test.tsx app/features/runtime/services/window-runtime-supervisor.test.ts app/features/runtime/native-persistence-policy.test.ts",
+    "verify:native-perf-n1": "pnpm -C apps/pwa exec vitest run app/features/profiles/profile-picker.contract.test.ts app/engine-lab/dev-lab-product-quarantine.contract.test.ts",
+    "verify:phase1": "pnpm test:shell-invariants && pnpm verify:native-perf-n1 && pnpm -C apps/pwa exec vitest run app/features/runtime/experiment-shell-policy.test.ts app/features/runtime/components/runtime-activation-manager.test.tsx app/features/runtime/services/window-runtime-supervisor.test.ts app/features/runtime/native-persistence-policy.test.ts",
     "verify:phase2": "pnpm verify:phase1 && pnpm -C apps/pwa exec vitest run app/features/messaging/services/conversation-list-authority.test.ts app/features/messaging/services/message-persistence-service.test.ts app/features/messaging/services/dm-conversation-hydrate-indexed-scan.test.ts app/features/messaging/services/dm-read-authority-contract.test.ts app/features/messaging/services/dm-delete-reload-projection.test.ts app/features/messaging/providers/messaging-provider.hydration-scope.test.tsx",
     "test:coordination-worker": "pnpm -C apps/coordination test",
     "test:workspace-membership": "pnpm test:coordination-worker && pnpm -C apps/pwa test:community-invariants",

@@ -18,7 +18,13 @@ import {
   readLesObjectDecrypted,
   type LesObjectMeta,
 } from "../sdk/les-native-sdk";
-import { buildLesRemoteUrl, mapLesMetaToVaultMediaItem, parseLesRemoteUrl, LES_PREVIEW_PENDING_PLACEHOLDER } from "../sdk/les-vault-media-adapter";
+import {
+  buildLesRemoteUrl,
+  isLesPreviewPendingUrl,
+  mapLesMetaToVaultMediaItem,
+  parseLesRemoteUrl,
+  LES_PREVIEW_PENDING_PLACEHOLDER,
+} from "../sdk/les-vault-media-adapter";
 import {
   exportLesVaultItemToUserPath,
   revealLesVaultItemFolder,
@@ -48,11 +54,16 @@ async function mapPool<T>(
   await Promise.all(runners);
 }
 
+/** Images need thumbs in the grid; heavy media decrypts on preview open. */
+const shouldEagerDecryptMeta = (meta: LesObjectMeta): boolean =>
+  (meta.kind ?? "").trim().toLowerCase() === "image";
+
 export type UseLesVaultMediaResult = Readonly<{
   mediaItems: ReadonlyArray<VaultMediaItem>;
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  ensurePreview: (remoteUrl: string) => Promise<boolean>;
   downloadToLocalPath: (item: VaultMediaItem) => Promise<boolean>;
   deleteLocalCopy: (remoteUrl: string) => Promise<void>;
   openLocalFileLocation: (remoteUrl: string) => Promise<boolean>;
@@ -68,7 +79,7 @@ export type UseLesVaultMediaResult = Readonly<{
 
 /**
  * LES catalog → VaultMediaGrid props.
- * Keeps blob previews across soft refresh; never assigns `les://` as an <img> src.
+ * Eager decrypt for images only; audio/video/file decrypt on `ensurePreview`.
  */
 export function useLesVaultMedia(): UseLesVaultMediaResult {
   const { t } = useTranslation();
@@ -80,7 +91,54 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
   const generationRef = useRef(0);
   const itemsRef = useRef(mediaItems);
   const previewByRemoteUrlRef = useRef(new Map<string, string>());
+  const metaByRemoteUrlRef = useRef(new Map<string, LesObjectMeta>());
+  const inflightPreviewRef = useRef(new Map<string, Promise<boolean>>());
   itemsRef.current = mediaItems;
+
+  const applyPreviewBlob = useCallback((meta: LesObjectMeta, blobUrl: string): void => {
+    const remoteUrl = buildLesRemoteUrl(meta.profileId, meta.lesObjectId);
+    registerVaultMediaBlobUrl(remoteUrl, blobUrl);
+    previewByRemoteUrlRef.current.set(remoteUrl, blobUrl);
+    setMediaItems((prev) =>
+      prev.map((item) =>
+        item.remoteUrl === remoteUrl
+          ? mapLesMetaToVaultMediaItem(meta, blobUrl)
+          : item,
+      ),
+    );
+  }, []);
+
+  const decryptMetaToPreview = useCallback(async (
+    meta: LesObjectMeta,
+    generation: number,
+  ): Promise<boolean> => {
+    const remoteUrl = buildLesRemoteUrl(meta.profileId, meta.lesObjectId);
+    const cached = previewByRemoteUrlRef.current.get(remoteUrl);
+    if (cached && !isLesPreviewPendingUrl(cached)) {
+      return true;
+    }
+    try {
+      const bytes = await readLesObjectDecrypted(meta.lesObjectId, meta.profileId);
+      if (generation !== generationRef.current || bytes.byteLength === 0) {
+        return false;
+      }
+      const blobUrl = bytesToBlobUrl(bytes, meta.contentType);
+      applyPreviewBlob(meta, blobUrl);
+      return true;
+    } catch (err) {
+      logRuntimeEvent(
+        "les.vault_media.preview_decrypt_failed",
+        "degraded",
+        ["[LES] Preview decrypt failed", {
+          lesObjectId: meta.lesObjectId,
+          profileId: meta.profileId,
+          error: err instanceof Error ? err.message : String(err),
+        }],
+        { windowMs: 15_000, maxPerWindow: 4, summaryEverySuppressed: 10 },
+      );
+      return false;
+    }
+  }, [applyPreviewBlob]);
 
   const refresh = useCallback(async () => {
     if (!isLesNativeAvailable()) {
@@ -88,6 +146,7 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
         revokeVaultMediaBlobUrl(remoteUrl);
       });
       previewByRemoteUrlRef.current.clear();
+      metaByRemoteUrlRef.current.clear();
       revokeAllVaultMediaBlobUrls();
       setMediaItems([]);
       setIsLoading(false);
@@ -114,50 +173,36 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
           previewByRemoteUrlRef.current.delete(remoteUrl);
         }
       }
+      metaByRemoteUrlRef.current = new Map(
+        catalog.map((meta) => [buildLesRemoteUrl(meta.profileId, meta.lesObjectId), meta]),
+      );
 
       const initial = catalog.map((meta) => {
         const remoteUrl = buildLesRemoteUrl(meta.profileId, meta.lesObjectId);
         const cached = previewByRemoteUrlRef.current.get(remoteUrl);
-        return mapLesMetaToVaultMediaItem(meta, cached ?? LES_PREVIEW_PENDING_PLACEHOLDER);
+        const preview = cached && !isLesPreviewPendingUrl(cached)
+          ? cached
+          : LES_PREVIEW_PENDING_PLACEHOLDER;
+        return mapLesMetaToVaultMediaItem(meta, preview);
       });
       setMediaItems(initial);
       setError(null);
       setIsLoading(false);
 
-      // Always re-decrypt: a prior lightbox close used to revoke blob URLs while the
-      // cache still held the dead string, which skipped decrypt forever.
-      await mapPool(catalog, PREVIEW_CONCURRENCY, async (meta: LesObjectMeta) => {
+      const eager = catalog.filter((meta) => {
+        if (!shouldEagerDecryptMeta(meta)) {
+          return false;
+        }
+        const remoteUrl = buildLesRemoteUrl(meta.profileId, meta.lesObjectId);
+        const cached = previewByRemoteUrlRef.current.get(remoteUrl);
+        return !(cached && !isLesPreviewPendingUrl(cached));
+      });
+
+      await mapPool(eager, PREVIEW_CONCURRENCY, async (meta: LesObjectMeta) => {
         if (generation !== generationRef.current) {
           return;
         }
-        const remoteUrl = buildLesRemoteUrl(meta.profileId, meta.lesObjectId);
-        try {
-          const bytes = await readLesObjectDecrypted(meta.lesObjectId, meta.profileId);
-          if (generation !== generationRef.current || bytes.byteLength === 0) {
-            return;
-          }
-          const blobUrl = bytesToBlobUrl(bytes, meta.contentType);
-          registerVaultMediaBlobUrl(remoteUrl, blobUrl);
-          previewByRemoteUrlRef.current.set(remoteUrl, blobUrl);
-          setMediaItems((prev) =>
-            prev.map((item) =>
-              item.remoteUrl === remoteUrl
-                ? mapLesMetaToVaultMediaItem(meta, blobUrl)
-                : item,
-            ),
-          );
-        } catch (err) {
-          logRuntimeEvent(
-            "les.vault_media.preview_decrypt_failed",
-            "degraded",
-            ["[LES] Preview decrypt failed", {
-              lesObjectId: meta.lesObjectId,
-              profileId: meta.profileId,
-              error: err instanceof Error ? err.message : String(err),
-            }],
-            { windowMs: 15_000, maxPerWindow: 4, summaryEverySuppressed: 10 },
-          );
-        }
+        await decryptMetaToPreview(meta, generation);
       });
     } catch (err) {
       if (generation !== generationRef.current) {
@@ -167,7 +212,32 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
       setMediaItems([]);
       setIsLoading(false);
     }
-  }, []);
+  }, [decryptMetaToPreview]);
+
+  const ensurePreview = useCallback(async (remoteUrl: string): Promise<boolean> => {
+    const trimmed = remoteUrl.trim();
+    if (!trimmed) {
+      return false;
+    }
+    const cached = previewByRemoteUrlRef.current.get(trimmed);
+    if (cached && !isLesPreviewPendingUrl(cached)) {
+      return true;
+    }
+    const inflight = inflightPreviewRef.current.get(trimmed);
+    if (inflight) {
+      return inflight;
+    }
+    const meta = metaByRemoteUrlRef.current.get(trimmed);
+    if (!meta) {
+      return false;
+    }
+    const generation = generationRef.current;
+    const task = decryptMetaToPreview(meta, generation).finally(() => {
+      inflightPreviewRef.current.delete(trimmed);
+    });
+    inflightPreviewRef.current.set(trimmed, task);
+    return task;
+  }, [decryptMetaToPreview]);
 
   useEffect(() => {
     void refresh();
@@ -177,6 +247,8 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
         revokeVaultMediaBlobUrl(remoteUrl);
       });
       previewByRemoteUrlRef.current.clear();
+      metaByRemoteUrlRef.current.clear();
+      inflightPreviewRef.current.clear();
       revokeAllVaultMediaBlobUrls();
     };
   }, [refresh, profileId]);
@@ -195,10 +267,15 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
   const downloadToLocalPath = useCallback(async (item: VaultMediaItem): Promise<boolean> => {
     try {
       const exported = await exportLesVaultItemToUserPath(item);
-      if (exported) {
-        toast.success(t("vault.exportDecryptedCopySuccess"));
+      if (exported === "cancelled") {
+        return false;
       }
-      return exported;
+      if (exported !== "saved") {
+        toast.error(t("vault.downloadToFolderFailed"));
+        return false;
+      }
+      toast.success(t("vault.exportDecryptedCopySuccess"));
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
       return false;
@@ -232,10 +309,6 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
   const openLocalFileLocation = useCallback(async (remoteUrl: string): Promise<boolean> => {
     const item = itemsRef.current.find((entry) => entry.remoteUrl === remoteUrl);
     if (!item) {
-      const parsed = parseLesRemoteUrl(remoteUrl);
-      if (!parsed) {
-        return false;
-      }
       return false;
     }
     return revealLesVaultItemFolder(item);
@@ -256,6 +329,7 @@ export function useLesVaultMedia(): UseLesVaultMediaResult {
     isLoading,
     error,
     refresh,
+    ensurePreview,
     downloadToLocalPath,
     deleteLocalCopy,
     openLocalFileLocation,

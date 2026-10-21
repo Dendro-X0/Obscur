@@ -19,6 +19,9 @@ export const settingsTabPanelModelProviderLoaders: Record<
   relays: () => import("./relays-settings-tab-panel-model-provider").then((module) => ({
     default: module.RelaysSettingsTabPanelModelProvider,
   })),
+  protocols: () => import("./protocols-settings-tab-panel-model-provider").then((module) => ({
+    default: module.ProtocolsSettingsTabPanelModelProvider,
+  })),
   storage: () => import("./storage-settings-tab-panel-model-provider").then((module) => ({
     default: module.StorageSettingsTabPanelModelProvider,
   })),

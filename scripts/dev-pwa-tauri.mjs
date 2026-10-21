@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mergePwaEnvLocal } from "./load-pwa-env-local.mjs";
+import { spawnPnpm } from "./lib/spawn-pnpm.mjs";
 import {
   probePwaDevReady,
   PWA_DEV_URL,
@@ -41,11 +42,10 @@ const main = async () => {
   console.log(`[dev-pwa-tauri] starting Next dev (${useWebpack ? "webpack" : "turbopack"}) on :3340…`);
 
   await new Promise((resolve, reject) => {
-    const child = spawn("pnpm", ["-C", "apps/pwa", "run", nextScript], {
+    const child = spawnPnpm(["-C", "apps/pwa", "run", nextScript], {
       cwd: repoRoot,
       stdio: "inherit",
       env,
-      shell: process.platform === "win32",
     });
 
     child.on("error", (error) => {

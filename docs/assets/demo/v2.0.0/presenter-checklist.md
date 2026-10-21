@@ -18,17 +18,21 @@
 
 ---
 
-## Live group segment (optional — add 15 min prep)
+## Live group segment (optional — add 15 min prep) · Segment I / Part 9
+
+**Brief:** [segment-i-community-group-chat-v1.9.16.md](./segment-i-community-group-chat-v1.9.16.md)  
+**VO:** Docker for this demo · VPS / dedicated pool for production reliability.
 
 | # | Check | Notes | Done |
 |---|-------|-------|------|
-| 6 | `.env.local` from example | Copy `apps/pwa/.env.example` — not committed | ☐ |
+| 6 | `.env.local` from example (dev shell) **or** Operator setup trust-local (packaged exe) | Copy `apps/pwa/.env.example` — not committed | ☐ |
 | 7 | Coordination running | `pnpm dev:coordination` · `pnpm coordination:health` → `ok: true` | ☐ |
 | 8 | Relay running (chat) | `pnpm dev:relay:docker` — Docker Desktop required | ☐ |
-| 9 | Two profiles ready | Tester1 + Tester2 · two windows | ☐ |
+| 9 | Two profiles ready | DemoUser / Tester1 + Tester2 · two windows | ☐ |
 | 10 | Fresh workspace or known fixture | Avoid stale roster from prior demos | ☐ |
+| 11 | Relays: `ws://localhost:7000` Connected · public hosts off for create | See private-trust setup | ☐ |
 
-**Coordination-only shortcut:** `NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true` — membership without relay; chat stays local-only.
+**Coordination-only shortcut:** `NEXT_PUBLIC_DEV_COORDINATION_ONLY_WORKSPACE=true` — membership without relay; chat stays local-only — **not** for Segment I chat proof.
 
 ---
 

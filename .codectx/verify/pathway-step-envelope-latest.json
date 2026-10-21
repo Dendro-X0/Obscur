@@ -1,0 +1,44 @@
+{
+  "schema": "studio.verify.pathway-step-envelope@0.1.0",
+  "currentStep": "truth",
+  "nextTool": "verify_truth_surface_evaluate",
+  "nextToolArgs": {
+    "claim": "ready for parity desktop soak",
+    "truthSurface": "parity-desktop",
+    "write": true
+  },
+  "forbiddenTools": [
+    "verify.operation.run",
+    "verify_freeze_set_propose",
+    "verify_mvp_prove",
+    "verify_operation_run",
+    "verify_salvage_preset_run",
+    "verify_shell_freshness_evaluate",
+    "verify_vertical_slice_evaluate"
+  ],
+  "mutateProveAllowed": false,
+  "expectedRepoRootReminder": "Call studio_workspace_binding / pass expectedRepoRoot when the subject is not the MCP workspace root.",
+  "ideContractNote": "Execute only the current pathway step; honor frozenPackages + pausedBands; do not invent studio_jobs_list — call verify_salvage_pathway. DFH2: subjectNextAtomicStep from docs/handoffs/current-session.md overrides stale R-AUTH prove guidance. RIM6: Track B catalog/process Soft L3 does not substitute Track A runtime Soft L3 ACK proof. Captures/map ≠ architecture fix. AGENTS.md alone is not a gate — refuse fixed/ship claims without citeable evidenceBeforeDone. FLEX3: nextTool is primary; also consider alternatives / park / explorationBudget. PSR1: freeze is optional for this pack — do not force verify_freeze_set_propose; prefer recommendedPack / alternatives.",
+  "alternatives": [
+    {
+      "tool": "subject_shape_classify",
+      "why": "Confirm subject shape before forcing salvage rails"
+    },
+    {
+      "tool": "verify_scenario_pack_run",
+      "why": "Try pack `orient-cold-oss` instead of linear salvage-only",
+      "pack": "orient-cold-oss"
+    },
+    {
+      "tool": "studio_map_summary",
+      "why": "Map topology before more salvage steps"
+    }
+  ],
+  "reframeAllowed": true,
+  "park": {
+    "name": "park-hypothesis",
+    "note": "Named pause — does not mint ship proof. Persist via parkName/parkNote on envelope RPC."
+  },
+  "explorationBudget": 5,
+  "subjectNextAtomicStep": "```text — 1. host_health on E:\\Web Projects\\obscur — refuse if disk pegged — 2. pnpm kill:dev-stack"
+}

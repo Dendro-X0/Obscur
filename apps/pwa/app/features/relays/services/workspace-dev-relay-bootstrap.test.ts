@@ -1,11 +1,28 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const readOperatorWorkspaceRelayUrlMock = vi.hoisted(() => vi.fn((): string | null => null));
+
+vi.mock("@/app/features/groups/services/operator-trust-config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/features/groups/services/operator-trust-config")>();
+  return {
+    ...actual,
+    readOperatorWorkspaceRelayUrl: () => readOperatorWorkspaceRelayUrlMock(),
+    writeOperatorWorkspaceRelayUrl: vi.fn(),
+  };
+});
+
 import {
   applyWorkspaceDevRelayBootstrap,
   hasEnabledNonLocalRelay,
   pruneUnreachableLocalDevWorkspaceRelay,
+  reconcileLocalDevWorkspaceRelay,
 } from "./workspace-dev-relay-bootstrap";
 
 describe("workspace-dev-relay-bootstrap", () => {
+  beforeEach(() => {
+    readOperatorWorkspaceRelayUrlMock.mockReturnValue(null);
+  });
+
   it("detects enabled public remotes beside localhost", () => {
     expect(hasEnabledNonLocalRelay([
       { url: "wss://nos.lol", enabled: true },
@@ -64,6 +81,24 @@ describe("workspace-dev-relay-bootstrap", () => {
     expect(result?.relays).toEqual([
       { url: "wss://relay.damus.io", enabled: true },
       { url: "ws://localhost:7000", enabled: false },
+    ]);
+  });
+
+  it("keeps operator Team workspace relay enabled when public remotes are on", async () => {
+    readOperatorWorkspaceRelayUrlMock.mockReturnValue("ws://localhost:7000");
+    const result = await reconcileLocalDevWorkspaceRelay({
+      relays: [
+        { url: "wss://relay.damus.io", enabled: true },
+        { url: "ws://localhost:7000", enabled: true },
+        { url: "http://127.0.0.1:8788", enabled: true },
+      ],
+    });
+
+    expect(result?.changed).toBe(true);
+    expect(result?.relays).toEqual([
+      { url: "wss://relay.damus.io", enabled: true },
+      { url: "ws://localhost:7000", enabled: true },
+      { url: "http://127.0.0.1:8788", enabled: false },
     ]);
   });
 });

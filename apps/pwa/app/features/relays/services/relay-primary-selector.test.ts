@@ -461,4 +461,61 @@ describe("relay primary selector", () => {
     ]);
     expect(next).toBeNull();
   });
+
+  it("Self T1: retained lab stays in basic pool beside remote primary", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "wss://nos.lol");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      retainLabUrl: "ws://localhost:7000",
+      hints: [
+        { url: "wss://nos.lol", isOpen: true, isWritable: true, latencyMs: 40, successRate: 100, listIndex: 1 },
+        { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 5, successRate: 100, listIndex: 0 },
+      ],
+    });
+    expect(pool[0]).toBe("wss://nos.lol");
+    expect(pool).toContain("ws://localhost:7000");
+  });
+
+  it("Self T1: retained lab stays in redundancy pool; primary reconcile still leaves remotes", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol", "wss://relay.damus.io"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "wss://nos.lol");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "redundancy",
+      orderedEnabledUrls: ordered,
+      selection,
+      retainLabUrl: "ws://127.0.0.1:7000",
+      hints: [
+        { url: "wss://nos.lol", isOpen: true, isWritable: true, latencyMs: 30, successRate: 100, listIndex: 1 },
+        { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 8, successRate: 100, listIndex: 0 },
+        { url: "wss://relay.damus.io", isOpen: true, isWritable: true, latencyMs: 50, successRate: 100, listIndex: 2 },
+      ],
+    });
+    expect(pool).toContain("ws://localhost:7000");
+    expect(pool.some((url) => url.startsWith("wss://"))).toBe(true);
+
+    const current = relaySelectorInternals.buildSelection(ordered, "ws://localhost:7000");
+    const next = reconcilePrimarySelection(current, ordered, [
+      { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 8, successRate: 100, listIndex: 0 },
+      { url: "wss://nos.lol", isOpen: true, isWritable: true, latencyMs: 30, successRate: 100, listIndex: 1 },
+    ]);
+    expect(next?.primaryUrl).toMatch(/^wss:\/\//);
+  });
+
+  it("Self T1: without retainLabUrl, localhost still demoted when remotes enabled", () => {
+    const ordered = ["ws://localhost:7000", "wss://nos.lol"];
+    const selection = relaySelectorInternals.buildSelection(ordered, "wss://nos.lol");
+    const pool = resolveActivePoolRelayUrls({
+      mode: "basic",
+      orderedEnabledUrls: ordered,
+      selection,
+      hints: [
+        { url: "wss://nos.lol", isOpen: true, isWritable: true, latencyMs: 40, successRate: 100, listIndex: 1 },
+        { url: "ws://localhost:7000", isOpen: true, isWritable: true, latencyMs: 5, successRate: 100, listIndex: 0 },
+      ],
+    });
+    expect(pool).toEqual(["wss://nos.lol"]);
+  });
 });

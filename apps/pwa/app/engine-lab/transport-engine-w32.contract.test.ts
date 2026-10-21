@@ -10,7 +10,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 
 describe("transport-engine w32 — Rust publish result assembly charter (design-only)", () => {
   it("pins result assembly charter without implementation", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w32-rust-publish-result-assembly-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w32-rust-publish-result-assembly-charter.md");
     expect(charter).toContain("Rust Publish Result Assembly Charter");
     expect(charter).toContain("TransportPublishRelayEventResult");
     expect(charter).toContain("design + contract only");

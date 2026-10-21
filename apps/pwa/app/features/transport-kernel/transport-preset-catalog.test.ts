@@ -5,12 +5,15 @@ import {
   LOCAL_DEV_MESH_PRESET,
   LOCAL_HTTP_MESH_PRESET,
   PRODUCT_BOOT_TRANSPORT_PRESET,
+  STANDARD_TRANSPORT_PRESET_IDS,
   TOR_ONION_MESH_PRESET,
   TRANSPORT_PRESET_CATALOG,
   TRANSPORT_PRESET_GROUPS,
   buildRelayRowsFromPreset,
   getTransportPreset,
+  getTransportPresetGroupsForDepth,
   getTransportPresetsForGroup,
+  isStandardTransportPresetId,
 } from "./transport-preset-catalog";
 
 describe("transport-preset-catalog", () => {
@@ -38,6 +41,20 @@ describe("transport-preset-catalog", () => {
       "high_redundancy",
       "low_latency",
     ]);
+  });
+
+  it("Standard depth exposes four distinct paths", () => {
+    expect([...STANDARD_TRANSPORT_PRESET_IDS]).toEqual([
+      "default_stable",
+      "hybrid_public_http",
+      "local_dev_mesh",
+      "tor_onion_mesh",
+    ]);
+    const standardGroups = getTransportPresetGroupsForDepth("standard");
+    const standardIds = standardGroups.flatMap((group) => group.presetIds);
+    expect(standardIds).toEqual([...STANDARD_TRANSPORT_PRESET_IDS]);
+    expect(isStandardTransportPresetId("high_redundancy")).toBe(false);
+    expect(getTransportPresetGroupsForDepth("advanced")).toBe(TRANSPORT_PRESET_GROUPS);
   });
 
   it("product boot preset is Mixed adapters (public + local HTTP mesh)", () => {

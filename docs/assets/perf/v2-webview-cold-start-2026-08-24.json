@@ -1,0 +1,53 @@
+{
+  "schema": "obscur.webview.cold-start@1.1.0",
+  "measuredAt": "2026-08-24T06:30:23.709Z",
+  "build": "apps/desktop/src-tauri/target/release/obscur_desktop_app.exe",
+  "shellStampHint": "shell-2026-08-23T19:31:53Z (packaged stamp)",
+  "processSpawnUnixMs": 1787552901603,
+  "metrics": {
+    "spawnToCdpMs": 1215,
+    "spawnToPlaywrightAttachMs": 2008,
+    "spawnToUnlockedShellMs": null,
+    "unlockPhase": "timeout",
+    "unlockUrl": "http://tauri.localhost/profiles"
+  },
+  "webviewNavigation": {
+    "url": "http://tauri.localhost/profiles",
+    "navigationTiming": {
+      "type": "navigate",
+      "domContentLoadedMs": 184,
+      "loadEventMs": 407,
+      "responseStartMs": 74,
+      "domInteractiveMs": 184,
+      "durationMs": 407
+    },
+    "paints": [
+      {
+        "name": "first-paint",
+        "startTime": 216
+      },
+      {
+        "name": "first-contentful-paint",
+        "startTime": 216
+      }
+    ],
+    "hasTauri": true
+  },
+  "budgets": {
+    "note": "No formal WebView cold-start SLA in repo; S0 headless DOM cold is separate (≤~100ms). Report raw numbers."
+  },
+  "interpretation": {
+    "processToWebViewCdp": "1215ms — native process + WebView2 CDP listen",
+    "webviewFirstContentfulPaint": "216ms — Navigation Timing first-contentful-paint after document start",
+    "webviewDomContentLoaded": "184ms",
+    "webviewLoadEvent": "407ms",
+    "unlockedShell": "Not reached this run — cold land on /profiles (picker). Prior warm attach in same session day reached Chats shell with keychain unlock."
+  },
+  "doesNotProve": [
+    "multi-machine variance",
+    "cold OS reboot",
+    "F5-only path",
+    "first-install empty profile",
+    "spawn-to-unlocked-shell when picker requires gesture"
+  ]
+}

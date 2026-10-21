@@ -1,7 +1,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 export type { PublicKeyHex };
 import type React from "react";
-import type { CommunityMode, GroupAccessMode, RelayCapabilityTier } from "../../groups/types";
+import type { CommunityHostingTier, CommunityMode, GroupAccessMode, RelayCapabilityTier } from "../../groups/types";
 
 export type RelayStatusSummary = Readonly<{
     total: number;
@@ -40,6 +40,7 @@ export type GroupConversation = Readonly<{
     about?: string;
     avatar?: string;
     communityMode?: CommunityMode;
+    hostingTier?: CommunityHostingTier;
     relayCapabilityTier?: RelayCapabilityTier;
 }>;
 
@@ -76,6 +77,9 @@ export type MediaItem = Readonly<{
     timestamp: Date;
 }>;
 
+/** Wire call type on invite (M1-A). `av` ≡ audio+video request. */
+export type VoiceCallInviteCallType = "voice" | "video" | "av";
+
 export type VoiceCallInvitePayload = Readonly<{
     type: "voice-call-invite";
     version?: number;
@@ -83,6 +87,12 @@ export type VoiceCallInvitePayload = Readonly<{
     invitedAtUnixMs?: number;
     expiresAtUnixMs?: number;
     fromPubkey?: string | null;
+    /** M1-A: requested media mode; omit / voice = audio-only (shipped). */
+    callType?: VoiceCallInviteCallType;
+    /** M1-A: peer capability advertisement for negotiation. */
+    capabilities?: Readonly<{
+        video?: boolean;
+    }>;
 }>;
 
 export type LastSeenByConversationId = Readonly<Record<string, number>>;
@@ -185,6 +195,7 @@ export type PersistedGroupConversation = Readonly<{
     about?: string;
     avatar?: string;
     communityMode?: CommunityMode;
+    hostingTier?: CommunityHostingTier;
     relayCapabilityTier?: RelayCapabilityTier;
 }>;
 

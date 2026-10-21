@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { cn } from "../../../lib/cn";
 import { Button } from "../../../components/ui/button";
 import type { VoiceCallInvitePayload } from "../types";
+import { resolveVoiceCallReasonHonestyKey } from "../services/voice-call-reason-honesty";
+import { isVideoCallInviteRequest } from "../services/voice-call-ui-status-media";
 import type { VoiceCallRoomRenderSummary } from "./message-list-render-meta";
 type VoiceCallInviteCardProps = Readonly<{
     invite: VoiceCallInvitePayload;
@@ -42,6 +44,10 @@ const toDurationLabel = (value: unknown): string | null => {
 };
 export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJoinCall, onRequestCallback, callbackConsumed = false, callSummary = null, nowUnixMs = null, liveStatusPhase = null, liveReasonCode = null, deliveryStatus = null, compact = false, }: VoiceCallInviteCardProps): React.JSX.Element {
     const { t } = useTranslation();
+    const isVideoInvite = isVideoCallInviteRequest({
+        callType: invite.callType,
+        advertisesVideo: invite.capabilities?.video,
+    });
     const invitedAtLabel = toTimestampLabel(invite.invitedAtUnixMs);
     const expiresAtLabel = toTimestampLabel(invite.expiresAtUnixMs);
     const canJoin = !isOutgoing && typeof onJoinCall === "function";
@@ -104,10 +110,14 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
     })();
     const stateSubtitle = (() => {
         if (outgoingDeliverySending && cardState === "active") {
-            return t("messaging.voiceCallInviteSending", "Sending voice call invitation…");
+            return isVideoInvite
+                ? t("messaging.videoCallInviteSending", "Sending video call invitation…")
+                : t("messaging.voiceCallInviteSending", "Sending voice call invitation…");
         }
         if (outgoingDeliveryFailed) {
-            return t("messaging.voiceCallInviteSendFailed", "Failed to send voice call invitation.");
+            return isVideoInvite
+                ? t("messaging.videoCallInviteSendFailed", "Failed to send video call invitation.")
+                : t("messaging.voiceCallInviteSendFailed", "Failed to send voice call invitation.");
         }
         switch (cardState) {
             case "completed":
@@ -118,11 +128,21 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
                     : t("messaging.voiceCallMissedReturnCall");
             case "timed_out":
                 return t("messaging.voiceCallTimedOutBeforeConnect");
-            case "failed":
+            case "failed": {
+                const reasonKey = resolveVoiceCallReasonHonestyKey(liveReasonCode);
+                if (reasonKey) {
+                    return t(reasonKey);
+                }
                 return t("messaging.voiceCallFailedBeforeCompletion");
+            }
             default:
-                return isOutgoing
-                    ? t("messaging.voiceCallInviteSent")
+                if (isOutgoing) {
+                    return isVideoInvite
+                        ? t("messaging.videoCallInviteSentCard", "Video call invitation sent.")
+                        : t("messaging.voiceCallInviteSent");
+                }
+                return isVideoInvite
+                    ? t("messaging.videoCallInviteReceived", "Incoming video invitation")
                     : t("messaging.voiceCallInviteReceived");
         }
     })();
@@ -145,6 +165,9 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
         }
     })();
     const headingLabel = (() => {
+        const activeInviteHeading = isVideoInvite
+            ? t("messaging.videoCallInvite", "Video Call Invite")
+            : t("messaging.voiceCallInvite", "Voice Call Invite");
         switch (cardState) {
             case "completed":
                 return t("messaging.voiceCallEnded");
@@ -156,10 +179,10 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
                 return t("messaging.voiceCallTimedOut");
             case "failed":
                 return outgoingDeliveryFailed
-                    ? t("messaging.voiceCallInvite", "Voice call invite")
+                    ? activeInviteHeading
                     : t("messaging.voiceCallFailed");
             default:
-                return t("messaging.voiceCallInvite");
+                return activeInviteHeading;
         }
     })();
     const containerToneClass = (() => {

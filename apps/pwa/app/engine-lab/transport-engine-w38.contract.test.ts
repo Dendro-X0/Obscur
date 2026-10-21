@@ -16,7 +16,7 @@ const readFromPwa = (relFromPwa: string): string => (
 
 describe("transport-engine w38 — engine-lab host publish shim gate", () => {
   it("pins lab-only shim gate charter and policy wiring", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w38-engine-lab-shim-gate-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w38-engine-lab-shim-gate-charter.md");
     expect(charter).toContain("Engine-Lab Host Publish Shim Gate Charter");
     expect(charter).toContain("NEXT_PUBLIC_OBSCUR_TRANSPORT_HOST_PUBLISH_SHIM");
     expect(charter).toContain("isEngineLabStrictMode");

@@ -17,7 +17,7 @@ import type { TombstoneRecord } from "@dweb/db";
 import { isTauri } from "@dweb/db";
 import {
   deleteAllDmTombstones,
-  insertDmTombstone,
+  insertDmTombstones,
   listDmTombstones,
 } from "@obscur/dm-engine";
 import { createTauriEngineHost } from "@obscur/engine-host/tauri";
@@ -28,6 +28,7 @@ import {
   capacitorDbInsertTombstone,
 } from "./capacitor-sqlite-tombstones-adapter";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
+import { isChromePerfPlaneActive } from "@/app/features/runtime/experiment-shell-policy";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { emitAccountSyncMutation } from "@/app/shared/account-sync-mutation-signal";
 
@@ -102,18 +103,16 @@ const persistMergedStateToSqlite = async (
   merged: MessageDeleteTombstoneState,
 ): Promise<void> => {
   const host = getDmTombstoneEngineHost();
-  for (const entry of merged.entries) {
-    await insertDmTombstone({
-      host,
-      profileId,
-      record: {
-        event_id: entry.id,
-        profile_id: profileId,
-        deleted_at: entry.deletedAtUnixMs,
-        deleted_by: "",
-      },
-    });
-  }
+  await insertDmTombstones({
+    host,
+    profileId,
+    records: merged.entries.map((entry) => ({
+      event_id: entry.id,
+      profile_id: profileId,
+      deleted_at: entry.deletedAtUnixMs,
+      deleted_by: "",
+    })),
+  });
 };
 
 const getTombstonesFromNativeSqlite = async (
@@ -475,6 +474,10 @@ export const flushMessageDeleteTombstonesToNativeStore = async (
 export const hydrateMessageDeleteTombstonesFromSqlite = async (
   profileId?: string,
 ): Promise<void> => {
+  // Chrome fault-scan: soft stubs still flood IPC if every mount calls listTombstones.
+  if (isChromePerfPlaneActive()) {
+    return;
+  }
   const pid = resolveProfileId(profileId);
   // Desktop (Tauri) path is always available when `isTauri()` is true.
   if (isTauri()) {

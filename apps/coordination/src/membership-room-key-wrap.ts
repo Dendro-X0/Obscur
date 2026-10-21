@@ -1,6 +1,7 @@
 import {
-  ROOM_KEY_WRAP_SCHEME_V1,
+  isRoomKeyWrapScheme,
   verifyRoomKeyWrapSignature,
+  type RoomKeyWrapScheme,
 } from "@dweb/coordination-contracts";
 import type { MembershipDeltaAction } from "./membership-directory";
 import { evaluateRoomKeyWrapAcl } from "./membership-room-key-wrap-acl";
@@ -11,7 +12,7 @@ type JsonObject = Readonly<Record<string, unknown>>;
 
 export type RoomKeyWrapBody = Readonly<{
   subjectPubkey: string;
-  scheme: typeof ROOM_KEY_WRAP_SCHEME_V1;
+  scheme: RoomKeyWrapScheme;
   ciphertext: string;
   actorPubkey: string;
   createdAtUnixMs: number;
@@ -23,7 +24,7 @@ export type RoomKeyWrapRecord = Readonly<{
   communityId: string;
   subjectPubkey: string;
   wrapSeq: number;
-  scheme: typeof ROOM_KEY_WRAP_SCHEME_V1;
+  scheme: RoomKeyWrapScheme;
   ciphertext: string;
   actorPubkey: string;
   createdAtUnixMs: number;
@@ -67,7 +68,7 @@ export const parseRoomKeyWrapBody = (value: JsonObject): RoomKeyWrapBody | null 
   const signature = value.signature;
   if (
     !isString(subjectPubkey)
-    || scheme !== ROOM_KEY_WRAP_SCHEME_V1
+    || !isRoomKeyWrapScheme(scheme)
     || !isString(ciphertext)
     || !isString(actorPubkey)
     || typeof createdAtUnixMs !== "number"
@@ -82,7 +83,7 @@ export const parseRoomKeyWrapBody = (value: JsonObject): RoomKeyWrapBody | null 
   }
   return {
     subjectPubkey: subjectPubkey.trim(),
-    scheme: ROOM_KEY_WRAP_SCHEME_V1,
+    scheme,
     ciphertext: trimmedCiphertext,
     actorPubkey: actorPubkey.trim(),
     createdAtUnixMs: Math.floor(createdAtUnixMs),
@@ -108,7 +109,7 @@ const parseWrapRow = (row: unknown): RoomKeyWrapRecord | null => {
     || !isString(communityId)
     || !isString(subjectPubkey)
     || typeof wrapSeq !== "number"
-    || scheme !== ROOM_KEY_WRAP_SCHEME_V1
+    || !isRoomKeyWrapScheme(scheme)
     || !isString(ciphertext)
     || !isString(actorPubkey)
     || typeof createdAtUnixMs !== "number"
@@ -121,7 +122,7 @@ const parseWrapRow = (row: unknown): RoomKeyWrapRecord | null => {
     communityId,
     subjectPubkey,
     wrapSeq,
-    scheme: ROOM_KEY_WRAP_SCHEME_V1,
+    scheme,
     ciphertext,
     actorPubkey,
     createdAtUnixMs,

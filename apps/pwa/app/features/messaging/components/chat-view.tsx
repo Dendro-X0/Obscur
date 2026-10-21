@@ -96,6 +96,8 @@ export interface ChatViewProps {
     onSendVoiceCallInvite?: () => void;
     canSendVoiceCallInvite?: boolean;
     isSendingVoiceCallInvite?: boolean;
+    onSendVideoCallInvite?: () => void;
+    canSendVideoCallInvite?: boolean;
     onJoinVoiceCallInvite?: (params: Readonly<{
         invite: VoiceCallInvitePayload;
         messageId: string;
@@ -188,6 +190,10 @@ export interface ChatViewProps {
     onCancelOutgoingRequest?: () => void | Promise<void>;
     onResendConnectionRequest?: () => void | Promise<void>;
     outgoingResendEligible?: boolean;
+    /** False when no relays are connected — blocks accept until transport is ready. */
+    acceptRelayReady?: boolean;
+    relayPending?: boolean;
+    onRetryRelayNotification?: () => void | Promise<void>;
     onBlockPeer?: () => void;
     groupAdmins?: ReadonlyArray<Readonly<{
         pubkey: string;
@@ -685,7 +691,7 @@ export function ChatView(props: ChatViewProps) {
     const activeMessage = messageMenu && getMessageById(messageMenu.messageId);
     const activeReactionMessage = reactionPicker && getMessageById(reactionPicker.messageId);
     return (<div className="group/chat-root flex flex-col flex-1 min-h-0 relative overflow-hidden" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-            {!hideDesktopChatHeader ? (<ChatHeader conversation={props.conversation} groupMemberCount={props.groupMemberCount} groupMemberCountSource={props.groupMemberCountSource} groupMemberCountFetchedAtMs={props.groupMemberCountFetchedAtMs} groupOnlineMemberCount={props.groupOnlineMemberCount} groupLastActivityAtMs={props.groupLastActivityAtMs} isOnline={props.isPeerOnline} interactionStatus={props.interactionStatus} nowMs={props.nowMs} onCopyPubkey={props.onCopyPubkey} onOpenMedia={props.onOpenMedia} onToggleConversationNotifications={props.onToggleConversationNotifications} onOpenInfo={props.onOpenInfo} onOpenProfile={props.onOpenProfile} onSendVoiceCallInvite={props.onSendVoiceCallInvite} canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite} isSendingVoiceCallInvite={props.isSendingVoiceCallInvite} activeVoiceCallState={props.activeVoiceCallState} voiceCallStatus={props.voiceCallStatus} onLeaveVoiceCall={props.onLeaveVoiceCall} onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall} onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall} contactTrustSensitivity={dmTrustSensitivityForHeader}/>) : null}
+            {!hideDesktopChatHeader ? (<ChatHeader conversation={props.conversation} groupMemberCount={props.groupMemberCount} groupMemberCountSource={props.groupMemberCountSource} groupMemberCountFetchedAtMs={props.groupMemberCountFetchedAtMs} groupOnlineMemberCount={props.groupOnlineMemberCount} groupLastActivityAtMs={props.groupLastActivityAtMs} isOnline={props.isPeerOnline} interactionStatus={props.interactionStatus} nowMs={props.nowMs} onCopyPubkey={props.onCopyPubkey} onOpenMedia={props.onOpenMedia} onToggleConversationNotifications={props.onToggleConversationNotifications} onOpenInfo={props.onOpenInfo} onOpenProfile={props.onOpenProfile} onSendVoiceCallInvite={props.onSendVoiceCallInvite} canSendVoiceCallInvite={isDeletedRecipient ? false : props.canSendVoiceCallInvite} isSendingVoiceCallInvite={props.isSendingVoiceCallInvite} onSendVideoCallInvite={props.onSendVideoCallInvite} canSendVideoCallInvite={isDeletedRecipient ? false : props.canSendVideoCallInvite} activeVoiceCallState={props.activeVoiceCallState} voiceCallStatus={props.voiceCallStatus} onLeaveVoiceCall={props.onLeaveVoiceCall} onAcceptIncomingVoiceCall={props.onAcceptIncomingVoiceCall} onDeclineIncomingVoiceCall={props.onDeclineIncomingVoiceCall} contactTrustSensitivity={dmTrustSensitivityForHeader}/>) : null}
 
             {props.conversation.kind === "dm"
             && dmPeerPublicKeyHex
@@ -710,6 +716,9 @@ export function ChatView(props: ChatViewProps) {
                 onResendRequest={props.onResendConnectionRequest
                   ? async () => { await props.onResendConnectionRequest?.(); }
                   : undefined}
+                acceptRelayReady={props.acceptRelayReady ?? true}
+                relayPending={props.relayPending}
+                onRetryRelayNotification={props.onRetryRelayNotification}
               />
             ) : shouldShowPathBThreadWarningBanner({
             conversationKind: props.conversation.kind,
@@ -915,11 +924,9 @@ export function ChatView(props: ChatViewProps) {
                 }
                 props.setMessageMenu(null);
             }} onSaveToVault={canSaveChatAttachmentsToLocalVault() ? () => {
-                void (async () => {
-                    const attachments = activeMessage.attachments ?? [];
-                    await saveMany(attachments);
-                    props.setMessageMenu(null);
-                })();
+                const attachments = activeMessage.attachments ?? [];
+                props.setMessageMenu(null);
+                void saveMany(attachments);
             } : undefined} onReply={() => {
                 props.onReferenceMessage(activeMessage);
                 props.setMessageMenu(null);

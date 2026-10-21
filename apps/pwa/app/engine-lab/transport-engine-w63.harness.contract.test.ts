@@ -13,10 +13,10 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 describe("transport-engine w63 — port swap rehearsal harness", () => {
   it("links W62 subtracted port to W63 delegation rehearsal", () => {
     const w62 = readFromRepo(
-      "docs/program/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md",
     );
     const w63 = readFromRepo(
-      "docs/program/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
     );
     expect(w62).toContain("relay-standalone-publish-port-subtracted.ts");
     expect(w63).toContain("shouldRouteSubtractedStandalonePublishPort");
@@ -25,7 +25,7 @@ describe("transport-engine w63 — port swap rehearsal harness", () => {
 
   it("documents W64+ mechanical subtraction in rehearsal charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w63-standalone-legacy-port-swap-rehearsal.md",
     );
     expect(charter).toContain("STANDALONE_LEGACY_FILES_TO_DELETE");
     expect(charter).toContain("No deletion of production");

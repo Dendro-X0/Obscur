@@ -30,6 +30,7 @@ export type PublishWorkspaceKernelLeaveParams = Readonly<{
   initialMembers?: ReadonlyArray<PublicKeyHex>;
   leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  skipDirectoryRefresh?: boolean;
 }>;
 
 /**
@@ -66,6 +67,7 @@ export const publishWorkspaceKernelLeave = async (
     initialMembers: params.initialMembers,
     leftMemberPubkeys: params.leftMemberPubkeys,
     expelledMemberPubkeys: params.expelledMemberPubkeys,
+    skipDirectoryRefresh: params.skipDirectoryRefresh,
   });
 
   if (!relayConfirmed) {
@@ -78,6 +80,7 @@ export const publishWorkspaceKernelLeave = async (
 export type LeaveManagedWorkspaceMembershipParams = PublishWorkspaceKernelLeaveParams & Readonly<{
   /** Defaults to true under workspace-kernel authority. */
   tombstone?: boolean;
+  skipDirectoryRefresh?: boolean;
 }>;
 
 export type LeaveManagedWorkspaceMembershipResult = Readonly<{
@@ -92,7 +95,10 @@ export type LeaveManagedWorkspaceMembershipResult = Readonly<{
 export const leaveManagedWorkspaceMembership = async (
   params: LeaveManagedWorkspaceMembershipParams,
 ): Promise<LeaveManagedWorkspaceMembershipResult> => {
-  const relayConfirmed = await publishWorkspaceKernelLeave(params);
+  const relayConfirmed = await publishWorkspaceKernelLeave({
+    ...params,
+    skipDirectoryRefresh: params.skipDirectoryRefresh,
+  });
   if (!relayConfirmed) {
     return { ok: false, relayConfirmed: false };
   }

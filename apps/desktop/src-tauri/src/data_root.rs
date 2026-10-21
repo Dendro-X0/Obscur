@@ -142,6 +142,7 @@ impl<'a> MigrationProgressReporter<'a> {
             bytes_total: self.bytes_total,
             current_item,
         };
+        crate::emit_pressure::note_webview_emit(DATA_ROOT_MIGRATION_PROGRESS_EVENT);
         let _ = app.emit(DATA_ROOT_MIGRATION_PROGRESS_EVENT, &snapshot);
     }
 }

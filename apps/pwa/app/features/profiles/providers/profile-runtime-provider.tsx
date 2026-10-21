@@ -16,6 +16,7 @@ import {
   scheduleExperimentIdleWork,
   shouldDeferExperimentHeavyWork,
 } from "@/app/features/runtime/experiment-shell-policy";
+import { shouldSkipMountTombstoneHydrate } from "@/app/features/runtime/unlock-hydrate-policy";
 import { scheduleSelfCleaningRetentionSweep } from "@/app/features/runtime/services/self-cleaning-retention-sweep";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 
@@ -99,6 +100,10 @@ export function ProfileRuntimeProvider(props: Readonly<{
             return;
         }
         let cancelRetentionSweep: (() => void) | undefined;
+        // Slice 1: desktop + chrome — never listTombstones on provider mount.
+        if (shouldSkipMountTombstoneHydrate()) {
+            return;
+        }
         const bootstrapProfileRetention = (): void => {
             void storagePorts.messageDeleteTombstones.hydrateMessageDeleteTombstonesFromSqlite(profileId).catch(() => {});
             cancelRetentionSweep = scheduleSelfCleaningRetentionSweep(profileId);

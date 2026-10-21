@@ -8,6 +8,34 @@ import { shouldShowDesktopProfilePickerOnColdStart } from "./profile-picker-star
 
 export const PROFILE_SIGN_IN_ROUTE = "/sign-in";
 
+/**
+ * Set when the user picks a profile from the startup picker (session-scoped).
+ * Prevents N1c unlock→`/`→`/profiles` bounce after intentional entry.
+ */
+export const PROFILE_PICKER_ENTRY_CONSUMED_SESSION_KEY = "obscur.desktop.profile_picker_entry_consumed.v1";
+
+export const markDesktopProfilePickerEntryConsumed = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(PROFILE_PICKER_ENTRY_CONSUMED_SESSION_KEY, "1");
+  } catch {
+    // best-effort
+  }
+};
+
+export const hasDesktopProfilePickerEntryBeenConsumed = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.sessionStorage.getItem(PROFILE_PICKER_ENTRY_CONSUMED_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
 /** True when the current document load was triggered by a manual refresh (F5). */
 export const isPageReloadNavigation = (): boolean => {
   if (typeof window === "undefined") {
@@ -128,3 +156,60 @@ export const resolveUnlockedDesktopRouteRedirect = (params: Readonly<{
   }
   return null;
 };
+
+/**
+ * N1c / E20: keychain rehydrate unlocks on `/` and mounted messaging before the picker.
+ * When startup picker is preferred, send unlocked cold starts to `/profiles` first (PL1).
+ * N1e: once the user picks a profile, do not bounce them back from `/`.
+ */
+export const resolveUnlockedDesktopStartupPickerRedirect = (params: Readonly<{
+  pathname: string;
+  isDesktopNative: boolean;
+  isUnlocked: boolean;
+  showProfilePickerOnStartup?: boolean;
+  registeredProfileCount?: number;
+  profileLaunchMode?: ProfileLaunchMode;
+  isPageReload?: boolean;
+  pickerEntryConsumed?: boolean;
+}>): string | null => {
+  if (!params.isDesktopNative || !params.isUnlocked) {
+    return null;
+  }
+  if (params.pickerEntryConsumed) {
+    return null;
+  }
+  if (params.isPageReload) {
+    return null;
+  }
+  if (isAuthPublicProfileRoute(params.pathname) || params.pathname === PROFILE_SIGN_IN_ROUTE) {
+    return null;
+  }
+  if (params.pathname !== "/" && params.pathname !== "") {
+    return null;
+  }
+  if (params.profileLaunchMode === "new_window") {
+    return null;
+  }
+  const showPickerOnColdStart = shouldShowDesktopProfilePickerOnColdStart({
+    registeredProfileCount: params.registeredProfileCount ?? 1,
+    showOnStartupPreference: params.showProfilePickerOnStartup !== false,
+  });
+  if (!showPickerOnColdStart) {
+    return null;
+  }
+  return "/profiles";
+};
+
+/** True while unlocked home should not mount messaging (awaiting startup picker redirect). */
+export const shouldDeferUnlockedMessagingShellForStartupPicker = (params: Readonly<{
+  pathname: string;
+  isDesktopNative: boolean;
+  isUnlocked: boolean;
+  showProfilePickerOnStartup?: boolean;
+  registeredProfileCount?: number;
+  profileLaunchMode?: ProfileLaunchMode;
+  isPageReload?: boolean;
+  pickerEntryConsumed?: boolean;
+}>): boolean => (
+  resolveUnlockedDesktopStartupPickerRedirect(params) === "/profiles"
+);

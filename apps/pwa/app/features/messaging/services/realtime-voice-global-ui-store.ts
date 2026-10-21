@@ -7,6 +7,10 @@ export type GlobalVoiceCallOverlayStatus = Readonly<{
   role: "host" | "joiner";
   sinceUnixMs: number;
   reasonCode?: "left_by_user" | "remote_left" | "network_interrupted" | "session_closed";
+  /** M1-A: negotiated call type; omit = voice. */
+  callType?: "voice" | "video";
+  /** M1-B: local media outcome for honesty banner. */
+  mediaMode?: "audio" | "av" | "audio_only_fallback" | "av_lab_canvas";
 }>;
 
 export type GlobalVoiceCallOverlayState = Readonly<{
@@ -14,6 +18,9 @@ export type GlobalVoiceCallOverlayState = Readonly<{
   peerDisplayName: string;
   peerAvatarUrl: string;
   waveAudioLevel: number;
+  /** Live preview tracks for video dock/stage (null when voice-only or not yet attached). */
+  localVideoStream: MediaStream | null;
+  remoteVideoStream: MediaStream | null;
 }>;
 
 type Listener = () => void;
@@ -32,6 +39,8 @@ let snapshot: GlobalVoiceCallOverlayState = {
   peerDisplayName: "Unknown caller",
   peerAvatarUrl: "",
   waveAudioLevel: 0,
+  localVideoStream: null,
+  remoteVideoStream: null,
 };
 
 const notify = (): void => {
@@ -48,16 +57,28 @@ const subscribe = (listener: Listener): (() => void) => {
 const getSnapshot = (): GlobalVoiceCallOverlayState => snapshot;
 
 export const setGlobalVoiceCallOverlayState = (next: Readonly<
-  Omit<GlobalVoiceCallOverlayState, "waveAudioLevel">
-  & { waveAudioLevel?: number }
+  Omit<GlobalVoiceCallOverlayState, "waveAudioLevel" | "localVideoStream" | "remoteVideoStream">
+  & {
+    waveAudioLevel?: number;
+    localVideoStream?: MediaStream | null;
+    remoteVideoStream?: MediaStream | null;
+  }
 >): void => {
   const normalizedWaveAudioLevel = normalizeWaveAudioLevel(
     next.waveAudioLevel ?? snapshot.waveAudioLevel,
   );
+  const localVideoStream = next.localVideoStream !== undefined
+    ? next.localVideoStream
+    : snapshot.localVideoStream;
+  const remoteVideoStream = next.remoteVideoStream !== undefined
+    ? next.remoteVideoStream
+    : snapshot.remoteVideoStream;
   const unchanged = (
     snapshot.status === next.status
     && snapshot.peerDisplayName === next.peerDisplayName
     && snapshot.peerAvatarUrl === next.peerAvatarUrl
+    && snapshot.localVideoStream === localVideoStream
+    && snapshot.remoteVideoStream === remoteVideoStream
     && Math.abs(snapshot.waveAudioLevel - normalizedWaveAudioLevel) < 0.005
   );
   if (unchanged) {
@@ -68,6 +89,8 @@ export const setGlobalVoiceCallOverlayState = (next: Readonly<
     peerDisplayName: next.peerDisplayName,
     peerAvatarUrl: next.peerAvatarUrl,
     waveAudioLevel: normalizedWaveAudioLevel,
+    localVideoStream,
+    remoteVideoStream,
   };
   notify();
 };
@@ -90,6 +113,8 @@ export const clearGlobalVoiceCallOverlayState = (): void => {
     peerDisplayName: "Unknown caller",
     peerAvatarUrl: "",
     waveAudioLevel: 0,
+    localVideoStream: null,
+    remoteVideoStream: null,
   });
 };
 

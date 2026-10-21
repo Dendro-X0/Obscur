@@ -1,0 +1,82 @@
+- main:
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - button "Sidebar Options"
+  - button "Chats"
+  - button "Requests"
+  - button "Junk"
+  - textbox "Search users and communities..."
+  - button "Chat"
+  - button "Group"
+  - button "New Group"
+  - button "Communities"
+  - button "N NewTest 2 No messages yet 81d ago":
+    - text: N NewTest 2
+    - paragraph: No messages yet
+    - button
+    - text: 81d ago
+  - button "P PB1A-1791717633 Sealed community created locally 9d ago":
+    - text: P PB1A-1791717633
+    - paragraph: Sealed community created locally
+    - button
+    - text: 9d ago
+  - button "P PB1A-1791732040 Sealed community created locally 9d ago":
+    - text: P PB1A-1791732040
+    - paragraph: Sealed community created locally
+    - button
+    - text: 9d ago
+  - button "P PB1A-1791732571 Sealed community created locally 9d ago":
+    - text: P PB1A-1791732571
+    - paragraph: Sealed community created locally
+    - button
+    - text: 9d ago
+  - button "U U6 Invite Role Group key unavailable on this device 81d ago":
+    - text: U U6 Invite Role
+    - paragraph: Group key unavailable on this device
+    - button
+    - text: 81d ago
+  - button "D DemoGroup Group key unavailable on this device 102d ago":
+    - text: D DemoGroup
+    - paragraph: Group key unavailable on this device
+    - button
+    - text: 102d ago
+  - text: Connected 2/3 active relays Obscur Preview
+  - main:
+    - text: D
+    - heading "DemoGroup" [level=2]
+    - button "Disable notifications for this chat" [pressed]
+    - paragraph: 1 members· 0 online here ·Last activity 102d ago
+    - button "Media"
+    - button "Info"
+    - button "Search Messages"
+    - text: D
+    - heading "DemoGroup" [level=2]
+    - paragraph: This is the start of your encrypted conversation.
+    - text: Nostr DMs Groups Reactions Media
+    - button "Media"
+    - textbox "Type a message..."
+    - button "Search emojis..."
+    - button "Record Voice Note"
+    - button "Send" [disabled]
+    - text: Connected to Relays E2E Encrypted • Ver. 1.9.16
+- alert

@@ -1,6 +1,6 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { CommunityBotTriggerEntry } from "@dweb/core/community-bot-triggers-contracts";
-import type { CommunityMode, RelayCapabilityTier } from "./community-mode";
+import type { CommunityHostingTier, CommunityMode, RelayCapabilityTier } from "./community-mode";
 
 export type GroupRole = "member" | "guest";
 
@@ -8,7 +8,7 @@ export type GroupAccessMode = "open" | "invite-only" | "discoverable";
 
 export type GroupMembershipStatus = "unknown" | "member" | "none" | "not_member";
 export type JoinRequestState = "none" | "pending" | "accepted" | "denied" | "expired" | "cooldown";
-export type { CommunityMode, RelayCapabilityTier } from "./community-mode";
+export type { CommunityHostingTier, CommunityMode, RelayCapabilityTier } from "./community-mode";
 
 export interface GroupMetadata {
     id: string;
@@ -18,6 +18,8 @@ export interface GroupMetadata {
     access: GroupAccessMode;
     memberCount?: number;
     communityMode?: CommunityMode;
+    /** T0 Quiet vs T1 operator vs custom private — set at create (CU-UX-2b). */
+    hostingTier?: CommunityHostingTier;
     relayCapabilityTier?: RelayCapabilityTier;
     /** Monotonic descriptor revision for COMMUNITY_DESCRIPTOR_UPDATED events. */
     descriptorVersion?: number;

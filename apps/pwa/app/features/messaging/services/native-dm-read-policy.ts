@@ -10,7 +10,8 @@ import { requiresSqlitePersistence } from "@/app/features/runtime/native-persist
 export const isNativeDmSqliteReadOwner = (): boolean => isDmKernelAuthority();
 
 /**
- * Native DM durable writes use SQLite only (`MessagePersistenceService` → `db_insert_message`).
+ * Native DM durable writes use SQLite only (`MessagePersistenceService` →
+ * `writeDmKernelMessage` → `engine_invoke` dm.insertMessage).
  * IndexedDB `MessageQueue` must not be treated as durable storage on native.
  */
 export const nativeDmSkipsIndexedDbMessageQueue = (): boolean => requiresSqlitePersistence();

@@ -1,5 +1,6 @@
 import type { AdapterResult } from "./adapter-result";
 import { failedResult, okResult, unsupportedResult } from "./adapter-result";
+import { noteInvokePressure } from "./invoke-pressure";
 import { hasNativeRuntime } from "./runtime-capabilities";
 
 export type InvokeNativeCommandOptions = Readonly<{
@@ -33,6 +34,7 @@ export const invokeNativeCommand = async <T>(
   }
 
   try {
+    noteInvokePressure(command);
     const { invoke } = await import("@tauri-apps/api/core");
     const timeoutMs = resolveEffectiveTimeoutMs(command, options?.timeoutMs);
     const value = timeoutMs && timeoutMs > 0

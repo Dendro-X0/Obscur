@@ -24,7 +24,7 @@ const readFromPwa = (relFromPwa: string): string => (
 describe("transport-engine w47 — network publish parity harness charter", () => {
   it("pins network parity harness charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w47-network-publish-parity-harness-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w47-network-publish-parity-harness-charter.md",
     );
     expect(charter).toContain("Network Publish Parity Harness Charter");
     expect(charter).toContain("transport-kernel-standalone-publish.ts");

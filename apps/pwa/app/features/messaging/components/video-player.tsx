@@ -7,6 +7,7 @@ import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { motion, AnimatePresence } from "framer-motion";
 import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { useChatAttachmentDisplaySrc } from "../hooks/use-chat-attachment-display-src";
 
 interface VideoPlayerProps {
     src: string;
@@ -19,6 +20,8 @@ interface VideoPlayerProps {
 /**
  * Custom styled Video Player for the Obscur chat app.
  * Matches the aesthetic of the AudioPlayer with smooth transitions and premium feel.
+ * Plays local vault / LES display src when available so sender bubbles do not stick
+ * on a CDN placeholder (e.g. nostrcheck ostrich) after upload.
  */
 export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExternalLink }: VideoPlayerProps) {
     const [isPlaying, setIsPlaying] = useState(autoPlay);
@@ -36,11 +39,16 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
     const [isCoarsePointer, setIsCoarsePointer] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const { displaySrc, recoverFromLoadFailure } = useChatAttachmentDisplaySrc(src);
     const {
-        pendingLinkUrl,
-        cancelPendingLink,
-        confirmPendingLink,
-        requestOpenExternalLinkPreferNative,
+      pendingLinkUrl,
+      pendingLinkPhase,
+      reputationResult,
+      reputationChecking,
+      reputationProviderLabel,
+      cancelPendingLink,
+      confirmPendingLink,
+      requestOpenExternalLinkPreferNative,
     } = useGuardedExternalLinkOpen();
 
     const resolveDuration = (video: HTMLVideoElement | null): number => {
@@ -49,9 +57,16 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
     };
 
     useEffect(() => {
-        setRuntimeSrc(src);
+        setRuntimeSrc(displaySrc);
         setHasRetriedWithBypass(false);
-    }, [src]);
+        setIsLoading(true);
+        setIsError(false);
+        setErrorState(null);
+        setIsPlaying(autoPlay);
+        setProgress(0);
+        setCurrentTime(0);
+        setDuration(0);
+    }, [autoPlay, displaySrc]);
 
     useEffect(() => {
         if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -125,6 +140,7 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
             code: err?.code,
             message: err && "message" in err ? String((err as MediaError & { message?: unknown }).message) : undefined,
             src,
+            displaySrc: runtimeSrc,
             currentSrc: v?.currentSrc,
             readyState: v?.readyState,
             networkState: v?.networkState,
@@ -137,17 +153,27 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
             { windowMs: 30_000, maxPerWindow: 1, summaryEverySuppressed: 10 }
         );
 
-        if (mediaError.reasonCode === "cache_unsupported" && !hasRetriedWithBypass) {
-            setHasRetriedWithBypass(true);
-            const separator = src.includes("?") ? "&" : "?";
-            setRuntimeSrc(`${src}${separator}obscur_nocache=${Date.now()}`);
-            setIsLoading(true);
-            return;
-        }
+        void (async () => {
+            const recovered = await recoverFromLoadFailure();
+            if (recovered) {
+                setIsLoading(true);
+                setIsError(false);
+                setErrorState(null);
+                return;
+            }
 
-        setErrorState(mediaError);
-        setIsLoading(false);
-        setIsError(true);
+            if (mediaError.reasonCode === "cache_unsupported" && !hasRetriedWithBypass) {
+                setHasRetriedWithBypass(true);
+                const separator = runtimeSrc.includes("?") ? "&" : "?";
+                setRuntimeSrc(`${runtimeSrc}${separator}obscur_nocache=${Date.now()}`);
+                setIsLoading(true);
+                return;
+            }
+
+            setErrorState(mediaError);
+            setIsLoading(false);
+            setIsError(true);
+        })();
     };
 
     const handleEnded = () => {
@@ -302,7 +328,6 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
                 />
             )}
 
-            {/* Premium Big Center Play Button */}
             <AnimatePresence>
                 {!useNativeMobileControls && !isPlaying && !isLoading && !isError && (
                     <motion.button
@@ -321,7 +346,6 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
                 )}
             </AnimatePresence>
 
-            {/* Floating Glassmorphic Control Dock */}
             <AnimatePresence>
                 {showControlDock && (
                     <motion.div
@@ -332,7 +356,6 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
                         className="absolute inset-x-0 bottom-2 z-30 px-2 pointer-events-none sm:bottom-6 sm:px-6"
                     >
                         <div className="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-2 rounded-2xl border border-zinc-300/80 bg-white/90 p-2.5 shadow-[0_16px_35px_rgba(15,23,42,0.2)] backdrop-blur-3xl dark:border-white/10 dark:bg-zinc-900/70 dark:shadow-[0_16px_35px_rgba(0,0,0,0.55)] sm:gap-4 sm:rounded-[24px] sm:p-4 sm:shadow-[0_20px_50px_rgba(15,23,42,0.2)] dark:sm:shadow-[0_20px_50px_rgba(0,0,0,0.6)]">
-                            {/* Premium Continuous Seek Bar */}
                             <div className="group/seek relative h-1.5 w-full cursor-pointer rounded-full bg-zinc-200/90 transition-all hover:h-2 dark:bg-white/10 sm:hover:h-2.5">
                                 <div
                                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-600 via-purple-500 to-blue-400 rounded-full transition-all duration-100 shadow-[0_0_10px_rgba(147,51,234,0.5)]"
@@ -424,10 +447,14 @@ export function VideoPlayer({ src, autoPlay = false, className, onRequestOpenExt
         </motion.div>
         {!onRequestOpenExternalLink ? (
             <LinkOpenConfirmDialog
-                url={pendingLinkUrl}
-                onClose={cancelPendingLink}
-                onConfirm={() => confirmPendingLink()}
-            />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
         ) : null}
         </>
     );

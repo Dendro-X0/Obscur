@@ -5,12 +5,11 @@
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { TombstoneRecord } from "@dweb/db";
 import { isTauri } from "@dweb/db";
 import {
   deleteDmMessage,
   deleteDmMessages,
-  insertDmTombstone,
+  insertDmTombstones,
 } from "@obscur/dm-engine";
 import { createTauriEngineHost } from "@obscur/engine-host/tauri";
 import type { HostEnginePort } from "@obscur/engine-contracts";
@@ -28,6 +27,7 @@ import { messagingChatStateMessagePort } from "@/app/features/messaging/services
 import { collectMessageIdentityAliases } from "../services/message-identity-alias-contract";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { DM_HIDE_PRESERVE_TIMELINE_FOR_SHOW_AGAIN } from "../config/dm-local-visibility-product";
+import { shouldQuarantineDesktopUnlockOwners } from "@/app/features/runtime/unlock-hydrate-policy";
 import type {
   ExecuteLocalDmDeleteForMeParams,
   ExecuteLocalDmShowAgainParams,
@@ -258,19 +258,16 @@ const persistNativeSqliteDeletes = async (
       )));
     }
   }
-  await Promise.all(deleteIds.map((deleteId) => {
-    const rec: TombstoneRecord = {
+  await insertDmTombstones({
+    host,
+    profileId,
+    records: deleteIds.map((deleteId) => ({
       event_id: deleteId,
       profile_id: profileId,
       deleted_at: deletedAtUnixMs,
       deleted_by: "",
-    };
-    return insertDmTombstone({
-      host,
-      profileId,
-      record: rec,
-    }).catch(() => undefined);
-  }));
+    })),
+  }).catch(() => undefined);
 };
 
 const runPersistHeavyWork = (params: Readonly<{
@@ -367,6 +364,11 @@ const runHideBackgroundReconcile = async (params: Readonly<{
 const runEnsureReady = async (scope: LocalDmVisibilityScope): Promise<void> => {
   const profileId = scope.profileId.trim();
   if (!profileId) {
+    return;
+  }
+  // Desktop thin shell: ensureReady was the unlock listTombstones/insertTombstones stampede.
+  if (shouldQuarantineDesktopUnlockOwners()) {
+    refreshSuppressedCache(profileId);
     return;
   }
 

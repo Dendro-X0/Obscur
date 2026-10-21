@@ -35,6 +35,10 @@ const isDirectMediaLikeUrl = (rawUrl: string): boolean => {
 const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element | null => {
   const {
     pendingLinkUrl,
+    pendingLinkPhase,
+    reputationResult,
+    reputationChecking,
+    reputationProviderLabel,
     cancelPendingLink,
     confirmPendingLink,
     handleAnchorClick,
@@ -93,10 +97,14 @@ const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element |
           </div>
         </a>
         <LinkOpenConfirmDialog
-          url={pendingLinkUrl}
-          onClose={cancelPendingLink}
-          onConfirm={() => confirmPendingLink()}
-        />
+        url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
+        onClose={cancelPendingLink}
+        onConfirm={() => { void confirmPendingLink(); }}
+      />
       </>
     );
   }
@@ -152,8 +160,12 @@ const MessageLinkPreview = (props: MessageLinkPreviewProps): React.JSX.Element |
       </a>
       <LinkOpenConfirmDialog
         url={pendingLinkUrl}
+        phase={pendingLinkPhase}
+        reputationResult={reputationResult}
+        reputationChecking={reputationChecking}
+        providerLabel={reputationProviderLabel}
         onClose={cancelPendingLink}
-        onConfirm={() => confirmPendingLink()}
+        onConfirm={() => { void confirmPendingLink(); }}
       />
     </>
   );

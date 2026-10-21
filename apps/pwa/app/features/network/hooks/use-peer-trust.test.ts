@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PersistedChatState } from "@/app/features/messaging/types";
 import { setProfileRuntimeScope } from "@/app/features/profiles/services/profile-runtime-scope";
+import {
+  requestFlowEvidenceStore,
+  requestFlowEvidenceStoreInternals,
+} from "@/app/features/messaging/services/request-flow-evidence-store";
 import { peerTrustInternals, usePeerTrust } from "./use-peer-trust";
 
 const chatStateReadMocks = vi.hoisted(() => ({
@@ -223,6 +227,14 @@ describe("use-peer-trust internals", () => {
   it("returns empty for missing persisted chat state", () => {
     expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(null)).toEqual([]);
     expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(undefined)).toEqual([]);
+  });
+
+  it("recovers accepted peers from request-flow acceptSeen evidence after restart", () => {
+    const peerPublicKeyHex = "c".repeat(64);
+    requestFlowEvidenceStore.markAccept({ peerPublicKeyHex });
+    const recovered = peerTrustInternals.extractAcceptedPeersFromRequestEvidence();
+    expect(recovered).toContain(peerPublicKeyHex);
+    requestFlowEvidenceStoreInternals.writeState({ byPeer: {} });
   });
 
   it("defaults missing removedPeers when restoring a backup snapshot into storage", () => {

@@ -34,6 +34,8 @@ export type PublishRelayConfirmedCommunityLeaveParams = Readonly<{
   initialMembers?: ReadonlyArray<PublicKeyHex>;
   leftMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
   expelledMemberPubkeys?: ReadonlyArray<PublicKeyHex>;
+  /** Leave/delete must not block on a full directory rebuild (paged fetch × fetch timeout). */
+  skipDirectoryRefresh?: boolean;
 }>;
 
 /**
@@ -80,11 +82,13 @@ export const publishRelayConfirmedCommunityLeave = async (
         continue;
       }
       coordinationLeaveConfirmed = true;
-      await refreshCoordinationMembershipDirectory({
-        communityId,
-        forceFull: true,
-        profileId,
-      });
+      if (!params.skipDirectoryRefresh) {
+        void refreshCoordinationMembershipDirectory({
+          communityId,
+          forceFull: false,
+          profileId,
+        });
+      }
       break;
     }
     if (!coordinationLeaveConfirmed) {

@@ -1,0 +1,120 @@
+- main:
+  - img "Obscur"
+  - text: Obscur
+  - button "desktop.titleBar.lock"
+  - button "Open desktop profile switcher":
+    - img "Tester1"
+    - text: Tester1 Obscur / e07f67dc...c191ea56
+  - button "Minimize window"
+  - button "Maximize window"
+  - button "Close window"
+  - button "Connected"
+  - link "Chats":
+    - /url: /
+  - link "Network":
+    - /url: /network
+  - link "Vault":
+    - /url: /vault
+  - link "Search":
+    - /url: /search
+  - link "Settings":
+    - /url: /settings
+  - button "Open profile menu":
+    - img "Tester1"
+  - text: Settings
+  - main:
+    - complementary:
+      - textbox "Search settings":
+        - /placeholder: Search settings…
+      - navigation "Settings":
+        - heading "General" [level=3]
+        - button "Profile"
+        - button "Appearance"
+        - button "Notifications"
+        - heading "Account" [level=3]
+        - button "Identity"
+        - button "Security"
+        - heading "Network" [level=3]
+        - button "Protocols/Network"
+        - button "Relays"
+        - button "Storage"
+        - heading "Moderation" [level=3]
+        - button "Blocklist"
+        - button "Privacy"
+        - heading "System" [level=3]
+        - button "Updates"
+    - main:
+      - text: Profile Customize your public presence on the network.
+      - paragraph: Profile Completeness
+      - paragraph: 3/4
+      - text: Avatar Username Description NIP-05
+      - img "Avatar Preview"
+      - button "Change Image"
+      - button "Clear"
+      - text: Enter an image URL or upload one to use as your avatar. Username
+      - textbox "Username":
+        - /placeholder: Your name
+        - text: Tester1
+      - text: This name will be visible to others when you interact. Description
+      - textbox "Description":
+        - /placeholder: Briefly introduce yourself so your friends can get to know you.
+        - text: "Find me on Obscur with this code: OBSCUR-5KMPFN"
+      - text: Public profile bio shown in discovery previews. 47/280 NIP-05 Identifier
+      - textbox "NIP-05 Identifier":
+        - /placeholder: user@domain.com
+      - button "Verify"
+      - text: An optional identifier like an email for human-readable discovery. Friend Code OBSCUR-
+      - textbox "Friend Code":
+        - /placeholder: XXXXXX
+        - text: 5KMPFN
+      - button "Random"
+      - button "Copy"
+      - text: Use this friend code for quick account discovery. Prefix is fixed by app identity; edit only the 6-character suffix.
+      - button "Copy identity link"
+      - button "Save"
+      - text: Profile Save Status idle Profile is saved locally, but network sync proof is incomplete. Another device may not restore this account yet. Account Sync Private key = account. This device restores and refreshes account state from relays. local only Portability Only local device save is proven Restore phase Local identity ready; account sync not auto-started on unlock Encrypted backup Not found yet Last public profile fetch Not fetched yet Last encrypted backup publish 10/14/2026, 9:16:44 PM Profile proof No relay proof yet Backup proof queued 0/0 e7d9b6d9b69dd9eb...
+      - status:
+        - paragraph: Managed workspace backup scope
+        - list:
+          - listitem: "Included: workspace room list (sidebar groups)"
+          - listitem: "Included: workspace message history on this device (SQLite)"
+          - listitem: "Included: workspace room metadata rows"
+        - paragraph: "Re-synced after restore (not in backup payload):"
+        - list:
+          - listitem: "Deferred: coordination membership directory (re-fetched when online)"
+          - listitem: "Deferred: relay roster hints (chat-delivery only)"
+      - text: "Last restore source: local device"
+      - button "Restore from relays"
+      - paragraph: Desktop unlock does not auto-sync. Use this when you want relay restore on purpose.
+      - button "Export backup"
+      - button "Import backup"
+      - button "Exports folder"
+      - button "Archives folder"
+      - button "Advanced options"
+      - paragraph: Export saves as obscur-account-export-e07f67dc-2026-10-20_1238.obscur-account-export.json in your Obscur export folder.
+      - text: Account portability
+      - paragraph: "One file for cross-device migration: account backup plus optional workspace and vault media. JSON shows ciphertext in editors — import only through Obscur with the matching account unlocked."
+      - list:
+        - listitem: Profile metadata and invite code
+        - listitem: Complete relay / network list
+        - listitem: Direct and group chat history
+        - listitem: Privacy and UI settings
+        - listitem: Contacts, trust, and community memberships
+        - listitem: Encrypted account key material (not plaintext nsec)
+        - listitem: "Optional: vault media and profile-window workspace snapshot"
+      - text: Export preview Profile Tester1 Relays 4 enabled 5 total configured Direct messages 0 messages 0 conversations Group messages 0 messages 0 conversations Communities 5 active 16 archived (21 stored) Contacts & trust 1 accepted peers 0 pending outbox Estimated export size 265 KB Encrypted JSON bundle Export filename
+      - button "Export filename format": Account prefix + date
+      - paragraph: "obscur-account-export-{pubkey8}-{date}.obscur-account-export.json"
+      - paragraph: Saves to your export folder as obscur-account-export-e07f67dc-2026-10-20_1238.obscur-account-export.json
+      - text: Include workspace snapshot and vault media
+      - checkbox "Include workspace snapshot and vault media" [checked]
+      - button "Export Unified Backup"
+      - button "Import Unified Backup"
+      - paragraph:
+        - text: Legacy portable JSON and encrypted
+        - code: .obscur-bundle
+        - text: files still import. For profile-window-only settings without account data, see
+        - link "Settings → Storage":
+          - /url: /settings?tab=storage#encrypted-workspace-export
+        - text: .
+- alert

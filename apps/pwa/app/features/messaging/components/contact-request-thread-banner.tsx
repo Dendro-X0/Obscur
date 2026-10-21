@@ -3,7 +3,7 @@
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ChevronDown, Clock3, Loader2, ShieldAlert, X } from "lucide-react";
+import { Check, ChevronDown, Clock3, Loader2, RefreshCw, ShieldAlert, X } from "lucide-react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/utils";
@@ -28,6 +28,11 @@ type ContactRequestThreadBannerProps = Readonly<{
   onDecline: () => void | Promise<void>;
   onCancelOutgoing?: () => void | Promise<void>;
   onResendRequest?: () => void | Promise<void>;
+  /** True when local accept committed but relay notification still pending. */
+  relayPending?: boolean;
+  onRetryRelayNotification?: () => void | Promise<void>;
+  /** When false, Accept is disabled until at least one relay is connected. */
+  acceptRelayReady?: boolean;
 }>;
 
 export function ContactRequestThreadBanner({
@@ -42,6 +47,9 @@ export function ContactRequestThreadBanner({
   onDecline,
   onCancelOutgoing,
   onResendRequest,
+  relayPending = false,
+  onRetryRelayNotification,
+  acceptRelayReady = true,
 }: ContactRequestThreadBannerProps): React.JSX.Element {
   const { t } = useTranslation();
   const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
@@ -78,6 +86,43 @@ export function ContactRequestThreadBanner({
       setAcceptDialogOpen(false);
     }
   };
+
+  if (relayPending) {
+    return (
+      <div
+        className="z-10 border-b border-amber-500/20 bg-amber-50/80 px-4 py-3 backdrop-blur-md dark:border-amber-400/15 dark:bg-amber-950/25"
+        data-testid="contact-request-relay-pending-banner"
+      >
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300">
+              <RefreshCw className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-amber-900 dark:text-amber-100">
+                Contact accepted — relay notification pending
+              </p>
+              <p className="truncate text-xs text-amber-700/80 dark:text-amber-300/80">
+                {displayName} is trusted locally. The accept notification will retry automatically.
+              </p>
+            </div>
+          </div>
+          {onRetryRelayNotification ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9 shrink-0 rounded-xl text-xs font-bold"
+              disabled={isProcessing}
+              onClick={() => void runAction(onRetryRelayNotification)}
+            >
+              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Retry now
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   if (resendEligible) {
     return (
@@ -192,7 +237,8 @@ export function ContactRequestThreadBanner({
             <div className="flex shrink-0 gap-2 sm:pt-0.5">
               <Button
                 className="h-9 rounded-xl bg-emerald-600 px-4 text-xs font-bold text-white hover:bg-emerald-500"
-                disabled={isProcessing}
+                disabled={isProcessing || !acceptRelayReady}
+                title={!acceptRelayReady ? "Waiting for relay connection — check footer relay count" : undefined}
                 onClick={() => setAcceptDialogOpen(true)}
               >
                 <Check className="mr-1.5 h-3.5 w-3.5" />
@@ -209,6 +255,12 @@ export function ContactRequestThreadBanner({
               </Button>
             </div>
           </div>
+
+          {!acceptRelayReady ? (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              Relays are still connecting. Wait for at least one active relay in the footer before accepting.
+            </p>
+          ) : null}
 
           {identityExpanded && binding ? (
             <IdentityBindingPanel binding={binding} compact showLiteracyNote={false} />

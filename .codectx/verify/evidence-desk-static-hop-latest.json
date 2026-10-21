@@ -1,0 +1,161 @@
+{
+  "schema": "studio.evidence.desk.static.hop@1.0.0",
+  "band": "H-ED4",
+  "residualStatus": "partial",
+  "title": "Evidence Desk static hop",
+  "id": "evidence.desk.static.hop",
+  "pathway": "pathways.evidenceDesk",
+  "summary": "Journal cmd → owner hop candidates (seed catalog + bounded scan) + deepen sequence for map_hop / owner_conflicts / codegraph. Hints ≠ proven ownership.",
+  "hopStatus": "ready",
+  "cmd": "eng:dm:insertTombstone",
+  "cmdSource": "cmd",
+  "tokens": [
+    "eng:dm:insertTombstone",
+    "eng",
+    "insertTombstone",
+    "insert",
+    "Tombstone"
+  ],
+  "seeds": [
+    {
+      "kind": "seed",
+      "pathHint": "crates/**/dm*",
+      "note": "DM tombstone insert — unlock hydrate stampede candidate",
+      "confidence": "catalog"
+    },
+    {
+      "kind": "seed",
+      "pathHint": "**/*tombstone*",
+      "note": "Search tombstone writers",
+      "confidence": "catalog"
+    }
+  ],
+  "fileHits": [
+    {
+      "kind": "content",
+      "path": "specs/backend/desktop-local-plane-fault-scan-design-2026-10.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "specs/backend/desktop-shell-lag-investigation-2026-10.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "specs/backend/desktop-shell-n1c-stress-plan-2026-10.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "specs/backend/desktop-shell-n2-unlocked-hydrate-design-2026-10.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "specs/backend/r-dm-delete-tombstone-ipc-slice21-design-2026-07.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "specs/backend/r-dm-tombstone-delete-slice20-investigation-2026-07.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "packages/obscur-engine-contracts/src/dm-engine-methods.ts",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "packages/obscur-engine-contracts/src/index.ts",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "packages/obscur-dm-engine/src/dm-engine-tombstones.ts",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "packages/libobscur/src/engine_invoke.rs",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "docs/program/obscur-fault-visibility-requirements-2026-10.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    },
+    {
+      "kind": "content",
+      "path": "docs/program/obscur-native-sqlite-policy.md",
+      "match": "content",
+      "token": "insertTombstone",
+      "confidence": "scan"
+    }
+  ],
+  "suggestedFocusPaths": [
+    "specs/backend/desktop-local-plane-fault-scan-design-2026-10.md",
+    "specs/backend/desktop-shell-lag-investigation-2026-10.md",
+    "specs/backend/desktop-shell-n1c-stress-plan-2026-10.md",
+    "specs/backend/desktop-shell-n2-unlocked-hydrate-design-2026-10.md",
+    "specs/backend/r-dm-delete-tombstone-ipc-slice21-design-2026-07.md",
+    "specs/backend/r-dm-tombstone-delete-slice20-investigation-2026-07.md",
+    "packages/obscur-engine-contracts/src/dm-engine-methods.ts",
+    "packages/obscur-engine-contracts/src/index.ts"
+  ],
+  "primaryFocusPath": "specs/backend/desktop-local-plane-fault-scan-design-2026-10.md",
+  "hubRel": ".codectx/verify/evidence-desk-static-hop-latest.json",
+  "citeAsSoftL3Fixed": false,
+  "citeAsObscurProductFixed": false,
+  "citeAsOwnerProven": false,
+  "citeAsGhidraReplacement": false,
+  "doesNotProve": [
+    "soft_l3_fixed",
+    "obscur_product_fixed",
+    "owner_proven",
+    "dual_owner_fixed",
+    "ghidra_replacement",
+    "codegraph_required",
+    "product_fixed"
+  ],
+  "nextMcpSequence": [
+    "studio_repo { action: \"studio_evidence_desk_static_hop\", cmd }",
+    "studio_repo { action: \"studio_map_hop\", focusPath: \"specs/backend/desktop-local-plane-fault-scan-design-2026-10.md\" }  # deepen subgraph",
+    "studio_repo { action: \"studio_owner_conflicts_get\" }  # dual-owner hygiene",
+    "studio_repo { action: \"studio_codegraph_coprotocol\" }  # optional; graph ≠ prove",
+    "Stop — citeAsOwnerProven=false · Soft L3 Fixed never from hop hints"
+  ],
+  "operatorNotes": null,
+  "proves": [
+    "Returns cmd tokens + seed/scan candidates without inventing Soft L3 Fixed",
+    "Composes deepen sequence to existing map_hop / owner_conflicts / codegraph surfaces"
+  ],
+  "deferredTo": {
+    "H-ED6": "TRY-STUDIO / MCP-AGENT-GUIDE + Obscur Partial dogfood"
+  },
+  "persisted": true,
+  "persistPath": "E:\\Web Projects\\obscur\\.codectx\\verify\\evidence-desk-static-hop-latest.json"
+}

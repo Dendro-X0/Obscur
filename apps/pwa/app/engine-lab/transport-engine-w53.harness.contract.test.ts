@@ -19,7 +19,7 @@ const SMOKE_CHECKLIST_ITEMS = [
 describe("transport-engine w53 — smoke checklist harness matrix", () => {
   it("pins all manual checklist evidence anchors in charter", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
     for (const item of SMOKE_CHECKLIST_ITEMS) {
       expect(charter).toContain(item);
@@ -28,10 +28,10 @@ describe("transport-engine w53 — smoke checklist harness matrix", () => {
 
   it("links smoke prerequisites to W48 maintainer gate", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w53-live-desktop-publish-smoke-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w53-live-desktop-publish-smoke-charter.md",
     );
     const review = readFromRepo(
-      "docs/program/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w48-pre-authority-flip-exit-evidence-review.md",
     );
     expect(charter).toContain("standalone deletion");
     expect(review).toContain("Maintainer gate");

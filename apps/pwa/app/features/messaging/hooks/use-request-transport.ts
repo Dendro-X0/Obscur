@@ -13,6 +13,8 @@ type DmControllerMinimal = Readonly<{
     peerPublicKeyInput: string;
     plaintext: string;
     customTags?: string[][];
+    waitForConfirmation?: boolean;
+    suppressPublishFeedbackToast?: boolean;
   }>) => Promise<{ success: boolean; deliveryStatus?: string; messageId: string; relayResults: ReadonlyArray<{ relayUrl: string; success: boolean; error?: string }> }>;
 }>;
 
@@ -32,6 +34,7 @@ type UseRequestTransportParams = Readonly<{
       isOutgoing?: boolean;
     }>) => void;
   };
+  waitForWritableRelay?: (timeoutMs: number) => Promise<boolean>;
 }>;
 
 export const useRequestTransport = (params: UseRequestTransportParams) => {
@@ -49,6 +52,7 @@ export const useRequestTransport = (params: UseRequestTransportParams) => {
       sendDm: params.dmController.sendDm as any,
       peerTrust: params.peerTrust as any,
       requestsInbox: params.requestsInbox as any,
+      waitForWritableRelay: params.waitForWritableRelay,
     });
-  }, [identity.state.publicKeyHex, profileId, params.dmController, params.peerTrust, params.requestsInbox]);
+  }, [identity.state.publicKeyHex, profileId, params.dmController, params.peerTrust, params.requestsInbox, params.waitForWritableRelay]);
 };

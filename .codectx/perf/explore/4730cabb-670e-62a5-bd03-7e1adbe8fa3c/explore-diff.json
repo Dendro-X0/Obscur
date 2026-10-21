@@ -1,0 +1,426 @@
+{
+  "schema": "perf.explore.diff@1.1.0",
+  "generatedAt": "2026-10-14T15:38:29.695581900+00:00",
+  "step": {
+    "schema": "perf.explore.diff@1.1.0",
+    "generatedAt": "2026-10-14T15:38:29.695581900+00:00",
+    "baseline": {
+      "exploreId": "9ee1cc94-cdcc-80f8-7618-daf0f2c994f4",
+      "graphHash": "sha256:d9433e678347a86f186242f043529b32bd95e6918079b009055ce8030d3f81eb",
+      "findingCount": 4,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 3,
+        "info": 1
+      }
+    },
+    "current": {
+      "exploreId": "4730cabb-670e-62a5-bd03-7e1adbe8fa3c",
+      "graphHash": "sha256:36c344b013d19dfad9d5a14b84360d0c850e457cf54a5f463b9c5fcd1f7932fa",
+      "findingCount": 65,
+      "severityCounts": {
+        "red": 0,
+        "yellow": 35,
+        "info": 30
+      }
+    },
+    "delta": {
+      "red": 0,
+      "yellow": 32,
+      "info": 29,
+      "total": 61
+    },
+    "resolvedFindingIds": [
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+      "perf:dev:tauri-vite-shell:apps/desktop"
+    ],
+    "newFindingIds": [
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-1SOLVK/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-9ZLhKy/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-FfriwI/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-UCr4Ft/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-WFdrXK/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-bluPof/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-c4AWNC/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-gT35ln/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-ljm4cZ/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-nCQa6l/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-uJ5anc/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-vknbKa/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-wOXYBG/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-wnS8gC/index.js",
+      "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-yAfBC0/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-1TpgWa/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-Eieqhs/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-ID3RGs/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-OwBnye/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-VGm2Zh/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-ggptvL/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-k14D7g/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-mh8ZuS/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-nDUx17/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-nwMfDJ/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-rs35ef/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-rsex38/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-s68emw/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-sAJRo1/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-xjUkub/middleware-loader.entry.ts",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-1SOLVK/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-9ZLhKy/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-FfriwI/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-UCr4Ft/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-WFdrXK/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-bluPof/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-c4AWNC/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-gT35ln/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-ljm4cZ/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-nCQa6l/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-uJ5anc/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-vknbKa/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-wOXYBG/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-wnS8gC/index.js",
+      "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-yAfBC0/index.js",
+      "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+      "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+      "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+      "perf:stack:next:apps/pwa",
+      "perf:stack:next:apps/website",
+      "perf:topology:architecture-layout:apps:coordination",
+      "perf:topology:critical-path-scope:apps:coordination",
+      "perf:topology:shared-fanout:apps:desktop:src-tauri",
+      "perf:topology:shared-fanout:packages:db",
+      "perf:topology:shared-fanout:packages:dweb-auth",
+      "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+      "perf:topology:shared-fanout:packages:dweb-core",
+      "perf:topology:shared-fanout:packages:dweb-crypto",
+      "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+      "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh",
+      "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+      "perf:topology:shared-fanout:packages:obscur-engine-contracts"
+    ],
+    "unchangedFindingIds": [],
+    "severityChanges": [],
+    "improved": false,
+    "verification": {
+      "status": "mixed",
+      "resolvedCount": 4,
+      "severityImprovementCount": 0,
+      "partialCount": 0,
+      "metricImprovements": [
+        {
+          "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-dD1a2j/middleware-loader.entry.ts",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-dieleV/index.js",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        },
+        {
+          "findingId": "perf:dev:tauri-vite-shell:apps/desktop",
+          "metric": "finding",
+          "from": 1,
+          "to": 0,
+          "verified": true,
+          "status": "resolved"
+        }
+      ]
+    },
+    "newFindings": [
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-1SOLVK/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-9ZLhKy/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-FfriwI/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-UCr4Ft/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-WFdrXK/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-bluPof/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-c4AWNC/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-gT35ln/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-ljm4cZ/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-nCQa6l/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-uJ5anc/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-vknbKa/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-wOXYBG/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-wnS8gC/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:client-payload-suspect:apps/coordination/.wrangler/tmp/dev-yAfBC0/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-1TpgWa/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-Eieqhs/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-ID3RGs/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-OwBnye/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-VGm2Zh/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-ggptvL/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-k14D7g/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-mh8ZuS/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-nDUx17/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-nwMfDJ/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-rs35ef/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-rsex38/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-s68emw/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-sAJRo1/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/bundle-xjUkub/middleware-loader.entry.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-1SOLVK/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-9ZLhKy/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-FfriwI/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-UCr4Ft/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-WFdrXK/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-bluPof/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-c4AWNC/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-gT35ln/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-ljm4cZ/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-nCQa6l/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-uJ5anc/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-vknbKa/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-wOXYBG/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-wnS8gC/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:api:fanout:apps/coordination/.wrangler/tmp/dev-yAfBC0/index.js",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:import:barrel-penalty:packages/dweb-auth/src/index.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:import:barrel-penalty:packages/obscur-conduit-mesh-contracts/src/index.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:import:barrel-penalty:packages/obscur-conduit-mesh/src/index.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:import:barrel-penalty:packages/obscur-engine-host/src/index.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:import:barrel-penalty:packages/ui-kit/src/index.ts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:stack:next:apps/pwa",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:stack:next:apps/website",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:architecture-layout:apps:coordination",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:critical-path-scope:apps:coordination",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:apps:desktop:src-tauri",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:db",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:dweb-auth",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:dweb-coordination-contracts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:dweb-core",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:dweb-crypto",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:dweb-storage-contracts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:dweb-transport-contracts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:obscur-conduit-mesh",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:obscur-conduit-mesh-contracts",
+        "reason": "scopeExpanded"
+      },
+      {
+        "findingId": "perf:topology:shared-fanout:packages:obscur-engine-contracts",
+        "reason": "scopeExpanded"
+      }
+    ],
+    "bucketDelta": {
+      "navBlockers": {
+        "from": 0,
+        "to": 5
+      },
+      "actionItems": {
+        "from": 3,
+        "to": 30
+      },
+      "infoInventory": {
+        "from": 1,
+        "to": 30
+      }
+    }
+  }
+}

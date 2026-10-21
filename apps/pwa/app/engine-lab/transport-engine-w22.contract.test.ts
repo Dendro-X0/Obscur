@@ -10,7 +10,7 @@ const readFromRepo = (relFromRepoRoot: string): string => (
 
 describe("transport-engine w22 — Rust host publish wiring charter (design-only)", () => {
   it("pins the Rust wiring charter for publishRelayEvent", () => {
-    const charter = readFromRepo("docs/program/transport-engine-w22-host-publish-rust-charter.md");
+    const charter = readFromRepo("docs/archive/program/inactive-2026-08/transport-engine-w22-host-publish-rust-charter.md");
     expect(charter).toContain("Rust Host Publish Wiring Charter");
     expect(charter).toContain("transport_publish_not_wired");
     expect(charter).toContain("Non-goals / constraints for W22");

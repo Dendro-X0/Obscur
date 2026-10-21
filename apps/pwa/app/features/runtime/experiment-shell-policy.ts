@@ -16,8 +16,22 @@ declare global {
     __OBSCUR_EXPERIMENT_ONLINE?: boolean;
     /** Present in dev/desktop experiment builds — confirms client bundle age. */
     __OBSCUR_DEV_CLIENT_STAMP?: string;
+    /**
+     * Injected by Tauri boot from `OBSCUR_PERF_PLANE` (full|local|chrome).
+     * Chrome forces offline-stub quarantine so online dogfood cannot stampede hydrate.
+     */
+    __OBSCUR_PERF_PLANE__?: string;
   }
 }
+
+/** Run A2 chrome plane — unlock hydrate / account-sync / presence must stay cold. */
+export const isChromePerfPlaneActive = (): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const plane = window.__OBSCUR_PERF_PLANE__?.trim().toLowerCase();
+  return plane === "chrome" || plane === "chrome-only" || plane === "ui";
+};
 
 /** Call once at app boot so experiment mode survives env inlining edge cases. */
 export const markExperimentShellBootFlag = (): void => {
@@ -57,9 +71,14 @@ export const isExperimentOnlineEnabled = (): boolean => {
   return process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1";
 };
 
-/** Noop relay / synthetic account sync — experiment default unless online flag is set. */
+/**
+ * Noop relay / synthetic account sync — experiment default unless online flag is set.
+ * Chrome fault-scan overrides online: `dev:desktop:no-coord` sets online, but chrome must
+ * still quarantine account-sync restore, presence publish, and relay dials.
+ */
 export const isExperimentOfflineStubEnabled = (): boolean => (
-  isExperimentShellEnabled() && !isExperimentOnlineEnabled()
+  isChromePerfPlaneActive()
+  || (isExperimentShellEnabled() && !isExperimentOnlineEnabled())
 );
 
 /** Defer hydrate / SQLite / idle work (12s timer or idle callback) — offline experiment stub only. */

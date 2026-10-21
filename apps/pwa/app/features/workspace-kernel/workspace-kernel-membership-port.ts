@@ -1,6 +1,6 @@
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { GroupAccessMode, CommunityMode, RelayCapabilityTier } from "@/app/features/groups/types";
+import type { CommunityHostingTier, GroupAccessMode, CommunityMode, RelayCapabilityTier } from "@/app/features/groups/types";
 import type { GroupConversation } from "@/app/features/messaging/types";
 import { GroupService } from "@/app/features/groups/services/group-service";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
@@ -70,6 +70,7 @@ export type ManagedWorkspaceCreateInput = Readonly<{
   access: GroupAccessMode;
   relayCapabilityTier: RelayCapabilityTier;
   communityMode: CommunityMode;
+  hostingTier?: CommunityHostingTier;
 }>;
 
 export type CreateManagedWorkspaceMembershipParams = Readonly<{
@@ -228,6 +229,7 @@ export const createManagedWorkspaceMembership = async (
     communityMode,
     creatorPublicKeyHex: myPublicKeyHex,
   });
+  const hostingTier = info.hostingTier ?? "operator";
   const metadata = {
     id: info.groupId,
     name: info.name,
@@ -235,6 +237,7 @@ export const createManagedWorkspaceMembership = async (
     picture: info.avatar,
     access: info.access,
     communityMode,
+    hostingTier,
     relayCapabilityTier: info.relayCapabilityTier,
     ...(stewardPubkeys.length > 0 ? { stewardPubkeys } : {}),
   } as const;
@@ -340,6 +343,7 @@ export const createManagedWorkspaceMembership = async (
     adminPubkeys: [myPublicKeyHex],
     avatar: info.avatar,
     communityMode,
+    hostingTier,
     relayCapabilityTier: info.relayCapabilityTier,
   };
 

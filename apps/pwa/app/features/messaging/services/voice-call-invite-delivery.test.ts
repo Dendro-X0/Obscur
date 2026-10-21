@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canStartVoiceCallInviteDial,
   isVoiceCallInviteDeliveryAccepted,
   isVoiceCallInviteDeliveryPending,
   isVoiceCallInviteDeliveryProvisional,
@@ -58,5 +59,13 @@ describe("voice-call-invite-delivery", () => {
       partialWireDelivery: false,
       eventId: "e1",
     })).toBe(false);
+  });
+
+  it("blocks dial when no relay sockets are open", () => {
+    expect(canStartVoiceCallInviteDial({ openRelayCount: 0 })).toBe(false);
+    expect(canStartVoiceCallInviteDial({ openRelayCount: -1 })).toBe(false);
+    expect(canStartVoiceCallInviteDial({ openRelayCount: Number.NaN })).toBe(false);
+    expect(canStartVoiceCallInviteDial({ openRelayCount: 1 })).toBe(true);
+    expect(canStartVoiceCallInviteDial({ openRelayCount: 3 })).toBe(true);
   });
 });

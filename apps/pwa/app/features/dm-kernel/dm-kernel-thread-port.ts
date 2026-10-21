@@ -16,8 +16,9 @@ import {
   resolveDmKernelStorageConversationId,
   resolveDmKernelThreadQueryConversationIds,
 } from "./dm-kernel-thread-query";
+import { DM_KERNEL_PAGE_SIZE } from "./dm-kernel-page-size";
 
-export const DM_KERNEL_PAGE_SIZE = 200;
+export { DM_KERNEL_PAGE_SIZE };
 
 let dmKernelEngineHost: HostEnginePort | null = null;
 

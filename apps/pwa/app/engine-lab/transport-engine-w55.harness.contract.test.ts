@@ -18,7 +18,7 @@ const SUBTRACTION_TARGETS = [
 describe("transport-engine w55 — deletion gate harness", () => {
   it("documents subtraction targets without executing deletion", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w55-standalone-legacy-deletion-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w55-standalone-legacy-deletion-charter.md",
     );
     expect(charter).toContain("BLOCKED");
     expect(charter).toContain("No deletion");
@@ -29,10 +29,10 @@ describe("transport-engine w55 — deletion gate harness", () => {
 
   it("requires W54 PASS before W56 execution", () => {
     const charter = readFromRepo(
-      "docs/program/transport-engine-w55-standalone-legacy-deletion-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w55-standalone-legacy-deletion-charter.md",
     );
     const w54 = readFromRepo(
-      "docs/program/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
+      "docs/archive/program/inactive-2026-08/transport-engine-w54-smoke-evidence-sign-off-template-charter.md",
     );
     expect(charter).toContain("W54 sign-off");
     expect(w54).toContain("Decision: PASS");

@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "running": false,
-  "lastRunId": "wup_e60b284b940b",
+  "lastRunId": "wup_476733649580",
   "client": "desktop",
   "reason": "startup",
-  "startedAt": "2026-07-08T03:35:55.893023200+00:00",
-  "completedAt": "2026-07-08T03:35:56.040775800+00:00",
-  "totalDurationMs": 90,
+  "startedAt": "2026-10-15T07:22:29.267846200+00:00",
+  "completedAt": "2026-10-15T07:22:29.268050800+00:00",
+  "totalDurationMs": 0,
   "snapshotHash": "sha256:e1cdd98959d7211f02cadda6eb1c66127e0c4bbb53bc05a5a81003d51bddfdb4",
   "stages": [
     {
@@ -26,14 +26,14 @@
     {
       "stageId": "policy_snapshots",
       "status": "ok",
-      "durationMs": 36,
+      "durationMs": 0,
       "detail": "loadedSnapshots=0",
       "snapshotHash": "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
     },
     {
       "stageId": "high_frequency_read_models",
       "status": "ok",
-      "durationMs": 54,
+      "durationMs": 0,
       "detail": "approvals=0,goals=0,runs=0,subagents=0,tasks=0",
       "snapshotHash": "sha256:fca4cce06fb0d15cff7e979302b2376fced7097af4c7334955899817ecce240b"
     }

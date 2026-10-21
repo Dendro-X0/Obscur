@@ -41,7 +41,10 @@ describe("dm-kernel-trust-social-engineering-signals", () => {
   it("detects off-platform redirect pressure", () => {
     expect(detectOffPlatformRedirect("Let's continue on Telegram — add me there")).toBe(true);
     expect(detectOffPlatformRedirect("Find me on Discord for the interview details")).toBe(true);
+    expect(detectOffPlatformRedirect("Move to WhatsApp so we can discuss payment details privately.")).toBe(true);
     expect(detectOffPlatformRedirect("See you in the group chat tomorrow")).toBe(false);
+    expect(detectOffPlatformRedirect("I use Discord for game chat with friends")).toBe(false);
+    expect(detectOffPlatformRedirect("A telegram message arrived earlier")).toBe(false);
   });
 
   it("detects advance-fee scam language", () => {
