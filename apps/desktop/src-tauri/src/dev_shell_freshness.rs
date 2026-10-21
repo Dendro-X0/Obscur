@@ -7,6 +7,10 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(windows)]
+use std::process::Stdio;
+#[cfg(windows)]
+use std::time::{Duration, Instant};
 
 /// Cache directory leaf names that may be purged for shell freshness.
 pub const WEBVIEW_HTTP_CACHE_DIR_NAMES: &[&str] = &[
@@ -88,7 +92,13 @@ pub fn expected_shell_stamp_init_script(expected_stamp: &str) -> String {
 
 /// Kill managed desktop/tor processes whose executable lives under `target_root`.
 /// Returns number of processes successfully signaled.
+///
+/// Set `OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL=1` to skip (used by `desktop:package`
+/// so a wedged process enumerator cannot stall a release build).
 pub fn kill_managed_desktop_processes(target_root: &Path) -> usize {
+    if std::env::var_os("OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL").is_some() {
+        return 0;
+    }
     if cfg!(windows) {
         kill_managed_windows(target_root)
     } else {
@@ -178,76 +188,147 @@ fn walk_purge_caches(dir: &Path, removed: &mut Vec<PathBuf>) {
 
 #[cfg(windows)]
 fn kill_managed_windows(target_root: &Path) -> usize {
-    let output = Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-Command",
-            "Get-Process -Name tor,obscur_desktop_app -ErrorAction SilentlyContinue | Select-Object ProcessName,Id,Path | ConvertTo-Json -Compress",
-        ])
-        .output();
-    let Ok(output) = output else {
-        return 0;
-    };
-    let raw = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if raw.is_empty() || raw == "null" {
-        return 0;
-    }
-    let parsed: Value = match serde_json::from_str(&raw) {
-        Ok(value) => value,
-        Err(_) => return 0,
-    };
-    let list = match parsed {
-        Value::Array(items) => items,
-        other => vec![other],
-    };
+    // Do not use PowerShell Get-Process … Path — that WMI path lookup can hang
+    // indefinitely on locked/zombie sessions and stalls prebuild forever.
     let mut killed = 0usize;
-    for proc in list {
-        let process_name = format!(
-            "{}.exe",
-            proc.get("ProcessName")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_ascii_lowercase()
-        );
-        let Some((_, label)) = MANAGED_WINDOWS_BINARIES
-            .iter()
-            .find(|(name, _)| *name == process_name.as_str())
-        else {
-            continue;
-        };
-        let pid = proc
-            .get("Id")
-            .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|n| n as u64)))
-            .unwrap_or(0);
-        if pid == 0 {
-            continue;
-        }
-        let executable_path = proc
-            .get("Path")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        if !is_managed_target_binary_path(
-            Path::new(executable_path),
-            target_root,
-            &process_name,
-        ) {
-            continue;
-        }
-        let stop = Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                &format!("Stop-Process -Id {pid} -Force"),
-            ])
-            .status();
-        if stop.map(|s| s.success()).unwrap_or(false) {
-            eprintln!(
-                "[obscur-dev-clean] Stopped stale {label} PID {pid}: {executable_path}"
-            );
-            killed += 1;
+    for (exe_name, label) in MANAGED_WINDOWS_BINARIES {
+        for pid in tasklist_pids(exe_name) {
+            let Some(executable_path) = windows_process_image_path(pid) else {
+                continue;
+            };
+            if !is_managed_target_binary_path(&executable_path, target_root, exe_name) {
+                continue;
+            }
+            if windows_terminate_process(pid) {
+                eprintln!(
+                    "[obscur-dev-clean] Stopped stale {label} PID {pid}: {}",
+                    executable_path.display()
+                );
+                killed += 1;
+            }
         }
     }
     killed
+}
+
+/// PIDs for `image_name` via `tasklist` (CSV). Avoids PowerShell entirely.
+/// Hard-capped: a wedged process enumerator must not stall predev/prebuild.
+#[cfg(windows)]
+fn tasklist_pids(image_name: &str) -> Vec<u32> {
+    let mut child = match Command::new("tasklist")
+        .args([
+            "/FI",
+            &format!("IMAGENAME eq {image_name}"),
+            "/FO",
+            "CSV",
+            "/NH",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(_) => return Vec::new(),
+    };
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() >= deadline => {
+                eprintln!(
+                    "[obscur-dev-clean] tasklist timed out for {image_name} — skip kill"
+                );
+                let _ = child.kill();
+                let _ = child.wait();
+                return Vec::new();
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            Err(_) => return Vec::new(),
+        }
+    }
+    let output = match child.wait_with_output() {
+        Ok(output) => output,
+        Err(_) => return Vec::new(),
+    };
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let mut pids = Vec::new();
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with("INFO:") {
+            continue;
+        }
+        let cols = parse_simple_csv_line(trimmed);
+        if cols.len() < 2 {
+            continue;
+        }
+        if let Ok(pid) = cols[1].parse::<u32>() {
+            if pid != 0 {
+                pids.push(pid);
+            }
+        }
+    }
+    pids
+}
+
+#[cfg(windows)]
+fn parse_simple_csv_line(line: &str) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut cur = String::new();
+    let mut in_quotes = false;
+    for ch in line.chars() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            ',' if !in_quotes => {
+                fields.push(std::mem::take(&mut cur));
+            }
+            _ => cur.push(ch),
+        }
+    }
+    fields.push(cur);
+    fields
+}
+
+#[cfg(windows)]
+fn windows_process_image_path(pid: u32) -> Option<PathBuf> {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::core::PWSTR;
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buf = vec![0u16; 1024];
+        let mut size = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(
+            handle,
+            Default::default(),
+            PWSTR(buf.as_mut_ptr()),
+            &mut size,
+        );
+        let _ = CloseHandle(handle);
+        if ok.is_err() || size == 0 {
+            return None;
+        }
+        Some(PathBuf::from(String::from_utf16_lossy(
+            &buf[..size as usize],
+        )))
+    }
+}
+
+#[cfg(windows)]
+fn windows_terminate_process(pid: u32) -> bool {
+    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+
+    unsafe {
+        let Ok(handle) = OpenProcess(PROCESS_TERMINATE, false, pid) else {
+            return false;
+        };
+        let ok = TerminateProcess(handle, 1).is_ok();
+        let _ = CloseHandle(handle);
+        ok
+    }
 }
 
 #[cfg(not(windows))]
@@ -402,5 +483,18 @@ mod tests {
         let script = expected_shell_stamp_init_script("shell-xyz");
         assert!(script.contains("shell-xyz"));
         assert!(script.contains("__OBSCUR_EXPECTED_SHELL_STAMP__"));
+    }
+
+    #[test]
+    fn skip_process_kill_env_returns_zero() {
+        // SAFETY: single-threaded test; var restored before exit.
+        unsafe {
+            std::env::set_var("OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL", "1");
+        }
+        let killed = kill_managed_desktop_processes(Path::new("."));
+        unsafe {
+            std::env::remove_var("OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL");
+        }
+        assert_eq!(killed, 0);
     }
 }

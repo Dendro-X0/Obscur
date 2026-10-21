@@ -14,6 +14,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const srcTauri = path.join(repoRoot, "apps", "desktop", "src-tauri");
 
+// Package / maintainer override: never enter cargo + process kill. On some Windows
+// hosts Get-Process/tasklist WMI can hang forever and stall `desktop:package`.
+if (
+  process.env.OBSCUR_DEV_CLEAN_SKIP === "1" ||
+  process.env.OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL === "1"
+) {
+  console.log(
+    "[obscur-dev-clean] skipped (OBSCUR_DEV_CLEAN_SKIP or OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL)",
+  );
+  process.exit(0);
+}
+
 const env = applyWindowsBuildTempEnv({
   ...process.env,
   OBSCUR_DEV_CLEAN_TARGET_ROOT: path.join(srcTauri, "target"),

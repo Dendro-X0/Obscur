@@ -1,2684 +1,316 @@
-# Current Session Handoff — Obscur Engine Lab
+# Current Session Handoff
 
-- Last Updated (UTC): 2026-08-18T22:48:00Z
+- Last Updated (UTC): 2026-10-21T13:15:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.1 cut · **B1 done** · B2 smoke · Stay Tauri
+- Active Owner: maintainer (sole) · ENGINE-LAB
 
-## Next atomic step
-
-**PAUSED — dialect research (≠ Nostr / VPS / Tor)** · tag **v1.9.16**
-
-| Field | Value |
-|-------|--------|
-| Allowed | Study docs · website/demo polish on **Tor OFF** clearnet · critical regression fixes only |
-| Forbidden | Dialect impl · Tor Verified · free `groups/**` · AUTH-SESSION |
-| Optional next | **Record Segment D** — [segment-d-discovery-add-contact-v1.9.16.md](../assets/demo/v2.0.0/segment-d-discovery-add-contact-v1.9.16.md) · friend-code alias first if showing `OBSCUR-*` |
-| Keep | Clearnet Verified · website `/download` primary · Tor TI landed (not Verified) |
-
-### Checkpoint — Relationship CTA containment slice (2026-08-18)
-
-| Field | Value |
-|-------|--------|
-| Trigger | Continue remediation charter Phase 0 after system audit |
-| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment A |
-| Fix | `resolve-contact-relationship-actions` — privileged message/voice/trusted chrome requires handshake `accepted` + `peerTrust` + projection `accepted` when cutover reads are on |
-| Also | `resolveContactRequestComposeMode` no longer grants `full` on trust alone · `network-profile-view` wired to unified selector · `removedPeers` negative mask in `use-peer-trust` for remove-contact lag |
-| L1 | `resolve-contact-relationship-actions.test.ts` · `contact-request-sandbox-policy.test.ts` · `use-peer-trust.test.ts` · 71/71 network tests |
-| Remaining | Phase 0 containment slices A–D implemented; AUTH-SESSION still forbidden |
-
-### Checkpoint — peerTrust profile-scope hardening (Containment D) (2026-08-18)
-
-| Field | Value |
-|-------|--------|
-| Trigger | Continue remediation charter Phase 0 — Slice 3 |
-| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment D |
-| Fix | `peer-trust-storage-key` scopes localStorage as `obscur.peer_trust.v1.<pubkey>::<profileId>` · writes never go to unscoped keys · only `default` may inherit a legacy unscoped blob |
-| Also | `use-peer-trust` reloads on `profileId` change so in-memory trust cannot leak across profile windows |
-| L1 | `peer-trust-storage-key.test.ts` · `peer-trust-storage-scope.test.ts` · `peer-trust-profile-scope.contract.test.ts` · `use-peer-trust.test.ts` |
-| Remaining | AUTH-SESSION still forbidden · blocklist / connectionStore DB names remain suspect but no longer drive trust CTAs |
-
-### Checkpoint — Auth conflict surfacing (Containment C) (2026-08-18)
-
-| Field | Value |
-|-------|--------|
-| Trigger | Continue remediation charter Phase 0 — Slice 4 |
-| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment C |
-| Fix | `resolve-auth-surface-conflict` + `AuthSurfaceConflictBanner` — explicit banners for manual lock, active session lease, profile slot conflict, native mismatch, private key mismatch, fatal storage |
-| Also | AuthScreen unified top-of-form conflict stack; existing inline resolution panels retained for slot/active-session actions |
-| L1 | `resolve-auth-surface-conflict.test.ts` · `auth-surface-conflict-surfacing.contract.test.ts` · `auth-screen.test.tsx` · 31/31 auth conflict tests |
-| Remaining | Containment D (profile-scope hardening) |
-
-### Checkpoint — connectionStore de-privilege (Containment B) (2026-08-18)
-
-| Field | Value |
-|-------|--------|
-| Trigger | Continue remediation charter Phase 0 — Slice 2 |
-| Slice | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) Containment B |
-| Fix | `connection-store-behavior-policy` · `use-conversations` no longer hydrates from global IndexedDB · `canMessageConnection` fail-closed · `mergeLegacyOrphanRequestsInboxItems` no address-book backfill · `resolveEffectiveContactRequestStatus` no thread-row-only pending synthesis · profile metadata no longer reads connectionStore |
-| L1 | `connection-store-behavior-policy.test.ts` · `connection-store-behavior-deprivilege.contract.test.ts` · `contact-request-legacy-orphan.test.ts` · `request-sidebar-items.test.ts` · `use-profile-metadata.test.ts` |
-| Remaining | Containment C (explicit auth conflict UI) · Containment D (profile-scope hardening) |
-
-### Checkpoint — Relationship CTA containment slice (2026-08-18)
-
-| Field | Value |
-|-------|--------|
-| Trigger | Demo canceled · second-account Import Key loops back to Auth · remove/search/trust surfaces disagree |
-| Audit | [system-logic-audit-2026-08.md](../../specs/backend/system-logic-audit-2026-08.md) |
-| Charter | [system-logic-remediation-charter-2026-08.md](../../specs/backend/system-logic-remediation-charter-2026-08.md) |
-| Core finding | System failure is multi-owner drift, not a single bug: `contactsByPeer` projection, `peerTrust`, `requestsInbox`, `requestFlowEvidence`, legacy `connectionStore`, auth-kernel, runtime binding, and native session policy all still participate |
-| Auth finding | `Import Key` is a branching policy path (same-account unlock vs slot conflict vs active session lease vs native mismatch vs manual-lock gate), which explains “no response / back to Auth” |
-| Relationship finding | Projection cutover is incomplete; trust/request/action gating still reads mixed legacy + projection sources, so remove/search/message/voice surfaces can disagree |
-| Isolation finding | Some relationship stores are still keyed by `publicKeyHex` or global DB names rather than `profileId`, allowing cross-profile leakage |
-| Allowed next | Containment-only critical regression slices: de-privilege legacy `connectionStore`, projection-backed CTA gating, explicit auth conflict surfacing |
-| Forbidden next | Direct `AUTH-SESSION` / native rebind / cross-profile lease policy changes without maintainer charter |
-
-### Checkpoint — Contact request auto-trust (no two-way handshake) (2026-08-18)
-
-| Field | Value |
-|-------|--------|
-| Symptom | Sending a connection request immediately shows recipient as **TRUSTED** in All People — no acceptance received |
-| Root cause | `extractAcceptedPeersFromPersistedChatState` treated all `createdConnections` (address book) as trusted — no status guard |
-| Investigation | [contact-request-no-handshake-investigation-2026-08.md](../../specs/backend/contact-request-no-handshake-investigation-2026-08.md) |
-| Fix | Removed `acceptedFromConnections` leg from trust derivation · trust now comes exclusively from `connectionRequests[].status === "accepted"` |
-| L1 | `use-peer-trust.test.ts` · 7 tests · zero regression across 61 network tests |
-| Out of scope | Group two-way invite handshake · `Connection.handshakeStatus` schema (Option A deferred) |
-| Impact | Existing contacts whose trust was stored in localStorage `acceptedPeers` or in accepted `connectionRequests` are unaffected · address-book-only entries are no longer auto-trusted |
-
-### Checkpoint — Tor bootstrap 10% speed (2026-08-17)
-
-| Field | Value |
-|-------|--------|
-| Symptom | Warming honesty shows **STARTING 10%** · feels hung · `conn_done` handshake |
-| Evidence | 37 MB `cached-microdescs` already on disk · `taskkill` every start · `AvoidDiskWrites 1` |
-| Investigation | [tor-bootstrap-10pct-speed-investigation-2026-08.md](../../specs/backend/tor-bootstrap-10pct-speed-investigation-2026-08.md) |
-| Fix | IPv4-only · early dir fetch · persist cache · kill orphan only if :9050 bound |
-| Out of scope | Fake Ready · Tor Verified · default bridges |
-
-### Checkpoint — Tor Warming honesty + notice watcher (2026-08-17)
-
-| Field | Value |
-|-------|--------|
-| Symptom | Relays stay up after Tor ON (Warming Pass) · Security looks stuck at `waiting for 100%` |
-| Evidence | Gateway `detail=bootstrapped 50%` · `notice.log` handshake done · descriptors stall · UI never pulled percent |
-| Investigation | [tor-warming-descriptor-stall-honesty-2026-08.md](../../specs/backend/tor-warming-descriptor-stall-honesty-2026-08.md) |
-| Fix | Unbounded `notice.log` watcher · snapshot `bootstrapPercent`/`detail` · 8s Warming poll |
-| Out of scope | Tor Verified · fake Ready · bridges |
-
-### Checkpoint — Manual lock ineffective (2026-08-16)
-
-| Field | Value |
-|-------|--------|
-| Symptom | Lock Obscur? confirm → Lock does not lock profile (blocks Segment B) |
-| Investigation | [manual-lock-ineffective-investigation-2026-08.md](../../specs/backend/manual-lock-ineffective-investigation-2026-08.md) |
-| Fix | Shell unlock gate requires identity unlocked · lockSession best-effort · lockBoundProfileWindow always reaches lockIdentity |
-| L1 | window-runtime-contracts + startup-auth-state-contracts tests |
-| Next | Re-record Segment B lock/unlock after rebuild |
-
-### Checkpoint — Manual lock native rehydrate guard (2026-08-17)
-
-| Field | Value |
-|-------|--------|
-| Symptom | Lock toast appears, but desktop dev can fall back into unlocked shell because native session is re-hydrated from OS keychain after lock |
-| Investigation | [manual-lock-native-rehydrate-investigation-2026-08.md](../../specs/backend/manual-lock-native-rehydrate-investigation-2026-08.md) |
-| Root cause | Native restore helpers (`session_status_for_window`, `force_session_restore_for_window`, `wallet::ensure_session`) could rehydrate keychain-backed session after `clear_native_session`; JS manual-lock flag was invisible to Rust |
-| Fix | Add native profile-scoped manual-lock gate in `SessionState`; `clear_native_session` marks manual lock; explicit `set_keys` clears it; restore/status/wallet paths refuse keychain rehydrate while manual lock is active |
-| L1 | `pnpm exec vitest run app/features/runtime/services/window-runtime-contracts.test.ts app/features/auth/services/startup-auth-state-contracts.test.ts app/features/auth/components/auth-gateway.test.tsx app/features/runtime/components/profile-bound-auth-shell.test.tsx` |
-| L2 | `cargo test manual_lock_flag_blocks_until_explicit_set_keys` |
-| Next | Re-run `pnpm dev:desktop:online` smoke: unlock → Security Lock Now → auth screen persists until password/private-key unlock |
-
-### Checkpoint — Segment A + download channel sync (2026-08-16)
-
-| Field | Value |
-|-------|--------|
-| Segment A | Recorded · Shotcut trim · **~45 s** · [brief](../assets/demo/v2.0.0/segment-a-download-install-v1.9.16.md) |
-| Bug | In-app Update CTA no-op + website stuck on **1.9.14** while GitHub is **1.9.16** |
-| Investigation | [update-download-channel-sync-investigation-2026-08.md](../../specs/backend/update-download-channel-sync-investigation-2026-08.md) |
-| Fix | Policy JSON text parse · blocked CTA → open `/download` · `release-assets/manifest.json` → **1.9.16** · website hrefs → GitHub Releases · stable channel policy synced |
-| Deploy | Push `release-assets/manifest.json` + website touch so Vercel rebuilds `/download` |
-
-### Checkpoint — Full Release published v1.9.16 (2026-08-16)
-
-| Field | Value |
-|-------|--------|
-| Run | [31935072226](https://github.com/Dendro-X0/Obscur/actions/runs/31935072226) · `publish_release=true` · **Pass** |
-| Release | https://github.com/Dendro-X0/Obscur/releases/tag/v1.9.16 |
-| Assets | win setup · mac dmg · linux AppImage · Android apk/aab · PWA tar · streaming-update-policy |
-| Note | Website `/download` remains product primary; GitHub Release is secondary channel |
-
-### Checkpoint — Full Release CI green Pass (2026-08-16)
-
-| Field | Value |
-|-------|--------|
-| Charter | [full-release-ci-green-charter-2026-08.md](../program/full-release-ci-green-charter-2026-08.md) |
-| T4 | `release:test-pack` **Pass** (local) · reliability-gates **Pass** @ `b184e4a0` |
-| Full Release build | **Pass** — [run 31933511240](https://github.com/Dendro-X0/Obscur/actions/runs/31933511240) · `publish_release=false` |
-| Jobs | Desktop win/mac/linux · Android APK+AAB · Web/PWA · iOS · Verify Artifacts — all success |
-| Android fix | rustls-only tungstenite (drop native-tls/openssl) · [investigation](../../specs/ci/31931861358-android-openssl-investigation.md) |
-| Commits | `9385255f` pack/docs · `b184e4a0` transport boundary · `9752fa96` rustls-only |
-
-### Checkpoint — docs shelf cleanup Pass (2026-08-15)
-
-| Field | Value |
-|-------|--------|
-| Charter | [docs-shelf-cleanup-charter-2026-08.md](../program/docs-shelf-cleanup-charter-2026-08.md) |
-| Archive | `git mv` → [inactive-2026-08/](../archive/program/inactive-2026-08/) (~91 files) |
-| Active shelf | **39** `docs/program/*.md` (≤45) · [program/README.md](../program/README.md) |
-| Front door | CURRENT / START-HERE / root README → **v1.9.16** · website `/download` primary |
-| L1 | `pnpm docs:check` **Pass** (47 files scanned) |
-| L1 | `pnpm ci:local:all-cheap` **Pass** (T0+T1+T2) |
-| Out of band | Full Release · license · `release:test-pack` unit fixes |
-
-### Prior — v1.9.16 ship stamp
-
-| Field | Value |
-|-------|--------|
-| Claims | Vault + Community Verified · Tor TI landed · Tor not a release gate |
-| Charter | [release-without-tor-transport-sovereignty-charter-2026-08.md](../program/release-without-tor-transport-sovereignty-charter-2026-08.md) |
-
-### Prior — Maintainer: Tor blocked release → reframed
-
-| Field | Value |
-|-------|--------|
-| Intent | Website/GIFs ready · video left · Tor made public release feel failed |
-| Decision | Tor-as-gate **failed** · product clearnet path **did not** · explore other networks under sovereignty + E2EE |
-| Feasibility | [tor-verified-infeasible-2026-08.md](../../specs/backend/tor-verified-infeasible-2026-08.md) |
-
-### Prior — CU-P1 community production soak Pass (L3)
-
-| Field | Value |
-|-------|--------|
-| Surface | Packaged production · **not** Docker local relay |
-| Stamp | Maintainer 2026-08-09 — community functions normal **when relay connected** |
-| Checklist | [community-production-soak-checklist-2026-08.md](../../specs/backend/community-production-soak-checklist-2026-08.md) → **Pass / Verified** |
-| Honest limit | No relay signal ⇒ no community delivery (expected) |
-| Charter | [community-production-unpause-charter-2026-08.md](../program/community-production-unpause-charter-2026-08.md) |
-
-### Prior — Vault / LES packaged soak Pass (L3)
-
-| Field | Value |
-|-------|--------|
-| Surface | Packaged desktop · `Obscur_1.9.15_x64-setup.exe` (`pnpm desktop:package` 2026-08-09) |
-| Stamp | Maintainer runtime 2026-08-09 — production shell working |
-| Evidence | File upload + deletion · group chat · profile isolation · **all features except Tor** |
-| Checklist | [vault-les-packaged-soak-checklist-2026-08.md](../../specs/backend/vault-les-packaged-soak-checklist-2026-08.md) → **Pass / Verified** |
-| Note | Packaged from tree that includes post-tag Tor TI/T5 WIP; Tor itself still env-blocked here · not in claim |
-| Tag baseline | `v1.9.15` @ `ca348e79` remains DM/media L3 baseline |
-
-### Release gate snapshot (this session)
-
-| Gate | Result |
-|------|--------|
-| `pnpm version:check` | **Pass** (1.9.16 aligned) |
-| Tag `v1.9.16` | **Exists** |
-| `pnpm docs:check` | **Pass** (2026-08-15 shelf cleanup) |
-| `pnpm ci:local:all-cheap` | **Pass** (T0+T1+T2) |
-| Vault packaged soak | **Pass** (maintainer L3) |
-| Community CU-P1 | **Pass / Verified** (packaged · production relays) |
-| Tor L3 | Env-blocked here · **not** Verified |
-| `release:test-pack` | **Fail** (sibling) — profile publisher + Tor adapter tests |
-
-### Prior — Tor TI / T5 (siloed)
-
-| Field | Value |
-|-------|--------|
-| TI-1…TI-4 | Implemented (L1) |
-| T5-3-A | Accepted · T5-3.0 Design Ready |
-| This host | Bootstrap TLS stall ~14% · Tor OFF restores clearnet |
-| Field | Value |
-|-------|--------|
-| Code | `tor-lifecycle-ux.ts` · `auto-lock-settings-panel.tsx` · `relays-settings-tab-panel.tsx` · `en.json` |
-
-### Prior — TI-2 gateway co-start
-
-| Field | Value |
-|-------|--------|
-| Code | `tor_gateway_spawn.rs` · `tor.rs` start/stop · `dev-workspace-stack.mjs` `ensureTorGateway` |
-| Skip | `--skip-tor-gateway` / `OBSCUR_SKIP_TOR_GATEWAY=1` · override bin `OBSCUR_TOR_GATEWAY_BIN` |
-| Note | Lab may cargo-run gateway; packaged prefers binary beside exe |
-
-### Prior — TI-0 / TI-1 Ready-gate
-
-| Field | Value |
-|-------|--------|
-| Code | `relay-tor-dial-policy.ts` · `relay-provider.tsx` |
-
-### Prior — Tor R4 Slice 4b / research / firewall
-
-| Field | Value |
-|-------|--------|
-| Research | [tor-stability-latency-web-research-2026-08.md](../../specs/backend/tor-stability-latency-web-research-2026-08.md) |
-| Firewall | Clearnet 101 · Tor→CF fail |
-
-### Prior — Clearnet DM restore (maintainer Pass)
-
-| Field | Value |
-|-------|--------|
-| Evidence | Maintainer runtime 2026-08-08 — send media + call requests OK |
-| Note | Agent shell TCP to nos/primal/damus may still timeout; desktop path is source of truth for L3 |
-
-### Prior — Adaptive public Nostr Slice A (Implemented L1)
-
-| Field | Value |
-|-------|--------|
-| Design | [adaptive-public-nostr-design-2026-08.md](../../specs/backend/adaptive-public-nostr-design-2026-08.md) |
-
-### Prior — Shell relay status honesty (Implemented L1)
-
-| Field | Value |
-|-------|--------|
-| Spec | [shell-relay-status-honesty-investigation-2026-08.md](../../specs/backend/shell-relay-status-honesty-investigation-2026-08.md) |
-
-### Prior — Tor R4 feasibility close → reopen
-
-| Field | Value |
-|-------|--------|
-| Was | **D** PAUSED (env bootstrap ~5%) |
-| Now | Reopen charter — prove bootstrap 100% without regressing clearnet |
-| Spec | [tor-r4-host-bootstrap-feasibility-2026-08.md](../../specs/backend/tor-r4-host-bootstrap-feasibility-2026-08.md) |
-
-### Prior — R4 Tor gateway (Implemented L1)
-
-| Field | Value |
-|-------|--------|
-| Done (L1) | Slices 1–3 · P0 · Slice 4a · emit-loop fix · notice.log watch |
-| Gap | Gateway URL drift · bootstrap Verified pending |
-
-### Prior — Tor Option A / local-first WIP (abandoned on tree)
-
-| Field | Value |
-|-------|--------|
-| Result | L1 patches did not restore host after Tor pollution; maintainer required clean tag |
-
-### Prior — Release prep v1.9.15 (on tag)
-
-| Field | Value |
-|-------|--------|
-| Tag | `v1.9.15` / `ca348e79` · DM/media L3 Pass historically |
-
----
-
-## Prior atomic step — DM send thin refactor Phase 1
-
-**DM send thin refactor Phase 1 Pass (L1+L3)** · 2026-08-05
-
-| Field | Value |
-|-------|--------|
-| Slice | Removed warm/`forceReconnectAll` from send; mesh `reconnectAll` = `setRelayUrls`; Rust ACK kept |
-| Spec | [dm-send-thin-refactor-investigation-2026-08.md](../../specs/backend/dm-send-thin-refactor-investigation-2026-08.md) · [dm-send-thin-refactor-design-2026-08.md](../../specs/backend/dm-send-thin-refactor-design-2026-08.md) |
-| L1 | **40/40** |
-| Desktop verify | **Pass** — DMs + media normal (maintainer 2026-08-05) |
-| Prior | CodaCtrl error chain + thin refactor charter |
-| Do **not** | Full-tree restore · rewrite `relay.rs` · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — DM communication recovery (feasibility gate)
-
-**DM communication recovery — feasibility gate** · 2026-08-05
-
-| Field | Value |
-|-------|--------|
-| Slice | Stop warm/reconnect patch loop; choose restore vs thin rewrite |
-| Spec | [dm-comm-recovery-feasibility-2026-08.md](../../specs/backend/dm-comm-recovery-feasibility-2026-08.md) |
-| Decision | **B-variant:** thin refactor, Rust retained, preserve unrelated UI |
-| Do **not** | Soft L3 Docker · AUTH-SESSION · groups/** · video |
-
----
-
-## Prior atomic step — Mesh reconnect re-dials WS (open=0 residual)
-
-**Mesh reconnect re-dials WS (open=0 residual) Pass (L1)** · maintainer desktop verify · 2026-08-05
-
-| Field | Value |
-|-------|--------|
-| Slice | `reconnectAll` → `forceReconnectAll(poolUrls)`; warm force-dials **before** wait when open=0; sqlite ghost-call honesty retained |
-| Spec | [relay-open-socket-ghost-call-regression-investigation-2026-08.md](../../specs/backend/relay-open-socket-ghost-call-regression-investigation-2026-08.md) |
-| L1 | warmup + nostr-ws-client + call-record + dm-send-pipeline · **38/38** |
-| Desktop verify | **Failed / residual** — reconnect thrash in NativeRelay logs; send still unreliable |
-| Prior | Open-socket warm + ghost-call honesty |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Open-socket warm + ghost-call honesty
-
-**Open-socket warm + ghost-call honesty Pass (L1)** · maintainer desktop verify · 2026-08-05
-
-| Field | Value |
-|-------|--------|
-| Slice | Warm requires real open sockets (not probe publish-ready); mesh waitFor* waits for open; reconnect once; sqlite `ended` ≠ CALL COMPLETED |
-| Spec | [relay-open-socket-ghost-call-regression-investigation-2026-08.md](../../specs/backend/relay-open-socket-ghost-call-regression-investigation-2026-08.md) |
-| L1 | warmup + call-record + dm-send-pipeline · **26/26** |
-| Desktop verify | Rebuild shell · Relays open sockets > 0 before send succeeds; no spurious CALL COMPLETED 0:30 on cold start |
-| Prior | Relay warm-up + notification hygiene (regressed to open=0 / ghost call) |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Relay warm-up + notification hygiene
-
-**Relay warm-up + notification hygiene Pass (L1)** · maintainer desktop verify · 2026-08-05
-
-| Field | Value |
-|-------|--------|
-| Slice | `warmRelayNetworkForSend` before DM publish; message toast title sans duplicate emoji; suppress when chat visible (no hasFocus); OS toast only when document hidden |
-| Spec | [relay-warmup-notification-hygiene-investigation-2026-08.md](../../specs/backend/relay-warmup-notification-hygiene-investigation-2026-08.md) · [relay-warmup-notification-hygiene-design-2026-08.md](../../specs/backend/relay-warmup-notification-hygiene-design-2026-08.md) |
-| L1 | warmup + presentation + handler + dm-send-pipeline · **50/50** |
-| Desktop verify | Rebuild shell · cold-start send waits/connects without spurious confirm-fail; OS toast single icon; open DM does not OS-toast |
-| Prior | Voice call OS notification layout |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Voice call OS notification layout
-
-**Voice call OS notification layout Pass (L1+L2)** · maintainer desktop verify · 2026-08-05
-
-| Field | Value |
-|-------|--------|
-| Slice | Circular app-logo avatar (not inline hero); call title = name, body = preview; Accept/Reject on Windows toast → `desktop://incoming-call-action` |
-| Spec | [voice-call-os-notification-investigation-2026-08.md](../../specs/backend/voice-call-os-notification-investigation-2026-08.md) · [voice-call-os-notification-design-2026-08.md](../../specs/backend/voice-call-os-notification-design-2026-08.md) |
-| L1 | notification-presentation + desktop-notification-handler · **32/32** |
-| L2 | `cargo check -p obscur_desktop_lib` · Pass |
-| Desktop verify | Rebuild shell · incoming voice OS toast: circular avatar left of name, preview under, Accept/Reject work, single icon (no dual 📞) |
-| Prior | DM send Phase-1 skip (voice invite peer-visible restored) |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — DM send Phase-1 skip when onConfirmed
-
-**DM send Phase-1 skip when onConfirmed Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Skip Phase-1 `sendToOpen` when `onConfirmed` set (avoid OK race); single publish+OK path so voice invites can reach peer |
-| Spec | [voice-invite-peer-invisible-investigation-2026-08.md](../../specs/backend/voice-invite-peer-invisible-investigation-2026-08.md) · [dm-send-skip-phase1-when-confirmed-design-2026-08.md](../../specs/backend/dm-send-skip-phase1-when-confirmed-design-2026-08.md) |
-| L1 | dm-send-pipeline · **12/12** |
-| Desktop verify | Rebuild shell · dual profile A→B voice invite → peer sees invite card (and preferably confirmed toast, not only provisional wire warning) |
-| Prior | Voice invite provisional wire + card honesty |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Voice invite provisional wire + card honesty
-
-**Voice invite provisional wire + card honesty Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Start ringing on confirmed ACK **or** provisional wire (`partialWireDelivery`); outgoing card follows `message.status` |
-| Spec | [voice-call-invite-ack-residual-investigation-2026-08.md](../../specs/backend/voice-call-invite-ack-residual-investigation-2026-08.md) · [voice-call-invite-wire-provisional-design-2026-08.md](../../specs/backend/voice-call-invite-wire-provisional-design-2026-08.md) |
-| L1 | voice-call-invite-delivery + voice-call-invite-card · **11/11** |
-| Prior | Voice note dark contrast + single-step mic |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Voice note dark contrast + single-step mic
-
-**Voice note dark contrast + single-step mic Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Outgoing voice player readable on dark-mode light bubble; first mic grant = OS prompt only (in-app dialog = recovery) |
-| Spec | [voice-note-dark-mode-mic-single-step-investigation-2026-08.md](../../specs/backend/voice-note-dark-mode-mic-single-step-investigation-2026-08.md) · [voice-note-dark-mode-mic-single-step-design-2026-08.md](../../specs/backend/voice-note-dark-mode-mic-single-step-design-2026-08.md) |
-| L1 | media-device-access · **8/8** (`shouldRequestMediaPermissionDirectly`) |
-| Desktop verify | Rebuild shell → dark mode outgoing voice note (play/waveform/time visible); tap mic → **one** WebView/OS prompt (no prior in-app Allow); denied → recovery dialog |
-| Prior | Voice call invite send honesty |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video conferencing · attempting to suppress OS permission UI |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Voice call invite send honesty
-
-**Voice call invite send honesty Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Phase-1 DM return is `pending_ack` (not `failed`); voice invite awaits ACK (`waitForConfirmation`) and owns toast (no double “failed + delivery unconfirmed”) |
-| Spec | [voice-call-invite-send-investigation-2026-08.md](../../specs/backend/voice-call-invite-send-investigation-2026-08.md) |
-| L1 | voice-call-invite-delivery + dm-send-pipeline D2 pending_ack · focused suites |
-| Desktop verify | Rebuild shell → start voice call → either success toast + ringing **or** single honest failure after ACK timeout (not instant fail while card says sent) |
-| Prior | Media device consent dialog |
-| Do **not** | Soft L3 Docker · public Nostr **SLA** · AUTH-SESSION · groups/** · video conferencing |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Media device consent dialog
-
-**Media device consent dialog Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Mic consent dialog lists detected devices; Allow → getUserMedia; Not now (no red toast). Wired voice note + voice call. Camera dialog API ready (QR follow-up). No video conferencing. |
-| Spec | [media-device-consent-investigation-2026-08.md](../../specs/backend/media-device-consent-investigation-2026-08.md) · [media-device-consent-design-2026-08.md](../../specs/backend/media-device-consent-design-2026-08.md) |
-| L1 | media-device-access · **7/7** |
-| Desktop verify | Rebuild static shell → tap mic → dialog with device list → Allow records; Not now closes without “Microphone access denied” toast |
-| Prior | Chat image load after restart |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** · video conferencing |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Chat image load after restart
-
-**Chat image load after restart Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Chat bubbles resolve local/LES display src + native-fetch→blob on `<img>` failure; strip persisted `blob:` attachments |
-| Spec | [chat-image-load-after-restart-investigation-2026-08.md](../../specs/backend/chat-image-load-after-restart-investigation-2026-08.md) · [chat-image-load-after-restart-design-2026-08.md](../../specs/backend/chat-image-load-after-restart-design-2026-08.md) |
-| L1 | chat-attachment-display-url + dm-normalize + persistence.attachments · **19/19** |
-| Desktop verify | Rebuild static shell → restart app → reopen DM with prior image → paints (not LOAD FAILED). Retry still recovers via native fetch when CDN flaky. |
-| Prior | Vault save unlock i18n |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Vault save unlock i18n + PDK ensure
-
-**Vault save unlock i18n + PDK ensure Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Missing `vault.writeUnlock*` in runtime en.json; LES ensure pushes PDK to native; context-menu unlock dialog |
-| Spec | [vault-save-unlock-i18n-investigation-2026-08.md](../../specs/backend/vault-save-unlock-i18n-investigation-2026-08.md) |
-| L1 | vault-write-unlock-i18n + attachment-context-menu + save-chat-attachment · **8/8** (+ LES contracts) |
-| Desktop verify | Lightbox Save to Vault shows English unlock copy (not raw keys); after profile password, save succeeds; toast alone without dialog when PDK missing is replaced by dialog from context menu |
-| Prior | Notification peer avatar |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Notification peer avatar
-
-**Notification peer avatar Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | OS toast shows peer/group **https** avatar via Windows `image_path` (cached download) |
-| Spec | [notification-peer-avatar-design-2026-08.md](../../specs/backend/notification-peer-avatar-design-2026-08.md) |
-| L1 | notification-presentation + notification-peer-icon · **9/9** |
-| L2 | `cargo check -p obscur_desktop_lib` Pass |
-| Desktop verify | Background DM from contact with kind-0 `picture` → face on toast; emoji kind glyphs still present |
-| Prior | R1.2 dismiss-snooze + content-kind icons |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — R1.2 dismiss-snooze + notification content icons
-
-**R1.2 dismiss-snooze + notification content icons Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Soft toast | Dismiss (X) snoozes soft relay warnings **15 min** |
-| Notifications | Content-kind emoji + SVG icon (image/audio/video/voice/file/call/text) |
-| Specs | [relay-toast-r1-dedupe-design-2026-08.md](../../specs/backend/relay-toast-r1-dedupe-design-2026-08.md) · [notification-content-kind-icons-design-2026-08.md](../../specs/backend/notification-content-kind-icons-design-2026-08.md) |
-| L1 | native-error-store + notification-presentation · **13/13** |
-| Desktop verify | Dismiss primal toast → no reappear soon; image DM toast shows 🖼️ |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — R1.1 soft relay toast less intrusive
-
-**R1.1 soft relay toast less intrusive Pass (L1)** · 45s throttle · host flaps no force re-paint · L1 8/8.
-
----
-
-## Prior atomic step — Relays UI publish-ready signal
-
-**Relays UI publish-ready signal Pass (L1)** · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| Slice | Cards follow mesh `publishReady` — not stuck CONNECTING / `n/a` / Primary (offline) while DMs work |
-| Spec | [relay-ui-publish-ready-signal-investigation-2026-08.md](../../specs/backend/relay-ui-publish-ready-signal-investigation-2026-08.md) |
-| L1 | runtime-status + latency-label (+ lab silo) · **59** in combined run |
-| Owners | `deriveRelayNodeStatus` · `formatRelayLatencyLabel` · `RelayMetricCard` |
-| Desktop verify | Refresh Relays metrics: publish-ready remotes show **Ready** / Active transport (not n/a); footer Open sockets = real WS opens |
-| Prior | Nostr-first lab silo (localhost STANDBY beside remotes) |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Nostr-first lab silo
-
-**Nostr-first lab silo Pass (L1)** · localhost always excluded from ACTIVE when remotes enabled · L1 38/38.
-
----
-
-## Prior atomic step — Adaptive localhost demotion (latency)
-
-**Superseded** by Nostr-first always-demote. Latency ≥1500ms demote failed product verify (596ms QUIET still ACTIVE; publics STANDBY).
-
----
-
-## Prior atomic step — Peer metadata + relay toast (M1·M2·R1)
-
-**Peer metadata + relay toast band closed** (M1·M2·R1 Pass) · maintainer desktop verify · 2026-08-04
-
-| Field | Value |
-|-------|--------|
-| R1 Pass | Soft relay toast coalesce (connect+init) · 8s UI notify throttle · L1 8/8 |
-| Spec | [relay-toast-r1-dedupe-design-2026-08.md](../../specs/backend/relay-toast-r1-dedupe-design-2026-08.md) |
-| Prior | M1 kind-0 retry · M2 short-preview labels · D0–D4 auto-correct |
-| Optional next | Refresh desktop · confirm labels + fewer toast flashes · or R2 dial-order measure |
-| Do **not** | Soft L3 Docker ship · public Nostr **SLA** · AUTH-SESSION · groups/** |
-| Paused / cancelled | Dev Lab · COM-RUN-* · O-2/O-4 · RIW-8 · AUTH-SESSION |
-
----
-
-## Prior atomic step — Soft L3 after manual unlock (parked)
-
-Parked: Soft L3 mid-pass then CDP wedged. Maintainer pivot — **manual core verify** + **non-container production relay**, not Soft L3 lab Docker.
-
----
-
-## Prior atomic step — Soft L3 credentials + MCP
-
-Maintainer supplied Tester1/Tester2 passwords. Soft-nav `/` recovered unlocked session once; Soft L3 reached dual-profile openPeer then **wedged CDP**. Desktop restarted (`pnpm dev:desktop:online`); CDP `:9230` up on `/profiles`. Fresh boot evaluate still slow — prefer **manual Sign in** then Soft L3.
-
----
-
-## Prior atomic step — Soft L3 re-proof (core + relay band)
-
-**Blocked** (harness): preflight green; hung ≥7m at unlock with `identityStatus: locked` and no auth gate. Route fix kept. No Soft L3 Pass claim. Evidence: [soft-l3-reproof-blocked-unlock-2026-08.md](../../specs/backend/soft-l3-reproof-blocked-unlock-2026-08.md).
-
----
-
-## Prior atomic step — Maintainer band choice (core + relay)
-
-**Pass** (L1–L2): `pnpm verify:engine-lab` exit 0. Gate fixes for proof: workspace `target/` resolve in `verify-engine-host-headless.mjs`; `verify:engine-b4-w0` uses `cargo build --lib` (avoids locked `obscur_desktop_app.exe` under `dev:desktop:online`); profile isolation `listen` rejection caught under vitest/jsdom.
-
----
-
-## Prior atomic step — W66 standalone legacy deletion
-
-**Implemented** (L1–L2): Maintainer chat `deletion` → sign-off PASS → `execute-transport-standalone-legacy-subtraction.mjs` exit 0 · production `transport-kernel-standalone-publish{,-legacy}.ts` deleted · thin `relay-standalone-publish-port.ts` · contracts/harnesses retargeted to archive + subtracted port · `pnpm verify:transport-engine-w67` Pass · `pnpm verify:transport-engine-w68` Pass.
-
----
-
-## Prior atomic step — W66 readiness prep (agent)
-
-**Complete:** readiness brief · stale W12/W24 invite-manager pins → mesh bridge · recovery metrics `connections` harden · `pnpm verify:transport-engine-w68` Pass. Deletion still blocked on maintainer sign-off.
-
----
-
-## Prior atomic step — Native invite mesh smoke
-
-**Pass** (L3): Connect → Send Invitation on `/network/profile?pubkey=<valid>` · marker `INV-MESH-msebc0ca` · `[dm-send] confirmed` success · no `publishToUrlsStandalone`. Script: `scripts/invite-mesh-smoke-desktop.mjs`.
-
----
-
-## Prior atomic step — Soft L3 re-proof (after invite mesh + legacy gate)
-
-**Blocked** (harness): preflight green; shell OK under native rehydrate divergence (`locked` snapshot + Settings chrome); Row A weak (public remotes still enabled beside lab); Row B hung on `openPeer` CDP. Harness fixes kept: evaluate-first `isShell`, passphrase-only unlock path, lock-surface ≠ session-status-alone. Investigation: [soft-l3-locked-shell-false-positive-investigation-2026-08.md](../../specs/backend/soft-l3-locked-shell-false-positive-investigation-2026-08.md). Not a product regression claim for mesh DM owner.
-
----
-
-## Prior atomic step — Invite publish → mesh
-
-**Implemented** (L1): `invite-manager` no longer calls `publishToUrlsStandalone`; fail-closed without `configureInviteRequestTransportBridge` (main-shell → mesh `pool.publishToUrls`). Proof: `path-b-b2-2-exit.contract.test.ts` + `invite-manager.test.ts` (14 Pass).
-
----
-
-## Prior atomic step — Soft L3 re-proof after legacy gate flip
-
-**Blocked** (harness): preflight green; full Soft L3 failed (`page closed` / isShell drift under relay toasts). Soft L3 `isShell` aligned to `isShellUnlocked` + body chrome; not a product regression claim for the gate flip (DM still mesh `publishToUrls`).
-
----
-
-## Prior atomic step — Web-legacy path removal (browser-pool EVENT)
-
-**Implemented:** `shouldUseLegacyStandaloneRelayPublish = () => false`. L1 Pass.
-
----
-
-## Prior atomic step — relay-publish dual-path subtraction (relays-only)
-
-**Closed** (taxonomy): pool aliases → mesh only.
-
----
-
-## Prior atomic step — relay-publish dual-path subtraction (relays-only)
-
-**Closed** (taxonomy): CodaCtrl “many use-*-relay-pool writers” = aliases of `useConduitMeshRelayPool` + freeze packages. L1 owner contracts extended 2026-08 pins.
-
----
-
-## Prior atomic step — Soft L3 L2 stamp re-read · fresh-compose R4
-
-**Soft L3 Pass** (agent): marker `S-POOL-L3-mse746f6` · fAck · Edge Tester2. **R4 Pass** Soft L3 marker corroboration (not O-2).
-
----
-
-## Prior atomic step — Desktop startup optimize
-
-**Implemented** (L1):
-1. `static-shell-stale` ignores `*.test.*` / `*.spec.*` — no full shell rebuild for test-only edits
-2. `ensureRelay` aborts wait when Docker relay child exits; `dev-relay` `process.exit` on Docker-down (no 90s burn)
-
-Proof: `node --test scripts/lib/static-shell-stale.test.mjs` · `node --test scripts/lib/dev-stack-probes.test.mjs`
-
----
-
-## Prior atomic step — CodaCtrl Studio update re-dogfood + MRI
-
-Sessionless chain append fixed. MRI remediate / RWR refactor. dm-persist closed as false dual-owner.
-
----
-
-## Prior atomic step — CodaCtrl Track B dogfood
-
-Agent matrix vs recovery coverage goals. Dual CDP Works; stack_preflight / pathway / sessionless chain / shape-classify still Fail or Partial. Findings appended for CodaCtrl maintainers — no Obscur product patch.
-
----
-
-## Prior atomic step — R4 · Persist smoke
-
-Agent Pass: Soft L3 marker visible before/after WebView reload. Fresh UI compose still flakes under CDP (toast/overlay); corroboration path matches R3 honesty. Not O-2 process-kill VERIFIED.
-
----
-
-## Prior atomic step — Publish ledger stamp (sync P-evidence)
-
-Mesh `publishToUrls` success now stamps a ref before return; snapshot readers overlay ref over React state. L1 Pass; Soft L3 re-Pass not required for this residual.
-
----
-
-## Prior atomic step — R3 · Contact / trust
-
-Agent Pass: live mutual peer_trust + Soft L3 marker send corroboration (live compose skipped after CDP flakes).
-
----
-
-## Prior atomic step — R2 · Relays dial honesty
-
-Agent dual-CDP Pass after shell-detect fix (UI body chrome vs role=link).
-
----
-
-## Prior atomic step — Track A · Soft L3 automation — agent Soft L3 run when stack up
-
-Preflight green → Soft L3 Pass (agent-owned). Maintainer dual-window not required.
-
----
-
-## Prior atomic step — Maintainer choose · non-manual track → A
-
-Chose automate Soft L3 / dual-window assert.
-
----
-
-## Prior atomic step — DELIVERY-1 · F-ACK operator confirm (parked)
-
-Investigation: [dm-f-ack-checkmark-honesty-investigation-2026-08.md](../../specs/backend/dm-f-ack-checkmark-honesty-investigation-2026-08.md). Superseded by Soft L3 `fAck=true`.
-
----
-
-## Prior atomic step — DELIVERY-1 Soft L3 live receive re-proof
-
-F-RECV-LIVE L1 → operator dual-window Pass (synchronized DMs). F-ACK residual → investigation reframed (single Check = accepted).
-
----
-
-## Prior atomic step — Public-path two-profile DM proof (prod)
-
-Relays visibility soak OK · delivery not claimed · triage inventory landed.  
-
----
-
-## Prior atomic step — Prod-first multi-transport · public boot
-
-L1 policy + Default Stable boot · Tor opt-in · loopback-only list merge / metrics visibility. Delivery not claimed.
-
----
-
-## Prior atomic step — Soft L3 Blocked · unlock + dual CDP (superseded as product north star)
-
-Lab relay `:7000` · Soft L3 Blocked on Tester1 unlock. Delivery not fixed. **Superseded:** lab Pass would still be an illusion under the 2026-08-02 prod≡dev mandate.
-
----
-
-## Prior atomic step — Soft L3 Blocked · unlock + dual CDP
-
-Lab relay `:7000` · Soft L3 Blocked on Tester1 unlock. Delivery not fixed.
-
----
-
-## Prior atomic step — Soft L3 Fail · receive-side / Tester2 open
-
-Lab-only agreed-path harness + local publish fallback after S1 remotes fail. Row B: no receive · `lastSuccessfulPublishAtUnixMs` null with writable≥1 (mesh passthrough does not ledger publish evidence). Tester2 Edge shell/reunlock cannot open Tester1 compose.
-
----
-
-## Prior atomic step — D2 publish ACK honesty (L1)
-
-Subtracted fire-and-forget ⇒ success: `buildSendConfirmation` requires publish OK; optimistic `onConfirmed` path stays pending; `publishToRelays` last-resort no fake ACK; `DM_SENT_CONFIRMED` only on confirmation. L1: `dm-send-pipeline` + `dm-relay-transport` vitest Pass.
-
----
-
-## Prior atomic step — Soft L3 Fail · E2d basic+local dial pad (L1)
-
-E2d Implemented L1 · operator Relays showed public POOL MEMBER after dial · Soft L3 still Fail (publish ACK).
-
----
-
-## Prior atomic step — Soft L3 two-profile delivery Fail
-
-Dual-window CDP+Edge · Row B Fail · publish ACK missing.
-
----
-
-## Prior atomic step — Soft L3 (profile-2 stranger + FK)
-
-profile-2: stranger_dm_blocked then `FOREIGN KEY` on `write_dm_kernel_message`; later peers hydrated.
-
----
-
-## Prior atomic step — Relay pool S4 CM scoped store (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) — not L3 delivery-fixed; no COM-RUN |
-| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S4 / C1–C2 |
-
----
-
-## Prior atomic step — Relay pool S3 publish-path UI (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S3 |
-| Change | Relays UI DM publish path badge/copy |
-
----
-
-## Prior atomic step — Relay pool S2 primary promote (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S2 |
-| Change | Promote offline primary to open remote even if local writable |
-
----
-
-## Prior atomic step — Relay pool S1 publish scope (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [delivery strategy](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) §S1 |
-| Change | Never sole-target localhost when open remotes exist |
-
----
-
-## Prior atomic step — Relay pool delivery strategy S0 (Designed)
-
-| Field | Value |
-|-------|--------|
-| Status | **Designed** |
-| Spec | [relay-pool-delivery-strategy-design-2026-08.md](../../specs/backend/relay-pool-delivery-strategy-design-2026-08.md) |
-
----
-
-## Prior atomic step — Relays metrics top-level U7 (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [U7 redesign](../../specs/backend/relay-metrics-toplevel-redesign-2026-08.md) |
-
----
-
-## Prior atomic step — Relays offline card compact U6 (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [U6 compact](../../specs/backend/relay-offline-card-compact-design-2026-08.md) |
-
----
-
-## Prior atomic step — Relays UI honesty U4–U5 (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [U4–U5 design](../../specs/backend/relay-ui-honesty-u4-u5-offline-latency-design-2026-08.md) |
-| U4 | **Last Connect** / **Last RTT** on disconnected |
-| U5 | **Primary (offline)** role |
-
----
-
-## Prior atomic step — Relays UI honesty U1–U3 (L1 Pass)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) — desktop screenshot confirmed U1 |
-| Spec | [design](../../specs/backend/relay-ui-honesty-post-smoke-design-2026-08.md) |
-| U1 | Primary without open socket → role not Active transport |
-| U2 | Dashboard URL match + identity dedupe |
-| U3 | Header Avg RTT / Avg Connect from open-pool only |
-
----
-
-## Prior atomic step — Desktop Relays smoke Pass (P0–P6)
-
-| Field | Value |
-|-------|--------|
-| Status | **Pass** (desktop evidence) — not public SLA |
-| Report | `test-results/p0-p6-relay-smoke-2026-08-01.json` |
-| Runtime | mix 3 public + local · pool nos+primal+localhost · writable=3 · primary nos.lol |
-| P2 | `Connect 908ms` · `RTT 209ms` / `RTT 1ms` · history **APP RTT** / **Connect** |
-| P3 | Open pool members `Insufficient data (1)` (not stuck at 0); standby damus may stay 0 |
-| P4 | **Quiet** + “idle … not high latency” / **Relay window quiet** |
-| P6 | Redundancy dial prefers healthy remotes with local (pool line evidence) |
-| Claim | Relays UI/runtime smoke **Pass** for P0–P6 signals; public Nostr **not** SLA-fixed |
-| Forbidden | COM-RUN-01 · AUTH-SESSION · Mbps · public SLA |
-
----
-
-## Prior atomic step — P6 E3 probe-rank dial preference (L1)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [design](../../specs/backend/relay-probe-rank-dial-preference-design-2026-08.md) |
-| Proof L1 | vitest `relay-primary-selector.test.ts` — **19 Pass** |
-
----
-
-## Prior atomic step — P3→P4 success samples + Quiet copy (L1)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Specs | [P3](../../specs/backend/relay-mesh-connection-sample-wiring-design-2026-08.md) · [P4](../../specs/backend/relay-freshness-idle-copy-design-2026-08.md) |
-| Proof L1 | vitest mesh client + runtime-status — **18 Pass** |
-
----
-
-## Prior atomic step — P5 self-hosted VPS operator notes
-
-| Field | Value |
-|-------|--------|
-| Status | **Done** (docs) |
-| Spec | [operator notes](../program/self-hosted-relay-vps-operator-notes-2026-08.md) |
-
----
-
-## Prior atomic step — P2 connect-vs-RTT labels (L1)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) — desktop smoke later Pass |
-| Spec | [design](../../specs/backend/relay-latency-source-label-design-2026-07.md) |
-
----
-
-## Prior atomic step — P1 in-pool app RTT (L1)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) |
-| Spec | [design](../../specs/backend/relay-in-pool-app-rtt-design-2026-07.md) |
-
----
-
-## Prior atomic step — P0 desktop Relays smoke Pass
-
-| Field | Value |
-|-------|--------|
-| Status | **Pass** — local + public dialed; UI Avg Latency ~50ms; writable=3 |
-| Report | `test-results/p0-relay-smoke-2026-08-01.json` |
-| Spec | [research](../../specs/backend/relay-latency-stability-research-2026-07.md) |
-
----
-
-## Prior atomic step — E2c local-lab vs remote dial (L1)
-
-| Field | Value |
-|-------|--------|
-| Status | **Implemented** (L1) — P0 dial evidence supports membership with local+public |
-| Spec | [design](../../specs/backend/local-lab-remote-interaction-dial-design-2026-07.md) |
-| Proof L1 | vitest `relay-primary-selector.test.ts` — **16 Pass** |
-
----
-
-## Prior atomic step — v2.0.0 fast-track (paused)
-
-| Field | Value |
-|-------|--------|
-| Done | D3 path A documented · domain mismatch (`obscur.app` ≠ messenger) · CI triage |
-| Next | Resume after website guide MVP + relay assessment |
-| Plan | [v2.0.0-fast-track-2026-07.md](../../specs/backend/v2.0.0-fast-track-2026-07.md) |
-
----
-
-## Prior atomic step — P14 L3 soak (superseded)
-
-| Field | Value |
-|-------|--------|
-| Outcome | **Accepted without Row B** — maintainer GIF recording (DM + group) · 2026-07-17 |
-| Note | Runbook remains for optional future soak |
-
----
-
-## Prior atomic step — product track charter (archive)
-
-| Field | Value |
-|-------|--------|
-| Done | [obscur-ecosystem-charter.md](../program/obscur-ecosystem-charter.md) — protocol identity · stress posture · personas · auth constraints · operator-sovereign scale |
-| Next | (superseded by v2.0.0 fast-track) |
-
----
-
-## Prior atomic step — P14-S slice B (archive)
-
-| Field | Value |
-|-------|--------|
-| Done | Apply-pack confirm when list non-empty · template pre-fill + scroll/focus · Tor ready badge · Tor apply gate |
-| Next | L3 soak · Relays → Transport rename (optional) |
-| Proof | `transport-preset-apply-policy.test.ts` · `transport-preset-catalog-panel.test.tsx` · `transport-preset-match.test.ts` |
-
----
-
-## Prior atomic step — P14-S slice A (archive)
-
-| Field | Value |
-|-------|--------|
-| Done | Active/partial/available pack badges · active mix summary · adapter chips on endpoints · collapsed API/community/metrics |
-| Next | Slice B — apply confirm · template pre-fill · Tor inline gate |
-| Proof | `transport-preset-match.test.ts` · `relay-endpoint-adapter.test.ts` · `transport-preset-catalog-panel.test.tsx` |
-
----
-
-## Train (public path)
+## Maintainer instruction (binding)
 
 ```text
-1.9.12 MESH-TRUST → 1.9.13 VAULT-LES (verified) → 1.9.14 POOL+PRESETS → v2.0.0 gate
+PROMOTION GOAL: Obscur as a service for building decentralized communication apps
+(businesses / communities) — Nostr supported today; modular foundation for bespoke work later.
+v2.0.0 PUBLIC FACE: attractive · reliable · trustworthy — Gift GIFs + prior client tests prove shipped features.
+Do NOT market Obscur as finished multi-protocol / “any adapter” today.
+Do NOT refactor sessions into a Nostr-client product identity.
+Do NOT treat the Nostr kernel as the permanent ceiling — but do NOT lie that it is already decoupled.
+Decoupling = strangler extraction behind ProtocolAdaptationLayer; behavior must stay identical.
+Greenfield restart is NOT the path. No mega-refactor / gateway-per-protocol UI without charter + budget.
+Module name for the Nostr protocol piece: Obscur-Nostr. Public name stays Obscur.
+MEDIA TRUTH: 1:1 voice shipped. Gap = video usability (M1-L3) + conferencing (M2–M3).
+CAMERA: Maintainer has no camera — do NOT claim video demoable; M1-L3 blocked.
+M1-A/B/C DONE L1 (structure · camera fallback · lab canvas). Lab canvas ≠ Gift demo. Do NOT claim video usable.
+If a task cannot proceed without centering Nostr-as-the-product, STOP and ask.
 ```
 
----
-
-## Prior atomic step — LES R6b / V13-5 (archive · verified)
-
-| Field | Value |
-|-------|--------|
-| Outcome | Preview stable · Remove from Vault · Secure Upload / chat Save / grid |
-| Evidence | Maintainer desktop soak 2026-07-17 |
-
----
-
-## Prior atomic step — LES V13-5 catalog delete (archive)
-
-| Field | Value |
-|-------|--------|
-| Outcome | Rust `delete_object` + `desktop_les_delete` + TS SDK; UI Remove from Vault |
-
----
-
-## Prior atomic step — LES R6a grid reuse (archive)
-
-| Field | Value |
-|-------|--------|
-| Outcome | Adapter `les-vault-media-adapter` + `useLesVaultMedia` → `VaultMediaGrid` |
-
----
-
-## Prior atomic step — LES R5 cutover (archive)
-
-| Field | Value |
-|-------|--------|
-| Outcome | Legacy vault write APIs tombstoned; LES-only data plane |
-
----
-
-## Prior atomic step — LES R4 chat Save (archive)
-
-| Field | Value |
-|-------|--------|
-| Outcome | Messaging Save → LES; no `saveFileToLocalVault` |
-
----
-
-## Prior atomic step — LES R3 cold-hydrate L3 (archive · PASS)
-
-| Field | Value |
-|-------|--------|
-| Gate | `pnpm verify:les-l3` PASS |
-| Tests | `l3_cold_hydrate_after_commit_…` · `l3_cold_hydrate_multiple_objects_…` |
-
----
-
-## Prior atomic step — LES R2 Secure Upload UI (archive)
-
-| Field | Value |
-|-------|--------|
-| Outcome | Native `/vault` → LES Secure Upload + catalog grid |
-
----
-
-## Prior atomic step — PROD v1.9.12 demo-safe (archive · COMPLETE)
-
-| Field | Value |
-|-------|--------|
-| Status | **Shipped** — tag `v1.9.12` · installer + manifest |
-| Commit | packaging follow-up on `main` |
-| Installer | `release-assets/windows/Obscur_1.9.12_x64-setup.exe` · sha256 `96fa632546d64935afe7936de49368ae6ff35373561d56aaf377c00d52111e1f` |
-| Deferred | Vault → 1.9.13 · community PAUSED · C13 L3 BLOCKED |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C7 L3 WS soak (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **PASS** — Row A (Settings Conduit Mesh / E2EE / NOSTR_WS) · Row B dual-window |
-| Runbook | [conduit-mesh-c7-l3-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c7-l3-soak-runbook.md) |
-| Evidence | markers `C7-L3-ws-20260715D` / `…D-reply` · B1 **1243ms** · B2 **1463ms** · relays `wss://nos.lol` + `wss://relay.damus.io` · stamp `shell-2026-07-15T13:55:42Z` · Tor disabled for soak |
-| Note | Tor-on broke public WS earlier (`RELAY_CONNECT_FAILED`); Tor left off for C7 |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C14 L3 SSE soak (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **PASS** — S1+S2+B1+B2 |
-| Runbook | [conduit-mesh-c14-l3-sse-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c14-l3-sse-soak-runbook.md) |
-| Evidence | health `sse` · CDP `Accept: text/event-stream` · markers `C14-L3-sse-20260715A` / reply · B1 **1876ms** · B2 **2470ms** · stamp `shell-2026-07-15T13:55:42Z` |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C13 L3 Tor SOCKS (archive · BLOCKED · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **BLOCKED** — env Tor circuits |
-| Runbook | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) |
-| Evidence | SOCKS `:9050` up · desktop `ready` via TCP probe · HS onion published · Tor stuck **10%** TLS handshake failures |
-| L1 | still green — `pnpm verify:conduit-mesh-c13` |
-| Retry | When host can bootstrap Tor to 100% |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C14 SSE stream (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **L1 landed** — SSE prefer-path; long-poll/C10 remain fallbacks |
-| Charter | [conduit-mesh-c14-sse-stream-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c14-sse-stream-charter.md) |
-| Design | [conduit-mesh-c14-sse-stream-design.md](../../specs/backend/conduit-mesh-c14-sse-stream-design.md) |
-| L1 | `pnpm verify:conduit-mesh-c14` |
-| Scope | `Accept: text/event-stream` · fetch ReadableStream parse · health `sse` capability |
-| L3 | [conduit-mesh-c14-l3-sse-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c14-l3-sse-soak-runbook.md) — **PASS** 2026-07-15 |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C13 Tor SOCKS (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **L1 landed** — routed `ConduitMeshFetch` + `mesh_http_fetch_via_socks` + onion→`tor_required` |
-| Charter | [conduit-mesh-c13-tor-socks-drivers-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c13-tor-socks-drivers-charter.md) |
-| Design | [conduit-mesh-c13-tor-socks-drivers-design.md](../../specs/backend/conduit-mesh-c13-tor-socks-drivers-design.md) |
-| L1 | `pnpm verify:conduit-mesh-c13` |
-| Scope | Per-conduit SOCKS HTTP; PWA browser WS/SOCKS still limited; native WS uses existing Tor NetRuntime |
-| L3 | Tor-on desktop publish/receive via onion HTTP — **not claimed** |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C12 HTTP long-poll stream (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **L1 landed** — long-poll on `GET /mesh/v1/stream`; C10 poll fallback when health omits `long_poll` |
-| Charter | [conduit-mesh-c12-http-stream-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c12-http-stream-charter.md) |
-| Design | [conduit-mesh-c12-http-stream-design.md](../../specs/backend/conduit-mesh-c12-http-stream-design.md) |
-| L1 | `pnpm verify:conduit-mesh-c12` |
-| Scope | Health `capabilities: ["pull","long_poll"]` · store `waitForList` · driver prefer stream · SSE deferred |
-| L3 | Latency soak vs 3s poll — **not claimed** |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C11 mesh-native DM wire codec (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **L1 landed** — charter + design + codec + HTTP publish/inbound bridge |
-| Charter | [conduit-mesh-c11-mesh-native-dm-codec-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c11-mesh-native-dm-codec-charter.md) |
-| Design | [conduit-mesh-c11-mesh-native-dm-codec-design.md](../../specs/backend/conduit-mesh-c11-mesh-native-dm-codec-design.md) |
-| L1 | `pnpm verify:conduit-mesh-c11` |
-| Scope | HTTP `team_relay` stores `obscur_mesh_dm_wire_v1` in ciphertext; inbound accepts native **or** legacy Nostr wire; DM pipeline unchanged |
-| L3 | Re-run C10 runbook with native wire in gateway POST — **not claimed** |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C10 L3 HTTP-only DM soak (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **Landed** — Row A **PASS** · Row B **PASS** (B1+B2) · L1 **PASS** |
-| Charter | [conduit-mesh-c10-http-pull-subscribe-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c10-http-pull-subscribe-charter.md) |
-| L3 runbook | [conduit-mesh-c10-l3-http-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c10-l3-http-soak-runbook.md) |
-| Investigation | [conduit-mesh-c10-l3-dm-scope-cors-investigation.md](../../specs/backend/conduit-mesh-c10-l3-dm-scope-cors-investigation.md) |
-| L1 | `pnpm verify:conduit-mesh-c10` **PASS** (12 tests) · `dm-relay-transport.test.ts` **PASS** |
-| L3 blockers fixed (cumulative) | (1)–(8) prior · **(9)** HTTP-only caps hybrid targets · **(10)** pull `recipientPublicKeyHex` filter · **(11)** re-arm inbound interests after `configureConduits` + HTTP writable arm |
-| Row B evidence (PASS) | Markers `C10-L3-soak-20260715I` (T1→T2) + `…I-reply` (T2→T1) · both `delivered` · gateway filtered pull n=1 · shell `shell-2026-07-15T10:36:16Z` |
-| Ops notes | Restart mesh gateway between soaks (presence flood) · force HTTP-only enabled list (account sync re-enables `wss://`) |
-| Boot | Terminal A: `MESH_HTTP_PORT=8788 pnpm -C apps/relay-gateway dev` · Terminal B: `pnpm dev:desktop -- --online --skip-build` (after rebuild) |
-| **Next** | Pick next roadmap slice (C11 mesh-native codec / C12 long-poll / etc.) — C10 L3 closed |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C10 Row B target + receive (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **Superseded by sign-off above** |
-| Hypothesis | Hybrid peer WS targets escape HTTP-only pool — **confirmed**; later receive blocked by presence drown + inbound stop on remount |
-| Fixes | `resolveTargetRelayUrls` HTTP-only early return · gateway/pull audience filter · `configureConduits` re-arms interests · DM arm uses writable HTTP snapshot |
-
----
-
-## Prior atomic step — DEV-SHELL-FRESHNESS-GUARD (archive · 2026-07-15)
-
-| Field | Value |
-|-------|--------|
-| Status | **Landed** — infrastructure; unblocks stale-desktop C10 loops |
-| Design | [dev-shell-freshness-guard-design-2026-07.md](../../specs/backend/dev-shell-freshness-guard-design-2026-07.md) |
-| Owners | `apps/desktop/src-tauri/src/dev_shell_freshness.rs` · `scripts/lib/static-shell-stale.mjs` · `scripts/run-obscur-dev-clean.mjs` |
-| L1 | Node `static-shell-stale.test.mjs` (6/6) · `cargo test -p obscur_desktop_lib dev_shell_freshness` (5/5) |
-| L3 | Cold rebuild stamp parity: `CLIENT_BUILD_STAMP` = manifest = DOM (`build-pwa-shell.mjs` single revision capture) |
-| Pipeline | Predev `obscur-dev-clean` (kill target PIDs + purge HTTP/Code caches only) → expanded `STATIC_SHELL_SOURCE_ROOTS` (`packages/obscur-*`) → static-dev stamp inject + PWA mismatch banner |
-| Out of scope | IndexedDB/session wipe · `dev:desktop:live` · C10 transport logic |
-
----
-
-## Prior atomic step — CONDUIT-MESH-C9 Tor host integration (archive)
-
-| Field | Value |
-|-------|--------|
-| Status | L1 landed 2026-07-14 |
-| Charter | [conduit-mesh-c9-tor-host-integration-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c9-tor-host-integration-charter.md) |
-| L1 | `pnpm verify:conduit-mesh-c9` |
-
----
-
-## Queued — Conduit Mesh follow-ups (post-L1 close)
-
-| Slice | Doc | Type | Owner |
-|-------|-----|------|-------|
-| **L1 close** | [conduit-mesh-l1-band-close-2026-07.md](../archive/program/inactive-2026-08/conduit-mesh-l1-band-close-2026-07.md) | Band status | **Closed** |
-| **C10 L3** | [conduit-mesh-c10-l3-http-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c10-l3-http-soak-runbook.md) | HTTP-only DM | **PASS** |
-| **C14 L3** | [conduit-mesh-c14-l3-sse-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c14-l3-sse-soak-runbook.md) | SSE latency soak | Maintainer |
-| **C13 L3** | [conduit-mesh-c13-l3-tor-socks-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c13-l3-tor-socks-soak-runbook.md) | Tor SOCKS HTTP | Maintainer |
-| **C7 L3** | [conduit-mesh-c7-l3-soak-runbook.md](../archive/program/inactive-2026-08/conduit-mesh-c7-l3-soak-runbook.md) | WS mesh default | Maintainer |
-| **C11–C14 L1** | charters in `docs/program/` | Code | **Landed** |
-
----
-
-**Status:** **LES radical redesign** — dismantle Vault implementation · reconstruct · goal preserved
-
-| Field | Value |
-|-------|--------|
-| Design | [vault-les-radical-redesign-2026-07.md](../../specs/backend/vault-les-radical-redesign-2026-07.md) |
-| Old path | Frozen — do not patch |
-| Flag | Old chat-save stays false until LES R4+L3 |
-
----
-
-## EXIT — CodaCtrl lane D (Obscur-side)
-
-**Status:** **EXIT (Obscur)** — no further Obscur code expected unless CodaCtrl defines new hook requirements.
-
-| Field | Value |
-|-------|--------|
-| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../archive/program/inactive-2026-08/codactrl-obscur-agent-runbook-2026-07.md) |
-| WEB-R2 | **Mitigated** — `data-codactrl-sha256` hooks on `/download` |
-| RIW-8 | **Draft shipped** — `signalExtractMappings` in FLS rule pack; **CodaCtrl repo** must wire extractor |
-| WEB-R1 / WEB-R3 | **Documented** — workspace alignment + probe routing in runbook |
-| Proof (Obscur) | `pnpm docs:check` · `pnpm -C apps/website build` PASS · DOM hooks on `localhost:3000/download` |
-| External blocker | `client_web_surface_probe` `downloadShaPresent: false` until **CodaCtrl daemon** reads `[data-codactrl-sha256]` |
-| Release track | Phase 4 deploy **PAUSED** · Phase 5 GIF **maintainer-later** · `v2.0.0` tag **not yet** (separate from lane D) |
-
----
-
-## Prior atomic step — VAULT-SANDBOX-1 Phase 6 (archive · pre-pause)
-
-| Field | Value |
-|-------|--------|
-| Release | [v1.9.12-scope.md](../archive/program/inactive-2026-08/v1.9.12-scope.md) |
-| Design | [vault-chat-save-phase6-design-2026-07.md](../../specs/backend/vault-chat-save-phase6-design-2026-07.md) |
-| Plan | [vault-encryption-sandbox-plan-2026-07.md](../../specs/backend/vault-encryption-sandbox-plan-2026-07.md) |
-| L3/L4 runbook | [vault-sandbox-l3-verification-2026-07.md](../../specs/backend/vault-sandbox-l3-verification-2026-07.md) |
-| Flag | `VAULT_SAVE_FROM_CHAT_ENABLED = false` until G8 + L3 chain |
-| L1 | `pnpm verify:vault-sandbox-l1` · `pnpm verify:storage-encryption-v1.9.8` |
-| Demo path | Secure Upload until Phase 6 flag flip |
-| Outcome | **Not verified** — client dogfood stopped by maintainer (2026-07-14) |
-
----
-
-## Prior atomic step — CodaCtrl lane D (archive)
-
-| Field | Value |
-|-------|--------|
-| Runbook | [codactrl-obscur-agent-runbook-2026-07.md](../archive/program/inactive-2026-08/codactrl-obscur-agent-runbook-2026-07.md) |
-| WEB-R2 | **Mitigated** — `data-codactrl-sha256` hooks on `/download` |
-| RIW-8 | **Draft** — `signalExtractMappings` in FLS rule pack (CodaCtrl repo to consume) |
-| WEB-R1 / WEB-R3 | **Documented** — workspace alignment + probe routing in runbook |
-| Proof | `pnpm docs:check` · `pnpm -C apps/website build` PASS · DOM hooks verified on `localhost:3000/download` |
-| Probe note | `client_web_surface_probe` still `downloadShaPresent: false` — **CodaCtrl daemon** must read `[data-codactrl-sha256]` |
-| Phase 4–6 | Deploy PAUSED · GIF maintainer-later · tag **not yet** |
-
-**R5 — VERIFIED t4 (2026-07-04)**
-
-| Field | Value |
-|-------|--------|
-| Commit | `60c9bb3c` — `resolveRoomKeyHexForGroupRelayIngest` · ingest hooks pass `localPrivateKeyHex` |
-| Investigation | [o4-ingest-chrome-r5-investigation-2026-07.md](../../specs/backend/o4-ingest-chrome-r5-investigation-2026-07.md) |
-| Design | [o4-ingest-chrome-r5-design-2026-07.md](../../specs/backend/o4-ingest-chrome-r5-design-2026-07.md) |
-| L1 | **PASS** — ingest + room-key-owner (26/26) |
-| Warm t4 | `csess-58ce611e907b` · send `R5-o4-ingest-t4-070T1746` · thread + sidebar preview · digest no `decrypt_failed` · `mainThreadSystemCards: 0` |
-| Cold t4 | `csess-b7f42e294e5e` · post-`taskkill` unlock · marker visible in thread + sidebar |
-| Chain | `chain-r5-o4-ingest-chrome-2026-07-04` · `r5-t4-thread-send` · `r5-t4-coldrestart` |
-| Does not prove | Tester2 background ingest on `:9231` without community-home visit |
-
-**R3 — committed (2026-07-04 · Option B)**
-
-| Field | Value |
-|-------|--------|
-| Commit | `3cf79dbe` — list-time SQLite preview hydrate |
-| Investigation | [sidebar-preview-stale-r3-investigation-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-investigation-2026-07.md) |
-| Design | [sidebar-preview-stale-r3-design-2026-07.md](../../specs/backend/sidebar-preview-stale-r3-design-2026-07.md) |
-| L1 | **PASS** — `group-sidebar-preview-sqlite-hydrate.test.ts` (5/5) |
-| t4 | **PASS** — `csess-264849283e3c` · Group tab · preview `R1-room-key-health-t4-070T1410` (required static `--rebuild`) |
-
-**R2 — VERIFIED t4 (2026-07-04 post-fix regression)**
-
-| Field | Value |
-|-------|--------|
-| Investigation | [auth-keychain-restore-failed-r2-investigation-2026-07.md](../../specs/backend/auth-keychain-restore-failed-r2-investigation-2026-07.md) |
-| Design | [auth-keychain-restore-failed-r2-design-2026-07.md](../../specs/backend/auth-keychain-restore-failed-r2-design-2026-07.md) |
-| Fix | `materializePasswordProtectedIdentityBeforeUnlock` in `identity-passphrase-unlock.ts` |
-| L1 | **PASS** — identity-passphrase-unlock + data-root-identity-repair (7/7) |
-| Chain | `chain-r2-auth-cold-unlock-2026-07-04` · n0–n2 (pre-fix) · n3 warm post-fix · **n4 cold post-fix PASS** |
-| Cold | `taskkill` → relaunch rebuilt shell → password unlock → main shell + compose (no Import Key) |
-| Sessions | `csess-0452d809a249` (warm) · `csess-afc2304a45ec` (cold t4) |
-| Does not prove | Auto keychain unlock without password · passwordless skip path · packaged NSIS |
-
-**Maintainer policy (2026-07-04):** Runtime repair band **EXIT** (R1–R3 + R5 **VERIFIED t4** · R4 **A**) · Phase 4 deploy **unpaused for maintainer smoke** · release prep (`v2.0.0` tag, demo kit) still gated on Phase 4 sign-off.
-
-Repair queue:
-
-| Priority | ID | Status |
-|----------|-----|--------|
-| R1 | `group-room-key-missing` | **VERIFIED t4** |
-| R2 | `auth-keychain-restore-failed` | **VERIFIED t4** |
-| **R3** | Sidebar preview stale | **VERIFIED t4** (`csess-264849283e3c` · `3cf79dbe`) |
-| **R5** | O-4 ingest chrome | **VERIFIED t4** (`60c9bb3c` · `csess-58ce611e907b` / `csess-b7f42e294e5e`) |
-| R4 | COM-RUN-01 roster | **A** @ ACC-02 |
-
-Protocol: [obscur-runtime-issue-tracker-2026-07.md](../archive/program/inactive-2026-08/obscur-runtime-issue-tracker-2026-07.md) · register `.codectx/verify/issues-register.summary.json`
-
-**R1 — VERIFIED t4 (2026-07-04 round `2026-07-04-r1-room-key-health-t4`)**
-
-| Field | Value |
-|-------|--------|
-| Root cause | Health hook used `roomKeyStore.getRoomKey()` only; send used `resolveRoomKeyForCommunityAction` (local → coordination materialize) |
-| Fix (uncommitted) | `resolveRoomKeyHexForMembershipHealthPanel` · hook + `group-home-page-client` passes `privateKeyHex` · health copy omits `room_key_missing` when `ready && chatEnabled` |
-| L1 | `community-coordination-room-key-owner.test.ts` · `community-membership-health-copy.test.ts` |
-| Fixture | Tester1 · NewTest 2 · `b93f53e23d8c4456835afd3f4d3a627b` · docker `:7000` · coordination `:8787` |
-| Warm | Send `R1-room-key-health-t4-070T1410` · digest `room_key_missing_send_blocked` empty · no “Room key missing” chrome |
-| Cold | `taskkill obscur_desktop_app.exe` → relaunch → Import Key unlock → message + compose still OK (**feeds R2**) |
-| Chain | `chain-r1-room-key-health-2026-07-04` · `n0-r1-health-send-pass` → `n1-post-restart-hydrate` |
-| Sessions | `csess-94f4ca6d3332` (warm) · `csess-3b202577b4d1` (post-restart) |
-| Export | `.codactrl/verify/issue-report/export-manifest.json` |
-| Residual | R3 sidebar still “No messages yet” while thread hydrated — separate row |
-
-| Field | Value |
-|-------|--------|
-| Phase 2 | **EXIT** 2026-07-04 |
-| Phase 3 | **EXIT** (installers recorded) |
-| Phase 4 | **Local smoke PASS** — Vercel preview gate · then **EXIT** |
-| Release prep | **PAUSED** — website public deploy, demo kit, `v2.0.0` tag after Phase 4 smoke |
-| Phase 1D row 3 | **DONE** — P3a–d SQLite restart soaks (2026-07-04) |
-| Phase 1D row 2 | **DONE (partial)** — SEC §1–§5 signed @ SHA `4d000257` · SEC-V4 **A** @ REL-002 |
-| Phase 1D row 1 | **DONE** — lane closure (2026-07-04) |
-| Phase 1C | **EXIT 2026-07-04** — rows 1–2 t4 · row 3 **A** · row 4 K-M1 partial + K-M2 t4 |
-| Phase 1C row 1 | **VERIFIED t4** — O-2 DM cold restart post Phase 1B |
-| Phase 1C row 2 | **VERIFIED t4** — dual-profile group send/receive + COM-RUN-11 invite role matrix |
-| COM-RUN-11 matrix (r28) | T1 **Cancel Invitation** · T2 **Accept** + **Decline** on pending re-invite (`cap-31f114ad3167` / `cap-33003c21753b`) |
-| Message (t4) | `COM-RUN-11-phase1c-round25-070T0540` · docker `COM-RUN-11-phase1c-docker-070T0717` |
-| Phase 1C row 4 | **PARTIAL t3** — K-M1 coordination leave OK · excluded UI missing · K-M2 re-invite **VERIFIED t4** |
-| K-M2 rejoin (r30) | T2 Accept · coord `join` seq 4 · dual send `COM-RUN-11-phase1c-rejoin-070T0746` · T2 receive **PASS** (`cap-4c6782ab6716`) |
-| Chain | `…` → `n7-k-m2-rejoin-t4` → `n8-phase1d-p3-coldrestart-t3` |
-| Sessions | T1 `csess-44f67ea7565d` (`:9230` post cold-restart) · prior T1/T2 `csess-5810c264fdbf` / `csess-abe4b5ce9374` |
-| COM-RUN-01 | **Accepted** @ ACC-02 (Phase 1D row 1) — integration study band; no patch |
-| Cancelled | COM-RUN-02 repair |
-
----
-
-## Session status
-
-**Maintainer policy (2026-07-04):** Runtime repair band **EXIT**. Phase 4 website deploy smoke is next; full release prep remains gated on Phase 4 sign-off. PWA remains out of production scope; native desktop/mobile only when feasible.
-
-**Phase 4 — local smoke PASS · Vercel preview gate**
-
-| Row | Status |
-|-----|--------|
-| W4-1…W4-4 | **Done** · L1 build PASS · local HTTP smoke PASS |
-| Editorial P0 | **Done** — `/`, `/download`, `/limitations` editorial lane |
-| Deploy smoke | **PASS (local t2)** — `chain-phase4-website-2026-07-04` |
-| Vercel preview | **Pending** — maintainer deploy + public URL smoke |
-
-Charter: [obscur-v2-phase4-website-charter.md](../program/obscur-v2-phase4-website-charter.md) — prerequisite **met** (runtime band exit)
-
-**Phase 3 — EXIT (2026-07-04)** · packaging frozen until Phase 4 / release gate
-
-| Row | Result |
-|-----|--------|
-| P3-1 | Windows NSIS @ `release-assets/windows/Obscur_1.9.10_x64-setup.exe` |
-| P3-2 | Unsigned accepted @ [obscur-v2-phase3-signing-policy.md](../program/obscur-v2-phase3-signing-policy.md) |
-| P3-3 | Android debug APK built · SHA `04afc48f…` · 292,511,220 bytes · path in [manifest.json](../../release-assets/manifest.json) |
-
-**P3-3 build (2026-07-04):** `pnpm build:android:debug:emulator` (CARGO_BUILD_JOBS=2, Gradle workers=2) · output path in [install/build guide](../program/obscur-v2-install-build-guide.md) · compile fixes: mobile gate on `read_portable_sidecar`, `native_keychain` stubs on Android (**uncommitted**).
-
-**Phase 3 — P3-2 signing policy DONE (2026-07-04)**
-
-| Field | Value |
-|-------|--------|
-| Policy | **Unsigned accepted** (desktop NSIS + deferred minisign/JKS) |
-| Sign-off | [obscur-v2-phase3-signing-policy.md](../program/obscur-v2-phase3-signing-policy.md) |
-| Register | P-sign → **A** in [version-roadmap-scope.md](../program/version-roadmap-scope.md) |
-
-**Phase 3 — P3-1 desktop package DONE (2026-07-04)**
-
-| Field | Value |
-|-------|--------|
-| Command | `pnpm desktop:package` @ commit `4d000257` |
-| Artifact | `release-assets/windows/Obscur_1.9.10_x64-setup.exe` (9,065,402 bytes) |
-| SHA-256 | `d814ab21c9b927644ec567c9e305bde482a53c1b1b9069b357aa10bdc990813f` |
-| Manifest | [release-assets/manifest.json](../../release-assets/manifest.json) |
-| Signing | **Unsigned accepted** @ [obscur-v2-phase3-signing-policy.md](../program/obscur-v2-phase3-signing-policy.md) |
-| Stale removed | `Obscur_1.9.3_x64-setup.exe` |
-
-**Phase 2 — EXIT (2026-07-04)**
-
-| Row | Task | Status |
-|-----|------|--------|
-| D2-1 | Canonical index | **Done** |
-| D2-2 | `pnpm docs:check` | **Done** |
-| D2-3 | Limitations sheet | **Done** |
-| D2-4 | SQLite honesty | **Done** |
-| D2-5 | Install/build guide | **Done** — [obscur-v2-install-build-guide.md](../program/obscur-v2-install-build-guide.md) |
-
-Charter: [obscur-v2-phase2-docs-charter.md](../archive/program/inactive-2026-08/obscur-v2-phase2-docs-charter.md)
-
-**Phase 1D row 3 — P3a–d SQLite restart soaks DONE (2026-07-04)**
-
-| Gate | Result |
+## Active Objective
+
+**Cut `v2.0.0-beta.1`** per [v2.0.0-beta-cut-plan-2026-10.md](../program/v2.0.0-beta-cut-plan-2026-10.md): package → release-exe smoke → notes → tag. Gift GIFs + known limitations are enough. Video / CU-UX L3 / Tor / Spaces are not beta blockers.
+
+## Sequencing
+
+```text
+TRACK A–C / B10 — DONE (L1).
+Matrix access-token login — DONE (L1) · lab only
+Relays Standard/Advanced + four paths — DONE (L1)
+DECISION 2026-10-18 — Matrix launch/promotion SCRAPPED until Olm
+DECISION 2026-10-18 — Launch face = private-trust / own infra (VPN, DC, private relays)
+DECISION 2026-10-18 — Decoupling via strangler (D0→D2); S6 gateway UI out of budget
+DECISION 2026-10-18 — Names: Obscur = platform · Obscur-Nostr = Nostr module
+DECISION 2026-10-18 — Media: voice shipped; gap = video + conference (M1–M3)
+DECISION 2026-10-18 — v2.0.0 public: GIFs enough for prior features; no camera → no video usability claim
+CHARTER 2026-10-18 — M1-A camera-less structure · DONE (L1)
+CHARTER 2026-10-18 — M1-B transceiver + camera fallback · DONE (L1)
+CHARTER 2026-10-18 — M1-C lab canvas · DONE (L1 · off in production)
+FOCUS — Public trust face · hitch / PB1-C · M1-L3 only with camera
+```
+
+## Next Atomic Step
+
+```text
+v2.0.0-beta.1 — B1 DONE · B3/B4 DONE.
+Installer SHA256 9c8bc09d373166bdce59e70aca22af66b56315dc0d547d4f13d653c9fa47288a
+Stamp shell-2026-10-21T12:45:13Z
+NEXT: B2 smoke release exe (Tor OFF) → B5 tag v2.0.0-beta.1
+CU-UX-2b…6 L1 enough; skip dual-profile L3.
+Do NOT open video / Spaces / Matrix / Soft L3 / new CU-UX before tag unless P0.
+Do NOT claim video usable · Tor Verified · delete-for-all on Quiet · history migrate.
+Do NOT greenfield · Do NOT promote Matrix · Do NOT market as a Nostr client
+```
+
+## Landed
+
+| Unit | Result |
 |------|--------|
-| L1 `verify:phase2` | **PASS** — 69 tests (P3a/P3b authority contracts) |
-| L1 `verify:p5-persistence` | **PASS** — 79 tests · contract drift fixed (`accountSyncChatStatePort`, `vi.hoisted` mock) |
-| P3b DM cold restart | **VERIFIED t3** — Phase 1C O-2 t4 + post-kill digest `O2-phase1c-coldrestart-070T0559` (`n8`) |
-| P3d community cold restart | **VERIFIED t3** — taskkill → relaunch → key unlock · NewTest 2 sidebar + full thread + **2 members** · `COM-RUN-11-phase1c-rejoin-070T0746` (`cap-a3d28075b2cc`) |
-| Chain | `n8-phase1d-p3-coldrestart-t3` |
-| Register | P3a–d → **V** in [version-roadmap-scope.md](../program/version-roadmap-scope.md) |
-
-Note: sidebar preview stale (“No messages yet”) while thread hydrate intact — display-only; SQLite read authority OK.
-
-**Phase 1D — EXIT (2026-07-04)** — rows 1–3 complete (row 2 partial SEC-V4 **A**).
-
-**Phase 1D row 2 — SEC maintainer checklist §1–§5 DONE partial (2026-07-04)**
-
-| Gate | Result |
-|------|--------|
-| SEC-V1 E2EE | **PASS** — `verify-e2ee-boundaries.mjs` (fixed stale `outgoing-dm-publisher` path) |
-| SEC-V2 transport/gateway | **PASS** — allowlist + Slice C room-key owner |
-| SEC-V3 profile isolation | **PASS** |
-| SEC-V4 restore leak | **A** @ REL-002 — 3× AB-15 contract drift |
-| SEC relay + trust | **PASS** — 57 + 92 tests |
-| SEC-V5 exit contract | **PASS** |
-| Checklist | [v1.9.5-security-validation-checklist.md](../archive/program/inactive-2026-06/v1.9.5-security-validation-checklist.md) signed |
-
-**Phase 1D row 1 — Lane closure DONE (2026-07-04)**
-
-Evidence: Phase 1C chain `chain-com-run-11-phase1c-2026-07-04` → `n7-k-m2-rejoin-t4` · register [version-roadmap-scope.md](../program/version-roadmap-scope.md).
-
-| Lane | Flipped | Count |
-|------|---------|-------|
-| K | K3 **A** · K4 **V** · K5 **A** | 3 |
-| C | C-4.1 **V** · C-4.2 **V** | 2 |
-| T | REL-001/003/004 **V** · REL-002 **A** · MEM-003/004 **V** · MEM-002/005/006 **A** · MED-001/002 **A** | 11 |
-
-COM-RUN-01 → **Accepted** @ ACC-02 in [unified-verification-issues-register.md](../archive/program/inactive-2026-08/unified-verification-issues-register.md).
-
-**Phase 1C — EXIT (2026-07-04)**
-
-| Row | Outcome |
-|-----|---------|
-| 1 O-2 DM cold restart | **VERIFIED t4** |
-| 2 O-4 / COM-RUN-11 dual-profile | **VERIFIED t4** (rounds 25–28) |
-| 3 COM-RUN-01 roster | **A** — PAUSED; integration study |
-| 4 K3 leave / re-invite | K-M1 **PARTIAL t3** · K-M2 **VERIFIED t4** (round 30) |
-
-Gate note: `verify:engine-lab` blocked with desktop CDP session running (exe lock); client t4 evidence is authoritative for Phase 1C exit.
-
-**Phase 1C row 4 — K-M2 re-invite VERIFIED t4 (2026-07-04 round 30)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| T2 Accept | **PASS** — pending invite from r28; toast *Acceptance recorded* (`cap-bca452deb27a`) |
-| Coordination | **PASS** — `join` delta **seq 4** for Tester2 pubkey after leave/re-invite |
-| T2 group state | Sidebar **NewTest 2** · header **2 members · 2 online** |
-| T1 send | **PASS** — `COM-RUN-11-phase1c-rejoin-070T0746` · `ws://localhost:7000` (`cap-4d9a1b952e18`) |
-| T2 receive | **PASS** — `client_validate_assert` textVisible (`cap-4c6782ab6716`) |
-| Chain | `n7-k-m2-rejoin-t4` |
-
-**Phase 1C row 4 — K3 coordination leave PARTIAL t3 (2026-07-04 round 29)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| T2 leave (r28) | **PASS** — coordination `leave` delta seq 3 · subject `3db055b4…d946830f` |
-| T1 reconcile | **PASS** — toast: 3 coordination updates applied (`cap-b96788c569e6`) |
-| T1 participants UI | **FAIL** — Online: Tester1 only; **Excluded from active roster** section absent; `Tester2` not visible (`cap-e88ab266984a`) |
-| Coordination API | `GET …/membership/deltas` confirms leave at seq 3 |
-| Blocker | Roster display owner — COM-RUN-01 **PAUSED** (integration study, not patch) |
-| Chain | `n6-k-m1-leave-partial` |
-
-**Phase 1C row 2 — COM-RUN-11 invite role matrix VERIFIED t4 (2026-07-04 round 28)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| Setup | T2 **Leave community** → T1 fresh invite (leave-reinvite path; no nuclear purge) |
-| T1 inviter | **PASS** — `Cancel Invitation` on pending card (`cap-31f114ad3167`) |
-| T2 invitee | **PASS** — `Accept` + `Decline` visible (`cap-33003c21753b` / `cap-1e2f851cbb16`) |
-| Chain | `n5-com-run11-invite-matrix` |
-| Note | Pending invite live — accept not clicked (matrix captured pre-accept) |
-
-**Phase 1C row 2 — docker relay re-check VERIFIED t4 (2026-07-04 round 27)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| Stack | Docker relay `pnpm dev:relay:docker` · `nostr-relay-1` on `:7000` after Docker Desktop restart |
-| Preflight | `client_stack_preflight` `requireDualWindow: true` → **ready** (7/7) |
-| T1 send | **PASS** — `COM-RUN-11-phase1c-docker-070T0717` · publish `ws://localhost:7000` (`cap-50890868b11a`) |
-| T2 receive | **PASS** after **Apply operator bundle** (T2 was `1/6` relays until local workspace relay connected) · `cap-cef90daf5c88` |
-| Chain | `n4-docker-relay-dual-send` appended |
-
-**Phase 1C row 2 — COM-RUN-11 dual-profile VERIFIED t4 (2026-07-04 round 25)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| Purge | Nuclear EBWebView wipe both profiles; relay backup still rehydrated NewTest 2 history on unlock |
-| Setup | Key re-import · T1 fresh invite → T2 Accept+Decline card · accept recorded |
-| T2 invite UX | **PASS** — Accept + Decline on live card (`b4683d19…`); roomKey in DM gift-wrap |
-| T1 send | **PASS** — `COM-RUN-11-phase1c-round25-070T0540` (`cap-50f87c2d8e55`) |
-| T2 receive | **PASS** — `client_validate_assert` textVisible (`cap-907cd6d9eb14`) |
-| T2 group | 2 members · historical + fresh message visible · compose enabled |
-| Charter gap | Local/nuclear purge insufficient for clean baseline — relay backup rehydrates community |
-| Chain | `n2-fresh-invite-accept` · `n3-dual-send-t4` |
-| Register | `verify:issue:agent:3aa8584ac1e8095f` · status **fixed** |
-
-**Phase 1C row 2 — COM-RUN-11 dual-profile PARTIAL t3 (2026-07-04 round 24)** — superseded by round 25 above.
-
-| Deliverable | Detail |
-|-------------|--------|
-| T1 send | **PASS** — `COM-RUN-11-phase1c-070T0522` |
-| T2 receive/send | **FAIL** — `room_key_missing` · chain node `n1-t1-send-t2-no-key` |
-
-**Phase 1C row 1 — O-2 DM cold restart VERIFIED t4 (2026-07-04)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| Flow | Send `O2-phase1c-coldrestart-070T0559` → `taskkill obscur_desktop_app.exe` → relaunch → password unlock → message visible |
-| eventId | `168d95740472995d` |
-| Chain | `chain-o2-cold-restart-phase1c-2026-07-04` · `n0-pre-restart-send` → `n1-post-restart-hydrate` |
-| Register | `verify:issue:agent:10ae33ad355320dc` · status **fixed** · proof tier **t4** |
-| Boot path | `/profiles` → `/sign-in` (password required; no native auto-unlock) |
-
-**Community — Phase 1B Slice C — L3 landed (2026-07-04)** — desktop CDP send after coordination-only key recovery
-
-| Deliverable | Detail |
-|-------------|--------|
-| Orchestrator | `scripts/slice-c-l3-desktop.mjs` · `pnpm verify:slice-c-l3` |
-| Fixture | `scripts/publish-coordination-room-key-wrap-fixture.mjs` + membership join delta before wrap |
-| Spec | `apps/pwa/tests/e2e/slice-c-l3-coordination-send.spec.ts` (Playwright CDP `:9230` · shell `:1430`) |
-| Pass criteria | Pre-send `localRoomKeyCount=0` · no `room_key_missing_send_blocked` · post-send key materialized · message visible |
-| Evidence | `test-results/phase1b-slice-c-l3-2026-07-03.json` — `pass: true` · `invalidEntries: 0` · wrapSeq 7 |
-| Digest | Added `groups.coordination_room_key_*` to cross-device digest config (requires shell rebuild for event capture) |
-| Exit gate | `pnpm verify:fls-alignment` — **PASS** (0 navigation gate violations) |
-
-**Phase 1B exit recorded (2026-07-04)** — Slice C C1–C5 + L3 + FLS alignment.
-
-**Community — Phase 1B Slice C — C5 landed (2026-07-03)** — invite steward coordination wrap
-
-| Deliverable | Detail |
-|-------------|--------|
-| Owner | `ensureRoomKeyHexForInviteDistribution` + `publishStewardCoordinationRoomKeyWrapsForInvitees` |
-| UI | `invite-connections-dialog` — resolve coordination key before generate; steward wrap per invitee (best-effort) |
-| ACL note | Steward wrap requires invitee **active** in coordination; pre-join invites still rely on DM + C2b self-wrap |
-| Tests | `community-coordination-room-key-owner.test.ts` (15 pass) |
-
-**Community — Phase 1B Slice C — C4 landed (2026-07-03)** — group-service action-time room-key resolve
-
-| Deliverable | Detail |
-|-------------|--------|
-| Owner | `group-service.sendSealedMessage` → `resolveRoomKeyForCommunityAction` before fail |
-| Flow | local store miss → resolve `communityId` from param/ledger → coordination fetch+materialize → send |
-| Kernel | `workspace-kernel-write-port` passes `communityId` into send |
-| Tests | `group-service.test.ts` (5 pass) |
-| L3 | Requires fixture wrap backfill + cleared local key (C5 steward wrap optional for invitees) |
-
-**Community — Phase 1B Slice C — C3 landed (2026-07-03)** — directory post-refresh room-key materialize
-
-| Deliverable | Detail |
-|-------------|--------|
-| Hook | `materializeCoordinationRoomKeysAfterDirectoryRefresh` after directory save when materialization changes |
-| Context | Optional `roomKeyMaterialization` on `refreshCoordinationMembershipDirectory` |
-| Callers | `workspace-kernel-membership-port` create/join · `refreshCommunityMembershipTruth` |
-| Policy | Skips when directory unchanged or context missing; resolves `groupId` from ledger when omitted |
-| Tests | `community-coordination-membership-directory-store.test.ts` (7 pass) |
-
-**Community — Phase 1B Slice C — C2b landed (2026-07-03)** — self-wrap after create/join
-
-| Deliverable | Detail |
-|-------------|--------|
-| Hook | `publishSelfCoordinationRoomKeyWrapAfterJoin` called from `workspace-kernel-membership-port` |
-| When | After coordination join sync + directory refresh (create + join success paths) |
-| Policy | Best-effort — wrap failure does not roll back join; local key still present |
-| Tests | `workspace-kernel-membership-join.test.ts` (4 pass) · w1 contract updated |
-
-**Community — Phase 1B Slice C — C2 landed (2026-07-03)** — PWA room-key wrap owner (headless)
-
-| Deliverable | Detail |
-|-------------|--------|
-| Owner | `community-coordination-room-key-owner.ts` — wrap, publish, fetch, materialize, resolve |
-| Scheme | NIP-04 inner JSON `{ v, groupId, roomKeyHex }` + Schnorr wrap signature |
-| Telemetry | `groups.coordination_room_key_wrap_published`, `_materialized`, `_resolve` |
-| Tests | `community-coordination-room-key-owner.test.ts` (10 pass) |
-| Gate | `pnpm vitest run app/features/groups/services/community-coordination-room-key-owner.test.ts` ✓ |
-
-**Community — Phase 1B Slice C — C1 landed (2026-07-03)** — coordination room-key wrap Worker + contracts
-
-| Deliverable | Detail |
-|-------------|--------|
-| Migration | `apps/coordination/migrations/0003_member_room_key_wraps.sql` |
-| Handlers | `membership-room-key-wrap.ts` — POST append + GET list (limit 200, sinceSeq) |
-| ACL | `membership-room-key-wrap-acl.ts` — self-wrap + bootstrap steward for active members |
-| Contracts | `@dweb/coordination-contracts` — `signRoomKeyWrap` / `verifyRoomKeyWrapSignature` (`obscur.nip04_room_key_wrap.v1`) |
-| Tests | `membership-room-key-wrap.test.ts` (10 pass) + directory mock fix |
-| Gate | `pnpm -C apps/coordination test` ✓ |
-
-**Community — COM-RUN-02 CANCELLED (2026-07-03)** — room-key restore band abandoned
-
-| Field | Value |
-|-------|--------|
-| Maintainer decision | Profile-scoped room-key gates + restore/repair loops are **failed design** — cancel band, redesign community crypto |
-| Charter | [community-membership-redesign-charter-2026-07.md](../program/community-membership-redesign-charter-2026-07.md) |
-| Subtracted | UI no longer blocks chat/invite on missing local key; invite send may generate key at action time (interim) |
-| Do not | Patch `room-key-restore-repair`, health cascade gates, or COM-RUN-02 investigation closeout |
-
-**Community — COM-RUN-02 room key restore band (2026-07-03)** — ~~group chat unblock after recovery~~ **superseded by cancellation above**
-
-**Community — maintainer manual L4 Pass (2026-06-25)** — NewTest 2 managed workspace runtime band
-
-| Field | Value |
-|-------|--------|
-| Maintainer sign-off | **Pass** — manual verification passed (2026-06-25) |
-| Git SHA | `4d000257` (last commit) + **uncommitted** community slice (health subtraction, relay bootstrap, kind-5 delete ingest) |
-| Fixture | NewTest 2 · `ws://localhost:7000` · `managed_workspace` · full-stack (`pnpm dev:desktop:online`) |
-| Verified | Sealed group **send** (COM-MEM-2 §3 step 6); **Remove from workspace** delete e2e (kind 5 ingest); community home/chat/invite when room key present (COM-RUN-04 UX subtraction) |
-| Not re-recorded this sign-off | COM-MEM-2 steps 3–4 (invite/join), 7 (cold restart), 8 (leave/re-invite); COM-MSG cold restart; roster parity (deprioritized per [membership-graph-integration-study-2026-06.md](../archive/program/inactive-2026-08/membership-graph-integration-study-2026-06.md)) |
-| L1 proof | `group-thread-relay-ingest.test.ts` (kind-5 suppress path); membership UI action policy tests |
-| Next | Optional: record steps 3–4 / 7–8 in [COM-MEM-2 spec](../archive/program/inactive-2026-06/community-verification-com-mem-2-spec-2026-06.md) for full **V** on K3–K5 |
-
-**Conduit Mesh — C6 nostr_ws driver landed** — optional NIP wire adapter + headless wire port
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [conduit-mesh-c6-nostr-ws-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c6-nostr-ws-charter.md) |
-| Added | `NOSTR_WS_CONDUIT_WIRE_V1`, `createNostrWsConduitDriver`, `createInMemoryNostrWsWire` |
-| Gate | `pnpm verify:conduit-mesh-c6` ✓ |
-
-**Conduit Mesh — C5 pool retirement landed** — W53 parity harness + mesh pool hook
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [conduit-mesh-c5-pool-retirement-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c5-pool-retirement-charter.md) |
-| Added | `runW53SmokeParityHarness`, `useConduitMeshRelayPool`, `NEXT_PUBLIC_OBSCUR_CONDUIT_MESH_POOL` |
-| Gate | `pnpm verify:conduit-mesh-c5` ✓ |
-
-**Conduit Mesh — C4 adapter wiring landed** — team_relay + coordination_http drivers + in-memory fetch router
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [conduit-mesh-c4-adapter-wiring-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c4-adapter-wiring-charter.md) |
-| Added | `custom-http`, `team-relay`, `coordination-http` conduit drivers; `createConduitDriverFromDescriptor` |
-| Gate | `pnpm verify:conduit-mesh-c4` |
-
-**Conduit Mesh — C3 Tor policy landed** — fail-closed `tor_required`, probe integration spec
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [conduit-mesh-c3-tor-policy-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c3-tor-policy-charter.md) |
-| Added | [conduit-mesh-c3-tor-probe-integration.md](../archive/program/inactive-2026-08/conduit-mesh-c3-tor-probe-integration.md) |
-| Added | `tor-policy.ts` in contracts; runtime `getTorState` wiring |
-| Gate | `pnpm verify:conduit-mesh-c3` |
-
-**Conduit Mesh — C2 headless runtime landed** — `@obscur/conduit-mesh` lane switch + evidence ledger
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [conduit-mesh-c2-runtime-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c2-runtime-charter.md) |
-| Added | `packages/obscur-conduit-mesh` — `createConduitMesh`, mock drivers, snapshot builder |
-| Gate | `pnpm verify:conduit-mesh-c2` |
-
-**Conduit Mesh — C1 contracts landed** — `@obscur/conduit-mesh-contracts` types + verify gate
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [conduit-mesh-c1-contracts-charter.md](../archive/program/inactive-2026-08/conduit-mesh-c1-contracts-charter.md) |
-| Added | `packages/obscur-conduit-mesh-contracts` — Envelope, Evidence, ConduitDescriptor, MeshSnapshot, MeshPort, custom HTTP v1 |
-| Gate | `pnpm verify:conduit-mesh-c1` |
-
-**Conduit Mesh — experimental transport concept (design only)**
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [obscur-conduit-mesh-concept-2026-06.md](../program/obscur-conduit-mesh-concept-2026-06.md) — post-relay fabric: multi-media conduits, evidence ledger, lane switching, Tor policy |
-| Pivot | Resume dev on **network infrastructure**; community/member sync and W53 deletion **set aside** until mesh slice C1+ |
-| Band | ENGINE-LAB experimental — conceptual only; no implementation charter yet |
-
-**UI reconnect — desktop static build green** — fixed PWA build blockers for kernel strict-mode desktop test
-
-| Deliverable | Detail |
-|-------------|--------|
-| Fixed | Duplicate import (`dm-controller`), client-safe `@obscur/engine-host/tauri` imports, build type drift |
-| Fixed | `relay-runtime-supervisor` debounce field, `transport-kernel-recovery-port` reason codes |
-| Added | `@dweb/auth` dep on `@obscur/engine-host` |
-| Gate | `pnpm -C apps/pwa build:static` green |
-| Dev | `pnpm dev:desktop:transport-smoke` (W53 env + online stack) |
-
-**Default order — maintainer manual band** — W53 smoke + kernel UI integration test tooling
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `scripts/dev-desktop-transport-smoke.mjs` · `pnpm dev:desktop:transport-smoke` |
-| Added | [obscur-kernel-ui-desktop-test-checklist.md](../archive/program/inactive-2026-08/obscur-kernel-ui-desktop-test-checklist.md) |
-| Updated | [CURRENT.md](../CURRENT.md), [.env.example](../../apps/pwa/.env.example), [ARCHIVED-UI.md](../../apps/pwa/ARCHIVED-UI.md) |
-| Gate | `pnpm verify:standalone-legacy-subtraction-prep` · `pnpm docs:check` |
-
-**Verify alias consolidation** — all `verify:transport-engine-w0`–`w68` point to flat script; W53 maintainer runbook added
-
-| Deliverable | Detail |
-|-------------|--------|
-| Updated | `package.json` — w0–w68 + `verify:transport-engine` → `scripts/verify-transport-engine.mjs` |
-| Added | [transport-engine-w53-maintainer-smoke-runbook.md](../archive/program/inactive-2026-08/transport-engine-w53-maintainer-smoke-runbook.md) |
-| Updated | Sign-off template/record — pre-flight gate `verify:transport-engine-w68` |
-| Gate | `pnpm verify:transport-engine-w53` (alias) · `pnpm docs:check` |
-
-**Docs hygiene** — `docs:check` green after legacy-subtraction link repairs
-
-| Deliverable | Detail |
-|-------------|--------|
-| Fixed | [obscur-native-sqlite-policy.md](../program/obscur-native-sqlite-policy.md) — `chat-state-store-legacy`, `hydrate-indexed-scan`, `group-provider-port` |
-| Fixed | [CHANGELOG.md](../../CHANGELOG.md), [v1.9.10-release.md](../releases/v1.9.10-release.md) — v1.9.8 checklist archive path |
-| Gate | `pnpm docs:check` |
-
-**Docs + changelog checkpoint** — kernel refactoring status documented; prep band indexed; redundant w55–w59 nested verify chains removed
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | [transport-engine-standalone-legacy-subtraction-index.md](../archive/program/inactive-2026-08/transport-engine-standalone-legacy-subtraction-index.md) |
-| Updated | [CURRENT.md](../CURRENT.md), [CHANGELOG.md](../../CHANGELOG.md), [obscur-backend-engine-roadmap.md](../program/obscur-backend-engine-roadmap.md), [program/README.md](../program/README.md) |
-| Updated | `verify:transport-engine-w55`–`w59` → flat script (was nested pnpm chain) |
-| Assessment | B0–B5 + transport w0–w54 + prep w55–w68 **complete**; physical legacy deletion **blocked** on W53 smoke |
-| Gate | `pnpm verify:transport-engine-w68` · `pnpm verify:standalone-legacy-subtraction-prep` |
-
-**transport-engine-w68 complete** — prep band w55–w67 closed; sign-off `BLOCKED`; band **PAUSED** awaiting W53 smoke; `verify:transport-engine-w68` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-subtraction-prep-band-closure-readiness.ts` |
-| Added | `transport-engine-w68-standalone-legacy-subtraction-prep-band-closure.md` |
-| Added | `scripts/verify-standalone-legacy-subtraction-prep.mjs` (read-only prep report) |
-| Updated | Pre-deletion dry-run requires `prepBandClosureReady` |
-| Preserved | Production `-legacy.ts`, facade, gate-closed pins (gate closed) |
-| Gate | `verify:transport-engine-w68` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w67 complete** — B5 exit verification criteria pinned; sign-off `BLOCKED`; exit not complete; `verify:transport-engine-w67` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-b5-exit.ts` — 6 exit criteria |
-| Added | `transport-kernel-standalone-deletion-b5-exit-readiness.ts` |
-| Added | `transport-engine-w67-standalone-legacy-b5-exit-verification.md` |
-| Updated | Pre-deletion dry-run requires `b5ExitVerificationReady` |
-| Preserved | Production `-legacy.ts`, facade, gate-closed pins (gate closed) |
-| Gate | `verify:transport-engine-w67` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w66 complete** — mechanical subtraction commit manifest pinned; sign-off `BLOCKED`; no execution; `verify:transport-engine-w66` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-mechanical-subtraction-commit.ts` — 7-step commit manifest |
-| Added | `transport-kernel-standalone-deletion-mechanical-subtraction-commit-readiness.ts` |
-| Added | `transport-engine-w66-standalone-legacy-mechanical-subtraction-commit.md` |
-| Updated | Pre-deletion dry-run requires `mechanicalSubtractionCommitReady` |
-| Preserved | Production `-legacy.ts`, facade, gate-closed pins (gate closed) |
-| Gate | `verify:transport-engine-w66` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w65 complete** — gate-closed existence pin migration manifest pinned; sign-off `BLOCKED`; no pin flip; `verify:transport-engine-w65` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-existence-pin-migration.ts` — w55–w64 pin inventory |
-| Added | `transport-kernel-standalone-deletion-existence-pin-migration-readiness.ts` |
-| Added | `transport-engine-w65-standalone-legacy-existence-pin-migration.md` |
-| Updated | Pre-deletion dry-run requires `existencePinMigrationReady` |
-| Preserved | Production `-legacy.ts`, facade, gate-closed pin assertions (gate closed) |
-| Gate | `verify:transport-engine-w65` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w64 complete** — thin port template + post-subtraction baseline pinned; sign-off `BLOCKED`; no production deletion; `verify:transport-engine-w64` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `relay-standalone-publish-port-thin.ts` — frozen post-deletion port body |
-| Added | `transport-kernel-standalone-deletion-post-subtraction-baseline.ts` |
-| Added | `transport-engine-w64-standalone-legacy-production-deletion-execution.md` |
-| Updated | Pre-deletion dry-run requires thin port template readiness |
-| Preserved | Production `-legacy.ts`, facade, current port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w64` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w63 complete** — port delegates to subtracted module when deletion env is on; sign-off `BLOCKED`; no production deletion; `verify:transport-engine-w63` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `shouldRouteSubtractedStandalonePublishPort()` + port delegation wiring |
-| Added | `execute-transport-standalone-legacy-subtraction.mjs` maintainer gate script |
-| Added | `transport-engine-w63-standalone-legacy-port-swap-rehearsal.md` |
-| Preserved | Production `-legacy.ts`, facade, default port legacy path (gate closed) |
-| Gate | `verify:transport-engine-w63` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w62 complete** — subtracted port module pinned; sign-off `BLOCKED`; no production deletion; `verify:transport-engine-w62` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `relay-standalone-publish-port-subtracted.ts` + unit tests |
-| Added | `transport-engine-w62-standalone-legacy-mechanical-production-subtraction.md` |
-| Updated | Dry-run baseline requires subtracted port without legacy import |
-| Preserved | Production `-legacy.ts`, facade, current port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w62` (flat script; included in `verify:engine-lab`) |
-
-**transport-engine-w61 complete** — archive-aware contract read pins migrated; sign-off `BLOCKED`; no production deletion; `verify:transport-engine-w61` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-standalone-legacy-contract-read.ts` |
-| Added | `transport-engine-w61-standalone-legacy-production-deletion-execution.md` |
-| Migrated | w14/w15/w19/w23/w40/w47/w52/w55 semantic reads to archive-aware resolver |
-| Preserved | Production `-legacy.ts`, facade, port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w61` (flat script; included in `verify:engine-lab`) |
-
-**verify:engine-lab green** — flat `scripts/verify-transport-engine.mjs` replaces nested w60 chain; harness mocks updated for w57 blocked path; full gate passes on Windows
-
-| Fix | Detail |
-|-----|--------|
-| Added | `scripts/verify-transport-engine.mjs` — flat w0–w60 vitest + cargo gate |
-| Updated | `verify:transport-engine-w60` → flat script (no nested `pnpm` chain) |
-| Updated | w35/w39/w50 harness mocks — `shouldBlockStandaloneLegacyPublishFallback` |
-
-**engine-lab contract drift fixed** — w40 chat-state import pin + workspace-kernel w0/w4 exit contracts now read `workspace-kernel-manifest.md`; `verify:legacy-subtraction` and `verify:workspace-kernel` green
-
-| Fix | Detail |
-|-----|--------|
-| Updated | `legacy-subtraction-w40.contract.test.ts` — accept features-path `chat-state-store-legacy` import |
-| Updated | `workspace-kernel-w0-exit` + `w4-exit` — manifest is canonical proof surface, not `current-session.md` |
-
-**transport-engine-w60 complete** — legacy archive fixture + contract-pin resolver; sign-off `BLOCKED`; no production deletion; `verify:transport-engine-w60` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `engine-lab/fixtures/transport-kernel-standalone-publish-legacy.archive.ts` |
-| Added | `transport-kernel-standalone-deletion-contract-pins.ts` |
-| Added | `transport-engine-w60-standalone-legacy-mechanical-deletion-preparation.md` |
-| Updated | Dry-run requires archive present in baseline |
-| Preserved | Production `-legacy.ts`, facade, port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w60` (now included in `verify:engine-lab`) |
-
-**transport-engine-w59 complete** — subtraction dry-run baseline green; sign-off `BLOCKED`; no file deletion; `verify:transport-engine-w59` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-subtraction-dry-run.ts` |
-| Added | `transport-engine-w59-standalone-legacy-physical-deletion-execution.md` |
-| Updated | Manifest includes w58 contract pins |
-| Baseline | Dry-run ready; `readyForPhysicalDeletion` false until gate opens |
-| Preserved | `-legacy.ts`, facade, port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w59` (now included in `verify:engine-lab`) |
-
-**transport-engine-w58 complete** — subtraction manifest pinned; sign-off `BLOCKED`; no file deletion; `verify:transport-engine-w58` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-subtraction-manifest.ts` |
-| Added | `transport-engine-w58-standalone-legacy-file-deletion-execution.md` |
-| Documented | Deletion targets, port paths, contract migrations, preserved semantics owner |
-| Preserved | `-legacy.ts`, facade, port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w58` (now included in `verify:engine-lab`) |
-
-**transport-engine-w57 complete** — fail-closed port wired for deletion approval env; sign-off `BLOCKED`; no file deletion; `verify:transport-engine-w57` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-publish-blocked.ts` + subtraction charter |
-| Added | `shouldBlockStandaloneLegacyPublishFallback()` in publish-port |
-| Updated | `relay-standalone-publish-port.ts` — blocked path before legacy fallback |
-| Preserved | `-legacy.ts`, facade, port legacy import (gate closed) |
-| Gate | `verify:transport-engine-w57` (now included in `verify:engine-lab`) |
-
-**transport-engine-w56 complete** — deletion execution gate implemented; sign-off `BLOCKED`; no file deletion; `verify:transport-engine-w56` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-deletion-gate.ts` + execution charter |
-| Added | `transport-engine-smoke-sign-off-recorded.md` (`Decision: BLOCKED`) |
-| Gate | PASS sign-off + `NEXT_PUBLIC_OBSCUR_TRANSPORT_STANDALONE_LEGACY_DELETION_APPROVED=1` |
-| Preserved | `-legacy.ts`, facade, port fallback unchanged |
-| Gate | `verify:transport-engine-w56` (now included in `verify:engine-lab`) |
-
-**transport-engine-w55 complete** — deletion charter (design-only); `verify:transport-engine-w55` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w55-standalone-legacy-deletion-charter.md` |
-| Documented | Deletion gate (W54 PASS + W48 + smoke + W56 approval) |
-| Preserved | `-legacy.ts`, facade, port fallback import unchanged |
-| Gate | `verify:transport-engine-w55` (now included in `verify:engine-lab`) |
-
-**transport-engine-w54 complete** — smoke sign-off template; `verify:transport-engine-w54` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w54-smoke-evidence-sign-off-template-charter.md` |
-| Added | `docs/handoffs/transport-engine-smoke-sign-off-template.md` (unfilled template) |
-| Preserved | No smoke execution; no `Decision: PASS` in handoff; no standalone deletion |
-| Gate | `verify:transport-engine-w54` (now included in `verify:engine-lab`) |
-
-**transport-engine-w53 complete** — live desktop publish smoke charter; `verify:transport-engine-w53` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w53-live-desktop-publish-smoke-charter.md` |
-| Documented | Authority + network env matrix + 8-step manual smoke checklist |
-| Preserved | Gates off by default; no standalone deletion; no automation |
-| Gate | `verify:transport-engine-w53` (now included in `verify:engine-lab`) |
-
-**transport-engine-w52 complete** — standalone quarantined to `-legacy.ts`; `verify:transport-engine-w52` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-publish-legacy.ts` (implementation owner) |
-| Added | Facade `transport-kernel-standalone-publish.ts` (re-exports) |
-| Wired | `relay-standalone-publish-port.ts` imports from `-legacy` |
-| Added | `transport-engine-w52-standalone-owner-quarantine-execution.md` + contract |
-| Preserved | Export names; gates off by default; no deletion |
-| Gate | `verify:transport-engine-w52` (now included in `verify:engine-lab`) |
-
-**transport-engine-w51 complete** — quarantine charter (design-only); `verify:transport-engine-w51` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w51-standalone-owner-quarantine-charter.md` |
-| Documented | W52 quarantine target (`-legacy` rename) + preconditions |
-| Preserved | `transport-kernel-standalone-publish.ts` at current path; port imports unchanged |
-| Gate | `verify:transport-engine-w51` (now included in `verify:engine-lab`) |
-
-**transport-engine-w50 complete** — authority gate wired into port via `shouldRouteHostTransportPublish`; `verify:transport-engine-w50` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w50-authority-gated-port-host-routing.md` + contract + harness |
-| Wired | `relay-standalone-publish-port.ts` routes host when authority or shim gate on |
-| Added | `shouldRouteHostTransportPublish()` combiner in publish-port policy |
-| Preserved | Gates off by default; no standalone deletion; no silent fallback |
-| Gate | `verify:transport-engine-w50` (now included in `verify:engine-lab`) |
-
-**transport-engine-w49 complete** — Phase D authority gate policy defined; `verify:transport-engine-w49` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w49-maintainer-gated-port-default-flip-charter.md` |
-| Added | `shouldUseHostTransportPublishAuthority()` in `transport-kernel-publish-port.ts` |
-| Preserved | Port routes standalone by default; shim unchanged; no authority flip |
-| Gate | `verify:transport-engine-w49` (now included in `verify:engine-lab`) |
-
-**transport-engine-w48 complete** — W41 exit evidence review + maintainer gate documented; Phase D flip remains PAUSED; `verify:transport-engine-w48` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w48-pre-authority-flip-exit-evidence-review.md` |
-| Mapped | W41 checklist items → W24–W47 evidence + verify gates |
-| Documented | Maintainer gate + subtraction plan (not executed) |
-| Preserved | Port default standalone; shim off; no authority flip |
-| Gate | `verify:transport-engine-w48` (now included in `verify:engine-lab`) |
-
-**transport-engine-w47 complete** — network publish parity harness compares standalone owner vs host shim on fixture sets; `verify:transport-engine-w47` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w47-network-publish-parity-harness-charter.md` |
-| Added | `transport-engine-network-publish-parity.ts` harness helpers |
-| Added | Contract + harness (quorum_not_met, relay_degraded, full-success fixtures) |
-| Preserved | Standalone owner canonical; shim gate off; no authority flip |
-| Gate | `verify:transport-engine-w47` (now included in `verify:engine-lab`) |
-
-**transport-engine-w46 complete** — `@obscur/engine-host` routes `publishRelayEvent` to async `engine_invoke_transport_publish_relay_event` when network lab env is on; `verify:transport-engine-w46` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `shouldRouteTransportPublishToAsyncDesktopCommand` + routing in `tauri-engine-host.ts` |
-| Added | `transport-engine-w46-ts-host-async-publish-routing-charter.md` + contract + harness |
-| Behavior | Network env on → async desktop relay pool path; off → sync dry-run `engine_invoke` |
-| Preserved | Shim gate off by default; standalone owner canonical; no authority flip |
-| Gate | `verify:transport-engine-w46` (now included in `verify:engine-lab`) |
-
-**transport-engine-w45 complete** — desktop async `engine_invoke_transport_publish_relay_event` injects `RelayPool` attempts into libobscur network assembly; `verify:transport-engine-w45` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `assemble_transport_publish_relay_event_network_with_attempts` public API in `engine_invoke.rs` |
-| Added | `commands/transport_engine.rs` — async command mirrors `protocol_publish_with_quorum` attempt loop |
-| Added | `transport-engine-w45-desktop-async-publish-command-charter.md` + contract |
-| Behavior | Network env on + desktop async command → real relay pool evidence; sync `engine_invoke` still headless |
-| Preserved | Dry-run default; shim off; standalone owner canonical; TS host routing deferred to W46 |
-| Gate | `verify:transport-engine-w45` (now included in `verify:engine-lab`) |
-
-**transport-engine-w44 complete** — desktop relay pool injection charter (design); `verify:transport-engine-w44` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w44-desktop-relay-pool-injection-charter.md` + contract |
-| Pinned | W43 headless collector remains for sync path; `protocol_publish_with_quorum` preserved |
-| Gate | `verify:transport-engine-w44` |
-
-**transport-engine-w43 complete** — Rust network publish wired via `publish_with_quorum_attempts` behind lab gate; `verify:transport-engine-w43` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `assemble_transport_publish_relay_event_network` + quorum report mapper in `engine_invoke.rs` |
-| Added | `transport-engine-w43-rust-network-publish-protocol-wiring.md` + harness parity |
-| Behavior | Network env on → protocol assembly with headless `No writable relay connection` attempts |
-| Preserved | Dry-run default; shim off; standalone owner canonical |
-| Gate | `verify:transport-engine-w43` (now included in `verify:engine-lab`) |
-
-**transport-engine-w42 complete** — Rust network publish lab gate + env-gated dispatch stub; `verify:transport-engine-w42` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w42-rust-network-publish-lab-gate-charter.md` |
-| Added | `is_transport_host_publish_network_enabled` + `dispatch_transport_publish_relay_event` in `engine_invoke.rs` |
-| Added | Network env on → `transport_publish_network_not_wired`; default → dry-run assembly |
-| Added | TS mirror `isTransportHostPublishNetworkEnvEnabled()` + harness |
-| Preserved | No network I/O; shim off by default; standalone owner canonical |
-| Gate | `verify:transport-engine-w42` (now included in `verify:engine-lab`) |
-
-**transport-engine-w40–w41 complete (accelerated batch)** — network publish wiring charter + pre-authority-flip exit charter; `verify:transport-engine-w41` green
-
-| Wave | Deliverable |
-|------|-------------|
-| **w40** | `transport-engine-w40-rust-network-publish-wiring-charter.md` — protocol `publish_with_quorum_attempts` wiring plan |
-| **w41** | `transport-engine-w41-pre-authority-flip-exit-charter.md` — exit checklist before port authority flip |
-
-| Preserved | Dry-run assembly remains active; shim off by default; standalone owner canonical |
-| Gate | `verify:transport-engine-w41` (now included in `verify:engine-lab`) |
-
-**transport-engine-w38–w39 complete (accelerated batch)** — engine-lab shim gate + integration harness; `verify:transport-engine-w39` green
-
-| Wave | Deliverable |
-|------|-------------|
-| **w38** | `transport-engine-w38-engine-lab-shim-gate-charter.md` + three-part `shouldUseHostTransportPublishShim` policy |
-| **w39** | Integration charter + harness (port → shim → dry-run quorum failure shape) |
-
-| Gate policy | `isEngineLabStrictMode()` + `isTransportKernelPublishOwner()` + `NEXT_PUBLIC_OBSCUR_TRANSPORT_HOST_PUBLISH_SHIM=1` |
-| Preserved | Shim off by default; standalone owner remains production default; Rust dry-run only |
-| Gate | `verify:transport-engine-w39` (now included in `verify:engine-lab`) |
-
-**transport-engine-w37 complete** — Rust dry-run result assembly for valid `publishRelayEvent` invokes; `verify:transport-engine-w37` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `assemble_transport_publish_relay_event_dry_run` in `engine_invoke.rs` — structured per-relay failures, no network I/O |
-| Added | `transport-engine-w37.contract.test.ts` + harness parity (`quorum_not_met` alignment) |
-| Preserved | Shim gate default off; standalone owner remains default port routing |
-| Gate | `verify:transport-engine-w37` (now included in `verify:engine-lab`) |
-
-**transport-engine-w33–w36 complete (accelerated batch)** — port shim charter + policy gate + gated shim wiring + dry-run assembly charter; `verify:transport-engine-w36` green
-
-| Wave | Deliverable |
-|------|-------------|
-| **w33** | `transport-engine-w33-host-publish-port-shim-charter.md` + contract |
-| **w34** | `shouldUseHostTransportPublishShim()` policy gate (default `false`) |
-| **w35** | `transport-kernel-host-publish-shim.ts` + gated routing in `relay-standalone-publish-port.ts` + harness |
-| **w36** | `transport-engine-w36-rust-publish-dry-run-assembly-charter.md` (design-only) |
-
-| Preserved | Shim gate default off; Rust valid invokes still `transport_publish_not_wired`; standalone owner remains default |
-| Gate | `verify:transport-engine-w36` (now included in `verify:engine-lab`) |
-
-**transport-engine-w29–w32 complete (accelerated batch)** — parity harness exit + migration charter pins + Rust payload validation + result assembly charter; `verify:transport-engine-w32` green
-
-| Wave | Deliverable |
-|------|-------------|
-| **w29** | `transport-engine-w29-publish-parity-harness-exit-charter.md` + contract pinning W24–W28 harness exit |
-| **w30** | Contract pinning existing `transport-engine-w30-host-publish-owner-migration-charter.md` |
-| **w31** | Rust `invalid_payload` validation for `publishRelayEvent` + charter + harness + cargo tests |
-| **w32** | `transport-engine-w32-rust-publish-result-assembly-charter.md` (design-only; no assembly impl) |
-
-| Preserved | Rust valid invokes still `transport_publish_not_wired`; port still routes to `transport-kernel-standalone-publish.ts` |
-| Gate | `verify:transport-engine-w32` (now included in `verify:engine-lab`) |
-
-**transport-engine-w28 complete** — mocked `transport_publish_invoke_failed` host invoke path in parity harness; `verify:transport-engine-w28` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w28.contract.test.ts` — typed adapter fails closed on generic invoke errors as `transport_publish_invoke_failed` |
-| Added | Invoke request round-trip + default message fallback when host omits `errorMessage` |
-| Preserved | Rust `publishRelayEvent` remains `transport_publish_not_wired`; no runtime owner/authority changes |
-| Gate | `verify:transport-engine-w28` (now included in `verify:engine-lab`) |
-
-**transport-engine-w27 complete** — mocked `transport_publish_not_wired` host invoke path in parity harness; `verify:transport-engine-w27` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w27.contract.test.ts` — typed adapter fails closed on `transport_publish_not_wired` |
-| Added | Invoke request round-trip + explicit not-wired error message preservation |
-| Preserved | Rust `publishRelayEvent` remains `transport_publish_not_wired`; no runtime owner/authority changes |
-| Gate | `verify:transport-engine-w27` (now included in `verify:engine-lab`) |
-
-**transport-engine-w26 complete** — mocked valid host-result acceptance path in parity harness; `verify:transport-engine-w26` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w26.contract.test.ts` — well-formed `TransportPublishRelayEventResult` accepted via typed host adapter |
-| Added | Invoke request round-trip assertion (`buildTransportPublishRelayEventRequest`) + shared mapper parity on accepted result |
-| Preserved | Rust `publishRelayEvent` remains `transport_publish_not_wired`; no runtime owner/authority changes |
-| Gate | `verify:transport-engine-w26` (now included in `verify:engine-lab`) |
-
-**transport-engine-w25 complete** — parity harness extended with reason/status fixtures + invalid-shape rejection; `verify:transport-engine-w25` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w25.contract.test.ts` — `quorum_not_met` + `relay_degraded` reason/status parity fixtures |
-| Added | Mocked-host invalid-shape rejection test (`transport_publish_invalid_result`) |
-| Preserved | Rust `publishRelayEvent` remains `transport_publish_not_wired`; no runtime owner/authority changes |
-| Gate | `verify:transport-engine-w25` (now included in `verify:engine-lab`) |
-
-**transport-engine-w24 complete** — first executable headless publish parity harness slice landed (fixture parity + fail-closed host path); `verify:transport-engine-w24` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-w24.contract.test.ts` — executable fixture parity for normalization + quorum/result fields |
-| Added | Headless fail-closed assertion: `publishRelayEventViaTransportEngineHost(...)` returns `transport_engine_host_unavailable` outside Tauri |
-| Preserved | Rust `publishRelayEvent` remains `transport_publish_not_wired`; no runtime owner/authority changes |
-| Gate | `verify:transport-engine-w24` (now included in `verify:engine-lab`) |
-
-**transport-engine-w23 complete** — headless publish parity harness charter pinned; runtime owners unchanged; `verify:transport-engine-w23` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `docs/archive/program/inactive-2026-08/transport-engine-w23-publish-parity-harness-charter.md` — parity harness dimensions + constraints |
-| Added | `transport-engine-w23.contract.test.ts` — pins parity charter, semantic baseline owners, and Rust not-wired stub |
-| Preserved | Standalone publish owner + shared outcome mapper remain baseline semantics; no authority/runtime wiring changes |
-| Gate | `verify:transport-engine-w23` (now included in `verify:engine-lab`) |
-
-**transport-engine-w22 complete** — Rust host publish wiring charter pinned; runtime remains stubbed; `verify:transport-engine-w22` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `docs/archive/program/inactive-2026-08/transport-engine-w22-host-publish-rust-charter.md` — Rust-side wiring responsibilities + constraints |
-| Added | `transport-engine-w22.contract.test.ts` — asserts charter presence + keeps `transport_publish_not_wired` stub intact |
-| Preserved | `engine_invoke.rs` `publishRelayEvent` branch still returns `transport_publish_not_wired` (no wiring yet) |
-| Gate | `verify:transport-engine-w22` (now included in `verify:engine-lab`) |
-
-**transport-engine-w21 complete** — typed host adapter for publishRelayEvent added; still non-wired at runtime; `verify:transport-engine-w21` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `publishRelayEventViaTransportEngineHost(...)` in `features/transport-kernel/transport-engine-host-port.ts` — parses `EngineInvokeResult.data` into `TransportPublishRelayEventResult` |
-| Added | `TransportPublishRelayEventHostResult` union type with explicit error codes (`transport_engine_host_unavailable`, `transport_publish_not_wired`, `transport_publish_invalid_result`, `transport_publish_invoke_failed`) |
-| Added | `transport-engine-w21.contract.test.ts` — pins typed adapter + fail-closed behavior; asserts Rust stub remains not wired |
-| Gate | `verify:transport-engine-w21` (now included in `verify:engine-lab`) |
-
-**transport-engine-w20 complete** — publishRelayEvent result/evidence contract pinned (types + export + contract test); no wiring; `verify:transport-engine-w20` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `TransportPublishRelayEventResult` + `TransportPublishRelayEventRelayResult` in `packages/obscur-engine-contracts/src/transport-engine-methods.ts` |
-| Added | `isTransportPublishRelayEventResult(...)` type guard exported from `@obscur/engine-contracts` |
-| Added | `transport-engine-w20.contract.test.ts` — pins result/evidence contract as contract-only slice |
-| Gate | `verify:transport-engine-w20` (now included in `verify:engine-lab`) |
-
-**transport-engine-w19 complete** — host publish parity verification charter + contract pinned; no wiring; `verify:transport-engine-w19` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `docs/archive/program/inactive-2026-08/transport-engine-w19-host-publish-parity-charter.md` — defines parity obligations before wiring |
-| Added | `transport-engine-w19.contract.test.ts` — pins charter + shared mapper owner + not-wired stub |
-| Gate | `verify:transport-engine-w19` (now included in `verify:engine-lab`) |
-
-**transport-engine-w18 complete** — non-wired transport host publish invoke surface landed at the desktop + host boundary; runtime owner unchanged; `verify:transport-engine-w18` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `invokeTransportPublishRelayEvent(...)` in `features/transport-kernel/transport-engine-host-port.ts` |
-| Added | `transport-engine-w18.contract.test.ts` — pins host helper + desktop `engine_invoke` surface |
-| Stubbed | `packages/libobscur/src/engine_invoke.rs` recognizes `publishRelayEvent` and returns `transport_publish_not_wired` |
-| Preserved | `transport-kernel-standalone-publish.ts` remains canonical native runtime owner; no host publish wiring yet |
-| Gate | `verify:transport-engine-w18` (now included in `verify:engine-lab`) |
-
-**transport-engine-w17 complete** — transport-engine host publish contract slice landed (types + request builder + validation), still non-wired at runtime; `verify:transport-engine-w17` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `publishRelayEvent` to `TRANSPORT_ENGINE_METHODS` |
-| Added | `TransportPublishRelayEventPayload` + `buildTransportPublishRelayEventRequest` |
-| Added | `validateEngineInvokeRequest` rules for `publishRelayEvent` (`relayUrls` + `payload`) |
-| Preserved | No runtime wiring yet; transport-kernel standalone owner remains canonical native path |
-| Contract | `transport-engine-w17.contract.test.ts` |
-| Gate | `verify:transport-engine-w17` (included in `verify:engine-lab`) |
-
-**transport-engine-w16 complete** — host publish promotion explicitly deferred by charter with migration criteria; `verify:transport-engine-w16` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `docs/archive/program/inactive-2026-08/transport-engine-w16-host-publish-charter.md` — explicit defer decision + migration plan + exit criteria |
-| Added | `transport-engine-w16.contract.test.ts` — pins defer decision + read-only host method catalog |
-| Preserved | `transport-engine-methods.ts` remains read-only (`listRelayCheckpoints`, `listConfiguredRelayUrls`) in this wave |
-| Gate | `verify:transport-engine-w16` (included in `verify:engine-lab`) |
-
-**transport-engine-w15 complete** — standalone publish semantics deduplicated via shared publish outcome mapper; `verify:transport-engine-w15` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Updated | `transport-kernel-standalone-publish.ts` now uses `mapLegacyPublishResultToRelayPublishResult` (single quorum semantics owner) |
-| Subtracted | Local quorum math duplication (`resolveQuorumRequired`) removed from transport-kernel standalone publish owner |
-| Preserved | transport-kernel standalone publish owner remains canonical native path; transport engine host methods stay read-only in this wave |
-| Contract | `transport-engine-w15.contract.test.ts` + standalone publish owner unit tests |
-| Gate | `verify:transport-engine-w15` (included in `verify:engine-lab`) |
-
-**transport-engine-w14 complete** — native standalone publish moved to a dedicated transport-kernel owner; `verify:transport-engine-w14` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-standalone-publish.ts` — native standalone publish owner with quorum evidence |
-| Wired | `relay-standalone-publish-port.ts` uses transport-kernel owner on authority path; legacy runtime remains web-only |
-| Preserved | Journal-backed pending outbound accounting in standalone publish port |
-| Contract | `transport-engine-w14.contract.test.ts` + standalone publish owner unit test |
-| Gate | `verify:transport-engine-w14` (included in `verify:engine-lab`) |
-
-**transport-engine-w13 complete** — native standalone publish now reuses quorum-capable pool publish with transport journal accounting; `verify:transport-engine-w13` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Updated | `relay-standalone-publish-port.ts` — native path delegates to standalone pool publish instead of raw `sendRelayMessage` loop |
-| Added | `relayTransportJournal` pending-outbound accounting for native standalone publish |
-| Preserved | `enhanced-relay-pool-port.ts` stays the canonical standalone publish facade |
-| Contract | `transport-engine-w13.contract.test.ts` + standalone publish port unit test |
-| Gate | `verify:transport-engine-w13` (included in `verify:engine-lab`) |
-
-**transport-engine-w12 complete** — standalone relay publish gated behind transport-kernel port when authority is active; `verify:transport-engine-w12` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-publish-port.ts` — `shouldUseLegacyStandaloneRelayPublish`, `isTransportKernelPublishOwner` |
-| Added | `relay-standalone-publish-port.ts` — native publish via `relayNativeAdapter.sendRelayMessage` when authority active |
-| Wired | `enhanced-relay-pool-port.ts` exports publish through `relay-standalone-publish-port` |
-| Contract | `transport-engine-w12.contract.test.ts` + publish port unit test |
-| Gate | `verify:transport-engine-w12` (included in `verify:engine-lab`) |
-
-**transport-engine-w11 complete** — relay pool UI hook subtracted behind port when transport-kernel authority is active; `verify:transport-engine-w11` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-pool-hook-port.ts` — `shouldUseLegacyRelayPoolHook`, `isTransportKernelPoolHookOwner` |
-| Added | `relay-pool-hook-port.ts` — canonical `useRelayPoolRuntime` for UI wiring |
-| Added | `use-transport-kernel-relay-pool.ts` + `use-enhanced-relay-pool-runtime.ts` — shared runtime hook extraction |
-| Wired | `use-relay-pool.ts` uses `useRelayPoolRuntime` only via port |
-| Contract | `transport-engine-w11.contract.test.ts` + pool hook port unit test |
-| Gate | `verify:transport-engine-w11` (included in `verify:engine-lab`) |
-
-**transport-engine-w10 complete** — headless `createTransportEngine` owner + supervisor path pool port subtraction; `verify:transport-engine-w10` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-engine-port.ts` — `getTransportKernelEngine`, `buildTransportKernelSupervisorEvidence` |
-| Added | `relay-pool-runtime-port.ts` — `RelayPoolRuntime` type facade (no legacy hook imports) |
-| Wired | `transport-relay-supervisor-evidence` delegates to engine port when authority active |
-| Subtracted | Supervisor/recovery/subscribe paths import `relay-pool-runtime-port` not `enhanced-relay-pool-types` |
-| Contract | `transport-engine-w10.contract.test.ts` + engine port unit test |
-| Gate | `verify:transport-engine-w10` (included in `verify:engine-lab`) |
-
-**transport-engine-w9 complete** — `relay-recovery-controller` quarantined behind recovery port for web-only legacy; `verify:transport-engine-w9` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Renamed | `relay-recovery-controller.ts` → `relay-recovery-controller-legacy.ts` |
-| Added | `relay-recovery-metrics-refresher.ts` — transport-kernel metrics-only runtime |
-| Added | `relay-recovery-adapter-metrics.ts` — shared pool metrics extraction |
-| Port | `createRelayRecoveryRuntime()` picks legacy controller (web) or metrics refresher (native) |
-| Wired | `relay-runtime-supervisor` uses `createRelayRecoveryRuntime` only via port |
-| Contract | `transport-engine-w9.contract.test.ts` + metrics refresher unit test |
-| Gate | `verify:transport-engine-w9` (included in `verify:engine-lab`) |
-
-**transport-engine-w8 complete** — legacy recovery action orchestration subtracted when transport-kernel authority is active; `verify:transport-engine-w8` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Extended | `transport-kernel-recovery-port.ts` — `shouldRunLegacyRelayRecoveryOrchestration`, `executeTransportKernelPoolRecovery` |
-| Gated | `triggerRecovery`, `scheduleAutoRecovery`, `startWarmup`, browser nudge → transport-kernel path on native |
-| Preserved | Legacy controller for metrics refresh only; primary failover still runs before pool recovery |
-| Contract | `transport-engine-w8.contract.test.ts` + supervisor authority-path test |
-| Gate | `verify:transport-engine-w8` (included in `verify:engine-lab`) |
-
-**transport-engine-w7 complete** — legacy relay recovery snapshot path subtracted when transport-kernel authority is active; `verify:transport-engine-w7` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-kernel-recovery-port.ts` — published recovery owner + legacy subscription gate |
-| Subtracted | Duplicate `toPhase` from supervisor → `resolveLegacyRelayRuntimePhase` (web/legacy only) |
-| Gated | `subscribeRecoveryState` skipped when transport-kernel owns recovery snapshot |
-| Wired | `resolvePublishedRelayRecoverySnapshot` — runtime snapshot uses transport-engine recovery on native |
-| Contract | `transport-engine-w7.contract.test.ts` + recovery port unit test |
-| Gate | `verify:transport-engine-w7` (included in `verify:engine-lab`) |
-
-**transport-engine-w6 complete** — `isTransportKernelAuthority` flipped to native default; transport-engine owns runtime phase; `verify:transport-engine-w6` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Flipped | `transport-kernel-policy.ts` — native authority (opt-out `NEXT_PUBLIC_OBSCUR_TRANSPORT_KERNEL=0`) |
-| Added | `transport-kernel-snapshot-port.ts` — `resolveRelayRuntimePhaseForTransportKernel` |
-| Wired | `relay-runtime-supervisor` uses transport-engine snapshot phase when authority active |
-| Gated | `relay-provider` persistence/hydration/subscribe behind `transportKernelAuthority` |
-| Contract | `transport-engine-w6.contract.test.ts` + policy/snapshot unit tests |
-| Gate | `verify:transport-engine-w6` (included in `verify:engine-lab`) |
-
-**dm-kernel chat-state I/O authority on native complete** — chat-state ports suppress DM message bodies when sqlite is owner; `verify:dm-kernel` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `dm-kernel-chat-state-io-policy.ts` — `isDmKernelChatStateMessageIoSuppressed`, sanitize/project helpers |
-| Gated | `messaging-chat-state-message-port`, `read-port`, `account-sync-chat-state-port`, `ui-mirror` |
-| Aligned | `message-persistence-service` mirror uses dm-kernel policy (not raw `requiresSqlitePersistence`) |
-| Fixed | `account-sync-chat-state-port` legacy import path → features messaging services |
-| Contract | `dm-kernel-chat-state-io.contract.test.ts` + policy unit test |
-| Gate | `verify:dm-kernel` (27 tests) |
-
-**transport-engine-w5 complete** — engine relay evidence subscribes transient pool connections; `verify:transport-engine-w5` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-relay-pool-subscribe.ts` — resolve + `addTransientRelay` sync |
-| Hook | `use-transport-engine-pool-subscribe.ts` — runs after transport bootstrap |
-| Wired | `relay-provider` subscribes checkpoint/engine-only URLs not in permanent pool |
-| Diagnostics | `relay.transport_engine_pool_subscribe` log when URLs are subscribed |
-| Contract | `transport-engine-w5.contract.test.ts` |
-| Gate | `verify:transport-engine-w5` (included in `verify:engine-lab`) |
-
-**legacy subtraction w40 complete** — final `app/legacy/` implementation removed; `verify:legacy-subtraction` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Deleted | `app/legacy/chat-state-store-legacy.ts` |
-| Added | `features/messaging/services/chat-state-store-legacy.ts` |
-| Ports | 6 chat-state ports import features implementation only |
-| Contract | `legacy-subtraction-w40.contract.test.ts` |
-| Queue | **empty** — `app/legacy/` is docs-only |
-
-**transport-engine-w4 complete** — checkpoint evidence + pool hydration from engine persistence; `verify:transport-engine-w4` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `loadTransportRelayPersistence`, `resolveEngineCheckpointRelayUrls` |
-| Added | `transport-relay-pool-hydration.ts` — hydrates pool when user relays empty |
-| Hook | `use-transport-relay-persistence.ts` — URLs + checkpoints in one load |
-| Snapshot | `engineCheckpointRelayUrls`, `engineRelayCheckpointCount` |
-| Wired | `relay-provider` uses `effectiveDmTransportRelayUrls` for selection/pool |
-| Contract | `transport-engine-w4.contract.test.ts` |
-| Gate | `verify:transport-engine-w4` (included in `verify:engine-lab`) |
-
-**transport-engine-w3 complete** — supervisor snapshot + recovery evidence from engine URLs; `verify:transport-engine-w3` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-relay-supervisor-evidence.ts` — `buildSupervisorTransportEvidence`, phase relay count |
-| Snapshot | `engineConfiguredRelayUrls`, `supervisorRelayUrlCandidates`, `engineOnlyRelayUrls` |
-| Wired | Supervisor phase/auto-recovery use supervisor candidates when active pool empty |
-| Diagnostics | `relay.transport_engine_evidence` log when engine persistence contributes URLs |
-| Contract | `transport-engine-w3.contract.test.ts` |
-| Gate | `verify:transport-engine-w3` (included in `verify:engine-lab`) |
-
-**transport-engine-w2 complete** — relay supervisor boot loads `listConfiguredRelayUrls` via SDK
-
-| Deliverable | Detail |
-|-------------|--------|
-| Added | `transport-engine-host-port.ts`, `transport-relay-supervisor-bootstrap.ts` |
-| Hook | `use-transport-configured-relay-urls.ts` — loads on `transportBootstrapReady` |
-| Wired | `relay-provider.tsx` merges engine URLs into supervisor `allEnabledRelayUrls` |
-| Contract | `transport-engine-w2.contract.test.ts` |
-| Gate | `verify:transport-engine-w2` (included in `verify:engine-lab`) |
-
-**Post-B5 w39 complete** — enhanced relay pool deleted from legacy; `verify:legacy-subtraction` green
-
-| Deliverable | Detail |
-|-------------|--------|
-| Deleted | `enhanced-relay-pool-legacy.ts` from `app/legacy/` |
-| Added | `features/relays/hooks/enhanced-relay-pool-legacy.ts` |
-| Port | `enhanced-relay-pool-port.ts` re-exports features + types facade |
-| Contract | `legacy-subtraction-w39.contract.test.ts` |
-| Queue | **0 legacy files** — w40 cleared final implementation |
-
-Prior: w38 (group provider), w37 (sealed community), w36 (conversation messages hook).
-
----
-
-## Settled truth
-
-- **Kernel UI (2026-06-27):** Relay + DM transport arm on unlocked identity (`runtime-transport-owner-policy.ts`); local vault save via `local-media-store.ts` + `save-chat-attachment-to-vault.ts`; attachment context menu + mobile long-press (`attachment-context-menu-handlers.ts`). Manual matrix: checklist rows 4–5, 7–11.
-- Chat state mirror: `features/messaging/services/chat-state-store-legacy.ts` via chat-state ports (w40).
-- Native DM message I/O: sqlite/dm-kernel authority; chat-state ports strip/suppress message bodies on native (`dm-kernel-chat-state-io-policy`).
-- Transport recovery: web legacy controller quarantined in `relay-recovery-controller-legacy.ts`; native uses metrics refresher + transport-kernel pool recovery (`relay-recovery-port`, `transport-kernel-recovery-port`).
-- Transport engine w2–w36: boot URLs → supervisor evidence → pool hydration → transient subscribe → authority flip → snapshot owner → recovery snapshot subtraction → action orchestration subtraction → legacy controller quarantine → headless engine owner + pool runtime port → UI pool hook port → standalone publish port → journal-backed native standalone publish → dedicated transport-kernel publish owner → shared publish-outcome semantics → host-publish charter/defer decision → host publish contract slice → non-wired desktop/host invoke stub → parity verification charter pinned → publish result/evidence contract pinned → typed host adapter for publish results → Rust wiring charter pinned (still stubbed) → headless parity harness charter pinned → first executable parity harness slice → reason/status parity + invalid-shape rejection harness → mocked valid host-result acceptance path → mocked failure-mode paths → parity harness exit charter → owner migration charter → Rust payload validation → result assembly charter → port shim charter → shim policy gate → gated host shim wiring → dry-run assembly charter (design-only).
-- **0 legacy implementation files** in `app/legacy/`; feature production code imports legacy only through ports.
-
----
+| B10 remainder | native random + event verify |
+| L2 soak | A Skipped · B T0/T1 Fail |
+| Matrix access-token | L1 Pass · **non-promoted / lab** |
+| Relays IA + four paths | Standard/Advanced L1 Pass |
+| Positioning decision | private-trust launch · platform-service vision docs |
+| Decoupling D0 | characterization L1 Pass |
+| Decoupling D1 | choke point L1 Pass · nostrAdapter owns send/list imports |
+| Decoupling D2 | Nostr adapter folder L1 Pass · public import path unchanged |
+| Decoupling S3 | canonical DTO boundary L1 Pass · rich Message unchanged |
+| Decoupling S4 | rich vs canonical vs nostrAdapter.sendDm surfaces L1 Pass |
+| Decoupling S5 | @obscur/protocol-nostr package L1 Pass · adapter still in pwa |
+| PB1-C dial preflight | no open relay blocks voice invite · L1 Pass |
+| M1-A camera-less structure | callType · supportsVideo · video_call consent · dock panes · L1 Pass |
+| M1-B camera fallback | acquireLocalCallMedia · recvonly transceiver · honesty banner · L1 Pass |
+| PB1-C peer start honesty | host/signal null RTC → interrupted + toast · L1 Pass |
+| M1-C lab canvas | off in production · dev opt-in canvas track + honesty banner · L1 Pass |
+| PB1-C host offer honesty | offer create/send fail → interrupted + toast · L1 Pass |
+| PB1-C joiner answer honesty | setRemote/createAnswer/send fail → interrupted + toast · L1 Pass |
+| M1 video dial UI | DM Video call · callType video · device/camera preflight · L1 Pass (not usable) |
+| M1 mobile video stage | Full-screen mobile video preview · desktop dock unchanged · L1 Pass |
+| Call quality R1 | RTC stats snapshot + capped `quality_sample` diagnostic · L1 Pass (not quality claim) |
+| Soft disconnect R2 | 4s grace on RTC `disconnected`; `failed` ends now · L1 Pass (no L3 stability claim) |
+| Host connect latency R3 | `host_connected` dial/offer→connected ms · L1 Pass (diagnostics only) |
+| ICE honesty R4 | STUN default · optional `NEXT_PUBLIC_OBSCUR_ICE_TURN_*` · `ice_config` · L1 Pass |
+| Desktop video stage R5 | Floating stage (not full-window) · voice stays dock · L1 Pass (not usable) |
+| Flaky-relay connect budget | 2/3 relays / dual-SDP → up to 3×30s connecting extensions · timeout ≠ left_by_user · L1 Pass |
+| Ring before accept | Video stage only after connecting/connected · outgoing ring stays dock · L1 Pass |
+| Trust msg.rate mute | Rate-only notices → tier none (ASE immature) · L1 Pass |
+| Offline dial warn | Toast when dialing presence-offline peer · L1 Pass |
+| Signal delivery flaky-relay | `pending_ack` + partial wire accept · one send retry · L1 Pass (retest E2E) |
+| Accept→offer race | Host join single-flight · have-local-offer resend · dedup-safe retry · L1 Pass |
+| Busy-line third-party | Any-peer invite defer while line busy · outbound dial block · L1 Pass |
+| Video dial honesty | Invite card video copy · preserve callType on connect · L1 Pass |
+| A/B video UI symmetry | Joiner UI callType follows wire invite (no demote) · L1 Pass |
+| Desktop video window UX | Drag + bottom-right default + fullscreen toggle · L1 Pass |
+| CU-UX-2b T0 create honesty | Hide T0 baseline/guarantees · ack reset on host · `hostingTier` persist · L1 Pass |
+| CU-UX-4 governance roles | Steward promote/demote via descriptor · badge · last-steward guard · L1 Pass |
+| CU-UX-4 L3 soak | Stack+policy+CDP-attach Pass · dual-profile Make steward Skipped (operator) |
+| CU-UX-5 relay freedom | T1 public Quiet honesty-gated · trust `public_relay_honest` · catalog selectable · L1 Pass |
+| CU-UX-6 mode/hosting convert | Manage T0↔T1 + host toggle · steward seed · honesty ack · L1 Pass |
+| v2.0.0-beta cut plan | Anti-perfectionism B1–B5 · tag pending · CU-UX L3 not a blocker |
+
+## PAUSED / CANCELLED
+
+- **Matrix launch & promotion** (cleartext MVP insufficient; Olm not chartered)
+- Soft L3 Fixed · remount · Step C · uncapped Quiet · Tor Verified
+- Tor bootstrap patch-loop on this LAN
+- A4 git tag until explicit ask
+- Matrix E2EE (Olm) until dedicated charter
+- KnotTrace code changes in Obscur workspace
+- Positioning Obscur as a general-purpose public Nostr client
+- Further sessions that refactor Obscur toward a Nostr-client identity
 
 ## Checkpoints
 
 <!-- CONTEXT_CHECKPOINTS_START -->
-### 2026-08-02T09:20:00Z checkpoint
-- Summary: Operator dual-window Pass for live DM sync (test 2 both sides, 3/3 relays). F-RECV-LIVE runtime verified. Residual single grey checks = F-ACK next.
-- Evidence: maintainer screenshots Tester1/Tester2 · Connected 3/3 · VER 1.9.14
-- Uncertainty: Soft L3 “delivery fixed” not claimed until F-ACK Pass
-- Next: DELIVERY-1 F-ACK honesty slice
-### 2026-08-02T09:00:00Z checkpoint
-- Summary: F-RECV-LIVE — mesh client re-arms REQ on socket open + parses NIP-01 EVENT subId frame; resubscribeAll wired. Explains restart hydrate vs dead live path. F-ACK still open.
-- Evidence: vitest conduit-mesh-nostr-ws-client.test.ts Pass · specs/backend/dm-live-req-rearm-design-2026-08.md
-- Uncertainty: Runtime live Pass needs static rebuild + dual-window soak; grey-check F-ACK separate
-- Next: Rebuild shell → dual-window marker without restart → then F-ACK if needed
-### 2026-08-02T08:40:00Z checkpoint
-- Summary: CodaCtrl dogfood for DELIVERY-1 — filed issue+chain; CDP absent blocks live assert; leading F-ACK hyp documented; CodaCtrl gaps appended to improvement findings
-- Evidence: specs/backend/dm-delivery-1-public-path-investigation-2026-08.md · verify:issue:agent:9e5bbc9aa9d4a242 · docs/archive/program/inactive-2026-08/codactrl-improvement-findings-2026-07.md (Round 2026-08-02)
-- Uncertainty: Fail class not live-pinned; need dual CDP public soak
-- Next: Launch desktop CDP 9230/9231 → public DM marker → pin F-ACK vs F-TARGET
-### 2026-08-02T08:35:00Z checkpoint
-- Summary: Inventory of DM/relay issues into triage queue; active row DELIVERY-1 (public publish ACK + receive); banner maps to UX-1 info; D2/E2d/S1–S4 closed as L1 pending soak
-- Evidence: specs/backend/relay-dm-delivery-issue-triage-2026-08.md · handoff Next = DELIVERY-1 probe
-- Uncertainty: Fail class not yet pinned on live dual-profile public soak
-- Next: DELIVERY-1 probe — dual profiles, public path, classify F-ACK/F-TARGET/F-RECV/F-DIAL/F-ENV
-### 2026-08-02T07:00:00Z checkpoint
-- Summary: SendCeremonyDialog portals via AppOverlayPortal (above sidebar z-2600); first_dm skipped for accepted contacts; resolverSource contact_card when accepted
-- Evidence: `pnpm -C apps/pwa exec vitest run app/features/security/services/send-ceremony-gate.test.ts` 7 Pass
-- Uncertainty: If peer appears in Chats but is not in peerTrust.acceptedPeers, ceremony still shows — operator should Accept contact if that is the case
-- Next: Public-path two-profile DM proof (prod) — unchanged
-### 2026-07-15T07:45:00Z checkpoint
-- Summary: Dev shell freshness guard landed (predev clean, stale roots, stamp gate); C10 L3 Row A PASS dual-window HTTP-only; Row B blocked on Nostr EVENT→WS-only publish — fix landed (HTTP mesh envelope + `#p` audience); shell rebuilt `shell-2026-07-15T07:31:49Z`; Row B re-soak not completed
-- Evidence: `pnpm verify:conduit-mesh-c10` PASS; `static-shell-stale` 6/6; `dev_shell_freshness` 5/5; C10 integration publish test; CDP sessions csess-61a6b99b9bde / csess-aed8d69e8d8d; investigation spec updated
-- Uncertainty: Row B end-to-end receive not re-proven post-fix; gateway may retain stale envelopes from failed soaks — consider fresh gateway or note count delta only
-- Next: CONDUIT-MESH-C10 L3 Row B re-soak — purge both → send `C10-L3-soak-20260715B` → Tester2 receive ≤45s → gateway envelopes → sign-off → C11
-### 2026-07-10T05:40:09Z checkpoint
-- Summary: Vault sandbox Phases 1-5 in evidence mode (G8); CodaCtrl lane D marked Obscur-side EXIT; docs/CURRENT synced
-- Evidence: pnpm verify:vault-sandbox-l1 31/31; verify:storage-encryption-v1.9.8 PASS; commit 7bbaa010
-- Uncertainty: not provided
-- Next: Maintainer L3/L4 vault-sandbox-l3-verification runbook sections 3-5; CodaCtrl daemon wiring is external
-### 2026-08-01T10:28:25Z checkpoint
-- Summary: S1: resolveScopedPublishRelayUrls drops local when open remotes exist; wired into DM resolveTargetRelayUrls. L1 11 Pass.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Hold — optional S2 primary promote when remote open
-### 2026-08-01T10:35:18Z checkpoint
-- Summary: S2: reconcile prefers open remote when primary dead; proactive failover allowWithWritableRelays. L1 28 Pass.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Hold — optional S3 publish-path UI
-### 2026-08-01T10:38:28Z checkpoint
-- Summary: S3: Relays UI DM publish path badge/copy from open scoped remotes. L1 11 Pass.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Hold — optional S4 CM scoped URL
-### 2026-08-01T10:40:48Z checkpoint
-- Summary: S4: CM scoped publish fail-closed (no publishToAll); resolve + Relays community hint. L1 7 Pass. No COM-RUN.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Hold — soft L3 two-profile or optional S5 NIP-65 charter
-### 2026-08-01T10:51:48Z checkpoint
-- Summary: Soft L3 two-profile delivery: recipe+script landed. Row A Pass (writable=3 on localhost:7000). Row B Blocked (Tester2 unlock). Delivery not fixed.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Hold — unblock Tester2 second window, re-run verify:s-pool-delivery-l3
-### 2026-08-04T07:41:51Z checkpoint
-- Summary: W66 standalone legacy deletion executed; pins migrated; verify:transport-engine-w67/w68 Pass
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: B5 exit / maintainer next from W67 post-subtraction exit
-### 2026-08-04T08:12:41Z checkpoint
-- Summary: W67 B5 exit Pass: verify:engine-lab green after headless target path, engine-b4 --lib, listen catch
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer choose next band (W66/W67 closed)
-### 2026-08-04T08:25:53Z checkpoint
-- Summary: Core+relay band: Soft L3 Blocked on unlock hang; lab relay up; openPeer profile route kept
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer Soft L3 unlock OR pivot (P14 / VPS assessment)
-### 2026-08-04T09:21:23Z checkpoint
-- Summary: Soft L3 credential path: unlock recovered then CDP wedged; desktop relaunched; manual Sign in then Soft L3
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Manual Tester1 Sign in then pnpm verify:s-pool-delivery-l3
-### 2026-08-04T10:03:40Z checkpoint
-- Summary: Maintainer pivot: manual core verify + production relay stability; Soft L3 Docker lab parked; localhost:7000 active is lab leftover
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer names production-like relay endpoint (VPS/trusted clearnet) then soak
-### 2026-08-04T10:07:50Z checkpoint
-- Summary: Design: Single-node auto-correct vs Multi-node maps to basic/redundancy + mesh failover; no code until D0 accept
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer accept D0 design or name production soak endpoint
-### 2026-08-04T10:11:21Z checkpoint
-- Summary: Design update: default pool is public Default Stable (nos/primal/damus); Multi by boot; VPS optional; no SLA
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer accept D0 design (public default + Single/Multi)
-### 2026-08-04T10:13:09Z checkpoint
-- Summary: D0 Pass: UX copy map basic↔Single multi↔redundancy + public Default Stable boot; next D1 Settings labels
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: D1 Settings Single/Multi i18n + toggle copy from D0 map
-### 2026-08-04T10:16:19Z checkpoint
-- Summary: D1 Pass L1: EN Multi-node/Single-node Settings copy + d1-copy contract; wire enum unchanged
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: D2 Single-node auto-correct failover (mesh-owned path)
-### 2026-08-04T10:21:22Z checkpoint
-- Summary: D2 Pass L1: Single-node basic allows failover probe when standby writable; mesh-owns still suppresses TS
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: D3 Multi-node soak on default public pool (or L1 prep)
-### 2026-08-04T10:24:23Z checkpoint
-- Summary: D3 Pass L1 multi-node Default Stable + P14 degraded; L2 NIP probe timed out this host; L3 dual-DM deferred
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: D4 operator notes (public default first-class; VPS optional)
-### 2026-08-04T10:25:49Z checkpoint
-- Summary: D4 Pass: operator notes — public Default Stable first-class Multi-node; VPS optional; Single/Multi map; D0-D4 band closed
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Optional clearnet L2/L3 soak or manual core verify
-### 2026-08-04T11:13:21Z checkpoint
-- Summary: M1 Pass L1: kind-0 metadata auto-retry on empty fetch + open-count recovery
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: M2 peer display fallback (connection/short preview vs Unknown sender/hex)
-### 2026-08-04T11:20:12Z checkpoint
-- Summary: M2 Pass L1: resolvePeerDisplayName — metadata/fallback/short preview; wired header row SenderName chat-view
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Optional R1 relay toast dedupe or maintainer desktop verify labels
-### 2026-08-04T11:22:34Z checkpoint
-- Summary: R1 Pass L1: soft relay toast coalesce connect+init + 8s UI notify throttle
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify labels/toasts or optional R2 dial-order measure
-### 2026-08-04T12:04:27Z checkpoint
-- Summary: Adaptive demote: dead/high-RTT localhost leaves active pool when public remotes enabled (L1 33/33).
-- Evidence: pnpm -C apps/pwa exec vitest run app/features/relays/services/relay-local-lab-adapt.test.ts app/features/relays/services/relay-primary-selector.test.ts → 33/33; specs/backend/relay-local-lab-adaptive-demote-design-2026-08.md
-- Uncertainty: not provided
-- Next: Maintainer: refresh desktop online; Relays UI — confirm public Nos relays ACTIVE when Docker :7000 down
-### 2026-08-04T12:34:47Z checkpoint
-- Summary: Nostr-first lab silo: always exclude localhost from active pool when public remotes enabled (L1).
-- Evidence: vitest adapt+selector+bootstrap Pass; specs/backend/relay-local-lab-adaptive-demote-design-2026-08.md; operator notes §3
-- Uncertainty: not provided
-- Next: Maintainer: refresh desktop online; Relays — publics ACTIVE, localhost not ACTIVE beside remotes (or Apply Default Stable)
-### 2026-08-04T14:36:08Z checkpoint
-- Summary: Relays UI: align card signal/status with mesh publish-ready (Ready vs n/a); honest open-socket footer count.
-- Evidence: vitest relay-runtime-status + format-relay-latency-label Pass; specs/backend/relay-ui-publish-ready-signal-investigation-2026-08.md
-- Uncertainty: not provided
-- Next: Maintainer: refresh Relays metrics — publish-ready remotes show Ready/Active transport while DMs work
-### 2026-08-04T14:40:38Z checkpoint
-- Summary: R1.1: soft relay toast less intrusive — 45s UI throttle; host flaps no longer force re-paint.
-- Evidence: native-error-store.test.ts 8/8; RELAY_UI_NOTIFY_THROTTLE_MS=45000
-- Uncertainty: not provided
-- Next: Maintainer: confirm fewer relay connection toast flashes on multi-node reconnect
-### 2026-08-04T14:51:32Z checkpoint
-- Summary: R1.2 soft relay dismiss snooze 15m; notification content-kind emoji+SVG icons for image/audio/video/voice/file/call/text.
-- Evidence: native-error-store + notification-presentation L1 13/13
-- Uncertainty: not provided
-- Next: Maintainer: dismiss relay toast and confirm snooze; send image DM and check OS notification glyph
-### 2026-08-04T14:59:18Z checkpoint
-- Summary: System notification peer avatar: resolve https picture/group avatar; Windows show_notification image_path via cached download. L1 9/9; cargo check obscur_desktop_lib Pass.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify: background DM with peer https avatar shows face on OS toast
-### 2026-08-04T15:09:37Z checkpoint
-- Summary: Vault Save unlock: add writeUnlock i18n to en.json; ensureNativeVaultEncryptionSessionForWrites pushes PDK to LES; context-menu unlock dialog. L1 8/8.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify: Save to Vault shows English unlock dialog; password unlock then saves
-### 2026-08-04T15:15:01Z checkpoint
-- Summary: Vault write-unlock dialog: English defaultValue fallbacks; merge locale bundles on i18n reload; writeUnlock keys in zh/es/fr/de. L1 5/5.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer: hard-refresh desktop, open Save to Vault unlock dialog — expect Unlock vault writes (not raw keys)
-### 2026-08-04T15:30:48Z checkpoint
-- Summary: Inline chat Save-to-Vault opens VaultWriteUnlockDialog via useChatVaultSaveWithUnlock (no red toast alone). Wired message-list + chat-view. L1 hook test Pass.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer: click image Save-to-Vault overlay — expect unlock dialog, not red toast
-### 2026-08-05T03:13:27Z checkpoint
-- Summary: Voice call OS toast: circular avatar + Accept/Reject (L1+L2)
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify circular call toast Accept/Reject
-### 2026-08-05T03:38:02Z checkpoint
-- Summary: Relay warm-up + notification single-icon + suppress when viewing chat (L1)
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify cold-start send + OS toast hygiene
-### 2026-08-05T03:52:15Z checkpoint
-- Summary: Fix warm-up open-socket honesty + ghost CALL COMPLETED mapping (L1)
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify open sockets + no ghost completed call
-### 2026-08-05T03:54:46Z checkpoint
-- Summary: Fix open=0 warm false-ready + ghost CALL COMPLETED from sqlite ended (L1)
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer desktop verify open sockets + no ghost call
-### 2026-08-05T04:05:20Z checkpoint
-- Summary: Mesh reconnectAll now force-redials WS; warm dials before wait when open=0
-- Evidence: L1 38/38 warmup+ws-client+call-record+dm-send
-- Uncertainty: not provided
-- Next: Maintainer desktop verify: Open sockets > 0 + send OK; no ghost CALL COMPLETED 0:30
-### 2026-08-05T04:21:34Z checkpoint
-- Summary: Feasibility gate: stop warm/reconnect patches; HEAD restore still available for DM send
-- Evidence: specs/backend/dm-comm-recovery-feasibility-2026-08.md; NativeRelay dial storm in desktop log
-- Uncertainty: not provided
-- Next: Maintainer choose A restore / B thin rewrite / C infeasible
-### 2026-08-05T04:27:30Z checkpoint
-- Summary: CodaCtrl DM error chain: MRI remediate, RWR refactor; thin Phase-1 subtract warm/forceReconnect
-- Evidence: specs/backend/dm-send-thin-refactor-*; neural-trail pin; truth parity-desktop
-- Uncertainty: not provided
-- Next: Implement Phase 1: remove warm/forceReconnect from send; L3 A↔B
-### 2026-08-05T04:36:39Z checkpoint
-- Summary: Phase 1: subtracted warm/forceReconnect from DM send; reconnectAll=setRelayUrls only
-- Evidence: L1 40/40 dm-send+transport+ws-client+call-record
-- Uncertainty: not provided
-- Next: Maintainer desktop rebuild + A↔B send verify (L3)
-### 2026-08-05T04:50:46Z checkpoint
-- Summary: Maintainer L3: DM+media restored; handoff → v1.9.15 release prep; community/Vault next after tag
-- Evidence: Maintainer confirm 2026-08-05; docs/releases/v1.9.15-release.md
-- Uncertainty: not provided
-- Next: Commit/bump/tag v1.9.15 when maintainer says go; then community un-pause charter + Vault soak
-### 2026-08-09T08:22:04Z checkpoint
-- Summary: Maintainer L3: packaged 1.9.15 production shell Pass — upload/delete, group chat, profile isolation; Tor still unavailable (env). Vault LES soak Verified.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer choose next band: (A) community un-pause charter (B) land/silo Tor TI WIP without re-tag (C) Tor Verified only on Tor-capable net
-### 2026-08-09T08:34:48Z checkpoint
-- Summary: Maintainer A: community production un-pause charter landed — band CHARTERED/SOAK-ACTIVE; first slice CU-P1 packaged soak (no free groups/**).
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: CU-P1: maintainer stamp C1–C7 on packaged desktop (Tor OFF); agents no groups/** until Fail→investigation
-### 2026-08-09T10:26:29Z checkpoint
-- Summary: CU-P1 Pass/Verified: community normal on packaged production relays when relay connected (not Docker). Honest limit: no relay ⇒ no delivery.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer choose: (B) land/silo Tor WIP (C) Tor Verified on capable net (D) CU-EXIT/version band (E) stop
-### 2026-08-09T10:32:52Z checkpoint
-- Summary: B done: Tor TI landed at 5d7cd8cd; Verified+T5-3 siloed; v1.9.15 tag untouched.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer choose: (C) Tor Verified on capable net (D) CU-EXIT/version band (E) stop
-### 2026-08-09T10:34:36Z checkpoint
-- Summary: C active: Tor Verified soak charter — A+B+C on Tor-capable net; this host cannot stamp Verified.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: Maintainer/invitee: run tor-t5-l3 A+B+C on capable net; stamp Pass/Fail in handoff
-### 2026-08-09T11:37:09Z checkpoint
-- Summary: Tor Verified INFEASIBLE: solo + blocked network; cancel C as active queue; keep TI landed; next D honesty/version band.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: D: document ship honesty (DM/Vault/Community Verified; Tor TI not Verified); no Tor patch loops
-### 2026-08-09T12:12:23Z checkpoint
-- Summary: Reframe: project did not fail — Tor-as-release-gate failed. Charter: release without Tor; explore dialects under sovereignty+E2EE. Next RS-1 honesty.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: RS-1: release honesty docs/demo script Tor OFF; then narrated video or RS-2/RS-3
-### 2026-08-09T12:59:13Z checkpoint
-- Summary: Tagged v1.9.16: clearnet ship, Tor silo, dialect research PAUSED until charter for method outside Nostr/VPS/Tor.
-- Evidence: not provided
-- Uncertainty: not provided
-- Next: PAUSED: research + design charter for a new communication dialect (≠ Nostr / VPS / Tor); optional clearnet demo video
+### 2026-10-21T03:44:00Z checkpoint
+- Summary: CU-UX-6 Manage convert L1 — `assessCommunityModeHostingConvert` · General Mode & hosting · Save updates descriptor + `updateGroup` relay/mode/hostingTier · steward seed on T0→T1
+- Next: optional L3 convert soak · no history-migration claim · no SF-B Spaces
+- Summary: CU-UX-5 relay freedom L1 — Team+public Quiet honesty-gated (`public_default_honest` / `public_relay_honest`); catalog includes Quiet selectable; coordination still required; SF-A hard-block superseded
+- Next: optional Quiet/Team L3 create · CU-UX-4 dual-profile steward · no delete-for-all claim on public Team
+- Summary: CU-UX-4 L3 soak — Docker relay :7000 + coordination :8787 healthy; shell has steward UI; policy vitest Pass; CDP Tester1 unlocked; dual-profile Make steward still Skipped (New Group CDP hangs)
+- Evidence: cu-ux-4-steward-roles-l3-soak-latest · scripts/cu-ux-4-steward-roles-l3-soak.mjs · csess-0fc3c320ca26
+- Next: operator finish Make steward on Team create · or Quiet L3 / video soak. Do not claim full CU-UX-4 L3 product Pass yet.
+### 2026-10-20T15:20:00Z checkpoint
+- Summary: CU-UX-4 governance roles L1 — `resolveStewardRoleMutation` (promote/demote/last-steward/T0); members Steward badge + Make/Remove steward; persists via `updateMetadata` stewardPubkeys
+- Evidence: community-governance-roles-investigation/design · community-steward-policy · members-panel · vitest L1
+- Next: was optional L3 (stack Pass · UI promote Skipped)
+### 2026-10-20T08:00:00Z checkpoint
+- Summary: CU-UX-2b T0 create honesty polish — Quick path honesty-only (no baseline/guarantee clutter); ack resets on host change; persist `hostingTier` public_quiet|custom|operator on create metadata + conversation + persistence round-trip
+- Evidence: community-t0-create-honesty-polish-investigation/design · create-group-dialog · community-quick-group-create · vitest L1 (9)
+- Next: optional L3 Quiet create+send · or video stage rebuild soak. Do not claim video usable without M1-L3.
+### 2026-10-20T06:45:00Z checkpoint
+- Summary: Desktop video stage — default bottom-right float, header drag (clamped), in-app fullscreen toggle; voice remains compact dock widget
+- Evidence: frontend-spec-desktop-video-call-window · voice-call-stage-window-position · VoiceCallDock · vitest
+- Next: Rebuild static · operator drag/fullscreen soak. Do not claim video usable without M1-L3.
+### 2026-10-20T06:20:00Z checkpoint
+- Summary: B still voice dock after Join — accept/join paths cleared callType before RTC; now re-apply wire video callType on accept + join. Same-PC dual profile ≈ camera contention only, not voice chrome.
+- Evidence: handleAcceptIncomingVoiceInvite · handleJoinVoiceCallInvite · video-call-ui-asymmetric-ab-design
+- Next: was desktop video window UX (done L1)
+### 2026-10-20T05:30:00Z checkpoint
+- Summary: A video stage / B voice dock on same invite — joiner coerced callType to voice when localSupportsVideo false; UI type now follows wire invite on both sides
+- Evidence: video-call-ui-asymmetric-ab-investigation/design · resolveCallTypeFromInvite · vitest
+- Next: was accept/join callType wipe (done)
+### 2026-10-20T04:25:00Z checkpoint
+- Summary: Video dial looked like voice — invite card ignored callType; connecting/connected status patches dropped callType; fixed card copy + preserve media fields
+- Evidence: video-dial-shows-as-voice-investigation · voice-call-ui-status-media · voice-call-invite-card · main-shell
+- Next: was A/B video UI symmetry (done L1)
+### 2026-10-19T17:45:00Z checkpoint
+- Summary: Decision — busy-line (not call waiting) when C calls A/B during A↔B; third-party invites deferred so they cannot overwrite live call UI; outbound dial blocked while busy; conference stays M2
+- Evidence: realtime-call-busy-line-third-party-investigation/design · voice-call-busy-line · main-shell · vitest
+- Next: was video dial honesty (done L1)
+### 2026-10-19T15:05:00Z checkpoint
+- Summary: Accept still tore down with offer toast — concurrent join-request raced second createOffer into failVoiceOfferDispatch; host offer now single-flight per room, have-local-offer resends, signal retry waits past DM dedup
+- Evidence: realtime-call-accept-offer-race-investigation/design · voice-call-host-offer-coalesce · main-shell · vitest
+- Next: was busy-line third-party (done L1)
+### 2026-10-19T14:20:00Z checkpoint
+- Summary: E2E answer toast under 2/3 relays — `sendVoiceSignal` now accepts `pending_ack` and failed+partialWireDelivery (same class as invite provisional) plus one immediate retry before `voiceCallAnswerSendFailed`
+- Evidence: realtime-call-signal-delivery-flaky-relay-design · voice-call-signal-delivery · main-shell sendVoiceSignal · vitest 5 Pass
+- Next: was accept-offer race (done L1)
+### 2026-10-19T12:45:00Z checkpoint
+- Summary: Soft-muted rate-only trust notices (no info strip for msg.rate alone); offline peer dial warns that invite may not be seen until reconnect; invite DM thread cards still exist by design (wire)
+- Evidence: trust-msg-rate-nuisance-design · voice-invite-offline-peer-honesty · assessment + corpus L1
+- Next: was signal delivery under flaky relays (done L1)
+### 2026-10-19T12:25:00Z checkpoint
+- Summary: Outgoing video ring no longer opens AV stage — compact dock until peer engages (connecting/connected); fixes “call began” while B offline/never accepts
+- Evidence: realtime-call-ring-before-accept-design · resolveVoiceCallPresentation phase gate · voice-call-dock · vitest L1
+- Next: was trust mute + offline dial warn (done)
+### 2026-10-19T10:50:00Z checkpoint
+- Summary: Screenshot ~34s “session closed” matched 30s connect/ring timeout under 2/3 relays; raised connecting extension budget when pool degraded or dual SDP; timeout end no longer leaves via left_by_user
+- Evidence: realtime-call-flaky-relay-drop-investigation · realtime-call-flaky-relay-connect-budget-design · timeout-policy L1
+- Next: was ring-before-accept (done)
+### 2026-10-19T10:15:00Z checkpoint
+- Summary: R5 desktop video stage — negotiated video uses floating stage (remote fill + local PiP); voice stays compact dock; mobile fullscreen unchanged; not full-window
+- Evidence: m1-desktop-video-stage-design · frontend-spec-desktop-video-call-stage · resolveVoiceCallPresentation · voice-call-dock · vitest L1
+- Next: was flaky-relay connect budget (done)
+### 2026-10-19T10:05:00Z checkpoint
+- Summary: R4 ICE honesty — default public STUN named as stunOnly; optional operator TURN via NEXT_PUBLIC_OBSCUR_ICE_TURN_URLS (+ user/cred); ice_config + rtc_state.stunOnly diagnostics; no landlord default
+- Evidence: realtime-call-ice-servers · main-shell · vitest L1
+- Next: was R5 desktop stage (done)
+### 2026-10-19T07:50:00Z checkpoint
+- Summary: R3 host connect latency — dial mark on ringing_outgoing, offer mark on first offer send, `host_connected` on RTC connected
+- Evidence: realtime-call-connect-latency · main-shell · vitest L1 (13 across R1–R3)
+- Next: was R4 ICE honesty (done)
+### 2026-10-19T07:40:00Z checkpoint
+- Summary: R2 soft disconnect — brief RTC `disconnected` waits 4s before interrupted; reconnect cancels grace; `failed` still ends immediately
+- Evidence: realtime-call-disconnect-grace · main-shell connectionstatechange · vitest L1 (10)
+- Next: was R3 host latency (done)
+### 2026-10-19T06:55:00Z checkpoint
+- Summary: Call research ranked R1–R5; landed R1 quality snapshot (RTT, audio loss, jitter, inbound bytes) emitted at most 1 Hz while connected
+- Evidence: specs/backend/realtime-call-perf-stability-ux-investigation-2026-10.md · realtime-call-quality-stats · vitest L1
+- Next: was R2 soft disconnect (done)
+### 2026-10-19T05:55:00Z checkpoint
+- Summary: Maintainer cancelled mobile-shell Import Key freeze investigation — host froze during Playwright/repro; no further auth freeze work this session
+- Evidence: specs/backend/mobile-shell-import-key-freeze-investigation-2026-10.md Status CANCELLED
+- Next: Do not restart mobile-shell:online or heavy browser repro until disk/CPU cool. Resume video dial / S2 only when operator asks.
+### 2026-10-18T16:35:00Z checkpoint
+- Summary: Mobile video call uses full-screen stage (remote fill + local PiP + bottom controls); desktop floating dock kept; streams published to global overlay
+- Evidence: voice-call-dock presentation=fullscreen · global-voice-call-overlay · realtime-voice-global-ui-store streams · vitest L1
+- Next: Desktop call preview redesign still open. M1-L3 blocked (no camera). Do not claim video usable.
+### 2026-10-18T16:00:00Z checkpoint
+- Summary: DM header Video call dials callType video after device check + camera/mic getUserMedia; no-camera stays audio-only honesty
+- Evidence: specs/backend/m1-video-dial-ui-design-2026-10.md · prepareLocalMediaForCallDial · chat-header video control
+- Next: M1-L3 still blocked (no camera). Do not claim video usable. S2 Track L still blocked on Docker.
+### 2026-10-18T14:20:00Z checkpoint
+- Summary: S2 Track L re-probe — Docker still absent; coordination and relay down; EG not cleared
+- Evidence: docs/business/EG-LOG.md 2026-10-18 Track L re-probe · docker info DOCKER_NO
+- Next: Operator starts Docker + stacks, then re-name hitch/S2 for P5
+### 2026-10-18T13:55:00Z checkpoint
+- Summary: PB1-C — joiner answer / setRemote fail tears down RTC, marks interrupted (network), toasts
+- Evidence: voice-answer-dispatch-honesty · failVoiceAnswerDispatch · vitest L1
+- Next: Name hitch/S2, more PB1-C, or M1-L3 when camera exists
+### 2026-10-18T13:50:00Z checkpoint
+- Summary: PB1-C — host offer create/send fail tears down RTC, marks interrupted (network), toasts; no silent connecting dock
+- Evidence: voice-offer-dispatch-honesty · failVoiceOfferDispatch · vitest L1
+- Next: was more PB1-C (joiner answer honesty)
+### 2026-10-18T13:45:00Z checkpoint
+- Summary: M1-L3 refused — no camera; soak procedure written for when camera/hitch exists; not Pass
+- Evidence: specs/backend/m1-l3-dual-profile-av-soak-procedure-2026-10.md
+- Next: was more PB1-C (host offer honesty done)
+### 2026-10-18T13:40:00Z checkpoint
+- Summary: M1-C — lab canvas video only when non-production flag is on; production always off; dock says not a camera
+- Evidence: isLabCanvasVideoEnabled · acquireLocalCallMedia av_lab_canvas · voice-call-dock lab banner · vitest L1
+- Next: was M1-L3 attempt (blocked — no camera)
+### 2026-10-18T13:30:00Z checkpoint
+- Summary: PB1-C — host and inbound-signal paths toast and mark interrupted when peer connection never starts (no silent connecting dock)
+- Evidence: voice-peer-connection-start-honesty · main-shell failVoicePeerConnectionStart · vitest L1
+- Next: Name hitch/S2, more PB1-C, M1-C, or M1-L3 when camera exists
+### 2026-10-18T13:20:00Z checkpoint
+- Summary: M1-B — camera getUserMedia fail → audio_only_fallback + dock banner; recvonly video transceiver when no local track; offerToReceiveVideo when negotiated
+- Evidence: realtime-call-local-media.test · voice-call-dock.test · main-shell wire · vitest L1
+- Next: Name hitch/S2, PB1-C, M1-C, or M1-L3 when camera exists
+### 2026-10-18T13:10:00Z checkpoint
+- Summary: M1-A camera-less structure — callType negotiation · supportsVideo · video_call consent · dock local/remote placeholders · dial still voice
+- Evidence: voice-call-reason-honesty · realtime-voice-capability · voice-call-dock.test · vitest L1
+- Next: was M1-B (done)
+### 2026-10-18T11:30:00Z checkpoint
+- Summary: v2.0.0 public face — GIFs + client tests prove prior features; video/conference still gap; no camera → no video usability claim; M1-A/B design ready
+- Evidence: specs/backend/m1-video-camera-less-engineering-design-2026-10.md · docs/assets/gifs
+- Next: was charter M1-A (done)
+### 2026-10-18T11:25:00Z checkpoint
+- Summary: Maintainer — 1:1 voice already shipped; missing features are video and conferencing (M1–M3)
+- Evidence: known-limitations · pre-b2b media roadmap §5 · this handoff § MEDIA TRUTH
+- Next: was camera-less M1 design (done)
+### 2026-10-18T11:20:00Z checkpoint
+- Summary: PB1-C — Voice call dial blocked with honest toast when openRelayCount is 0 (no ring dock)
+- Evidence: voice-call-invite-delivery canStartVoiceCallInviteDial · main-shell preflight · vitest Pass
+- Next: L3 dual-profile call when relays up, or named next PB1-C slice (not M1–M3)
+### 2026-10-18T10:35:00Z checkpoint
+- Summary: Maintainer — prior docs/assets/gifs remain valid demos after behavior-preserving D0–S5; no re-capture required
+- Evidence: EG-LOG 2026-10-18 Gift/demo row · docs/assets/gifs · gif-inventory.md
+- Next: Hitch ask or optional Track L when Docker up
+### 2026-10-18T10:28:00Z checkpoint
+- Summary: Commercial S2 named — Track L blocked (no Docker · stacks down · coordination-only env); EG-LOG attempt row written
+- Evidence: docs/business/EG-LOG.md · SELF-T1-BOOT.md
+- Next: Operator starts Docker + stack · complete P5 · EG-LOG group live
+### 2026-10-18T10:20:00Z checkpoint
+- Summary: Slice S5 — @obscur/protocol-nostr workspace package (identity + port surfaces); live adapter stays in pwa
+- Evidence: packages/obscur-protocol-nostr · decoupling-s5-package.contract.test.ts · vitest Pass
+- Next: S2 commercial or named task (not S6)
+### 2026-10-18T10:08:00Z checkpoint
+- Summary: Slice S4 — platform canonical exports + Obscur-Nostr rich docs; private send stays on nostrAdapter
+- Evidence: port-surfaces.ts · decoupling-s4-rich-ports.contract.test.ts · vitest Pass
+- Next: S2 commercial or named S5
+### 2026-10-18T09:58:00Z checkpoint
+- Summary: Slice S3 — CanonicalMessage/Conversation stay free of Nostr wire fields; contract locked
+- Evidence: decoupling-s3-canonical-boundary.contract.test.ts · vitest Pass
+- Next: S2 commercial (PB1-A / hitch) or named S4
+### 2026-10-18T09:50:00Z checkpoint
+- Summary: Working names — Obscur is the platform; Obscur-Nostr is the Nostr module (no package rename)
+- Evidence: specs/backend/obscur-platform-service-vision-2026-10.md § Names
+- Next: Wait for a named in-repo task
+### 2026-10-18T09:48:00Z checkpoint
+- Summary: Slice D2 — Nostr adapter implementation moved to protocol-adaptation/nostr; parent file re-exports
+- Evidence: apps/pwa/app/features/protocol-adaptation/nostr/nostr-adapter.ts · vitest D0/D1/C1/P3 Pass
+- Next: Wait for a named task (not S4–S6)
+### 2026-10-18T09:45:00Z checkpoint
+- Summary: Slice D1 — nostrAdapter is the only value importer of DM send/list ports; delete and retry call nostrAdapter.sendDm
+- Evidence: decoupling-d1-choke-point.contract.test.ts · delete pipeline + D0 vitest Pass
+- Next: Wait for D2 charter
+### 2026-10-18T09:42:00Z checkpoint
+- Summary: Slice D0 characterization landed — Nostr default path frozen (routing, status map, Tor honesty, Matrix gate)
+- Evidence: apps/pwa/app/features/protocol-adaptation/decoupling-d0-characterization.test.ts · vitest 5 passed
+- Next: Wait for D1 charter
+### 2026-10-18T09:40:00Z checkpoint
+- Summary: Behavior-preserving decoupling design — strangler behind ProtocolAdaptationLayer; D0 characterization → D1 choke-point → D2 Nostr folder; no S6 redesign
+- Evidence: specs/backend/behavior-preserving-decoupling-design-2026-10.md
+- Next: Maintainer charters D0 (or another named slice)
+### 2026-10-18T09:35:00Z checkpoint
+- Summary: Promotion goal — platform service for bespoke decentralized comms apps; Nostr first; modularity is target not present tense
+- Evidence: specs/backend/obscur-platform-service-vision-2026-10.md
+- Next: was decoupling design (done)
+### 2026-10-18T09:30:00Z checkpoint
+- Summary: Vision recorded — unified client = gateway + per-protocol modules/UI; Obscur redesign ≈ impossible under budget
+- Evidence: specs/backend/unified-protocol-client-vision-2026-10.md
+- Next: was platform-service vision (done)
+### 2026-10-18T09:25:00Z checkpoint
+- Summary: Maintainer — no spare time or tokens for a rewrite; coupling blocks new protocols and a safe TS→Rust migration
+- Evidence: this handoff § Maintainer instruction
+- Next: was vision note (done)
+### 2026-10-18T09:20:00Z checkpoint
+- Summary: Maintainer — agents keep locking Obscur into Nostr despite protocol-client instructions; greenfield already discarded the UI
+- Evidence: this handoff § Maintainer instruction
+- Next: Stop Nostr polish; wait for a named in-repo task
+### 2026-10-18T09:00:00Z checkpoint
+- Summary: Scrap Matrix launch; reject Nostr-only brand; launch face = private-trust / operator infra (VPN, DC, private relays)
+- Evidence: product-positioning-private-trust-launch-2026-10.md · charter operator-sovereign scale
+- Next: Ask — private-trust demo kit / Local+Hybrid soak / copy hardening
+### 2026-10-18T08:20:00Z checkpoint
+- Summary: Standard catalog = 4 paths (everyday / hybrid / local / Tor); Advanced keeps full 9-pack catalog
+- Evidence: specs/ui/relays-transport-paths-2026-10.md · vitest transport-preset catalog Pass
+- Next: was positioning decision (done)
 <!-- CONTEXT_CHECKPOINTS_END -->

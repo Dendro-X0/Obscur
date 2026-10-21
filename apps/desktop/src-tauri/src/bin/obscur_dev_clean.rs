@@ -26,6 +26,11 @@ fn main() -> ExitCode {
         "[obscur-dev-clean] target_root={}",
         target_root.display()
     );
+    if env::var_os("OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL").is_some() {
+        eprintln!("[obscur-dev-clean] skip process kill (OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL)");
+    } else {
+        eprintln!("[obscur-dev-clean] killing managed target processes…");
+    }
     let killed = kill_managed_desktop_processes(&target_root);
     eprintln!("[obscur-dev-clean] killed_managed={killed}");
 

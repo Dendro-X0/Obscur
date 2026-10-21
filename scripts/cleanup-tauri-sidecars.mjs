@@ -4,6 +4,17 @@ import { execFileSync, execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Same hang class as obscur-dev-clean: PowerShell Get-Process … Path can stall forever.
+if (
+  process.env.OBSCUR_DEV_CLEAN_SKIP === "1" ||
+  process.env.OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL === "1"
+) {
+  console.log(
+    "[Desktop Cleanup] skipped (OBSCUR_DEV_CLEAN_SKIP or OBSCUR_DEV_CLEAN_SKIP_PROCESS_KILL)",
+  );
+  process.exit(0);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
