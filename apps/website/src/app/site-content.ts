@@ -109,6 +109,8 @@ export type ManifestArtifact = Readonly<{
 
 export type ReleaseManifestSnapshot = Readonly<{
   version: string;
+  /** GitHub release tag without leading v (e.g. 2.0.0-beta.1). Defaults to version. */
+  releaseTag: string;
   signingPolicy: string;
   signingPolicyDocHref: string;
   buildFromSourceDocHref: string;
@@ -408,15 +410,39 @@ const parseReleaseHighlights = (markdown: string): readonly ReleaseHighlight[] =
   });
 };
 
-const readCanonicalVersion = async (): Promise<string> => {
+type VersionIdentity = Readonly<{
+  /** Package / artifact tree version (e.g. 1.9.16). */
+  packageVersion: string;
+  /** Public GitHub release tag without leading v (e.g. 2.0.0-beta.1). */
+  releaseTag: string;
+}>;
+
+const normalizeReleaseTag = (value: string): string => value.trim().replace(/^v/i, "");
+
+const readVersionIdentity = async (): Promise<VersionIdentity> => {
   const versionJsonPath = path.join(repoRoot, "version.json");
   const packageJsonPath = path.join(repoRoot, "package.json");
 
   try {
     const raw = await readFile(versionJsonPath, "utf8");
-    const parsed = JSON.parse(raw) as { version?: unknown };
-    if (typeof parsed.version === "string" && parsed.version.trim().length > 0) {
-      return parsed.version.trim();
+    const parsed = JSON.parse(raw) as {
+      version?: unknown;
+      releaseTag?: unknown;
+      target?: unknown;
+    };
+    const packageVersion = typeof parsed.version === "string" && parsed.version.trim().length > 0
+      ? parsed.version.trim()
+      : null;
+    if (packageVersion) {
+      const releaseTagRaw = typeof parsed.releaseTag === "string" && parsed.releaseTag.trim().length > 0
+        ? parsed.releaseTag
+        : typeof parsed.target === "string" && parsed.target.trim().length > 0
+          ? parsed.target
+          : packageVersion;
+      return {
+        packageVersion,
+        releaseTag: normalizeReleaseTag(releaseTagRaw),
+      };
     }
   } catch {
     // Fall through to package.json.
@@ -424,10 +450,20 @@ const readCanonicalVersion = async (): Promise<string> => {
 
   const rawPackageJson = await readFile(packageJsonPath, "utf8");
   const parsedPackageJson = JSON.parse(rawPackageJson) as { version?: unknown };
-  if (typeof parsedPackageJson.version === "string" && parsedPackageJson.version.trim().length > 0) {
-    return parsedPackageJson.version.trim();
-  }
-  return "0.0.0";
+  const packageVersion = typeof parsedPackageJson.version === "string"
+    && parsedPackageJson.version.trim().length > 0
+    ? parsedPackageJson.version.trim()
+    : "0.0.0";
+  return {
+    packageVersion,
+    releaseTag: normalizeReleaseTag(packageVersion),
+  };
+};
+
+/** Public-facing version label — prefers GitHub releaseTag over package tree. */
+const readCanonicalVersion = async (): Promise<string> => {
+  const identity = await readVersionIdentity();
+  return identity.releaseTag;
 };
 
 const readReleaseHighlights = async (): Promise<readonly ReleaseHighlight[]> => {
@@ -487,25 +523,111 @@ type RawManifestArtifact = {
 
 type RawReleaseManifest = {
   version?: unknown;
+  releaseTag?: unknown;
   signingPolicy?: unknown;
   signingPolicyDoc?: unknown;
   artifacts?: unknown;
 };
 
+const GITHUB_API_REPO = "https://api.github.com/repos/Dendro-X0/Obscur";
+
 const manifestArtifactHref = (params: Readonly<{
-  version: string;
+  releaseTag: string;
   fileName: string;
   repoRelativePath: string;
 }>): string | null => {
-  const version = params.version.trim().replace(/^v/i, "");
+  const releaseTag = normalizeReleaseTag(params.releaseTag);
   const fileName = params.fileName.trim();
-  if (version && fileName) {
-    return `${REPO_GITHUB_BASE}/releases/download/v${version}/${fileName}`;
+  if (releaseTag && fileName) {
+    return `${REPO_GITHUB_BASE}/releases/download/v${releaseTag}/${fileName}`;
   }
   if (params.repoRelativePath.startsWith("release-assets/")) {
     return `${REPO_GITHUB_RAW_BASE}/${params.repoRelativePath}`;
   }
   return null;
+};
+
+const githubAssetsToReleaseSnapshot = (
+  tag: string,
+  htmlUrl: string,
+  assets: ReadonlyArray<ReleaseAsset>,
+): ReleaseSnapshot | null => {
+  const downloadableAssets = filterDownloadableReleaseAssets(assets);
+  if (downloadableAssets.length === 0) {
+    return null;
+  }
+  return {
+    tag: tag.startsWith("v") ? tag : `v${tag}`,
+    htmlUrl,
+    downloadableAssets,
+    preferredDesktopDownload: {
+      windows: toReleaseDownloadTarget(
+        pickPreferredDesktopAsset(downloadableAssets, "windows"),
+        "Windows installer",
+      ),
+      macos: toReleaseDownloadTarget(
+        pickPreferredDesktopAsset(downloadableAssets, "macos"),
+        "macOS installer",
+      ),
+      linux: toReleaseDownloadTarget(
+        pickPreferredDesktopAsset(downloadableAssets, "linux"),
+        "Linux package",
+      ),
+      unknown: null,
+    },
+  };
+};
+
+const fetchGitHubReleaseByTag = async (releaseTag: string): Promise<ReleaseSnapshot | null> => {
+  const tag = normalizeReleaseTag(releaseTag);
+  if (!tag) {
+    return null;
+  }
+  try {
+    const response = await fetch(`${GITHUB_API_REPO}/releases/tags/v${tag}`, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "obscur-website",
+      },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const release = (await response.json()) as {
+      tag_name?: string;
+      html_url?: string;
+      assets?: ReadonlyArray<{
+        name?: string;
+        browser_download_url?: string;
+        size?: number;
+      }>;
+    };
+    const assets: ReleaseAsset[] = (release.assets ?? [])
+      .map((asset) => {
+        const name = typeof asset.name === "string" ? asset.name : "";
+        const browser_download_url = typeof asset.browser_download_url === "string"
+          ? asset.browser_download_url
+          : "";
+        if (!name || !browser_download_url) {
+          return null;
+        }
+        return {
+          name,
+          browser_download_url,
+          size: typeof asset.size === "number" ? asset.size : 0,
+        };
+      })
+      .filter((asset): asset is ReleaseAsset => asset !== null);
+
+    return githubAssetsToReleaseSnapshot(
+      release.tag_name || `v${tag}`,
+      release.html_url || `${REPO_GITHUB_BASE}/releases/tag/v${tag}`,
+      assets,
+    );
+  } catch {
+    return null;
+  }
 };
 
 const readReleaseAssetsManifest = async (): Promise<ReleaseManifestSnapshot | null> => {
@@ -520,6 +642,10 @@ const readReleaseAssetsManifest = async (): Promise<ReleaseManifestSnapshot | nu
     if (!version || !Array.isArray(parsed.artifacts)) {
       return null;
     }
+
+    const releaseTag = typeof parsed.releaseTag === "string" && parsed.releaseTag.trim().length > 0
+      ? normalizeReleaseTag(parsed.releaseTag)
+      : normalizeReleaseTag(version);
 
     const artifacts: ManifestArtifact[] = [];
     for (const entry of parsed.artifacts) {
@@ -541,7 +667,7 @@ const readReleaseAssetsManifest = async (): Promise<ReleaseManifestSnapshot | nu
         path: repoPath,
         sizeBytes,
         sha256,
-        href: manifestArtifactHref({ version, fileName, repoRelativePath: repoPath }),
+        href: manifestArtifactHref({ releaseTag, fileName, repoRelativePath: repoPath }),
         buildCommand: typeof artifact.buildCommand === "string" ? artifact.buildCommand : undefined,
         installHint: typeof artifact.installHint === "string" ? artifact.installHint : undefined,
       });
@@ -553,6 +679,7 @@ const readReleaseAssetsManifest = async (): Promise<ReleaseManifestSnapshot | nu
 
     return {
       version,
+      releaseTag,
       signingPolicy: typeof parsed.signingPolicy === "string" ? parsed.signingPolicy : "unsigned",
       signingPolicyDocHref: SIGNING_POLICY_HREF,
       buildFromSourceDocHref: INSTALL_BUILD_GUIDE_HREF,
@@ -581,7 +708,7 @@ const manifestToReleaseSnapshot = (
     return null;
   }
 
-  const tag = manifest.version.startsWith("v") ? manifest.version : `v${manifest.version}`;
+  const tag = `v${manifest.releaseTag}`;
   return {
     tag,
     htmlUrl: `${REPO_GITHUB_BASE}/releases/tag/${tag}`,
@@ -606,6 +733,12 @@ const manifestToReleaseSnapshot = (
 
 const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => {
   try {
+    const identity = await readVersionIdentity();
+    const fromGitHub = await fetchGitHubReleaseByTag(identity.releaseTag);
+    if (fromGitHub) {
+      return fromGitHub;
+    }
+
     const manifest = await readReleaseAssetsManifest();
     if (manifest) {
       const fromManifest = manifestToReleaseSnapshot(manifest);
@@ -627,9 +760,9 @@ const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => 
 
     const versionRaw = policy.version;
     const version = typeof versionRaw === "string" && versionRaw.trim().length > 0
-      ? versionRaw.trim().replace(/^v/i, "")
-      : await readCanonicalVersion();
-    const tag = version.startsWith("v") ? version : `v${version}`;
+      ? normalizeReleaseTag(versionRaw)
+      : identity.releaseTag;
+    const tag = `v${version}`;
     const releaseNotesUrl = typeof policy.releaseNotesUrl === "string"
       ? policy.releaseNotesUrl
       : `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`;
@@ -667,15 +800,17 @@ const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => 
 };
 
 export const loadSiteContent = async (): Promise<SiteContent> => {
-  const currentVersion = await readCanonicalVersion();
-  const currentTag = currentVersion.startsWith("v") ? currentVersion : `v${currentVersion}`;
+  const identity = await readVersionIdentity();
+  const currentVersion = identity.releaseTag;
+  const currentTag = `v${currentVersion}`;
   const [releaseHighlights, latestRelease, releaseManifest] = await Promise.all([
     readReleaseHighlights(),
     readUnifiedReleaseSnapshot(),
     readReleaseAssetsManifest(),
   ]);
 
-  const resolvedReleaseHref = latestRelease?.htmlUrl ?? `${REPO_GITHUB_BASE}/blob/main/CHANGELOG.md`;
+  const resolvedReleaseHref = latestRelease?.htmlUrl
+    ?? `${REPO_GITHUB_BASE}/releases/tag/${currentTag}`;
 
   const primaryLinks: readonly SiteLink[] = [
     {

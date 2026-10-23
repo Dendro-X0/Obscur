@@ -4,14 +4,14 @@ All notable changes to Obscur are documented here.
 
 **Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
 
-**Current tree version:** **1.9.16** · **Open beta candidate:** [v2.0.0-beta-release.md](docs/releases/v2.0.0-beta-release.md) · cut [v2.0.0-beta-cut-plan-2026-10.md](docs/program/v2.0.0-beta-cut-plan-2026-10.md).  
-**Tagged:** **v1.9.16** — clearnet ship · Tor silo. **Next:** **v2.0.0-beta.1** — B1 packaged · B2 smoke → tag.
+**Current tree version:** **1.9.16** · **Open beta:** [v2.0.0-beta.1](https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.1) · notes [v2.0.0-beta-release.md](docs/releases/v2.0.0-beta-release.md).  
+**Tagged:** **v2.0.0-beta.1** (prerelease) · package tree **1.9.16**. Website pins `version.json` `releaseTag`.
 
 ---
 
-## [2.0.0-beta.1] — 2026-10-21 (Trustworthy crypto open beta · pre-tag)
+## [2.0.0-beta.1] — 2026-10-23 (Trustworthy crypto open beta)
 
-**Pre-tag open beta.** NSIS stamp `shell-2026-10-21T12:45:13Z` · SHA256 `9c8bc09d373166bdce59e70aca22af66b56315dc0d547d4f13d653c9fa47288a` · B2 smoke next.
+**Open beta GitHub Release.** NSIS stamp `shell-2026-10-23T08:23:14Z` · SHA256 `6bffe90d20fcecc8f84057953408ce5b0dc3b8317f5ce3c59f03c3803f28e85b` · B2 smoke on release installer.
 
 ### Changed
 

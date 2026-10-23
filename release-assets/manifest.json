@@ -1,13 +1,14 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-10-21T12:45:13Z",
-  "gitCommit": "local-b1-package",
+  "generatedAt": "2026-10-23T08:31:35Z",
+  "gitCommit": "local-v2.0.0-beta.1-package",
   "version": "1.9.16",
+  "releaseTag": "2.0.0-beta.1",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "local pnpm desktop:package (v2.0.0-beta.1 B1 · 2026-10-21)",
-  "clientBuildStamp": "shell-2026-10-21T12:45:13Z",
+  "sourceRun": "local pnpm desktop:package (v2.0.0-beta.1 · 2026-10-23)",
+  "clientBuildStamp": "shell-2026-10-23T08:23:14Z",
   "artifacts": [
     {
       "platform": "windows",
@@ -15,9 +16,10 @@
       "buildCommand": "pnpm desktop:package",
       "path": "release-assets/windows/Obscur_1.9.16_x64-setup.exe",
       "fileName": "Obscur_1.9.16_x64-setup.exe",
-      "sha256": "9c8bc09d373166bdce59e70aca22af66b56315dc0d547d4f13d653c9fa47288a",
-      "builtAt": "2026-10-21T12:45:13Z",
-      "notes": "Updater .sig skipped (Missing comment in secret key). B2 smoke pending on this installer / matching release exe."
+      "sizeBytes": 9409320,
+      "sha256": "6bffe90d20fcecc8f84057953408ce5b0dc3b8317f5ce3c59f03c3803f28e85b",
+      "builtAt": "2026-10-23T08:31:35Z",
+      "notes": "v2.0.0-beta.1 Windows NSIS. Updater .sig skipped (Missing comment in secret key)."
     },
     {
       "platform": "macos",
@@ -27,7 +29,8 @@
       "fileName": "Obscur_1.9.16_aarch64.dmg",
       "sizeBytes": 6889672,
       "sha256": "594e64a8711ad4a610529cf4439d41760c21f31a3f593b622fe8f74d8565e7c3",
-      "builtAt": "2026-08-16T08:00:00Z"
+      "builtAt": "2026-08-16T08:00:00Z",
+      "notes": "Carried into v2.0.0-beta.1 GitHub Release from v1.9.16 assets; verify SHA-256."
     },
     {
       "platform": "linux",
@@ -37,7 +40,8 @@
       "fileName": "Obscur_1.9.16_amd64.AppImage",
       "sizeBytes": 82713080,
       "sha256": "597c99e1ddaf05e949521f3ab8d4940f11841e2119b2703cbbac314779475778",
-      "builtAt": "2026-08-16T08:00:00Z"
+      "builtAt": "2026-08-16T08:00:00Z",
+      "notes": "Carried into v2.0.0-beta.1 GitHub Release from v1.9.16 assets; verify SHA-256."
     },
     {
       "platform": "web",
@@ -64,9 +68,9 @@
     }
   ],
   "notes": [
-    "v1.9.16 multi-OS desktop + web + Android from Full Release publish run 31935072226",
-    "Website /download hrefs resolve to GitHub Releases download URLs (same assets as secondary channel)",
-    "Windows NSIS / macOS DMG / Linux AppImage unsigned — SmartScreen / Gatekeeper expected",
-    "Android universal release-unsigned APK — sideload only, not Play Store"
+    "Public GitHub release tag: v2.0.0-beta.1 (package tree remains 1.9.16)",
+    "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
+    "Windows NSIS rebuilt 2026-10-23 for beta demo; macOS/Linux/Android from prior CI assets",
+    "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected"
   ]
 }
