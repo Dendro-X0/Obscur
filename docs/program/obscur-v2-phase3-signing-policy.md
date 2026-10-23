@@ -24,11 +24,15 @@ This aligns with the 2026-06-01 maintainer decision in archived signing strategy
 
 Include in demo / website / support copy:
 
-1. Windows installer may show **unknown publisher** / SmartScreen — expected for unsigned builds.
-2. Trust verification: compare installer SHA-256 to [release-assets/manifest.json](../../release-assets/manifest.json).
-3. Android sideload builds are **debug or self-signed release** — not Play Store verified.
+1. **No store developer programs** in Phase 3 — no Apple Developer, Microsoft Authenticode EV, or Google Play enrollment. Installers are **unsigned / self-signed** by policy.
+2. Windows may show **unknown publisher** / SmartScreen — More info → Run anyway after download from the official site.
+3. macOS Gatekeeper may block first open — Right-click → Open, or allow under Privacy & Security.
+4. Linux AppImage may need `chmod +x` and may warn about an untrusted binary.
+5. Android sideload is **self-signed** — not Play Store verified; enable install from that source when prompted.
+6. Trust verification: compare installer SHA-256 to [release-assets/manifest.json](../../release-assets/manifest.json) (download page checksums).
+7. iOS is **not offered** on the public download site (no App Store / TestFlight).
 
-Link: [obscur-v2-known-limitations.md](./obscur-v2-known-limitations.md)
+Link: [obscur-v2-known-limitations.md](./obscur-v2-known-limitations.md) · Website: `/download`
 
 ---
 

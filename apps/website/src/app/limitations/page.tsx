@@ -114,14 +114,13 @@ export default async function LimitationsPage() {
           </article>
           <article className="status-card">
             <div className="status-topline">
-              <h3>Membership propagation delay</h3>
+              <h3>Membership / roster convergence</h3>
               <Globe className="h-5 w-5 text-teal-700" aria-hidden />
             </div>
             <p>
-              Join and leave events propagate across distributed peers with relay latency — typically
-              seconds, not instant global sync. The redesigned community system converges; expecting
-              zero-delay roster parity on relay-backed networks is a distributed-systems mistake, not
-              a missing feature.
+              Join and leave propagate with relay latency (typically seconds). Creator and joiner can
+              still show <strong>different member lists</strong> on the same community until peers
+              catch up — accepted distributed behavior, not a missing “instant sync” feature.
             </p>
           </article>
         </div>
@@ -139,8 +138,9 @@ export default async function LimitationsPage() {
               <h3>Desktop — production</h3>
             </div>
             <p>
-              Windows, macOS, and Linux installers are the verified ship path. Native SQLite owns
-              durable state.
+              Windows NSIS is the primary verified ship path; macOS DMG and Linux AppImage are
+              published on /download — verify SHA-256 before install. Native SQLite owns durable
+              state. Builds are unsigned / self-signed (no paid OS developer programs).
             </p>
           </article>
           <article className="platform-card">
@@ -149,9 +149,18 @@ export default async function LimitationsPage() {
               <h3>Android — sideload</h3>
             </div>
             <p>
-              CI-built universal APK on /download. Self-signed install expected. Low-RAM devices (e.g.
-              4 GB) may still feel heavy — performance work continues; CodaCtrl Studio can profile
-              further regressions.
+              Universal APK on /download. Self-signed; not on Play Store. Low-RAM devices (e.g. 4 GB)
+              may still feel heavy — performance work continues.
+            </p>
+          </article>
+          <article className="platform-card">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-amber-600" aria-hidden />
+              <h3>iOS — not offered</h3>
+            </div>
+            <p>
+              No App Store or TestFlight build. Apple requires a paid Developer Program for any
+              durable public installer — out of scope for this OSS release without that membership.
             </p>
           </article>
           <article className="platform-card">
@@ -234,8 +243,9 @@ export default async function LimitationsPage() {
             <CheckCircle className="h-5 w-5 text-teal-700" aria-hidden />
           </div>
           <p className="mt-4">
-            Unsigned Windows NSIS and self-signed Android APK are expected. SmartScreen and
-            &quot;unknown app&quot; warnings are normal — verify checksums on the download page.
+            Without Apple / Microsoft / Play developer programs, desktop and Android builds are
+            unsigned or self-signed. SmartScreen, Gatekeeper, AppImage trust prompts, and Android
+            &quot;unknown app&quot; warnings are normal — verify SHA-256 on the download page.
           </p>
         </article>
       </section>

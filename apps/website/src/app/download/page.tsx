@@ -24,6 +24,26 @@ const familyLabel = (platform: string, kind: string): string => {
 const formatSize = (sizeBytes: number): string =>
   sizeBytes > 0 ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MB` : "—";
 
+/** UI label — keep real filename in `title` / checksums; hide raw “unsigned” in the card. */
+const displayArtifactName = (fileName: string): string =>
+  fileName
+    .replace(/[-_]unsigned(?=\.|$)/gi, "")
+    .replace(/[-_]debug(?=\.|$)/gi, "")
+    .replace(/_{2,}/g, "_")
+    .replace(/-{2,}/g, "-");
+
+const PLATFORM_INSTALL_HINTS = {
+  windows:
+    "SmartScreen may say “Windows protected your PC.” Open More info → Run anyway after you downloaded from this site.",
+  macos:
+    "Gatekeeper may block the first open. Right-click (or Control-click) the app → Open, or allow it under System Settings → Privacy & Security.",
+  linux:
+    "Make the AppImage executable (`chmod +x`), then run it. Your desktop may still warn about an untrusted binary — that is expected.",
+  android:
+    "Enable install from this source when prompted. The APK is self-signed sideload — not Play Store verified.",
+  ios: "No App Store or TestFlight build is published here.",
+} as const;
+
 function detectPlatform(userAgent: string): string {
   const ua = userAgent.toLowerCase();
   if (ua.includes("android")) return "android";
@@ -33,6 +53,9 @@ function detectPlatform(userAgent: string): string {
   if (ua.includes("linux")) return "linux";
   return "web";
 }
+
+const RELEASE_MANIFEST_PATH = "release-assets/manifest.json";
+const MANIFEST_HREF = `https://github.com/Dendro-X0/Obscur/blob/main/${RELEASE_MANIFEST_PATH}`;
 
 export default async function DownloadPage() {
   const headersList = await headers();
@@ -49,7 +72,6 @@ export default async function DownloadPage() {
 
   const androidArtifact = manifest?.artifacts.find((a) => a.platform === "android") ?? null;
 
-  const isMobile = detectedPlatform === "android" || detectedPlatform === "ios";
   const primaryMobileDownload =
     detectedPlatform === "android" && androidArtifact?.href
       ? {
@@ -65,320 +87,310 @@ export default async function DownloadPage() {
   const signingPolicyHref = manifest?.signingPolicyDocHref;
 
   const desktopTargets = [
-    release?.preferredDesktopDownload.windows,
-    release?.preferredDesktopDownload.macos,
-    release?.preferredDesktopDownload.linux,
-  ];
-  const desktopLabels = ["Windows", "macOS", "Linux"];
+    { label: "Windows", target: release?.preferredDesktopDownload.windows },
+    { label: "macOS", target: release?.preferredDesktopDownload.macos },
+    { label: "Linux", target: release?.preferredDesktopDownload.linux },
+  ] as const;
+
+  const primaryPlatformHint =
+    detectedPlatform === "android"
+      ? "Android"
+      : detectedPlatform === "ios"
+        ? null
+        : detectedPlatform === "windows"
+          ? "Windows"
+          : detectedPlatform === "macos"
+            ? "macOS"
+            : detectedPlatform === "linux"
+              ? "Linux"
+              : null;
 
   return (
     <main className="site-shell site-shell--download">
-      <section className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Install surface</p>
+      <section className="download-hero">
+        <div className="download-hero-copy">
+          <p className="eyebrow">Get the app</p>
           <h1>Download Obscur</h1>
           <p className="hero-summary">
-            {detectedPlatform === "android" && androidArtifact?.href
-              ? "Android APK is available for sideload — self-signed, verify SHA-256 below."
-              : `Privacy-first messaging for ${isMobile ? "mobile" : "desktop"}. Installers are ${signingPolicy} — verify SHA-256 checksums below before sideloading.`}
+            {detectedPlatform === "ios"
+              ? "iOS isn’t offered here. Use a desktop installer or Android sideload below."
+              : primaryDownload
+                ? `One click for ${primaryDownload.label} — then pick another platform if you need it.`
+                : "Choose your platform below, or build from source."}
           </p>
 
           {primaryDownload ? (
-            <>
-              <div className="hero-actions">
-                <a
-                  className="button button-primary"
-                  href={primaryDownload.href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Download for {primaryDownload.label}
-                </a>
-                <Link className="button button-secondary" href="/limitations">
-                  Product scope
-                </Link>
-              </div>
-              <p className="hero-meta">
-                {primaryDownload.assetName} · {formatSize(primaryDownload.sizeBytes)}
-              </p>
-            </>
-          ) : (
-            <div className="hero-actions">
+            <div className="download-hero-cta">
               <a
-                className="button button-primary"
+                className="button button-primary button-download-lg"
+                href={primaryDownload.href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Download for {primaryDownload.label}
+              </a>
+              <p className="download-hero-meta">
+                {site.currentVersion}
+                {primaryPlatformHint ? ` · suggested for your device` : null}
+                {" · "}
+                {formatSize(primaryDownload.sizeBytes)}
+              </p>
+            </div>
+          ) : (
+            <div className="download-hero-cta">
+              <a
+                className="button button-primary button-download-lg"
                 href={buildGuideHref}
                 target="_blank"
                 rel="noreferrer"
               >
                 Build from source
               </a>
-              <Link className="button button-secondary" href="/limitations">
-                Product scope
-              </Link>
             </div>
           )}
 
-          <div className="proof-strip download-proof-strip">
-            <a className="proof-link" href={buildGuideHref} target="_blank" rel="noreferrer">
-              Build from source
-            </a>
-            {signingPolicyHref && (
-              <a className="proof-link" href={signingPolicyHref} target="_blank" rel="noreferrer">
-                Signing policy
-              </a>
-            )}
-            <a
-              className="proof-link"
-              href={`https://github.com/Dendro-X0/Obscur/blob/main/${RELEASE_MANIFEST_PATH}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              release-assets/manifest.json
-            </a>
-          </div>
+          <ul className="download-hero-points">
+            <li>Private messaging — identity stays on your device</li>
+            <li>No account signup · no store listing required</li>
+            <li>
+              Installers are self-signed / unsigned — each OS may warn; that is expected without
+              Apple / Microsoft / Play developer programs
+            </li>
+          </ul>
         </div>
 
-        <aside className="hero-panel">
-          <p className="panel-label">Release {site.currentVersion}</p>
+        <aside className="download-hero-aside" aria-label="Release">
+          <p className="panel-label">Current release</p>
+          <p className="download-hero-version">{site.currentVersion}</p>
           <a
-            className="release-chip release-chip-link"
+            className="text-link"
             href={site.currentReleaseHref}
             target="_blank"
             rel="noreferrer"
           >
-            {site.currentVersion}
+            Release notes
           </a>
-          <ul className="hero-points hero-points--compact">
-            <li>Sovereign path: your keys, end-to-end encryption, and operator infra you choose — not a hosted landlord inbox.</li>
-            <li>End-to-end encrypted messaging — NIP-17 DMs and sealed group room keys — with local-first storage.</li>
-            <li>Relays carry ciphertext only; routing metadata is still visible on public relays.</li>
-            <li>Desktop + Android APK in the release manifest — verify checksums before install.</li>
-            <li>No cloud account required; identity stays on your device. Tor routing is optional underlay, not the product pitch.</li>
-          </ul>
+          <div className="download-hero-aside-links">
+            <Link href="/limitations">Product scope</Link>
+            <Link href="/guide">User guide</Link>
+            {signingPolicyHref ? (
+              <a href={signingPolicyHref} target="_blank" rel="noreferrer">
+                Signing policy
+              </a>
+            ) : null}
+          </div>
         </aside>
       </section>
 
       {signingPolicy === "unsigned" && (
-        <section className="callout-warning" aria-label="Unsigned installer notice">
+        <section
+          className="callout-warning callout-warning--compact download-trust"
+          aria-label="Self-signed installer notice"
+        >
           <AlertTriangle className="callout-warning-icon" aria-hidden />
           <div>
-            <p className="callout-warning-title">Unsigned installer (expected)</p>
+            <p className="callout-warning-title">OS warnings are expected</p>
             <p>
-              Windows SmartScreen may warn about an unknown publisher. Verify the SHA-256 checksum
-              before running. Signing is deferred per maintainer policy.
+              Obscur ships installers without Apple Developer, Microsoft Authenticode, or Google
+              Play enrollment — builds are self-signed / unsigned. Your OS will treat that as
+              “unknown publisher.” Trust this page’s checksums (below), not a store badge.
+              {signingPolicyHref ? (
+                <>
+                  {" "}
+                  <a className="callout-warning-link" href={signingPolicyHref} target="_blank" rel="noreferrer">
+                    Signing policy
+                  </a>
+                </>
+              ) : null}
             </p>
-            {signingPolicyHref && (
-              <a className="callout-warning-link" href={signingPolicyHref} target="_blank" rel="noreferrer">
-                Read signing policy →
-              </a>
-            )}
+            <ul className="download-trust-list">
+              <li>
+                <strong>Windows</strong> — {PLATFORM_INSTALL_HINTS.windows}
+              </li>
+              <li>
+                <strong>macOS</strong> — {PLATFORM_INSTALL_HINTS.macos}
+              </li>
+              <li>
+                <strong>Linux</strong> — {PLATFORM_INSTALL_HINTS.linux}
+              </li>
+              <li>
+                <strong>Android</strong> — {PLATFORM_INSTALL_HINTS.android}
+              </li>
+            </ul>
           </div>
         </section>
       )}
 
-      <section className="section-grid">
+      <section className="download-platforms" aria-labelledby="download-platforms-title">
         <div className="section-header section-header--wide">
-          <p className="eyebrow">Desktop</p>
-          <h2>Platform installers</h2>
+          <p className="eyebrow">All platforms</p>
+          <h2 id="download-platforms-title">Pick your installer</h2>
           <p className="section-lead">
-            Windows, macOS (Apple Silicon), and Linux AppImage for {site.currentVersion} are in
-            the release manifest. Builds are unsigned. Linux is larger because the AppImage
-            ships WebKit/GTK libraries; Windows and macOS use the OS webview instead.
+            Desktop is the primary surface. Android is sideload-only. iOS is not available. Every
+            offered installer follows the same self-signed policy.
           </p>
         </div>
 
-        <div className="platform-grid">
-          {desktopTargets.map((target, index) => (
-            <article key={target?.assetName ?? `fallback-${index}`} className="platform-card">
-              <div className="platform-card-topline">
-                <h3>{target?.label ?? desktopLabels[index]}</h3>
-                <span
-                  className={`status-pill ${target ? "status-pass" : "status-partial"}`}
-                >
-                  {target ? "Ready" : "Build locally"}
-                </span>
-              </div>
-              <p>
-                {target
-                  ? target.assetName
-                  : "See install/build guide for platform commands."}
-              </p>
-              {target ? (
-                <div className="platform-card-footer">
-                  <span className="platform-card-size">{formatSize(target.sizeBytes)}</span>
-                  <a
-                    className="button button-primary button-compact"
-                    href={target.href}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Download
-                  </a>
+        <div className="download-pick-grid">
+          {desktopTargets.map(({ label, target }) => {
+            const isSuggested = primaryPlatformHint === label;
+            const hintKey =
+              label === "Windows" ? "windows" : label === "macOS" ? "macos" : "linux";
+            return (
+              <article
+                key={label}
+                className={`download-pick${isSuggested ? " download-pick--suggested" : ""}`}
+              >
+                <div className="download-pick-head">
+                  <h3>{label}</h3>
+                  {isSuggested ? <span className="download-pick-badge">For you</span> : null}
                 </div>
-              ) : (
+                {target ? (
+                  <>
+                    <p className="download-pick-size">{formatSize(target.sizeBytes)}</p>
+                    <p className="download-pick-file" title={target.assetName}>
+                      {displayArtifactName(target.assetName)}
+                    </p>
+                    <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS[hintKey]}</p>
+                    <a
+                      className="button button-primary"
+                      href={target.href}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Download
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p className="download-pick-size">Build locally</p>
+                    <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS[hintKey]}</p>
+                    <a className="button button-secondary" href={buildGuideHref} target="_blank" rel="noreferrer">
+                      Build guide
+                    </a>
+                  </>
+                )}
+              </article>
+            );
+          })}
+
+          <article
+            className={`download-pick${primaryPlatformHint === "Android" ? " download-pick--suggested" : ""}`}
+          >
+            <div className="download-pick-head">
+              <h3>Android</h3>
+              {primaryPlatformHint === "Android" ? (
+                <span className="download-pick-badge">For you</span>
+              ) : null}
+            </div>
+            {androidArtifact?.href ? (
+              <>
+                <p className="download-pick-size">
+                  {formatSize(androidArtifact.sizeBytes)} · APK sideload
+                </p>
+                <p className="download-pick-file" title={androidArtifact.fileName}>
+                  {displayArtifactName(androidArtifact.fileName)}
+                </p>
+                <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS.android}</p>
                 <a
-                  className="text-link"
-                  href={buildGuideHref}
+                  className="button button-primary"
+                  href={androidArtifact.href}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Build guide →
+                  Download APK
                 </a>
-              )}
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="section-grid">
-        <div className="section-header section-header--wide">
-          <p className="eyebrow">Mobile</p>
-          <h2>Android sideload · iOS out of scope</h2>
-          <p className="section-lead">
-            No Google Play or Apple Developer Program listing — builds are self-signed. Android: CI
-            universal APK on this page (installable and functional; performance improved since early
-            v1.9). Low-RAM phones may still feel heavy. iOS is not offered here.
-          </p>
-        </div>
-
-        <div className="platform-grid platform-grid--two">
-          <article className="platform-card">
-            <div className="platform-card-topline">
-              <h3>Android</h3>
-              <span
-                className={`status-pill ${androidArtifact?.href ? "status-pass" : "status-partial"}`}
-              >
-                {androidArtifact?.href ? "Ready" : "Local build"}
-              </span>
-            </div>
-            {androidArtifact ? (
-              <>
-                <p>{androidArtifact.fileName}</p>
-                <p>
-                  {formatSize(androidArtifact.sizeBytes)} · universal · self-signed · not on Play
-                  Store
-                </p>
-                <p className="platform-card-hint">
-                  Allow install from this source → open the APK. Tested installable in Android Studio
-                  builds; {site.currentVersion} ships from Full Release CI. Or:{" "}
-                  <code className="inline-code">adb install -r &lt;apk&gt;</code>
-                </p>
-                <div className="platform-card-footer">
-                  {androidArtifact.href ? (
-                    <a
-                      className="button button-primary button-compact"
-                      href={androidArtifact.href}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Download
-                    </a>
-                  ) : (
-                    <a className="text-link" href={buildGuideHref} target="_blank" rel="noreferrer">
-                      Android build steps →
-                    </a>
-                  )}
-                </div>
-                <code
-                  className="checksum-value checksum-value--compact"
-                  data-codactrl-sha256={androidArtifact.sha256}
-                >
-                  {androidArtifact.sha256}
-                </code>
               </>
             ) : (
-              <p>No Android artifact recorded in manifest.</p>
+              <>
+                <p className="download-pick-size">Not in this manifest</p>
+                <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS.android}</p>
+                <a className="button button-secondary" href={buildGuideHref} target="_blank" rel="noreferrer">
+                  Build guide
+                </a>
+              </>
             )}
           </article>
 
-          <article className="platform-card">
-            <div className="platform-card-topline">
+          <article className="download-pick download-pick--muted">
+            <div className="download-pick-head">
               <h3>iOS</h3>
-              <span className="status-pill status-pending">Not in scope</span>
             </div>
-            <p>
-              No Apple Developer Program build on this site — no App Store or TestFlight.
-            </p>
+            <p className="download-pick-size">Not offered</p>
+            <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS.ios}</p>
           </article>
         </div>
       </section>
 
-      {manifest && manifest.artifacts.length > 0 && (
-        <section
-          className="section-grid editorial-band"
+      {manifest && manifest.artifacts.length > 0 ? (
+        <details
+          className="download-verify"
           data-codactrl-surface="download-checksums"
         >
-          <div className="section-header section-header--wide">
-            <p className="eyebrow">Verification</p>
-            <h2>Checksums ({manifest.version})</h2>
-            <p className="section-lead">
-              Verify downloads against{" "}
-              <a
-                className="text-link"
-                href={`https://github.com/Dendro-X0/Obscur/blob/main/${RELEASE_MANIFEST_PATH}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                release-assets/manifest.json
+          <summary className="download-verify-summary">
+            <span className="download-verify-title">Optional: verify file integrity</span>
+            <span className="download-verify-hint">
+              For advanced users — SHA-256 checksums ({manifest.version})
+            </span>
+          </summary>
+          <div className="download-verify-body">
+            <p className="download-verify-lead">
+              After downloading, you can confirm the file wasn’t altered by comparing its hash to{" "}
+              <a href={MANIFEST_HREF} target="_blank" rel="noreferrer">
+                manifest.json
               </a>
-              . Copy the full SHA-256 before running any installer.
+              . Most people can skip this.
             </p>
-          </div>
-
-          <div className="checksum-list">
-            {manifest.artifacts.map((artifact) => (
-              <article key={artifact.path} className="checksum-row">
-                <div className="checksum-row-head">
-                  <div>
-                    <p className="checksum-filename">{artifact.fileName}</p>
-                    <p className="checksum-meta">
-                      {familyLabel(artifact.platform, artifact.kind)} · {formatSize(artifact.sizeBytes)}
-                      {artifact.href ? " · hosted in repo" : " · local build output"}
-                    </p>
+            <div className="checksum-list">
+              {manifest.artifacts.map((artifact) => (
+                <article key={artifact.path} className="checksum-row">
+                  <div className="checksum-row-head">
+                    <div>
+                      <p className="checksum-filename">
+                        {familyLabel(artifact.platform, artifact.kind)}
+                      </p>
+                      <p className="checksum-meta">
+                        {artifact.fileName} · {formatSize(artifact.sizeBytes)}
+                      </p>
+                    </div>
+                    {artifact.href ? (
+                      <a
+                        className="button button-secondary button-compact"
+                        href={artifact.href}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Download
+                      </a>
+                    ) : (
+                      <span className="status-pill status-pending">Local only</span>
+                    )}
                   </div>
-                  {artifact.href ? (
-                    <a
-                      className="button button-secondary button-compact"
-                      href={artifact.href}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Download
-                    </a>
-                  ) : (
-                    <span className="status-pill status-pending">Build output</span>
-                  )}
-                </div>
-                <code className="checksum-value" data-codactrl-sha256={artifact.sha256}>
-                  {artifact.sha256}
-                </code>
-              </article>
-            ))}
+                  <code className="checksum-value" data-codactrl-sha256={artifact.sha256}>
+                    {artifact.sha256}
+                  </code>
+                </article>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
+        </details>
+      ) : null}
 
-      <section className="split-section">
-        <article className="cta-panel">
-          <p className="eyebrow">Before you install</p>
-          <h2>Understand scope before you demo</h2>
-          <p>
-            Obscur separates network contracts from product defects: public relays are immutable,
-            operator stacks enable stronger deletion, and desktop/Android are the ship surfaces. Read
-            product scope so demos stay accurate.
-          </p>
-          <div className="hero-actions">
-            <Link className="button button-primary" href="/limitations">
-              Product scope
-            </Link>
-            <Link className="button button-secondary" href="/">
-              Back to product
-            </Link>
-          </div>
-        </article>
+      <section className="download-next">
+        <p className="eyebrow">Next</p>
+        <h2>After you install</h2>
+        <div className="download-next-actions">
+          <Link className="button button-secondary" href="/guide">
+            Open the user guide
+          </Link>
+          <Link className="button button-secondary" href="/limitations">
+            Read product scope
+          </Link>
+          <Link className="button button-secondary" href="/">
+            Back to product
+          </Link>
+        </div>
       </section>
     </main>
   );
 }
-
-const RELEASE_MANIFEST_PATH = "release-assets/manifest.json";

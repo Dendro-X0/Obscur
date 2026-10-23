@@ -79,5 +79,8 @@ apps/relay-gateway/data/hide-registry.json
 .playwright-mcp
 .tools/
 
+# CodaCtrl Studio hub — local only (never commit)
+.codactrl/
+
 # Business / GTM docs — local only (never push)
 docs/business/
