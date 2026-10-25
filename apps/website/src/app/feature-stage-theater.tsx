@@ -101,7 +101,7 @@ export function FeatureStageTheater({ features }: FeatureStageTheaterProps) {
           key={feature.title}
           className={`stage-theater-media${reducedMotion ? "" : " stage-theater-media--fade"}`}
         >
-          {showPosterOnly ? (
+          {showPosterOnly && feature.media.posterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- reduced-motion poster
             <img
               className="stage-theater-frame"
