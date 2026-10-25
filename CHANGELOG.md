@@ -4,8 +4,29 @@ All notable changes to Obscur are documented here.
 
 **Source of truth:** Release notes under [`docs/releases/`](docs/releases/) · train map [`docs/program/v1.9.x-release-train.md`](docs/program/v1.9.x-release-train.md).
 
-**Current tree version:** **1.9.16** · **Open beta:** [v2.0.0-beta.1](https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.1) · notes [v2.0.0-beta-release.md](docs/releases/v2.0.0-beta-release.md).  
-**Tagged:** **v2.0.0-beta.1** (prerelease) · package tree **1.9.16**. Website pins `version.json` `releaseTag`.
+**Current tree version:** **2.0.0** · **Open beta:** [v2.0.0-beta.2](https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.2) · notes [v2.0.0-beta.2-release.md](docs/releases/v2.0.0-beta.2-release.md).  
+**Tagged:** **v2.0.0-beta.2** (prerelease) · package tree **2.0.0**. Website pins `version.json` `releaseTag`.
+
+---
+
+## [2.0.0-beta.2] — 2026-10-25 (Desktop shell + Android refresh)
+
+**Open beta GitHub Release.** Package tree **2.0.0**. Windows NSIS stamp `shell-2026-10-25T12:21:56Z` · SHA256 `002ac23ec6adf5a7148e14e8a5f62c49bed3aa578b1df3873735fa7fb444ae02`. Android universal unsigned APK + AAB rebuilt.
+
+### Changed
+
+- **Desktop layout** — mobile tab-bar bottom inset no longer leaks into desktop chrome.
+- **Package tree** — `1.9.16` → `2.0.0` (marketing label `2.0.0-beta.2`).
+- **Android** — fresh unsigned APK/AAB for package tree 2.0.0.
+
+### Unchanged (honesty)
+
+- macOS / Linux / web static assets carried from beta.1 (not rebuilt this cut).
+- 1:1 voice shipped · **video not usable**.
+- Tor optional · not Verified.
+- Soft L3 / Matrix / Spaces remain PAUSED.
+
+**Release notes:** [v2.0.0-beta.2-release.md](docs/releases/v2.0.0-beta.2-release.md).
 
 ---
 

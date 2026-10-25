@@ -1,6 +1,6 @@
 {
-  "version": "1.9.16",
+  "version": "2.0.0",
   "channel": "beta",
   "target": "v2.0.0",
-  "releaseTag": "2.0.0-beta.1"
+  "releaseTag": "2.0.0-beta.2"
 }

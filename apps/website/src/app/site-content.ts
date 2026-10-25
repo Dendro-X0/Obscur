@@ -980,7 +980,7 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
     {
       label: "Transport presets",
       status: "pass",
-      note: "v1.9.16 pool health + operator-friendly relay/mesh starting points — encryption stays on the client.",
+      note: "v2.0.0-beta.2 pool health + operator-friendly relay/mesh starting points — encryption stays on the client.",
     },
     {
       label: "Network boundaries",

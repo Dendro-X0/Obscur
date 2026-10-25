@@ -1,7 +1,7 @@
 {
   "name": "dweb-messenger",
   "private": true,
-  "version": "1.9.16",
+  "version": "2.0.0",
   "license": "UNLICENSED",
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -36,6 +36,9 @@
     "dev:desktop:stack": "node scripts/dev-workspace-stack.mjs --online --stack-only",
     "dev:mobile-shell:online": "node scripts/dev-mobile-shell.mjs --online",
     "dev:mobile-shell:offline": "node scripts/dev-mobile-shell.mjs --offline",
+    "dev:mobile-preview": "node scripts/dev-mobile-preview.mjs --online",
+    "dev:mobile-preview:online": "node scripts/dev-mobile-preview.mjs --online",
+    "dev:mobile-preview:offline": "node scripts/dev-mobile-preview.mjs --offline",
     "dev:tor-gateway": "bash -c 'OBSCUR_TOR_GATEWAY_BIND=127.0.0.1:17950 OBSCUR_TOR_GATEWAY_TUNNEL_BIND=127.0.0.1:17951 exec cargo run -p obscur-tor-gateway'",
     "verify:tor-gateway": "cargo test -p obscur-tor-gateway",
     "dev:coordination": "pnpm -C apps/coordination dev",

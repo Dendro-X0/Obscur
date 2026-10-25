@@ -1,7 +1,7 @@
 # Current Session Handoff
 
 - Last Updated (UTC): 2026-10-21T13:15:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.1 cut · **B1 done** · B2 smoke · Stay Tauri
+- Session Status: **ACTIVE** · v2.0.0-beta.2 packaged · **B2 smoke next** · Stay Tauri
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -24,7 +24,7 @@ If a task cannot proceed without centering Nostr-as-the-product, STOP and ask.
 
 ## Active Objective
 
-**Cut `v2.0.0-beta.1`** per [v2.0.0-beta-cut-plan-2026-10.md](../program/v2.0.0-beta-cut-plan-2026-10.md): package → release-exe smoke → notes → tag. Gift GIFs + known limitations are enough. Video / CU-UX L3 / Tor / Spaces are not beta blockers.
+**Cut `v2.0.0-beta.2`** (package tree 2.0.0): local desktop + Android package Done → [release notes](../releases/v2.0.0-beta.2-release.md) → B2 smoke → tag when Pass. iOS not on Windows. Video / Soft L3 / Tor / Spaces remain PAUSED.
 
 ## Sequencing
 
@@ -47,12 +47,17 @@ FOCUS — Public trust face · hitch / PB1-C · M1-L3 only with camera
 ## Next Atomic Step
 
 ```text
-v2.0.0-beta.1 — B1 DONE · B3/B4 DONE.
-Installer SHA256 9c8bc09d373166bdce59e70aca22af66b56315dc0d547d4f13d653c9fa47288a
-Stamp shell-2026-10-21T12:45:13Z
-NEXT: B2 smoke release exe (Tor OFF) → B5 tag v2.0.0-beta.1
-CU-UX-2b…6 L1 enough; skip dual-profile L3.
-Do NOT open video / Spaces / Matrix / Soft L3 / new CU-UX before tag unless P0.
+v2.0.0-beta.2 — local package DONE (2026-10-25)
+Package tree 2.0.0 · releaseTag 2.0.0-beta.2
+Desktop: release-assets/windows/Obscur_2.0.0_x64-setup.exe
+  SHA256 002ac23ec6adf5a7148e14e8a5f62c49bed3aa578b1df3873735fa7fb444ae02
+  Stamp shell-2026-10-25T12:21:56Z
+Android: release-assets/android/Obscur_2.0.0_universal-release-unsigned.apk (+ .aab)
+Notes: docs/releases/v2.0.0-beta.2-release.md
+NEXT: B2 smoke on Obscur_2.0.0_x64-setup.exe (Tor OFF)
+  → docs/releases/v2.0.0-beta-b2-smoke-2026-10-25.md
+Then tag v2.0.0-beta.2 when smoke Pass · iOS not built on Windows
+Do NOT open video / Spaces / Matrix / Soft L3 / new CU-UX unless P0.
 Do NOT claim video usable · Tor Verified · delete-for-all on Quiet · history migrate.
 Do NOT greenfield · Do NOT promote Matrix · Do NOT market as a Nostr client
 ```
