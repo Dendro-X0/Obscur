@@ -3,7 +3,8 @@
 import React from "react";
 import { ExternalLink, Volume2 } from "lucide-react";
 import { cn } from "@dweb/ui-kit/cn";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 import {
   formatVoiceNoteRecordedAtLabel,
   type VoiceNoteAttachmentMetadata,

@@ -5,7 +5,7 @@ import type {
   ConduitMeshNostrSubscriptionPort,
 } from "./conduit-mesh-nostr-subscription-port";
 import type { NostrWsWirePort } from "./nostr-ws-wire-port";
-import { extractEventIdFromNostrWirePayload } from "@obscur/conduit-mesh-contracts";
+import { extractEventIdFromNostrWirePayload } from "@obscur/conduit-mesh-contracts/nostr-ws-wire-contract";
 
 export type InMemoryNostrWsClientOptions = Readonly<{
   now?: () => number;

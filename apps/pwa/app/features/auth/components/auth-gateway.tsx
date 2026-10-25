@@ -26,6 +26,7 @@ import { PeerDisplayDeviceCacheSyncOwner } from "@/app/features/profiles/compone
 import { ProfileIdentityDraftSyncOwner } from "@/app/features/profiles/components/profile-identity-draft-sync-owner";
 import { AccountActiveInOtherProfileWindowError } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import {
+  isAuthPublicDevLabRoute,
   isAuthPublicProfileRoute,
   isPageReloadNavigation,
   PROFILE_SIGN_IN_ROUTE,
@@ -636,7 +637,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     startupState.kind,
   ]);
 
-  if (isPublicProfileRoute) {
+  if (isPublicProfileRoute || isAuthPublicDevLabRoute(pathname)) {
     return <>{children}</>;
   }
 

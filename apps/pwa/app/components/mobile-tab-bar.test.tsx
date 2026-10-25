@@ -7,8 +7,8 @@ import * as routeStallRecovery from "./route-stall-recovery.client";
 const mobileTabBarMocks = vi.hoisted(() => ({
     pathname: "/",
     push: vi.fn(),
-    layoutTier: "phone" as "phone" | "tablet" | "desktop",
-    mobileShellProduct: false,
+    mobileShellProduct: true,
+    beginNavigation: vi.fn(),
 }));
 
 vi.mock("@/app/features/runtime/shell-contract", async (importOriginal) => {
@@ -18,10 +18,6 @@ vi.mock("@/app/features/runtime/shell-contract", async (importOriginal) => {
         isMobileShellProduct: () => mobileTabBarMocks.mobileShellProduct,
     };
 });
-
-vi.mock("@/app/features/runtime/use-mobile-compact-layout", () => ({
-    useSecondaryPageLayoutTier: () => mobileTabBarMocks.layoutTier,
-}));
 
 vi.mock("next/navigation", () => ({
     usePathname: () => mobileTabBarMocks.pathname,
@@ -56,7 +52,7 @@ vi.mock("react-i18next", () => ({
 
 vi.mock("./global-navigation-loading", () => ({
     useGlobalNavigationLoadingActions: () => ({
-        beginNavigation: vi.fn(),
+        beginNavigation: mobileTabBarMocks.beginNavigation,
         beginChunkLoad: vi.fn(),
         endChunkLoad: vi.fn(),
     }),
@@ -83,8 +79,7 @@ describe("MobileTabBar navigation", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mobileTabBarMocks.pathname = "/";
-        mobileTabBarMocks.layoutTier = "phone";
-        mobileTabBarMocks.mobileShellProduct = false;
+        mobileTabBarMocks.mobileShellProduct = true;
     });
 
     it("renders nav links with href targets", () => {
@@ -95,7 +90,7 @@ describe("MobileTabBar navigation", () => {
         expect(screen.getByRole("link", { name: "nav.settings" })).toHaveAttribute("href", "/settings");
     });
 
-    it("hard-navigates when mobile route transition stalls", async () => {
+    it("soft-pushes immediately and recovers when mobile route transition stalls", async () => {
         vi.useFakeTimers();
         const recoverSpy = vi.spyOn(routeStallRecovery, "recoverFromRouteStall").mockImplementation(() => undefined);
         try {
@@ -104,10 +99,15 @@ describe("MobileTabBar navigation", () => {
             act(() => {
                 fireEvent.click(networkLink);
             });
+            expect(mobileTabBarMocks.push).toHaveBeenCalledWith("/network");
+            expect(mobileTabBarMocks.beginNavigation).toHaveBeenCalledWith("/network");
+            expect(screen.getByTestId("mobile-tab-bar")).toHaveAttribute("aria-busy", "true");
+            expect(networkLink).toHaveAttribute("aria-current", "page");
             expect(recoverSpy).not.toHaveBeenCalled();
 
+            // Mobile shell uses a 6s hard-fallback budget (see ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS).
             act(() => {
-                vi.advanceTimersByTime(4_600);
+                vi.advanceTimersByTime(6_100);
             });
             expect(recoverSpy).toHaveBeenCalledWith("/network", expect.objectContaining({ push: expect.any(Function) }));
         } finally {
@@ -116,20 +116,13 @@ describe("MobileTabBar navigation", () => {
         }
     });
 
-    it("stays visible on tablet-width viewports", () => {
-        mobileTabBarMocks.layoutTier = "tablet";
-        render(<MobileTabBar navBadgeCounts={{}} />);
-        expect(screen.getByTestId("mobile-tab-bar")).toBeInTheDocument();
-    });
-
-    it("hides on desktop-width web viewports", () => {
-        mobileTabBarMocks.layoutTier = "desktop";
+    it("hides outside the mobile product shell (desktop-first)", () => {
+        mobileTabBarMocks.mobileShellProduct = false;
         render(<MobileTabBar navBadgeCounts={{}} />);
         expect(screen.queryByTestId("mobile-tab-bar")).not.toBeInTheDocument();
     });
 
-    it("stays visible on mobile shell builds regardless of layout tier", () => {
-        mobileTabBarMocks.layoutTier = "desktop";
+    it("stays visible on mobile shell builds", () => {
         mobileTabBarMocks.mobileShellProduct = true;
         render(<MobileTabBar navBadgeCounts={{}} />);
         expect(screen.getByTestId("mobile-tab-bar")).toBeInTheDocument();
@@ -149,7 +142,7 @@ describe("MobileTabBar navigation", () => {
             rerender(<MobileTabBar navBadgeCounts={{}} />);
 
             act(() => {
-                vi.advanceTimersByTime(4_600);
+                vi.advanceTimersByTime(6_100);
             });
             expect(recoverSpy).not.toHaveBeenCalled();
         } finally {

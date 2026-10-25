@@ -2,7 +2,8 @@
 
 import React, { useMemo } from "react";
 import { cn } from "@/app/lib/utils";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 
 type TextToken = Readonly<
   | { kind: "text"; value: string }

@@ -83,18 +83,25 @@ Landing “Open in guide” links point at `/guide/<slug>`.
 
 Body measure ~38–42rem on chapter copy. Wider vertical rhythm than the old editorial fold.
 
-### Hero media / future audio demo
+### Hero media / demo policy
 
 | Path | Role |
 |------|------|
-| `public/hero-media/showcase.mp4` | Preferred hero stage when present |
+| `docs/assets/gifs/` (+ `web/` MP4s) | **Canonical product demo** — 20+ silent how-tos; enough for beta intro |
+| `/guide` | Paginated walkthrough using that shelf |
+| `public/hero-media/showcase.mp4` | Optional short narrated intro (not required) |
 | `public/hero-media/showcase.poster.jpg` | Poster companion |
-| Fallback | Strong guide stem (e.g. `auth_unlock_1`) muted ambient |
+
+**Policy:** Do **not** block ship or trust messaging on a long cinematic video. v1.9.16 captures remain valid while the beta face matches. Optional short clip OK; mega-edit is out.
 
 **When showcase is present (audio-capable):** `<video controls>` — sound only after user play. **Never autoplay with sound.**  
 **Fallback / silent ambient:** muted loop + playsInline; reduced-motion → static poster only.
 
-Drop-in later: place your narrated demo at `public/hero-media/showcase.mp4` (+ poster). Resolver in `site-content.ts` (`resolveHeroShowcase`) picks it up automatically.
+Resolver in `site-content.ts` (`resolveHeroShowcase`) picks up showcase when present; otherwise ambient from the GIF library.
+
+### Studio / commercial link
+
+Maintainer online business (custom services · contact): [dendro-portfolio.vercel.app](https://dendro-portfolio.vercel.app/) — linked from nav, footer, and the site-wide feedback band. Gift download/guide stay on this site.
 
 ---
 

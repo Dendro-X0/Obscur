@@ -7,6 +7,8 @@
  *   pnpm dev:mobile-shell:offline
  *
  * Open http://127.0.0.1:3340 in Chrome DevTools device mode (Pixel 5).
+ * Layout-only — browser storage is not native SQLite. For auth/SQLite iteration use:
+ *   pnpm dev:mobile-preview:online
  * For WebView logcat on device: adb logcat -s Tauri/Console
  */
 import { spawn } from "node:child_process";

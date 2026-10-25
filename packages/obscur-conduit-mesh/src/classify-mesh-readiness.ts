@@ -1,4 +1,5 @@
-import type { ConduitRuntimeState, MeshReadiness } from "@obscur/conduit-mesh-contracts";
+import type { ConduitRuntimeState } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshReadiness } from "@obscur/conduit-mesh-contracts/mesh-snapshot";
 
 export const classifyMeshReadiness = (
   conduits: ReadonlyArray<ConduitRuntimeState>,

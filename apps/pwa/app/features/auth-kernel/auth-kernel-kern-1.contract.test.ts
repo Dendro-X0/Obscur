@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import { DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY } from "@dweb/auth";
+import { DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY } from "@dweb/auth/policy/session-credential-policy-contract";
 import {
   deriveStartupAuthStateFromIdentityState,
   shouldEnterLoginModeOnStartup,

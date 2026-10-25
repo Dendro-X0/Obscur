@@ -1,16 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+import { APP_OVERLAY_Z_INDEX_CLASS } from "@/app/components/app-overlay-layer";
 import {
     GROUP_MANAGEMENT_TABS,
     GROUP_MANAGEMENT_TAB_COPY,
     type GroupManagementTabId,
 } from "./constants";
+
+/** Delay capture until real drag so tab clicks still work on phone-preview mouse. */
+const TAB_DRAG_THRESHOLD_PX = 12;
 
 export function GroupManagementShell({
     isOpen,
@@ -46,21 +51,151 @@ export function GroupManagementShell({
 }>): React.JSX.Element | null {
     const compact = useMobileCompactLayout();
     const { t } = useTranslation();
-    if (!isOpen) {
+    const [mounted, setMounted] = useState(false);
+    const tabScrollerRef = useRef<HTMLElement | null>(null);
+    const tabDragRef = useRef<{
+        pointerId: number;
+        startX: number;
+        startScrollLeft: number;
+        moved: boolean;
+        capturing: boolean;
+    } | null>(null);
+    const tabDragMovedRef = useRef(false);
+    const [tabDragging, setTabDragging] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isOpen || !compact) {
+            return;
+        }
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [compact, isOpen]);
+
+    const onTabPointerDownCapture = useCallback((event: React.PointerEvent<HTMLElement>) => {
+        if (!compact || event.pointerType === "touch" || event.button !== 0) {
+            return;
+        }
+        const scroller = tabScrollerRef.current;
+        if (!scroller || scroller.scrollWidth <= scroller.clientWidth) {
+            return;
+        }
+        tabDragMovedRef.current = false;
+        tabDragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startScrollLeft: scroller.scrollLeft,
+            moved: false,
+            capturing: false,
+        };
+    }, [compact]);
+
+    const onTabPointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+        const drag = tabDragRef.current;
+        const scroller = tabScrollerRef.current;
+        if (!drag || !scroller || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        const dx = event.clientX - drag.startX;
+        if (!drag.moved && Math.abs(dx) > TAB_DRAG_THRESHOLD_PX) {
+            drag.moved = true;
+            tabDragMovedRef.current = true;
+            setTabDragging(true);
+            if (!drag.capturing) {
+                scroller.setPointerCapture(event.pointerId);
+                drag.capturing = true;
+            }
+        }
+        if (drag.moved) {
+            scroller.scrollLeft = drag.startScrollLeft - dx;
+            event.preventDefault();
+        }
+    }, []);
+
+    const endTabPointerDrag = useCallback((event: React.PointerEvent<HTMLElement>) => {
+        const drag = tabDragRef.current;
+        const scroller = tabScrollerRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        const didMove = drag.moved;
+        tabDragRef.current = null;
+        setTabDragging(false);
+        if (scroller?.hasPointerCapture(event.pointerId)) {
+            scroller.releasePointerCapture(event.pointerId);
+        }
+        if (didMove) {
+            tabDragMovedRef.current = true;
+            window.setTimeout(() => {
+                tabDragMovedRef.current = false;
+            }, 0);
+        } else {
+            tabDragMovedRef.current = false;
+        }
+    }, []);
+
+    const onTabLostPointerCapture = useCallback((event: React.PointerEvent<HTMLElement>) => {
+        const drag = tabDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        tabDragRef.current = null;
+        tabDragMovedRef.current = false;
+        setTabDragging(false);
+    }, []);
+
+    useEffect(() => {
+        if (!compact || !isOpen) {
+            return;
+        }
+        const scroller = tabScrollerRef.current;
+        if (!scroller) {
+            return;
+        }
+        const onWheel = (event: WheelEvent) => {
+            if (scroller.scrollWidth <= scroller.clientWidth) {
+                return;
+            }
+            if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) {
+                return;
+            }
+            event.preventDefault();
+            scroller.scrollLeft += event.deltaY;
+        };
+        scroller.addEventListener("wheel", onWheel, { passive: false });
+        return () => scroller.removeEventListener("wheel", onWheel);
+    }, [compact, isOpen, mounted]);
+
+    const selectTab = useCallback((tabId: GroupManagementTabId) => {
+        if (tabDragMovedRef.current) {
+            return;
+        }
+        onTabChange(tabId);
+    }, [onTabChange]);
+
+    if (!isOpen || !mounted) {
         return null;
     }
 
     const tabCopy = GROUP_MANAGEMENT_TAB_COPY[activeTab];
 
-    return (
+    const panel = (
         <div
             className={cn(
-                "fixed inset-0 z-[200] flex bg-black/50 backdrop-blur-md dark:bg-black/85",
+                APP_OVERLAY_Z_INDEX_CLASS,
+                "fixed inset-0 flex bg-black/50 backdrop-blur-md dark:bg-black/85",
                 compact ? "items-stretch p-0" : "items-center justify-center p-3 sm:p-6",
             )}
             role="dialog"
             aria-modal="true"
             aria-labelledby="community-management-title"
+            data-testid="group-management-shell"
             onClick={onClose}
             onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -71,11 +206,18 @@ export function GroupManagementShell({
             <div
                 className={cn(
                     "flex min-h-0 w-full flex-col overflow-hidden border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950",
-                    compact ? "h-full max-h-none rounded-none" : "h-[min(92vh,880px)] max-w-5xl rounded-2xl",
+                    compact
+                        ? "h-[100dvh] max-h-[100dvh] rounded-none"
+                        : "h-[min(92vh,880px)] max-w-5xl rounded-2xl",
                 )}
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className={cn("flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800", compact ? "px-3 py-2.5" : "px-4 py-3 sm:px-5")}>
+                <div className={cn(
+                    "flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800",
+                    compact
+                        ? "px-3 py-2.5 pt-[calc(0.625rem+env(safe-area-inset-top,0px))]"
+                        : "px-4 py-3 sm:px-5",
+                )}>
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600">
                             {avatarUrl ? (
@@ -107,7 +249,7 @@ export function GroupManagementShell({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
                         aria-label={t("groups.management.closeSettings")}
                     >
                         <X className="h-5 w-5" />
@@ -116,8 +258,23 @@ export function GroupManagementShell({
 
                 <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
                     <nav
-                        className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-200 px-2 py-2 sm:w-52 sm:flex-col sm:border-b-0 sm:border-r sm:px-2 sm:py-3 dark:border-zinc-800"
+                        ref={tabScrollerRef}
                         aria-label={t("groups.management.sectionsAria")}
+                        data-testid="group-management-tab-scroller"
+                        onPointerDownCapture={compact ? onTabPointerDownCapture : undefined}
+                        onPointerMove={compact ? onTabPointerMove : undefined}
+                        onPointerUp={compact ? endTabPointerDrag : undefined}
+                        onPointerCancel={compact ? endTabPointerDrag : undefined}
+                        onLostPointerCapture={compact ? onTabLostPointerCapture : undefined}
+                        className={cn(
+                            "flex shrink-0 gap-1 border-b border-zinc-200 dark:border-zinc-800 sm:w-52 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r sm:px-2 sm:py-3",
+                            compact
+                                ? cn(
+                                    "mobile-scroll-region cursor-grab touch-pan-x select-none flex-row overflow-x-auto overscroll-x-contain px-2 py-2 active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                                    tabDragging && "cursor-grabbing [&_*]:pointer-events-none",
+                                )
+                                : "overflow-x-auto px-2 py-2",
+                        )}
                     >
                         {GROUP_MANAGEMENT_TABS.map((tab) => (
                             <NavButton
@@ -126,7 +283,8 @@ export function GroupManagementShell({
                                 label={t(tab.labelKey)}
                                 isActive={activeTab === tab.id}
                                 badge={tab.id === "governance" ? governanceBadgeCount : 0}
-                                onClick={() => onTabChange(tab.id)}
+                                compact={compact}
+                                onClick={() => selectTab(tab.id)}
                             />
                         ))}
                     </nav>
@@ -149,7 +307,9 @@ export function GroupManagementShell({
                             className={cn(
                                 "min-h-0 flex-1 overflow-y-auto overscroll-contain",
                                 compact ? "px-3 py-3" : "px-4 py-4 sm:px-6",
-                                footer ? (compact ? "pb-6" : "pb-8") : (compact ? "pb-3" : "pb-4"),
+                                footer
+                                    ? (compact ? "pb-4" : "pb-8")
+                                    : (compact ? "pb-3" : "pb-4"),
                             )}
                         >
                             {relayGateNotice ? (
@@ -159,7 +319,15 @@ export function GroupManagementShell({
                         </div>
 
                         {footer ? (
-                            <footer className="shrink-0 border-t border-zinc-200 bg-zinc-50/80 px-4 py-3 sm:px-5 dark:border-zinc-800 dark:bg-zinc-950">
+                            <footer
+                                className={cn(
+                                    "shrink-0 border-t border-zinc-200 bg-zinc-50/95 dark:border-zinc-800 dark:bg-zinc-950",
+                                    compact
+                                        ? "px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
+                                        : "px-4 py-3 sm:px-5",
+                                )}
+                                data-testid="group-management-footer"
+                            >
                                 {footer}
                             </footer>
                         ) : null}
@@ -168,6 +336,8 @@ export function GroupManagementShell({
             </div>
         </div>
     );
+
+    return createPortal(panel, document.body);
 }
 
 function NavButton({
@@ -175,12 +345,14 @@ function NavButton({
     label,
     isActive,
     badge,
+    compact,
     onClick,
 }: Readonly<{
     icon: LucideIcon;
     label: string;
     isActive: boolean;
     badge: number;
+    compact: boolean;
     onClick: () => void;
 }>): React.JSX.Element {
     return (
@@ -188,13 +360,14 @@ function NavButton({
             type="button"
             onClick={onClick}
             className={cn(
-                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:w-full",
+                "flex shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors sm:w-full",
+                compact ? "py-2.5" : "py-2",
                 isActive
                     ? "bg-violet-100 text-violet-900 ring-1 ring-violet-300/80 dark:bg-violet-600/20 dark:text-violet-100 dark:ring-violet-500/40"
                     : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200",
             )}
         >
-            <Icon className="h-4 w-4 shrink-0" />
+            <Icon className={cn("shrink-0", compact ? "h-5 w-5" : "h-4 w-4")} />
             <span className="whitespace-nowrap">{label}</span>
             {badge > 0 ? (
                 <span className="ml-auto rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-950">

@@ -1,4 +1,5 @@
 import type React from "react"
+import Script from "next/script"
 import type { Metadata } from "next"
 import "./globals.css"
 import "./styles/mobile-safe-area.css"
@@ -9,13 +10,29 @@ const DESKTOP_SHELL_BUILD =
   process.env.NEXT_PUBLIC_DESKTOP_SHELL === "1" ||
   process.env.NEXT_PUBLIC_DESKTOP_SHELL === "true";
 
+const MOBILE_SHELL_BUILD =
+  process.env.NEXT_PUBLIC_MOBILE_SHELL === "1" ||
+  process.env.NEXT_PUBLIC_MOBILE_SHELL === "true";
+
+const MOBILE_PREVIEW_BUILD =
+  process.env.NEXT_PUBLIC_MOBILE_PREVIEW === "1" ||
+  process.env.NEXT_PUBLIC_MOBILE_PREVIEW === "true";
+
 const EXPERIMENT_ONLINE_BUILD = process.env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1";
 
 const DEV_LAB_BUILD = process.env.NEXT_PUBLIC_OBSCUR_DEV_LAB === "1";
 
+const DEV_STACK_SHELL = MOBILE_PREVIEW_BUILD
+  ? "mobile-preview"
+  : MOBILE_SHELL_BUILD
+    ? "mobile"
+    : DESKTOP_SHELL_BUILD
+      ? "desktop"
+      : "web";
+
 const DEV_STACK_FINGERPRINT = process.env.NODE_ENV === "development"
   ? [
-    DESKTOP_SHELL_BUILD ? "desktop" : "web",
+    DEV_STACK_SHELL,
     EXPERIMENT_ONLINE_BUILD ? "online" : "offline-stub",
   ].join(":")
   : null;
@@ -56,7 +73,9 @@ export default function RootLayout({
         {DEV_STACK_FINGERPRINT ? (
           <meta name="obscur-dev-stack" content={DEV_STACK_FINGERPRINT} />
         ) : null}
-        <script
+        <Script
+          id="obscur-boot-client-build"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -77,7 +96,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
+        <Script
+          id="obscur-boot-window-profile"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -109,7 +130,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
+        <Script
+          id="obscur-boot-theme"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -167,7 +190,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
+        <Script
+          id="obscur-boot-desktop-mode"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -202,7 +227,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
+        <Script
+          id="obscur-boot-accessibility"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -255,7 +282,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
+        <Script
+          id="obscur-boot-preloader-failsafe"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -294,7 +323,9 @@ export default function RootLayout({
             `,
           }}
         />
-        <script
+        <Script
+          id="obscur-boot-stall-watchdog"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {

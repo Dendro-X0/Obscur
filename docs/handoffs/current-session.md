@@ -47,20 +47,19 @@ FOCUS — Public trust face · hitch / PB1-C · M1-L3 only with camera
 ## Next Atomic Step
 
 ```text
-v2.0.0-beta.2 — local package DONE (2026-10-25)
-Package tree 2.0.0 · releaseTag 2.0.0-beta.2
-Desktop: release-assets/windows/Obscur_2.0.0_x64-setup.exe
+v2.0.0-beta.2 — GitHub prerelease PUBLISHED (2026-10-25)
+https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.2
+Package tree 2.0.0 · version.json releaseTag 2.0.0-beta.2 (pushed main)
+Desktop: Obscur_2.0.0_x64-setup.exe
   SHA256 002ac23ec6adf5a7148e14e8a5f62c49bed3aa578b1df3873735fa7fb444ae02
-  Stamp shell-2026-10-25T12:21:56Z
-Android: release-assets/android/Obscur_2.0.0_universal-release-unsigned.apk (+ .aab)
-Notes: docs/releases/v2.0.0-beta.2-release.md
-NEXT: B2 smoke on Obscur_2.0.0_x64-setup.exe (Tor OFF)
-  → docs/releases/v2.0.0-beta-b2-smoke-2026-10-25.md
-Then tag v2.0.0-beta.2 when smoke Pass · iOS not built on Windows
+Android: Obscur_2.0.0_universal-release-unsigned.apk (+ .aab)
+Website: /download follows GitHub assets for releaseTag
+NEXT: confirm Vercel website deploy · optional B2 smoke
 Do NOT open video / Spaces / Matrix / Soft L3 / new CU-UX unless P0.
 Do NOT claim video usable · Tor Verified · delete-for-all on Quiet · history migrate.
 Do NOT greenfield · Do NOT promote Matrix · Do NOT market as a Nostr client
 ```
+
 
 ## Landed
 

@@ -44,6 +44,12 @@ import { DmHiddenMessagesPanel } from "./dm-hidden-messages-panel";
 import { useDmThreadHiddenMessages } from "../hooks/use-dm-thread-hidden-messages";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { usePreferNativeTouchScroll } from "@/app/features/runtime/use-prefer-native-touch-scroll";
+import {
+    CHAT_HISTORY_SEARCH_OPEN_EVENT,
+    MESSAGING_SHELL_FLOATING_ABOVE_COMPOSER_CLASS,
+    MESSAGING_SHELL_FLOATING_ABOVE_COMPOSER_MOBILE_CLASS,
+} from "./messaging-shell-bottom-chrome";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 type ChatHistorySearchResult = Readonly<{
     messageId: string;
     timestamp: Date;
@@ -223,6 +229,7 @@ export function ChatView(props: ChatViewProps) {
     } = useMessaging();
     const { items: selectedConversationMediaItems } = useMediaPreviewScope();
     const preferNativeTouchScroll = usePreferNativeTouchScroll();
+    const mobileShellThread = isMobileShellProduct() && props.hideDesktopChatHeader === true;
     const hideDesktopChatHeader = props.hideDesktopChatHeader === true;
     const [isDragging, setIsDragging] = useState(false);
     const [isBatchDeleteMode, setIsBatchDeleteMode] = useState(false);
@@ -604,6 +611,18 @@ export function ChatView(props: ChatViewProps) {
         };
     }, [messageMenu, messageMenuRef, reactionPicker, reactionPickerRef, setMessageMenu, setReactionPicker]);
     React.useEffect(() => {
+        if (!mobileShellThread) {
+            return;
+        }
+        const openHistorySearch = () => {
+            setIsHistorySearchOpen(true);
+        };
+        window.addEventListener(CHAT_HISTORY_SEARCH_OPEN_EVENT, openHistorySearch);
+        return () => {
+            window.removeEventListener(CHAT_HISTORY_SEARCH_OPEN_EVENT, openHistorySearch);
+        };
+    }, [mobileShellThread]);
+    React.useEffect(() => {
         if (!messageMenu) {
             setMessageMenuAnchorHoverId(null);
             setIsMessageMenuHovered(false);
@@ -760,13 +779,15 @@ export function ChatView(props: ChatViewProps) {
                 }
             }}/>) : null}
 
-            <div className={cn("pointer-events-none absolute z-40 flex w-[min(24rem,calc(100%-2rem))] flex-col items-end gap-2", preferNativeTouchScroll ? "bottom-36 right-3" : "bottom-[108px] right-4")}>
-                <button type="button" onClick={() => setIsHistorySearchOpen((current) => !current)} className={cn("inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-white/80 px-3 text-[11px] font-bold text-zinc-700 shadow-sm backdrop-blur transition-all dark:border-white/10 dark:bg-zinc-900/80 dark:text-zinc-200", isHistorySearchOpen
+            <div className={mobileShellThread
+            ? MESSAGING_SHELL_FLOATING_ABOVE_COMPOSER_MOBILE_CLASS
+            : MESSAGING_SHELL_FLOATING_ABOVE_COMPOSER_CLASS} data-testid="chat-floating-chrome">
+                {!mobileShellThread ? (<button type="button" onClick={() => setIsHistorySearchOpen((current) => !current)} className={cn("inline-flex h-9 items-center gap-2 rounded-xl border border-black/10 bg-white/80 px-3 text-[11px] font-bold text-zinc-700 shadow-sm backdrop-blur transition-all dark:border-white/10 dark:bg-zinc-900/80 dark:text-zinc-200", isHistorySearchOpen || preferNativeTouchScroll
             ? "pointer-events-auto opacity-100 translate-y-0 hover:bg-white dark:hover:bg-zinc-900"
             : "pointer-events-none translate-y-2 opacity-0 group-hover/chat-root:pointer-events-auto group-hover/chat-root:translate-y-0 group-hover/chat-root:opacity-100 group-focus-within/chat-root:pointer-events-auto group-focus-within/chat-root:translate-y-0 group-focus-within/chat-root:opacity-100 hover:bg-white dark:hover:bg-zinc-900")}>
                     <Search className="h-3.5 w-3.5"/>
                     {t("messaging.searchMessagesInChat")}
-                </button>
+                </button>) : null}
 
                 {isBatchDeleteMode ? (<div data-escape-layer="open" className="pointer-events-auto w-full rounded-2xl border border-rose-400/20 bg-white/85 p-3 shadow-lg backdrop-blur dark:border-rose-300/20 dark:bg-zinc-950/85">
                         <div className="flex items-center justify-between gap-2">

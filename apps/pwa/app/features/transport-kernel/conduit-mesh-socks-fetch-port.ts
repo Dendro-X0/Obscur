@@ -1,4 +1,4 @@
-import type { ConduitSocksFetch } from "@obscur/conduit-mesh";
+import type { ConduitSocksFetch } from "@obscur/conduit-mesh/create-routed-conduit-mesh-fetch";
 
 import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 

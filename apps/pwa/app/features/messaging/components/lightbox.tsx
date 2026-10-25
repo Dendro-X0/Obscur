@@ -15,7 +15,8 @@ import { canSaveChatAttachmentsToLocalVault, saveChatAttachmentWithOutcome } fro
 import { downloadAttachmentToUserPath } from "@/app/features/vault/services/local-media-store";
 import { AttachmentExportConfirmDialog } from "@/app/features/security/components/attachment-export-confirm-dialog";
 import { VaultWriteUnlockDialog } from "@/app/features/security/components/vault-write-unlock-dialog";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 import { useAttachmentExportGate, type UseAttachmentExportGateResult } from "../hooks/use-attachment-export-gate";
 import { MEDIA_VIEWER_MIN_ZOOM, MEDIA_VIEWER_MAX_ZOOM, buildMediaViewerState, clampZoom, computePinchZoom, getTouchDistance, } from "./media-viewer-interactions";
 import { MESSAGING_OVERLAY_BACKDROP_CLASS, MessagingOverlayPortal } from "./messaging-overlay-portal";

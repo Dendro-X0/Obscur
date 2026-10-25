@@ -1,10 +1,8 @@
 import { describe, expect, it, beforeEach } from "vitest";
 
-import type { ConduitDescriptor, MeshEnvelope } from "@obscur/conduit-mesh-contracts";
-import {
-  NOSTR_WS_CONDUIT_WIRE_V1,
-  buildNostrWsWirePayload,
-} from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope } from "@obscur/conduit-mesh-contracts/envelope";
+import { NOSTR_WS_CONDUIT_WIRE_V1, buildNostrWsWirePayload } from "@obscur/conduit-mesh-contracts/nostr-ws-wire-contract";
 
 import { createConduitMesh } from "./create-conduit-mesh";
 import { createConduitDriverFromDescriptor } from "./create-conduit-driver";

@@ -24,7 +24,7 @@ vi.mock("react-i18next", () => ({
       "settings.tabs.identity": "Identity",
       "settings.tabs.security": "Security",
       "settings.tabs.relays": "Relays",
-      "settings.tabs.protocols": "Protocols/Network",
+      "settings.tabs.protocols": "Protocols",
       "settings.tabs.storage": "Storage",
       "settings.tabs.blocklist": "Blocklist",
       "settings.tabs.privacy": "Privacy",
@@ -122,8 +122,11 @@ describe("SettingsPage mobile section nav", () => {
 
     const menuScroll = screen.getByTestId("settings-mobile-menu-scroll");
     expect(menuScroll).toHaveClass("mobile-scroll-region");
+    expect(menuScroll.className).toMatch(/mobile-shell-bottom-inset/);
     expect(within(menuScroll).getByText("General")).toBeInTheDocument();
+    expect(within(menuScroll).getByText("System")).toBeInTheDocument();
     expect(within(menuScroll).getByRole("button", { name: "Profile" })).toBeInTheDocument();
+    expect(within(menuScroll).getByRole("button", { name: "Updates" })).toBeInTheDocument();
     expect(screen.queryByTestId("settings-mobile-panel-scroll")).not.toBeInTheDocument();
   });
 

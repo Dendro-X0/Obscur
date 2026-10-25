@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
 
 import { createRoutedConduitMeshFetch } from "./create-routed-conduit-mesh-fetch";
 

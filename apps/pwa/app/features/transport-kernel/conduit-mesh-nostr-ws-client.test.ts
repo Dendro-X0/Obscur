@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts";
+import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts/nostr-wire-payload";
 
 const relaySocketMocks = vi.hoisted(() => ({
   createRelayWebSocket: vi.fn(),

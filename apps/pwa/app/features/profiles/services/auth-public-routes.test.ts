@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  isAuthPublicDevLabRoute,
   isAuthPublicProfileRoute,
+  isAuthPublicShellBypassRoute,
   isPageReloadNavigation,
   isSessionRestoreDocumentNavigation,
   PROFILE_SIGN_IN_ROUTE,
@@ -21,6 +23,12 @@ describe("auth-public-routes", () => {
     expect(isAuthPublicProfileRoute("/profiles/")).toBe(true);
     expect(isAuthPublicProfileRoute("/settings")).toBe(false);
     expect(isAuthPublicProfileRoute(PROFILE_SIGN_IN_ROUTE)).toBe(false);
+  });
+
+  it("treats /lab call-ui preview as unlock bypass", () => {
+    expect(isAuthPublicDevLabRoute("/lab/call-ui-preview")).toBe(true);
+    expect(isAuthPublicShellBypassRoute("/lab/call-ui-preview")).toBe(true);
+    expect(isAuthPublicDevLabRoute("/network")).toBe(false);
   });
 
   it("redirects locked desktop home to profile picker for existing windows with multiple profiles", () => {

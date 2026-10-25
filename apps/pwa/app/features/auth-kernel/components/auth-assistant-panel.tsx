@@ -5,7 +5,7 @@ import { Fingerprint, Loader2 } from "lucide-react";
 import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";
 import { useTranslation } from "react-i18next";
-import type { AuthAssistantEntry } from "@dweb/auth";
+import type { AuthAssistantEntry } from "@dweb/auth/contracts/auth-assistant-entry";
 
 type AuthAssistantPanelProps = Readonly<{
   entry: AuthAssistantEntry;

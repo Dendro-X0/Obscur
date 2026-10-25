@@ -1,5 +1,5 @@
-import type { ConduitDialect } from "@obscur/conduit-mesh-contracts";
-import { resolveRelayPoolConduitDescriptors } from "@obscur/conduit-mesh";
+import type { ConduitDialect } from "@obscur/conduit-mesh-contracts/conduit";
+import { resolveRelayPoolConduitDescriptors } from "@obscur/conduit-mesh/resolve-relay-pool-conduit-descriptors";
 
 import { isConduitMeshPoolExplicitlyDisabled, isConduitMeshPoolHookOwner } from "./conduit-mesh-pool-hook-port";
 import { shouldUseLegacyRelayPoolHook } from "./transport-kernel-pool-hook-port";

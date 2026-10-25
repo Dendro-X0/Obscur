@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Search, Loader2, Send, Users, UserCheck, X, Check } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { toast } from "../../../components/ui/toast";
 import { cn } from "../../../lib/cn";
+import { UI_OVERLAY_Z_CLASS } from "@dweb/ui-kit/overlay-z-index";
 import { useNetwork } from "../../network/providers/network-provider";
 import { useMessaging } from "../../messaging/providers/messaging-provider";
 import { useRelay } from "../../relays/providers/relay-provider";
@@ -21,16 +23,10 @@ import { useResolvedProfileMetadata } from "../../profile/hooks/use-resolved-pro
 import { toDmConversationId } from "../../messaging/utils/dm-conversation-id";
 import { discoveryCache } from "../../search/services/discovery-cache";
 import {
-    findDmConnectionByPubkey,
-    formatInviteConnectionPubkeyPreview,
-    isInviteConnectionHumanDisplayName,
-    toInviteConnectionSearchText,
+    INVITE_CONNECTION_FALLBACK_NAME,
+    resolveInviteConnectionDisplayName,
+    toInviteConnectionSearchText
 } from "./invite-connection-display";
-import { resolveInviteConnectionPresentation } from "./resolve-invite-connection-presentation";
-import { resolvedIdentityCache } from "@/app/features/search/services/resolved-identity-cache";
-import { seedLabPeerDisplayHintsIfNeeded } from "@/app/features/search/services/lab-peer-display-seed";
-import { seedProfileMetadataCache } from "@/app/features/profile/hooks/use-profile-metadata";
-import { buildAccountDisplayHints } from "@/app/features/profiles/services/desktop-profile-preview-enrichment";
 import { buildOutgoingCommunityInviteDmMessage } from "../utils/community-invite-dm-message";
 import { commitOutgoingCommunityInviteDm } from "../services/community-invite-dm-orchestrator";
 import { upsertDmConversationInList } from "@/app/features/messaging/utils/dm-conversation-list-merge";
@@ -41,7 +37,6 @@ import {
   publishStewardCoordinationRoomKeyWrapsForInvitees,
 } from "../services/community-coordination-room-key-owner";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
-import { useEscapeDismissLayer } from "@/app/lib/use-escape-dismiss-layer";
 
 interface InviteConnectionsDialogProps {
     isOpen: boolean;
@@ -79,8 +74,6 @@ export function InviteConnectionsDialog({
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedPubkeys, setSelectedPubkeys] = useState<Set<string>>(new Set());
     const [isSending, setIsSending] = useState(false);
-    const [displayHydrateEpoch, setDisplayHydrateEpoch] = useState(0);
-    useEscapeDismissLayer({ enabled: isOpen, onClose, blocked: isSending });
 
     const groupService = useRef<GroupService | null>(null);
     const normalizedCurrentMemberPubkeys = React.useMemo(
@@ -122,83 +115,22 @@ export function InviteConnectionsDialog({
         });
     }, [isAlreadyMember]);
 
-    // Hydrate-only: when invite opens, upgrade Unknown/hex DM labels from local caches.
-    useEffect(() => {
-        if (!isOpen) {
-            return;
-        }
-        resolvedIdentityCache.runOneTimeMigration();
-        seedLabPeerDisplayHintsIfNeeded();
-        setDisplayHydrateEpoch((epoch) => epoch + 1);
-
-        const upgradeConnectionLabels = (
-            localHintByPubkey?: ReadonlyMap<string, Readonly<{ username: string; avatarUrl: string }>>,
-        ): void => {
-            setCreatedConnections((previous) => {
-                let changed = false;
-                const next = previous.map((connection) => {
-                    if (connection.kind !== "dm") {
-                        return connection;
-                    }
-                    if (isInviteConnectionHumanDisplayName(connection.displayName, connection.pubkey)) {
-                        return connection;
-                    }
-                    const cachedProfile = discoveryCache.getProfile(connection.pubkey);
-                    const resolved = resolvedIdentityCache.getByPubkey(connection.pubkey);
-                    const presentation = resolveInviteConnectionPresentation({
-                        pubkey: connection.pubkey,
-                        connectionDisplayName: connection.displayName,
-                        cachedDisplayName: cachedProfile?.displayName || cachedProfile?.name,
-                        resolvedDisplayName: resolved?.display,
-                        metadataAvatarUrl: cachedProfile?.picture,
-                        localHintByPubkey,
-                    });
-                    if (!isInviteConnectionHumanDisplayName(presentation.displayName, connection.pubkey)) {
-                        return connection;
-                    }
-                    changed = true;
-                    seedProfileMetadataCache({
-                        pubkey: connection.pubkey.trim().toLowerCase() as PublicKeyHex,
-                        displayName: presentation.displayName,
-                        avatarUrl: presentation.avatarUrl,
-                    });
-                    return {
-                        ...connection,
-                        displayName: presentation.displayName,
-                    };
-                });
-                return changed ? next : previous;
-            });
-            setDisplayHydrateEpoch((epoch) => epoch + 1);
-        };
-
-        upgradeConnectionLabels();
-        void buildAccountDisplayHints().then((hints) => {
-            if (hints.size > 0) {
-                upgradeConnectionLabels(hints);
-            }
-        });
-    }, [isOpen, setCreatedConnections]);
-
     const filteredConnections = React.useMemo(() => {
         const normalizedQuery = searchQuery.trim().toLowerCase();
         return peerTrust.state.acceptedPeers.flatMap((pk) => {
-            const connection = findDmConnectionByPubkey(createdConnections, pk);
+            const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
             const cachedProfile = discoveryCache.getProfile(pk);
-            const resolved = resolvedIdentityCache.getByPubkey(pk);
-            const cachedDisplayName = cachedProfile?.displayName || cachedProfile?.name;
-            const presentation = resolveInviteConnectionPresentation({
+            const metadataDisplayName = cachedProfile?.displayName || cachedProfile?.name;
+            const resolvedDisplayName = resolveInviteConnectionDisplayName({
                 pubkey: pk,
                 connectionDisplayName: connection?.displayName,
-                cachedDisplayName,
-                resolvedDisplayName: resolved?.display,
-                metadataAvatarUrl: cachedProfile?.picture,
+                metadataDisplayName
             });
             const searchText = toInviteConnectionSearchText({
                 pubkey: pk,
-                resolvedDisplayName: presentation.displayName,
+                resolvedDisplayName,
                 connectionDisplayName: connection?.displayName,
-                metadataDisplayName: cachedDisplayName || resolved?.display,
+                metadataDisplayName
             });
             if (normalizedQuery.length > 0 && !searchText.includes(normalizedQuery)) {
                 return [];
@@ -206,11 +138,10 @@ export function InviteConnectionsDialog({
             return [{
                 pubkey: pk,
                 connectionDisplayName: connection?.displayName,
-                cachedMetadataDisplayName: cachedDisplayName || resolved?.display || undefined,
-                resolvedDisplayName: resolved?.display,
+                cachedMetadataDisplayName: metadataDisplayName
             }];
         });
-    }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery, displayHydrateEpoch]);
+    }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery]);
 
     const handleToggleSelect = (pubkey: string) => {
         if (isAlreadyMember(pubkey)) {
@@ -327,20 +258,17 @@ export function InviteConnectionsDialog({
                         return;
                     }
                     const inviteMessage = newMessages[conversationId];
-                    const existing = findDmConnectionByPubkey(next, pubkey);
+                    const existing = next.find((entry) => entry.pubkey === pubkey);
                     const cachedProfile = discoveryCache.getProfile(pubkey);
-                    const resolved = resolvedIdentityCache.getByPubkey(pubkey);
                     const connectionDisplayName = existing?.displayName;
                     const base = existing ?? createDmConversation({
                         myPublicKeyHex,
                         peerPublicKeyHex: pubkey as PublicKeyHex,
-                        displayName: resolveInviteConnectionPresentation({
+                        displayName: resolveInviteConnectionDisplayName({
                             pubkey,
                             connectionDisplayName,
-                            cachedDisplayName: cachedProfile?.displayName || cachedProfile?.name,
-                            resolvedDisplayName: resolved?.display,
-                            metadataAvatarUrl: cachedProfile?.picture,
-                        }).displayName,
+                            metadataDisplayName: cachedProfile?.displayName || cachedProfile?.name,
+                        }),
                     });
                     if (!base) {
                         return;
@@ -377,11 +305,16 @@ export function InviteConnectionsDialog({
 
     if (!isOpen) return null;
 
-    return (
+    const overlay = (
         <div
-            data-escape-layer="open"
-            data-testid="invite-connections-dialog-layer"
-            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm dark:bg-black/80"
+            className={cn(
+                "fixed inset-0 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm dark:bg-black/80",
+                UI_OVERLAY_Z_CLASS.dialogBackdrop,
+            )}
+            data-testid="invite-connections-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-connections-title"
             onClick={handleClose}
         >
             <div
@@ -392,7 +325,7 @@ export function InviteConnectionsDialog({
                 <div className="relative p-8 pb-0">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <h2 className="flex items-center gap-3 text-2xl font-black text-zinc-900 dark:text-zinc-50">
+                            <h2 id="invite-connections-title" className="flex items-center gap-3 text-2xl font-black text-zinc-900 dark:text-zinc-50">
                                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-300/70 bg-indigo-100 text-indigo-700 shadow-[0_0_20px_rgba(99,102,241,0.22)] dark:border-indigo-300/45 dark:bg-indigo-500/30 dark:text-indigo-100 dark:shadow-[0_0_28px_rgba(99,102,241,0.45)]">
                                     <Users className="h-5 w-5" />
                                 </span>
@@ -435,7 +368,6 @@ export function InviteConnectionsDialog({
                                         pubkey={connection.pubkey}
                                         connectionDisplayName={connection.connectionDisplayName}
                                         cachedMetadataDisplayName={connection.cachedMetadataDisplayName}
-                                        resolvedDisplayName={connection.resolvedDisplayName}
                                         isSelected={selectedPubkeys.has(connection.pubkey)}
                                         isAlreadyMember={alreadyMember}
                                         onToggle={() => handleToggleSelect(connection.pubkey)}
@@ -468,13 +400,17 @@ export function InviteConnectionsDialog({
             </div>
         </div>
     );
+
+    if (typeof document === "undefined") {
+        return overlay;
+    }
+    return createPortal(overlay, document.body);
 }
 
 function ConnectionRow({
     pubkey,
     connectionDisplayName,
     cachedMetadataDisplayName,
-    resolvedDisplayName,
     isSelected,
     isAlreadyMember,
     onToggle
@@ -482,23 +418,17 @@ function ConnectionRow({
     pubkey: string;
     connectionDisplayName?: string;
     cachedMetadataDisplayName?: string;
-    resolvedDisplayName?: string;
     isSelected: boolean;
     isAlreadyMember: boolean;
     onToggle: () => void;
 }) {
-    const metadata = useResolvedProfileMetadata(pubkey, { live: true });
-    const presentation = resolveInviteConnectionPresentation({
+    const metadata = useResolvedProfileMetadata(pubkey);
+    const displayName = resolveInviteConnectionDisplayName({
         pubkey,
         connectionDisplayName,
-        metadataDisplayName: metadata?.displayName,
-        metadataAvatarUrl: metadata?.avatarUrl,
-        cachedDisplayName: cachedMetadataDisplayName,
-        resolvedDisplayName,
+        metadataDisplayName: metadata?.displayName || cachedMetadataDisplayName
     });
-    const displayName = presentation.displayName;
-    const hasHumanName = isInviteConnectionHumanDisplayName(displayName, pubkey);
-    const pubkeyPreview = formatInviteConnectionPubkeyPreview(pubkey);
+    const hasResolvedName = displayName !== INVITE_CONNECTION_FALLBACK_NAME;
 
     return (
         <div
@@ -524,9 +454,10 @@ function ConnectionRow({
                 <UserAvatar pubkey={pubkey} size="md" className="rounded-2xl border border-indigo-200/20 shadow-[0_0_16px_rgba(129,140,248,0.16)]" />
                 <div>
                     <p className="text-sm font-black text-zinc-900 dark:text-white">{displayName}</p>
-                    <p className="mt-0.5 text-[10px] font-bold tracking-wider text-zinc-500 dark:text-zinc-500">
-                        {hasHumanName ? pubkeyPreview : "Trusted connection"}
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
+                        {hasResolvedName ? "Trusted connection" : "Unnamed connection"}
                     </p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-600">Identity hidden</p>
                 </div>
             </div>
             {isAlreadyMember ? (

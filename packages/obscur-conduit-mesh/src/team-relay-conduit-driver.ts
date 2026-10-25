@@ -1,4 +1,6 @@
-import type { ConduitDescriptor, ConduitDriverPort, MeshEnvelope } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope } from "@obscur/conduit-mesh-contracts/envelope";
+import type { ConduitDriverPort } from "@obscur/conduit-mesh-contracts/mesh-port";
 
 import { createCustomHttpConduitDriver } from "./custom-http-conduit-driver";
 import type { ConduitMeshFetch } from "./conduit-http-utils";

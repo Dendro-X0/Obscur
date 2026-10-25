@@ -8,7 +8,8 @@
  */
 
 import React from "react";
-import { Identicon, getContactVerificationStatus, type KeyChangeResult } from "@/app/features/security";
+import { Identicon } from "@/app/features/security/components/identicon";
+import { getContactVerificationStatus, type KeyChangeResult } from "@/app/features/security/services/security-integration";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { cn } from "@/app/lib/cn";
 import { ShieldCheck, ShieldAlert, Clock } from "lucide-react";

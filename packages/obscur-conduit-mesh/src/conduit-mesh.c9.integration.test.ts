@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
 
 import { createConduitMeshRelayPoolRuntime } from "./conduit-mesh-relay-pool-runtime";
 

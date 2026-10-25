@@ -73,7 +73,7 @@ import {
     resolveNativeDmSidebarConnections,
     shouldNativeDmSkipChatStateSidebarConnectionHydrate,
 } from "../services/native-dm-conversation-list-owner";
-import { listDmConversations } from "@/app/features/protocol-adaptation";
+import { listDmConversations } from "@/app/features/protocol-adaptation/layer";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isTauri } from "@dweb/db";
 

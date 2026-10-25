@@ -17,9 +17,11 @@ import { BEST_EFFORT_STORAGE_NOTE } from "@/app/features/messaging/lib/media-upl
 import { formatAppVersionLabel } from "@/app/lib/app-version";
 import {
   MESSAGING_SHELL_BOTTOM_CHROME_CLASS,
+  MESSAGING_SHELL_BOTTOM_CHROME_MOBILE_CLASS,
   MESSAGING_SHELL_BOTTOM_CHROME_PRIMARY_ROW_CLASS,
   MESSAGING_SHELL_BOTTOM_CHROME_STATUS_ROW_CLASS,
 } from "./messaging-shell-bottom-chrome";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { useActiveProtocolCapabilities } from "@/app/features/protocol-adaptation/use-active-protocol-capabilities";
 import { ProtocolCapabilityChips } from "@/app/features/protocol-adaptation/components/protocol-capability-chips";
 interface ComposerProps {
@@ -53,6 +55,8 @@ interface ComposerProps {
 export function Composer({ messageInput, setMessageInput, handleSendMessage, isUploadingAttachment, uploadStage, pendingAttachments, pendingAttachmentPreviewUrls, attachmentError, replyTo, setReplyTo, onPickAttachments, onSelectFiles, removePendingAttachment, clearPendingAttachment, relayStatus, textareaRef, recipientStatus, isPeerAccepted = true, isInitiator = false, contactRequestComposeMode, onSendVoiceNote, isProcessingMedia, mediaProcessingProgress, recipientRemoved = false, deliveryRisk, }: ComposerProps) {
     const { capabilities } = useActiveProtocolCapabilities();
     const mediaEnabled = capabilities.media;
+    const mobileComposer = isMobileShellProduct();
+    const [isVoiceRecording, setIsVoiceRecording] = React.useState(false);
     const EMOJI_PICKER_DESKTOP_WIDTH_PX = 320;
     const EMOJI_PICKER_DESKTOP_HEIGHT_PX = 400;
     const EMOJI_PICKER_MOBILE_MAX_WIDTH_PX = 400;
@@ -66,6 +70,11 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
     const isGated: boolean = effectiveComposeMode === "blocked";
     const disableCompose = isGated || recipientRemoved;
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+    React.useEffect(() => {
+        if (isVoiceRecording) {
+            setShowEmojiPicker(false);
+        }
+    }, [isVoiceRecording]);
     const emojiPickerRef = React.useRef<HTMLDivElement>(null);
     const emojiButtonRef = React.useRef<HTMLDivElement>(null);
     const [emojiPickerPosition, setEmojiPickerPosition] = React.useState<Readonly<{
@@ -206,8 +215,8 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
             onPickAttachments(dataTransfer.files);
         }
     };
-    return (<div className={cn("relative z-20", MESSAGING_SHELL_BOTTOM_CHROME_CLASS)}>
-            <ProtocolCapabilityChips className="mb-2 px-1" />
+    return (<div className={cn("relative z-20", mobileComposer ? MESSAGING_SHELL_BOTTOM_CHROME_MOBILE_CLASS : MESSAGING_SHELL_BOTTOM_CHROME_CLASS)} data-mobile-composer={mobileComposer ? "1" : "0"}>
+            {!mobileComposer ? <ProtocolCapabilityChips className="mb-2 px-1" /> : null}
             {!mediaEnabled ? (
                 <p data-testid="composer-media-capability-hint" className="mb-2 px-1 text-[10px] text-zinc-500 dark:text-zinc-400">
                     {t("protocol.composer.mediaUnavailable", {
@@ -390,15 +399,18 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
                     </span>
                 </div>)}
 
-            {/* Main Input Area */}
-            <div className={cn(MESSAGING_SHELL_BOTTOM_CHROME_PRIMARY_ROW_CLASS, "relative items-end gap-2 p-1.5 bg-black/5 dark:bg-black/40 rounded-[28px] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300 backdrop-blur-sm", "focus-within:bg-white/80 dark:focus-within:bg-zinc-950 focus-within:ring-purple-500/30 focus-within:shadow-2xl focus-within:shadow-purple-500/10", disableCompose && "opacity-50 grayscale pointer-events-none")}>
+            {/* Main Input Area — recording hides siblings; VoiceRecorder stays mounted. */}
+            <div className={cn(MESSAGING_SHELL_BOTTOM_CHROME_PRIMARY_ROW_CLASS, "relative items-end gap-2 transition-all duration-300", mobileComposer
+            ? "rounded-2xl border border-black/10 bg-zinc-100/80 p-1 dark:border-white/10 dark:bg-zinc-900/80"
+            : "rounded-[28px] bg-black/5 p-1.5 ring-1 ring-black/[0.03] backdrop-blur-sm dark:bg-black/40 dark:ring-white/[0.05] focus-within:bg-white/80 focus-within:shadow-2xl focus-within:shadow-purple-500/10 focus-within:ring-purple-500/30 dark:focus-within:bg-zinc-950", disableCompose && !isVoiceRecording && "opacity-50 grayscale pointer-events-none")} data-voice-recording={isVoiceRecording ? "1" : "0"}>
                 <input type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.csv,.rtf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp" multiple className="hidden" id="composer-attachment" onChange={(e: React.ChangeEvent<HTMLInputElement>) => onPickAttachments(e.target.files)}/>
-                {!isSandboxMode && mediaEnabled ? (
+                {!isVoiceRecording && !isSandboxMode && mediaEnabled ? (
                 <Button type="button" variant="ghost" size="icon" className="h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 flex items-center justify-center p-0" disabled={isUploadingAttachment || disableCompose} onClick={onSelectFiles} aria-label={t("messaging.media")} data-testid="composer-attach">
                     <Paperclip className="h-6 w-6 text-zinc-500 dark:text-zinc-400"/>
                 </Button>
                 ) : null}
 
+                {!isVoiceRecording ? (
                 <Textarea placeholder={recipientRemoved
             ? t("Account removed. Messaging disabled.")
             : (isGated
@@ -413,7 +425,9 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
                 handleSendMessage();
             }
         }} disabled={disableCompose} className="min-h-[40px] flex-1 resize-none border-0 bg-transparent dark:bg-transparent py-2.5 text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-zinc-500 dark:placeholder:text-zinc-500 overflow-y-auto" rows={1}/>
+                ) : null}
 
+                {!isVoiceRecording ? (
                 <div ref={emojiButtonRef} className="relative flex items-center">
                     <Button type="button" variant="ghost" size="icon" className={cn("h-12 w-12 rounded-full hover:bg-black/5 dark:hover:bg-white/5 shrink-0 transition-colors flex items-center justify-center p-0", showEmojiPicker && "bg-black/5 dark:bg-white/5 text-purple-600")} onClick={() => setShowEmojiPicker((current) => !current)} disabled={disableCompose} aria-label={t("messaging.searchEmojis")}>
                         <Smile className="h-6 w-6 text-zinc-500 dark:text-zinc-400"/>
@@ -431,17 +445,28 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
             } as React.CSSProperties) : undefined} searchPlaceHolder={t("messaging.searchEmojis")}/>
                         </div>, document.body)}
                 </div>
+                ) : null}
 
-                {mediaEnabled && onSendVoiceNote && !isSandboxMode && !messageInput.trim() && pendingAttachments.length === 0 && (<VoiceRecorder onRecordingComplete={onSendVoiceNote} isUploading={isUploadingAttachment} disabled={disableCompose}/>)}
+                {mediaEnabled && onSendVoiceNote && !isSandboxMode && (isVoiceRecording || (!messageInput.trim() && pendingAttachments.length === 0)) ? (
+                    <VoiceRecorder
+                        onRecordingComplete={onSendVoiceNote}
+                        isUploading={isUploadingAttachment}
+                        disabled={disableCompose}
+                        onRecordingChange={setIsVoiceRecording}
+                    />
+                ) : null}
 
+                {!isVoiceRecording ? (
                 <Button type="button" onClick={handleSendMessage} disabled={disableCompose || (!messageInput.trim() && pendingAttachments.length === 0) || isUploadingAttachment} size="icon" className={cn("h-11 w-11 rounded-full shrink-0 transition-all duration-300 active:scale-95 flex items-center justify-center p-0", (messageInput.trim() || pendingAttachments.length > 0) && !isUploadingAttachment
             ? "bg-gradient-to-tr from-purple-600 to-indigo-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)] hover:scale-105"
             : "bg-zinc-100 dark:bg-zinc-800/50 text-zinc-400 cursor-not-allowed border border-black/5 dark:border-white/5 opacity-40 shadow-none")} aria-label={t("common.send")}>
                     {isUploadingAttachment ? (<Loader2 className="h-6 w-6 animate-spin"/>) : (<Send className="h-6 w-6 translate-x-0.5 mt-[-1px]"/>)}
                 </Button>
+                ) : null}
             </div>
 
-            {/* Footer Status */}
+            {/* Footer Status — desktop/lab only; mobile thread keeps the input flush. */}
+            {!mobileComposer ? (
             <div className={MESSAGING_SHELL_BOTTOM_CHROME_STATUS_ROW_CLASS}>
                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                     <span className={cn("flex items-center gap-1.5 opacity-50")}>
@@ -459,5 +484,6 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
                     {t("messaging.e2eEncrypted")} • Ver. {formatAppVersionLabel()}
                 </div>
             </div>
+            ) : null}
         </div>);
 }

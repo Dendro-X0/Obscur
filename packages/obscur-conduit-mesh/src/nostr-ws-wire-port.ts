@@ -1,4 +1,4 @@
-import { extractEventIdFromNostrWirePayload } from "@obscur/conduit-mesh-contracts";
+import { extractEventIdFromNostrWirePayload } from "@obscur/conduit-mesh-contracts/nostr-ws-wire-contract";
 
 export type NostrWsWirePublishResult = Readonly<{
   accepted: boolean;

@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Bell, FolderLock, Menu, MessageSquare, Search, Settings, Users, X } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
@@ -17,7 +17,11 @@ import { RelayTransportShellBanner } from "@/app/features/relays/components/rela
 import { useTranslation } from "react-i18next";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
-import { RouteLoadingFallback } from "./experience";
+import {
+  LocalRouteTransitionShell,
+  RouteLoadingFallback,
+  shouldShowLocalRouteTransitionShell,
+} from "./experience";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   hardNavigate,
@@ -45,6 +49,10 @@ import { useNavigationWarmupOwner } from "./navigation-warmup-owner";
 import { prefetchRouteShell, prefetchSidebarRouteClientOnIntent } from "./route-navigation-warmup";
 import { SidebarPortalHost } from "./app-shell-sidebar-portal";
 import { MessagingSidebarRelayFooter } from "@/app/features/messaging/components/messaging-sidebar-relay-footer";
+import {
+  useGlobalNavigationLoadingActions,
+  useGlobalNavigationLoadingState,
+} from "./global-navigation-loading";
 
 type NavIcon = (props: Readonly<{ className?: string }>) => React.ReactNode;
 
@@ -123,6 +131,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
   const { t } = useTranslation();
   const router = useRouter();
   const pathname: string = usePathname();
+  const { beginNavigation } = useGlobalNavigationLoadingActions();
+  const globalNavLoadingState = useGlobalNavigationLoadingState();
   const activeRouteSurface = useMemo(() => getRouteSurfaceFromPathname(pathname), [pathname]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [hasMounted, setHasMounted] = useState<boolean>(false);
@@ -529,10 +539,65 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
     return props.navBadgeCounts ?? {};
   }, [props.navBadgeCounts]);
 
-  const showMobileTabBar = !props.mobileDmMode && (
-    !props.hideSidebar || isMobileShellProduct()
-  );
+  /**
+   * Desktop-first shell gate (2026-10): mobile tab bar + `--mobile-shell-bottom-inset`
+   * only on the mobile product shell. Viewport tier must not open a phantom dead band
+   * on desktop / web desktop widths while chrome stays coupled.
+   */
+  const mobileTabBarVisible = isMobileShellProduct() && !props.mobileDmMode;
   const mobileShellHeader = isMobileShellProduct();
+  const mobileHeaderRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const root = document.documentElement;
+    const chrome = props.mobileDmMode && isMobileShellProduct()
+      ? "thread"
+      : mobileTabBarVisible
+        ? "tabs"
+        : "none";
+    root.setAttribute("data-obscur-mobile-chrome", chrome);
+    return () => {
+      root.removeAttribute("data-obscur-mobile-chrome");
+    };
+  }, [props.mobileDmMode, mobileTabBarVisible]);
+
+  // Pin global nav progress to the sticky header bottom (or 0 when header hidden).
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const root = document.documentElement;
+    const syncProgressTop = (): void => {
+      if (props.hideHeader) {
+        root.style.setProperty("--obscur-shell-progress-top", "0px");
+        return;
+      }
+      const header = mobileHeaderRef.current;
+      if (!header) {
+        root.style.setProperty("--obscur-shell-progress-top", "0px");
+        return;
+      }
+      const bottom = Math.max(0, Math.round(header.getBoundingClientRect().bottom));
+      root.style.setProperty("--obscur-shell-progress-top", `${bottom}px`);
+    };
+    syncProgressTop();
+    const header = mobileHeaderRef.current;
+    const observer = typeof ResizeObserver !== "undefined" && header
+      ? new ResizeObserver(syncProgressTop)
+      : null;
+    if (observer && header) {
+      observer.observe(header);
+    }
+    window.addEventListener("resize", syncProgressTop);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", syncProgressTop);
+      root.style.removeProperty("--obscur-shell-progress-top");
+    };
+  }, [props.hideHeader, mobileShellHeader, pathname]);
 
   return (
     <div className={cn(
@@ -561,6 +626,17 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
               <SidebarPortalHost variant="mobileDrawer" className="space-y-6 min-h-[120px]" />
+              <div className="mt-6">
+                <Link
+                  href="/profiles"
+                  onClick={(): void => setMobileSidebarOpen(false)}
+                  className="flex items-center justify-between rounded-xl border border-black/10 bg-gradient-card px-3 py-3 text-sm font-semibold text-zinc-800 dark:border-white/10 dark:text-zinc-100"
+                  data-testid="mobile-drawer-manage-profiles"
+                >
+                  {t("profiles.mobile.manage")}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Profiles</span>
+                </Link>
+              </div>
             </div>
             <div className="border-t border-black/5 p-4 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 safe-bottom">
               <div className="flex items-center justify-between opacity-50">
@@ -612,6 +688,8 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                       }
                       recordNavigationIntent(item.href);
                       armRouteHardFallback(item.href);
+                      // Link default navigation proceeds; progress bar needs an explicit begin.
+                      beginNavigation(item.href);
                     }}
                     className={cn(
                       "nav-link group relative inline-flex h-10 w-10 select-none items-center justify-center rounded-xl border border-transparent transition-all shrink-0",
@@ -657,7 +735,9 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
 
       <div className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!props.hideHeader && (
-          <header className={cn(
+          <header
+            ref={mobileHeaderRef}
+            className={cn(
             "sticky top-0 z-20 grid items-center border-b border-black/10 bg-gradient-sidebar/80 backdrop-blur dark:border-white/10 md:hidden",
             mobileShellHeader
               ? "grid-cols-[2.5rem_1fr_2.5rem] px-2 py-1 pt-[calc(0.25rem+env(safe-area-inset-top))]"
@@ -684,29 +764,50 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
                 mobileShellHeader ? "text-xs" : "text-sm",
               )}>Obscur</div>
             </div>
-            <div className={cn("shrink-0", mobileShellHeader ? "w-10" : "w-11")} aria-hidden="true" />
+            <div className={cn(
+              "flex items-center justify-end",
+              mobileShellHeader ? "min-w-10" : "min-w-11",
+            )}>
+              <UserAvatarMenu compact />
+            </div>
           </header>
         )}
         <div className={cn(
-          "relative flex flex-1 flex-col min-h-0 md:pb-0",
-          props.mobileDmMode ? "pb-mobile-thread" : "pb-mobile-tab-bar",
+          "relative flex min-h-0 flex-1 flex-col",
+          props.mobileDmMode && isMobileShellProduct()
+            ? "pb-mobile-thread"
+            : mobileTabBarVisible
+              ? "pb-mobile-tab-bar"
+              : undefined,
         )}>
           <div className="relative z-0 flex min-h-0 flex-1 flex-col">
+            <LocalRouteTransitionShell
+              navState={globalNavLoadingState}
+              currentPathname={pathname}
+            />
             <React.Suspense fallback={
               <div className="animate-in fade-in duration-200">
                 <RouteLoadingFallback
-                  title="Loading page"
-                  detail="Preparing view..."
+                  title="Opening"
+                  detail="Opening from this device…"
                   pathname={pathname}
+                  className="bg-background"
                 />
               </div>
             }>
-              <div className={cn(
-                "flex min-h-0 flex-1 flex-col",
-                shouldRunNavigationInstrumentation()
-                  ? "animate-in fade-in slide-in-from-bottom-1 duration-200"
-                  : undefined,
-              )}>
+              <div
+                className={cn(
+                  "flex min-h-0 flex-1 flex-col",
+                  // Hide prior route while the on-device shell covers the column (no bleed-through).
+                  shouldShowLocalRouteTransitionShell(globalNavLoadingState, pathname)
+                    ? "invisible pointer-events-none"
+                    : undefined,
+                  shouldRunNavigationInstrumentation()
+                    ? "animate-in fade-in slide-in-from-bottom-1 duration-200"
+                    : undefined,
+                )}
+                aria-hidden={shouldShowLocalRouteTransitionShell(globalNavLoadingState, pathname) || undefined}
+              >
                 {!isMobileShellProduct() ? <RelayTransportShellBanner /> : null}
                 {props.children}
               </div>
@@ -714,7 +815,7 @@ const AppShell = (props: AppShellProps): React.JSX.Element => {
           </div>
         </div>
       </div>
-      {showMobileTabBar ? (
+      {mobileTabBarVisible ? (
         <MobileTabBar navBadgeCounts={navBadgeCounts} />
       ) : null}
     </div>

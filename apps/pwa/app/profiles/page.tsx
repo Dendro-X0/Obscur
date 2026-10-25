@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@dweb/ui-kit/button";
 import { Input } from "@dweb/ui-kit/input";
 import { toast } from "@dweb/ui-kit/toast";
@@ -17,6 +17,7 @@ import { useIdentity } from "@/app/features/auth/hooks/use-identity";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
 import { broadcastProfileIsolationChanged, desktopProfileRuntime, useDesktopProfileIsolationSnapshot } from "@/app/features/profiles/services/desktop-profile-runtime";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { isDesktopShellProduct } from "@/app/features/runtime/shell-contract";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { finalizeProfileWindowRemoval } from "@/app/features/profiles/services/profile-session-lifecycle";
 import type { ProfileWorkspaceArchiveWriteResult } from "@/app/features/profiles/services/profile-workspace-archive-contracts";
@@ -38,6 +39,7 @@ import {
 } from "@/app/features/profiles/services/cross-profile-active-session-lease";
 import { resolveDesktopProfileAccountPresenceLabelKey } from "@/app/features/profiles/services/desktop-profile-account-presence-label";
 import {
+  isAuthPublicProfileRoute,
   markDesktopProfilePickerEntryConsumed,
   PROFILE_SIGN_IN_ROUTE,
 } from "@/app/features/profiles/services/auth-public-routes";
@@ -53,12 +55,16 @@ const isUnlockedRuntimePhase = (phase: string): boolean => (
 export default function ProfilesPage(): React.JSX.Element {
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
   const identity = useIdentity();
   const profile = useProfile();
   const runtime = useWindowRuntime();
   const snapshot = useDesktopProfileIsolationSnapshot();
   const isUnlocked = isUnlockedRuntimePhase(runtime.snapshot.phase);
-  const isPublicPickerMode = hasNativeRuntime() && !isUnlocked;
+  // Match AppSessionShell: stay on light picker shell even after keychain rehydrate unlocks.
+  // Otherwise PageShell mounts under ProfileManagementShell and crashes (missing AppChromeProvider).
+  const isPublicPickerMode = isAuthPublicProfileRoute(pathname)
+    && (isDesktopShellProduct() || hasNativeRuntime());
   const [showAdvancedManagement, setShowAdvancedManagement] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [removeTarget, setRemoveTarget] = useState<Readonly<{ profileId: string; label: string }> | null>(null);

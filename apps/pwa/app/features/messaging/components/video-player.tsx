@@ -6,7 +6,8 @@ import { cn } from "@dweb/ui-kit/cn";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { motion, AnimatePresence } from "framer-motion";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 import { useChatAttachmentDisplaySrc } from "../hooks/use-chat-attachment-display-src";
 
 interface VideoPlayerProps {

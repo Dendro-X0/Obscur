@@ -1,26 +1,158 @@
-.mobile-layout,
-.mobile-mode .mobile-dm-shell {
+/**
+ * Horizontal + top safe area on mobile shells.
+ * Bottom inset is owned by ONE of: `.pb-mobile-tab-bar`, `.pb-mobile-thread` /
+ * composer `.safe-bottom` — never also on `.mobile-dm-shell` (that stacked a
+ * dead band under the chat composer in thread mode).
+ *
+ * `.mobile-dm-shell` must NOT pad top: list view already has AppShell header;
+ * thread view owns inset via MobileDmThreadHeader. Extra padding-top made Chats
+ * taller than Network/Vault under the same Obscur header.
+ */
+.mobile-layout {
   padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  padding-bottom: 0;
+}
+
+.mobile-mode .mobile-dm-shell {
+  padding-top: 0;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: 0;
+}
+
+/**
+ * Desktop phone-preview: WebView2 reports safe-area insets as 0.
+ * Use simulated insets from OBSCUR_MOBILE_PREVIEW init / CSS vars.
+ */
+html[data-obscur-mobile-preview="1"] .mobile-layout {
+  padding-top: var(--obscur-safe-area-inset-top, 24px);
+  padding-left: var(--obscur-safe-area-inset-left, 0px);
+  padding-right: var(--obscur-safe-area-inset-right, 0px);
+  padding-bottom: 0;
+}
+
+html[data-obscur-mobile-preview="1"] .mobile-mode .mobile-dm-shell {
+  padding-top: 0;
+  padding-left: var(--obscur-safe-area-inset-left, 0px);
+  padding-right: var(--obscur-safe-area-inset-right, 0px);
+  padding-bottom: 0;
+}
+
+/* Thread header owns top inset when AppShell header is hidden. */
+html[data-obscur-mobile-preview="1"] [data-testid="mobile-thread-header"] {
+  padding-top: calc(0.5rem + var(--obscur-safe-area-inset-top, 0px));
 }
 
 /**
  * Single bottom inset budget for mobile shell chrome (P13-a).
- * Tab bar height is fixed; thread mode uses safe-area only (no tab bar).
+ * Tab bar height is fixed; thread mode: composer owns home-indicator inset.
+ * Define on :root so `.pb-mobile-tab-bar` never collapses when `.mobile-mode`
+ * is late (or missing) — otherwise the composer sits under the fixed tab bar.
  */
+:root {
+  /* Icon + label + padding; keep in sync with MobileTabBar chrome. */
+  --mobile-tab-bar-height: 4.75rem;
+  --mobile-shell-bottom-inset: calc(
+    env(safe-area-inset-bottom, 0px) + var(--mobile-tab-bar-height)
+  );
+}
+
 .mobile-mode {
-  --mobile-tab-bar-height: 4.25rem;
-  --mobile-shell-bottom-inset: calc(env(safe-area-inset-bottom) + var(--mobile-tab-bar-height));
+  --mobile-shell-bottom-inset: calc(env(safe-area-inset-bottom, 0px) + var(--mobile-tab-bar-height));
+}
+
+html[data-obscur-mobile-preview="1"] .mobile-mode {
+  --mobile-shell-bottom-inset: calc(
+    var(--obscur-safe-area-inset-bottom, 0px) + var(--mobile-tab-bar-height)
+  );
 }
 
 .pb-mobile-tab-bar {
-  padding-bottom: var(--mobile-shell-bottom-inset);
+  padding-bottom: var(
+    --mobile-shell-bottom-inset,
+    calc(4.75rem + env(safe-area-inset-bottom, 0px))
+  );
 }
 
+/*
+ * Desktop-first: zero mobile bottom budget whenever desktop-mode is marked
+ * (Tauri desktop / DESKTOP_SHELL). Do not rely on md:pb-0 — this stylesheet
+ * loads after Tailwind and would win on equal specificity.
+ */
+.desktop-mode {
+  --mobile-tab-bar-height: 0px;
+  --mobile-shell-bottom-inset: 0px;
+}
+
+.desktop-mode .pb-mobile-tab-bar {
+  padding-bottom: 0;
+}
+
+.desktop-mode .pb-composer-safe {
+  padding-bottom: 0.75rem;
+}
+
+/* Thread mode: no shell bottom pad — composer `.pb-composer-safe` clears the home indicator. */
 .pb-mobile-thread {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 0;
+}
+
+/** Composer / thread footer: min comfort pad + home indicator (preview uses simulated inset). */
+.pb-composer-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+html[data-obscur-mobile-preview="1"] .pb-composer-safe {
+  padding-bottom: max(0.75rem, var(--obscur-safe-area-inset-bottom, 0px));
+}
+
+/**
+ * Global nav progress: AppShell sets --obscur-shell-progress-top to the sticky
+ * header's bottom edge (0 when header is hidden). Avoids magic 3rem + preview
+ * safe-area double-count that pushed the bar into page titles / search.
+ */
+html[data-obscur-mobile-chrome] .obscur-global-nav-progress {
+  top: var(--obscur-shell-progress-top, 0px);
+}
+
+/**
+ * CLIENT revision badge: top-right so it never bisects the progress seam or menu.
+ */
+html[data-obscur-mobile-chrome] [data-testid="client-surface-revision"] {
+  left: auto;
+  right: 0.5rem;
+  top: calc(0.5rem + env(safe-area-inset-top, 0px));
+  z-index: 45;
+}
+
+html[data-obscur-mobile-preview="1"][data-obscur-mobile-chrome] [data-testid="client-surface-revision"] {
+  top: calc(0.5rem + var(--obscur-safe-area-inset-top, 0px));
+}
+
+/**
+ * Dev build stamp: clear tab bar while mounted; in thread mode clear the composer.
+ */
+html[data-obscur-mobile-chrome="tabs"] [data-testid="experiment-shell-indicator"] {
+  bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+html[data-obscur-mobile-preview="1"][data-obscur-mobile-chrome="tabs"] [data-testid="experiment-shell-indicator"] {
+  bottom: calc(5.75rem + var(--obscur-safe-area-inset-bottom, 0px));
+}
+
+html[data-obscur-mobile-chrome="thread"] [data-testid="experiment-shell-indicator"] {
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+html[data-obscur-mobile-preview="1"][data-obscur-mobile-chrome="thread"] [data-testid="experiment-shell-indicator"] {
+  bottom: calc(4.5rem + var(--obscur-safe-area-inset-bottom, 0px));
+}
+
+/* Preview: floating chrome clears flush composer (chips/status hidden on mobile). */
+html[data-obscur-mobile-preview="1"] [data-testid="chat-floating-chrome"] {
+  bottom: calc(4.75rem + var(--obscur-safe-area-inset-bottom, 0px));
 }
 
 /**

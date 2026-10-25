@@ -1,12 +1,7 @@
-import type {
-  ConduitDescriptor,
-  ConduitRuntimeState,
-  MeshPhase,
-  MeshScopeReadiness,
-  MeshSnapshot,
-  MeshTorRuntimeState,
-} from "@obscur/conduit-mesh-contracts";
-import { deriveEffectiveNetworkPolicy, isTorPolicyConduit } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor, ConduitRuntimeState } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshPhase, MeshScopeReadiness, MeshSnapshot } from "@obscur/conduit-mesh-contracts/mesh-snapshot";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { deriveEffectiveNetworkPolicy, isTorPolicyConduit } from "@obscur/conduit-mesh-contracts/tor-policy";
 import type { EngineScope } from "@obscur/engine-contracts";
 
 import { classifyMeshReadiness } from "./classify-mesh-readiness";

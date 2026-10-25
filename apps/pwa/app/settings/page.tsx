@@ -9,7 +9,7 @@ export default createSidebarRoutePage(
     lazy: () => import("./settings-page-client"),
   },
   {
-    title: "Loading settings",
-    detail: "Preparing preferences and account controls...",
+    title: "Settings",
+    detail: "Opening settings on this device…",
   },
 );

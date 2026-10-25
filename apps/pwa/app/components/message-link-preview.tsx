@@ -7,7 +7,8 @@ import { ExternalLink } from "lucide-react";
 import { cn } from "@/app/lib/utils";
 import { extractFirstUrl } from "@/app/features/messaging/utils/extract-first-url";
 import { useLinkPreview } from "@/app/features/messaging/hooks/use-link-preview";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 
 type MessageLinkPreviewProps = Readonly<{
   content: string;

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserAvatar } from "./user-avatar";
 import { cn } from "@/app/lib/utils";
 import { useProfile } from "@/app/features/profile/hooks/use-profile";
-import { Lock, LogOut } from "lucide-react";
+import { Lock, LogOut, UsersRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AppLockConfirmDialog } from "@/app/features/auth/components/app-lock-confirm-dialog";
 import { useAppLockConfirm } from "@/app/features/auth/hooks/use-app-lock-confirm";
@@ -91,6 +91,10 @@ const UserAvatarMenu = (props: UserAvatarMenuProps): React.JSX.Element => {
           <div className="border-b border-black/10 px-3 py-2 text-xs font-semibold text-zinc-600 dark:border-white/10 dark:text-zinc-300">
             {t("settings.tabs.profile")}
           </div>
+          <Link href="/profiles" className="flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/5" onClick={(): void => setOpen(false)} data-testid="user-avatar-menu-manage-profiles">
+            <UsersRound className="h-4 w-4 shrink-0" aria-hidden />
+            {t("profiles.mobile.manage")}
+          </Link>
           <Link href="/settings#profile" className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/5" onClick={(): void => setOpen(false)}>
             {t("settings.tabs.profile")}
           </Link>

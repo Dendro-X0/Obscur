@@ -1,17 +1,10 @@
-import type {
-  ConduitDescriptor,
-  MeshEnvelope,
-  MeshInterest,
-  MeshUnsubscribe,
-} from "@obscur/conduit-mesh-contracts";
-import {
-  isMeshNativeDmWirePayload,
-  isNostrEventWirePayload,
-  meshNativeDmWireToNostrEventWire,
-  nostrEventWireToMeshNativeDmWire,
-} from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshUnsubscribe } from "@obscur/conduit-mesh-contracts/evidence";
+import { isMeshNativeDmWirePayload, meshNativeDmWireToNostrEventWire, nostrEventWireToMeshNativeDmWire } from "@obscur/conduit-mesh-contracts/mesh-dm-wire";
+import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts/nostr-wire-payload";
 
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 import type { ConduitMesh } from "./create-conduit-mesh";
 import { createConduitMesh } from "./create-conduit-mesh";

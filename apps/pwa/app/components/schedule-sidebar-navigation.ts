@@ -30,7 +30,9 @@ export const scheduleSidebarNavigation = (
     });
   };
   if (options?.immediate) {
-    push();
+    // Same-tick push — startTransition can defer under main-thread pressure and
+    // make mobile tab taps feel dead while a cold route compiles.
+    router.push(targetHref);
     return;
   }
   void yieldToNextPaint().then(push);

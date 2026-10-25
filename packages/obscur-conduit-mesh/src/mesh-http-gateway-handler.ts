@@ -1,15 +1,5 @@
-import {
-  CUSTOM_CONDUIT_HTTP_PATHS,
-  CUSTOM_CONDUIT_HTTP_V1,
-  CUSTOM_CONDUIT_STREAM_DEFAULT_TIMEOUT_MS,
-  CUSTOM_CONDUIT_STREAM_MAX_TIMEOUT_MS,
-} from "@obscur/conduit-mesh-contracts";
-import type {
-  CustomConduitPublishBody,
-  CustomConduitPullItem,
-  CustomConduitPullResponse,
-  CustomConduitPublishResponse,
-} from "@obscur/conduit-mesh-contracts";
+import { CUSTOM_CONDUIT_HTTP_PATHS, CUSTOM_CONDUIT_HTTP_V1, CUSTOM_CONDUIT_STREAM_DEFAULT_TIMEOUT_MS, CUSTOM_CONDUIT_STREAM_MAX_TIMEOUT_MS } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
+import type { CustomConduitPublishBody, CustomConduitPullItem, CustomConduitPullResponse, CustomConduitPublishResponse } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
 
 import {
   createMeshHttpGatewaySseResponse,

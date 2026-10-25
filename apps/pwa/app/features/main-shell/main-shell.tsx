@@ -81,7 +81,6 @@ import { EmptyConversationView } from "./components/empty-conversation-view";
 import { DevPanel } from "../dev-tools/components/dev-panel";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
-import { getRelayReadinessBannerCopy } from "@/app/features/relays/services/relay-readiness-copy";
 import { useContactRelayOverlap } from "@/app/features/messaging/hooks/use-contact-relay-overlap";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useCommunityMembershipReadModelIndex } from "@/app/features/groups/hooks/use-community-membership-read-model-index";
@@ -249,7 +248,7 @@ function NostrMessengerContent() {
     const { isLocked, unlock } = useAutoLock();
     const { selectedConversation, setSelectedConversation, unreadByConversationId, setUnreadByConversationId, lastViewedByConversationId, connectionOverridesByConnectionId, visibleMessageCountByConversationId, setVisibleMessageCountByConversationId, replyTo, setReplyTo, pendingAttachments, pendingAttachmentPreviewUrls, isUploadingAttachment, uploadStage, attachmentError, hasHydrated, sidebarTab, setSidebarTab, messageInput, setMessageInput, isProcessingMedia, mediaProcessingProgress, searchQuery, setSearchQuery, isNewChatOpen, setIsNewChatOpen, setIsMediaGalleryOpen, flashMessageId, messageMenu, setMessageMenu, reactionPicker, setReactionPicker, pinnedChatIds, togglePin, hiddenChatIds, hideConversation, clearHistory, unhideConversation, chatsUnreadCount, createdConnections, setCreatedConnections } = useMessaging();
     const optionalProfileBus = useOptionalProfileMessageBus();
-    const { relayPool, relayList, relayStatus, enabledRelayUrls, relayRecovery } = useRelay();
+    const { relayPool, relayList, relayStatus, enabledRelayUrls } = useRelay();
     const accountSyncSnapshot = useAccountSyncSnapshot();
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const { createdGroups, isNewGroupOpen, setIsNewGroupOpen, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, } = useGroups();
@@ -4282,6 +4281,8 @@ function NostrMessengerContent() {
     useRegisterAppChrome(isMobileDmShell
         ? {
             hideSidebar: true,
+            // Thread has MobileDmThreadHeader — hide the redundant Obscur app header.
+            hideHeader: Boolean(selectedConversationView),
             mobileDmMode: Boolean(selectedConversationView),
             navBadgeCounts: chatNavBadgeCounts,
         }
@@ -4411,7 +4412,8 @@ function NostrMessengerContent() {
             suppressAccountLoadingNotices,
             scopeMismatchTitle: t("messaging.profileScopeMismatchNoticeTitle"),
             scopeMismatchBody: t("messaging.profileScopeMismatchNoticeBody"),
-            relayBannerCopy: getRelayReadinessBannerCopy(relayRecovery),
+            // Mobile shell / phone-preview: no relay disconnect banners (status strip or toasts).
+            relayBannerCopy: null,
         });
     }, [
         accountSyncSnapshot.message,
@@ -4424,7 +4426,6 @@ function NostrMessengerContent() {
         suppressAccountLoadingNotices,
         isIdentityUnlocked,
         isMobileDmShell,
-        relayRecovery,
         showHistorySyncNotice,
         showProjectionScopeMismatchNotice,
         t,
@@ -4585,8 +4586,8 @@ function NostrMessengerContent() {
             void router.push("/profiles");
         }}/>) : (syncStatusBanners);
     if (isMobileDmShell) {
+        // Chat list renders inline in MobileDmShellLayout — do not portal (drawer stays empty / steals the node).
         return (<>
-        {isIdentityUnlocked ? <ChatSidebarPortal>{sidebarNode}</ChatSidebarPortal> : null}
         {syncStatusBannerNode}
         <SendCeremonyDialog
           isOpen={Boolean(sendCeremonyViewModel)}

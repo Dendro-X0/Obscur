@@ -92,84 +92,75 @@ export const CommunityModeBadge: React.FC<CommunityModeBadgeProps> = ({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4 bg-white dark:bg-[#0E0E10] shadow-sm",
-        "border-zinc-200 dark:border-white/5",
+        "rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0E0E10]",
         className
       )}
     >
-      {/* Header with mode and tier */}
-      <div className="flex shrink-0 items-start justify-between gap-3">
-        <div className="flex shrink-0 items-center gap-2">
-          <div
-            className={cn(
-              "p-2 rounded-xl",
-              effectiveMode === "sovereign_room"
-                ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400"
-                : "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-            )}
-          >
-            {modeIcons[effectiveMode]}
-          </div>
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            "shrink-0 rounded-xl p-2",
+            effectiveMode === "sovereign_room"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
+              : "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+          )}
+        >
+          {modeIcons[effectiveMode]}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
           <div>
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
               {modeDef.label}
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
               {modeDef.shortDescription}
             </p>
           </div>
-        </div>
-
-        {/* Relay capability tier badge */}
-        <div
-          className={cn(
-            "inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border",
-            tierColors[assessment.tier]
-          )}
-        >
-          {tierIcons[assessment.tier]}
-          <span className="text-[10px] font-bold uppercase tracking-wider">
-            {assessment.label}
-          </span>
+          <div
+            className={cn(
+              "inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1",
+              tierColors[assessment.tier]
+            )}
+          >
+            {tierIcons[assessment.tier]}
+            <span className="truncate text-[10px] font-semibold uppercase tracking-wide">
+              {assessment.label}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Guarantees */}
-      {showGuarantees && (
-        <div className="mt-4 space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">
-            Honest Guarantees
+      {showGuarantees ? (
+        <div className="mt-3 space-y-1.5 border-t border-zinc-100 pt-3 dark:border-white/5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            Honest guarantees
           </p>
           <ul className="space-y-1">
             {modeDef.guarantees.map((guarantee, index) => (
               <li
                 key={index}
-                className="flex shrink-0 items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300"
+                className="flex items-start gap-2 text-xs text-zinc-700 dark:text-zinc-300"
               >
-                <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
                 <span>{guarantee}</span>
               </li>
             ))}
           </ul>
         </div>
-      )}
+      ) : null}
 
-      {/* Caution notice */}
-      <div className="mt-3 p-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
-        <div className="flex shrink-0 items-start gap-2">
-          <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
-            {modeDef.caution}
-          </p>
-        </div>
+      <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 dark:border-amber-500/20 dark:bg-amber-500/10">
+        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+        <p className="text-[10px] leading-relaxed text-amber-800 dark:text-amber-400">
+          {modeDef.caution}
+        </p>
       </div>
 
-      {/* Settings hint (if different from current) */}
-      {assessment.settingsHint && mode !== effectiveMode && (
-        <p className="mt-3 text-[10px] text-zinc-500 dark:text-zinc-500 italic">
-          💡 {assessment.settingsHint}
+      {assessment.settingsHint && mode !== effectiveMode ? (
+        <p className="mt-2 text-[10px] italic text-zinc-500">
+          {assessment.settingsHint}
         </p>
-      )}
+      ) : null}
     </div>
   );
 };

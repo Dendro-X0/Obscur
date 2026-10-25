@@ -129,7 +129,8 @@ describe("CreateGroupDialog", () => {
             expect(screen.getByTestId("create-group-tier-quick")).toBeInTheDocument();
             expect(screen.getByTestId("create-group-public-relay-honesty")).toBeInTheDocument();
         });
-        expect(screen.getByText("Public relays")).toBeInTheDocument();
+        expect(screen.getByText("Public Quiet limits")).toBeInTheDocument();
+        expect(screen.getByTestId("create-group-submit-gates")).toBeInTheDocument();
         expect(screen.queryByTestId("create-group-relay-baseline")).not.toBeInTheDocument();
         expect(screen.queryByTestId("create-group-mode-guarantees")).not.toBeInTheDocument();
         expect(screen.queryByText("Sovereign Room")).not.toBeInTheDocument();
@@ -150,6 +151,11 @@ describe("CreateGroupDialog", () => {
         });
         await waitFor(() => {
             expect(screen.getByTestId("create-group-public-limits-ack")).toBeInTheDocument();
+            expect(screen.getByTestId("create-group-submit-gates")).toBeInTheDocument();
+            expect(screen.getByTestId("create-group-disabled-reason")).toHaveTextContent(
+                "Confirm public Quiet limits above to enable Create.",
+            );
+            expect(screen.getByTestId("create-group-submit")).toBeDisabled();
         });
         fireEvent.click(screen.getByTestId("create-group-public-limits-ack"));
         await waitFor(() => {

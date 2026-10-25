@@ -1,4 +1,4 @@
-import type { CustomConduitPullItem } from "@obscur/conduit-mesh-contracts";
+import type { CustomConduitPullItem } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
 
 import type {
   MeshHttpGatewayListParams,

@@ -1,7 +1,4 @@
-import {
-  CUSTOM_CONDUIT_HTTP_PATHS,
-  CUSTOM_CONDUIT_HTTP_V1,
-} from "@obscur/conduit-mesh-contracts";
+import { CUSTOM_CONDUIT_HTTP_PATHS, CUSTOM_CONDUIT_HTTP_V1 } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
 
 import type { ConduitMeshFetch } from "./conduit-http-utils";
 

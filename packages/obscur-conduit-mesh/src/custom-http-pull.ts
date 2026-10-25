@@ -1,14 +1,6 @@
-import type {
-  CustomConduitPullItem,
-  CustomConduitPullResponse,
-  MeshAudience,
-  MeshEnvelope,
-  MeshInterest,
-} from "@obscur/conduit-mesh-contracts";
-import {
-  CUSTOM_CONDUIT_HTTP_PATHS,
-  CUSTOM_CONDUIT_HTTP_V1,
-} from "@obscur/conduit-mesh-contracts";
+import type { CustomConduitPullItem, CustomConduitPullResponse } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
+import type { MeshAudience, MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import { CUSTOM_CONDUIT_HTTP_PATHS, CUSTOM_CONDUIT_HTTP_V1 } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
 
 import type { ConduitMeshFetch } from "./conduit-http-utils";
 import { decodeCiphertextBase64, normalizeConduitBaseUrl } from "./conduit-http-utils";

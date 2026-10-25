@@ -425,6 +425,43 @@
     }
   }
 
+  /* Soft shimmer for page/panel skeletons (settings, vault, etc.) */
+  @keyframes obscur-skeleton-shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
+  }
+
+  .obscur-skeleton-shimmer {
+    background-image: linear-gradient(
+      105deg,
+      rgb(228 228 231 / 0.55) 0%,
+      rgb(244 244 245 / 0.95) 42%,
+      rgb(228 228 231 / 0.55) 84%
+    );
+    background-size: 220% 100%;
+    animation: obscur-skeleton-shimmer 1.35s ease-in-out infinite;
+  }
+
+  .dark .obscur-skeleton-shimmer {
+    background-image: linear-gradient(
+      105deg,
+      rgb(39 39 42 / 0.85) 0%,
+      rgb(63 63 70 / 0.95) 42%,
+      rgb(39 39 42 / 0.85) 84%
+    );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .obscur-skeleton-shimmer {
+      animation: none;
+      background-image: none;
+    }
+  }
+
   /* Toggle state animations */
   .toggle-transition {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -531,7 +568,12 @@
   }
 
   .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Phone-preview WebView2 reports env(safe-area-*) as 0 — use simulated inset. */
+  html[data-obscur-mobile-preview="1"] .safe-bottom {
+    padding-bottom: var(--obscur-safe-area-inset-bottom, 0px);
   }
 
   /* Custom Desktop Window Styling */

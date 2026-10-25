@@ -8,7 +8,7 @@ import type {
   RelayTransportActivitySnapshot,
 } from "./enhanced-relay-pool-types";
 import type { NostrEvent } from "@dweb/nostr/nostr-event";
-import { createConduitMeshRelayPoolRuntime } from "@obscur/conduit-mesh";
+import { createConduitMeshRelayPoolRuntime } from "@obscur/conduit-mesh/conduit-mesh-relay-pool-runtime";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { createConduitMeshNostrWsClient } from "@/app/features/transport-kernel/conduit-mesh-nostr-ws-client";
 import {
@@ -16,10 +16,10 @@ import {
   subscribeConduitMeshTorHostRefresh,
 } from "@/app/features/transport-kernel/conduit-mesh-tor-host-port";
 import { createConduitMeshSocksFetchHostPort } from "@/app/features/transport-kernel/conduit-mesh-socks-fetch-port";
-import type { ConduitMeshNostrConnectionSnapshot } from "@obscur/conduit-mesh";
+import type { ConduitMeshNostrConnectionSnapshot } from "@obscur/conduit-mesh/conduit-mesh-nostr-subscription-port";
 import type { RelayConnection } from "./relay-connection";
 import type { NostrFilter } from "../types/nostr-filter";
-import type { MeshInterest } from "@obscur/conduit-mesh-contracts";
+import type { MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { relayHealthMonitor } from "./relay-health-monitor";
 import { collectRelayHealthMetricsForUrls } from "../services/collect-relay-health-metrics";

@@ -15,12 +15,26 @@ vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: vi.fn(() => false),
 }));
 
+vi.mock("@/app/features/runtime/shell-contract", () => ({
+  isMobileShellProduct: vi.fn(() => false),
+}));
+
 describe("route-stall-recovery.client", () => {
-  it("does not arm stall watchdog on native desktop", async () => {
+  it("does not arm stall watchdog on native desktop shell", async () => {
     const runtime = await import("@/app/features/runtime/runtime-capabilities");
+    const shell = await import("@/app/features/runtime/shell-contract");
     vi.mocked(runtime.hasNativeRuntime).mockReturnValue(true);
+    vi.mocked(shell.isMobileShellProduct).mockReturnValue(false);
     expect(shouldArmRouteStallWatchdog()).toBe(false);
     vi.mocked(runtime.hasNativeRuntime).mockReturnValue(false);
+    expect(shouldArmRouteStallWatchdog()).toBe(true);
+  });
+
+  it("arms stall watchdog on native mobile shell / phone preview", async () => {
+    const runtime = await import("@/app/features/runtime/runtime-capabilities");
+    const shell = await import("@/app/features/runtime/shell-contract");
+    vi.mocked(runtime.hasNativeRuntime).mockReturnValue(true);
+    vi.mocked(shell.isMobileShellProduct).mockReturnValue(true);
     expect(shouldArmRouteStallWatchdog()).toBe(true);
   });
 

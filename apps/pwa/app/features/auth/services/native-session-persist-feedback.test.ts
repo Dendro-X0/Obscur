@@ -19,7 +19,7 @@ vi.mock("@dweb/ui-kit", () => ({
 }));
 
 import { logAppEvent } from "@/app/shared/log-app-event";
-import { toast } from "@dweb/ui-kit";
+import { toast } from "@dweb/ui-kit/toast";
 
 describe("native-session-persist-feedback", () => {
   beforeEach(() => {

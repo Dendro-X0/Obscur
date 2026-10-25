@@ -2,6 +2,7 @@
 
 import { getIdentitySnapshot } from "@/app/features/auth/hooks/use-identity";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
 type RouteStallRouter = Readonly<{
   push: (href: string) => void;
@@ -15,8 +16,13 @@ export const hardNavigate = (href: string): void => {
  * Desktop Tauri: do not arm the stall watchdog. A blocked main thread (webpack compile,
  * heavy route mount) cannot be fixed by timer-driven router.push, and extra navigation
  * work worsens WebView2 PostMessage queue pressure on Windows.
+ *
+ * Mobile shell / phone preview: arm soft recover via `router.push` (never hard-assign on
+ * native). Soft `<Link>` alone can look dead while Next is compiling a cold route.
  */
-export const shouldArmRouteStallWatchdog = (): boolean => !hasNativeRuntime();
+export const shouldArmRouteStallWatchdog = (): boolean => (
+  !hasNativeRuntime() || isMobileShellProduct()
+);
 
 /** Desktop sessions lose in-memory unlock on full document navigation. */
 export const shouldPreferSoftRouteStallRecovery = (): boolean => {

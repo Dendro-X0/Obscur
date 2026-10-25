@@ -93,12 +93,20 @@ export const probePwaDevReady = async (url = PWA_DEV_URL, timeoutMs = 5000) => {
 };
 
 /** Matches `<meta name="obscur-dev-stack" content="…">` emitted by app/layout.tsx in dev. */
-export const buildPwaDevStackFingerprint = (env = process.env) => (
-  [
-    env.NEXT_PUBLIC_DESKTOP_SHELL === "1" ? "desktop" : "web",
+export const buildPwaDevStackFingerprint = (env = process.env) => {
+  const shell =
+    env.NEXT_PUBLIC_MOBILE_PREVIEW === "1"
+      ? "mobile-preview"
+      : env.NEXT_PUBLIC_MOBILE_SHELL === "1"
+        ? "mobile"
+        : env.NEXT_PUBLIC_DESKTOP_SHELL === "1"
+          ? "desktop"
+          : "web";
+  return [
+    shell,
     env.NEXT_PUBLIC_OBSCUR_EXPERIMENT_ONLINE === "1" ? "online" : "offline-stub",
-  ].join(":")
-);
+  ].join(":");
+};
 
 /**
  * @returns {boolean | null} true when fingerprint matches; false when mismatched; null when tag missing.

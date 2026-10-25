@@ -1,10 +1,11 @@
 "use client";
-import { ChevronLeft, ImageIcon, Info, MoreVertical, PhoneCall, User, Video } from "lucide-react";
+import { ChevronLeft, ImageIcon, Info, MoreVertical, PhoneCall, Search, User, Video } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type React from "react";
 import type { Conversation } from "@/app/features/messaging/types";
 import { useResolvedProfileMetadata } from "@/app/features/profile/hooks/use-resolved-profile-metadata";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/app/components/ui/dropdown-menu";
+import { CHAT_HISTORY_SEARCH_OPEN_EVENT } from "@/app/features/messaging/components/messaging-shell-bottom-chrome";
 import { resolveMobileThreadTitle } from "./resolve-mobile-thread-title";
 export type MobileDmThreadHeaderProps = Readonly<{
     conversation: Conversation;
@@ -62,6 +63,17 @@ export function MobileDmThreadHeader({ conversation, onBack, displayNameHint, is
         icon: React.ReactNode;
         onSelect: () => void;
     }> = [];
+    menuItems.push({
+        id: "search",
+        label: t("messaging.searchMessagesInChat"),
+        icon: <Search className="h-4 w-4" aria-hidden/>,
+        onSelect: () => {
+            if (typeof window === "undefined") {
+                return;
+            }
+            window.dispatchEvent(new Event(CHAT_HISTORY_SEARCH_OPEN_EVENT));
+        },
+    });
     if (conversation.kind === "dm" && onOpenProfile) {
         menuItems.push({
             id: "profile",

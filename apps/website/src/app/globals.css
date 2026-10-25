@@ -26,11 +26,13 @@
 html {
   scroll-behavior: smooth;
   color-scheme: dark;
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: clip;
   color: var(--ink);
   font-family: var(--font-body), sans-serif;
   background:
@@ -734,33 +736,74 @@ img {
 
 @media (max-width: 900px) {
   .hero-theater {
-    min-height: min(88vh, 760px);
+    min-height: min(84vh, 720px);
   }
 
   .hero-theater-veil {
     background:
       linear-gradient(
         180deg,
-        rgba(12, 13, 17, 0.45) 0%,
-        rgba(12, 13, 17, 0.88) 42%,
-        rgba(12, 13, 17, 0.96) 100%
+        rgba(12, 13, 17, 0.72) 0%,
+        rgba(12, 13, 17, 0.9) 38%,
+        rgba(12, 13, 17, 0.97) 100%
       );
   }
 
+  .hero-theater-video,
+  .hero-theater-poster {
+    object-fit: cover;
+    object-position: center 18%;
+    opacity: 0.42;
+  }
+
   .hero-theater::after {
-    inset: 10px;
+    inset: 8px;
   }
 
   .hero-theater-overlay {
+    width: calc(100% - 32px);
     max-width: none;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 0 16px;
     justify-content: flex-end;
-    padding-bottom: 36px;
+    padding: clamp(28px, 6vh, 48px) 0 28px;
+    gap: 12px;
+  }
+
+  .hero-theater-brand {
+    gap: 12px;
+  }
+
+  .hero-theater-logo .obscur-logo-mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .hero-theater-wordmark {
+    font-size: clamp(2.1rem, 11vw, 2.85rem);
   }
 
   .hero-theater-title {
     max-width: none;
+    width: 100%;
+    font-size: clamp(1.28rem, 5.2vw, 1.7rem);
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  .hero-theater-summary {
+    max-width: none;
+    font-size: 0.95rem;
+  }
+
+  .hero-theater-actions {
+    width: 100%;
+  }
+
+  .hero-theater-actions .button {
+    flex: 1 1 10rem;
+    justify-content: center;
+    text-align: center;
   }
 
   .release-rail-item {
@@ -794,6 +837,37 @@ img {
   .close-band {
     grid-template-columns: 1fr;
     gap: 36px;
+  }
+
+  .download-pick-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-theater {
+    min-height: min(78vh, 640px);
+  }
+
+  .hero-theater-overlay {
+    width: calc(100% - 24px);
+    margin: 0 12px;
+    padding-bottom: 24px;
+  }
+
+  .stage-theater-list {
+    grid-template-columns: 1fr;
+  }
+
+  .site-shell,
+  .site-shell--theater,
+  .feedback-band-inner,
+  .site-footer-inner {
+    width: min(1240px, calc(100% - 24px));
+  }
+
+  .site-shell--theater {
+    padding-bottom: 72px;
   }
 }
 
@@ -2075,7 +2149,8 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   width: min(1240px, calc(100% - 48px));
   margin: 0 auto;
   padding: 14px 0;
@@ -2085,10 +2160,59 @@ img {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   font-family: var(--font-headline), serif;
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--ink);
+}
+
+.site-nav-toggle {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--surface-line);
+  background: rgba(22, 24, 32, 0.92);
+  color: var(--ink);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: var(--clip-btn);
+}
+
+.site-nav-toggle-bars {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 16px;
+}
+
+.site-nav-toggle-bars span {
+  display: block;
+  height: 1.5px;
+  width: 100%;
+  background: var(--ink);
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.site-nav.is-open .site-nav-toggle-bars span:nth-child(1) {
+  transform: translateY(5.5px) rotate(45deg);
+}
+
+.site-nav.is-open .site-nav-toggle-bars span:nth-child(2) {
+  opacity: 0;
+}
+
+.site-nav.is-open .site-nav-toggle-bars span:nth-child(3) {
+  transform: translateY(-5.5px) rotate(-45deg);
 }
 
 .obscur-logo {
@@ -2099,6 +2223,11 @@ img {
 .obscur-logo-mark {
   width: 32px;
   height: 32px;
+}
+
+.hero-theater-logo .obscur-logo-mark {
+  width: 64px;
+  height: 64px;
 }
 
 /* Site is ink-first — always use the light mark */
@@ -2114,6 +2243,7 @@ img {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px 16px;
 }
 
@@ -2147,6 +2277,42 @@ img {
 
 .site-nav-link:hover::after {
   transform: scaleX(1);
+}
+
+@media (max-width: 960px) {
+  .site-nav-inner {
+    width: min(1240px, calc(100% - 24px));
+  }
+
+  .site-nav-toggle {
+    display: inline-flex;
+  }
+
+  .site-nav-links {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0;
+    padding: 4px 0 8px;
+    border-top: 1px solid var(--surface-line);
+  }
+
+  .site-nav-links.is-open {
+    display: flex;
+  }
+
+  .site-nav-link {
+    padding: 12px 4px;
+    font-size: 0.84rem;
+    letter-spacing: 0.04em;
+  }
+
+  .site-nav-link::after {
+    display: none;
+  }
 }
 
 .site-footer {
@@ -2226,7 +2392,11 @@ img {
   font-size: clamp(1.55rem, 2.8vw, 2.1rem);
   line-height: 1.15;
   letter-spacing: -0.02em;
-  max-width: 18ch;
+  max-width: 22ch;
+}
+
+.feedback-band-actions .button {
+  white-space: nowrap;
 }
 
 .feedback-band-copy p {

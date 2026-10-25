@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from "vitest";
 
-import type { ConduitDescriptor, MeshEnvelope } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope } from "@obscur/conduit-mesh-contracts/envelope";
 
 import { createConduitMesh } from "./create-conduit-mesh";
 import { mapTorStatusSnapshotToMeshTorState } from "./map-tor-status-snapshot";

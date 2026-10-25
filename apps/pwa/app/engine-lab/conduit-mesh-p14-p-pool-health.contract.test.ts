@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { mapMeshSnapshotToRelayActivitySnapshot } from "@obscur/conduit-mesh";
+import { mapMeshSnapshotToRelayActivitySnapshot } from "@obscur/conduit-mesh/map-mesh-snapshot-to-relay-activity";
 import { deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 
 describe("conduit-mesh P14-P pool health contract", () => {

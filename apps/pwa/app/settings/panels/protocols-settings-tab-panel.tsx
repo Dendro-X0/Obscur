@@ -14,18 +14,22 @@ import {
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import {
   SELECTABLE_PROTOCOL_IDS,
-  ProtocolAdaptationLayer,
   PROTOCOL_IDS,
   TRANSPORT_IDS,
+  type ProtocolId,
+  type TransportId,
+} from "@/app/features/protocol-adaptation/types";
+import { ProtocolAdaptationLayer } from "@/app/features/protocol-adaptation/layer";
+import { getProtocolSwitchSummary } from "@/app/features/protocol-adaptation/migration-hints";
+import {
   hasMatrixSession,
+  readMatrixSession,
+} from "@/app/features/protocol-adaptation/matrix-session";
+import {
   matrixLogin,
   matrixLoginAccessToken,
   matrixLogout,
-  readMatrixSession,
-  getProtocolSwitchSummary,
-  type ProtocolId,
-  type TransportId,
-} from "@/app/features/protocol-adaptation";
+} from "@/app/features/protocol-adaptation/matrix-adapter";
 import { ProtocolCapabilityChips } from "@/app/features/protocol-adaptation/components/protocol-capability-chips";
 import { ProtocolMigrationHints } from "@/app/features/protocol-adaptation/components/protocol-migration-hints";
 

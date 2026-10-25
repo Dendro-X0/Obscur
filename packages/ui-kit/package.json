@@ -1,6 +1,6 @@
 {
   "name": "@dweb/ui-kit",
-  "version": "1.9.16",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "sideEffects": false,

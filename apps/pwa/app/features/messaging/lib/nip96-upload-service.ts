@@ -18,6 +18,11 @@ import type { DeliveryReasonCode } from "@dweb/core/security-foundation-contract
 import { normalizeAttachmentUrl } from "@/app/shared/public-url";
 import { reportDevRuntimeIssue } from "@/app/shared/dev-runtime-issue-reporter";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import {
+    discoverRootProviderApiUrls,
+    resolveApiUrlFromWellKnown,
+    WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
+} from "./nip96-well-known-discovery";
 
 export interface Nip96Config {
     apiUrl?: string;
@@ -35,12 +40,15 @@ type Nip96Event = Readonly<{
 }>;
 
 type Nip96Response = Readonly<Record<string, unknown>>;
+
+/** pick: parse response text and keep only selected fields (OH1 client-payload). */
+const pickJson = <T>(text: string, pick: (data: unknown) => T): T => pick(JSON.parse(text) as unknown);
+
 const BROWSER_FETCH_TIMEOUT_MS = 45_000;
 const BROWSER_PROVIDER_TIMEOUT_MS = 60_000;
 const DEV_BROWSER_PROVIDER_TIMEOUT_MS = 20_000;
 const DEV_TAURI_PROVIDER_TIMEOUT_MS = 30_000;
 const TAURI_PROVIDER_TIMEOUT_MS = 45_000;
-const WELL_KNOWN_DISCOVERY_TIMEOUT_MS = 7_500;
 const HEX_PRIVATE_KEY_REGEX = /^[0-9a-f]{64}$/i;
 const DEV_UPLOAD_BROWSER_FIRST =
     process.env.NEXT_PUBLIC_UPLOAD_DEV_BROWSER_FIRST === "1"
@@ -262,42 +270,50 @@ export class Nip96UploadService implements UploadService {
         }
     }
 
-    private async resolveApiUrlFromWellKnown(originUrl: string): Promise<string | null> {
-        const origin = originUrl.replace(/\/+$/, "");
-        const endpoint = `${origin}/.well-known/nostr/nip96.json`;
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), WELL_KNOWN_DISCOVERY_TIMEOUT_MS);
-        try {
-            const response = await fetch(endpoint, {
-                method: "GET",
-                signal: controller.signal,
-            });
-            if (!response.ok) return null;
-            const data = await response.json() as Readonly<Record<string, unknown>>;
-            const apiUrl = typeof data.api_url === "string" ? data.api_url.trim() : "";
-            if (!apiUrl) return null;
-            return Nip96UploadService.normalizeUploadTarget(apiUrl);
-        } catch (error) {
-            if (error instanceof DOMException && error.name === "AbortError") {
-                reportDevRuntimeIssue({
-                    domain: "upload",
-                    operation: "provider_discovery",
-                    severity: "warn",
-                    reasonCode: "upload_provider_discovery_timeout",
-                    message: `NIP-96 provider discovery timed out after ${WELL_KNOWN_DISCOVERY_TIMEOUT_MS}ms`,
-                    retryable: true,
-                    source: "nip96-upload-service",
-                    context: {
-                        endpoint,
-                        timeoutMs: WELL_KNOWN_DISCOVERY_TIMEOUT_MS,
-                    },
-                    fingerprint: `upload|provider_discovery|${origin}`,
-                });
-            }
-            return null;
-        } finally {
-            clearTimeout(timeout);
+    private listDirectBrowserUploadTargets(providerUrl: string): ReadonlyArray<string> {
+        const normalizedProvider = providerUrl.trim();
+        if (!normalizedProvider) {
+            return [];
         }
+        const direct: string[] = [];
+        const add = (value: string | null | undefined): void => {
+            if (!value) return;
+            const normalized = Nip96UploadService.normalizeUploadTarget(value);
+            if (!normalized || direct.includes(normalized)) return;
+            direct.push(normalized);
+        };
+        add(normalizedProvider);
+        try {
+            const parsed = new URL(normalizedProvider);
+            const rootPath = parsed.pathname === "" || parsed.pathname === "/";
+            if (rootPath) {
+                for (const variant of Nip96UploadService.toRootUploadVariants(parsed.origin)) {
+                    add(variant);
+                }
+            }
+        } catch {
+            // Keep the raw provider URL only.
+        }
+        return direct;
+    }
+
+    /** Background well-known warm — never awaited on the upload critical path. */
+    private warmBrowserUploadTargetsFromWellKnown(providerUrl: string): void {
+        const normalizedProvider = providerUrl.trim();
+        if (!normalizedProvider) {
+            return;
+        }
+        void discoverRootProviderApiUrls(normalizedProvider).then((discovered) => {
+            if (discovered.length === 0) {
+                return;
+            }
+            const prior = this.providerUploadTargetCache.get(normalizedProvider)
+                ?? this.listDirectBrowserUploadTargets(normalizedProvider);
+            this.providerUploadTargetCache.set(
+                normalizedProvider,
+                Array.from(new Set([...discovered, ...prior])),
+            );
+        });
     }
 
     private async resolveBrowserUploadTargets(providerUrl: string): Promise<ReadonlyArray<string>> {
@@ -309,44 +325,16 @@ export class Nip96UploadService implements UploadService {
         if (cached) {
             return cached;
         }
+        const direct = this.listDirectBrowserUploadTargets(normalizedProvider);
+        this.providerUploadTargetCache.set(normalizedProvider, direct);
+        // Warm discovered api_url for subsequent uploads; do not block this attempt.
+        this.warmBrowserUploadTargetsFromWellKnown(normalizedProvider);
+        return direct;
+    }
 
-        const discovered: string[] = [];
-        const direct: string[] = [];
-        const add = (list: string[], value: string | null | undefined): void => {
-            if (!value) return;
-            const normalized = Nip96UploadService.normalizeUploadTarget(value);
-            if (!normalized) return;
-            if (!list.includes(normalized)) {
-                list.push(normalized);
-            }
-        };
-
-        add(direct, normalizedProvider);
-
-        try {
-            const parsed = new URL(normalizedProvider);
-            const rootPath = parsed.pathname === "" || parsed.pathname === "/";
-            if (rootPath) {
-                for (const variant of Nip96UploadService.toRootUploadVariants(parsed.origin)) {
-                    add(direct, variant);
-                }
-            }
-
-            const apiUrlFromSameOrigin = await this.resolveApiUrlFromWellKnown(parsed.origin);
-            add(discovered, apiUrlFromSameOrigin);
-
-            if (!apiUrlFromSameOrigin && parsed.hostname.startsWith("cdn.")) {
-                const parentHostOrigin = `${parsed.protocol}//${parsed.hostname.slice(4)}`;
-                const apiUrlFromParent = await this.resolveApiUrlFromWellKnown(parentHostOrigin);
-                add(discovered, apiUrlFromParent);
-            }
-        } catch {
-            // Ignore parse/discovery errors and keep direct targets only.
-        }
-
-        const merged = Array.from(new Set([...discovered, ...direct]));
-        this.providerUploadTargetCache.set(normalizedProvider, merged);
-        return merged;
+    /** Test seam — well-known discovery lives in nip96-well-known-discovery.ts. */
+    private resolveApiUrlFromWellKnown(originUrl: string): Promise<string | null> {
+        return resolveApiUrlFromWellKnown(originUrl);
     }
 
     private logTelemetry(event: "upload.started" | "upload.success" | "upload.failed" | "upload.attempt", context: Record<string, any>) {
@@ -607,63 +595,60 @@ export class Nip96UploadService implements UploadService {
                         );
                     }
                 } else {
-                    const uploadTargets = await this.resolveBrowserUploadTargets(providerUrl);
+                    const timeoutMs = resolveUploadTimeoutMs({
+                        fileSizeBytes: uploadFile.size,
+                        baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
+                    });
                     const providerErrors: UploadError[] = [];
                     let providerAttachment: Attachment | null = null;
 
-                    for (const targetUrl of uploadTargets) {
-                        try {
-                            this.logTelemetry("upload.attempt", {
-                                providerUrl,
-                                targetUrl,
-                                path: "browser",
-                                timeoutMs: resolveUploadTimeoutMs({
-                                    fileSizeBytes: uploadFile.size,
-                                    baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
-                                })
-                            });
-                            const timeoutMs = resolveUploadTimeoutMs({
-                                fileSizeBytes: uploadFile.size,
-                                baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
-                            });
-                            this.logTransportAttempt({
-                                stage: "started",
-                                attemptIndex: providerIndex + 1,
-                                providerUrl,
-                                targetUrl,
-                                file: uploadFile,
-                                transportPath: "browser",
-                                timeoutBudgetMs: timeoutMs,
-                            });
-                            providerAttachment = await this.withTimeout(
-                                this.uploadViaBrowser(uploadFile, targetUrl, undefined, timeoutMs),
-                                timeoutMs,
-                                `browser provider ${targetUrl}`
-                            );
-                            break;
-                        } catch (innerErr: any) {
+                    // Prefer cached well-known api_url when warm; otherwise the configured provider URL.
+                    // Single target per provider attempt — avoids OH1 sequential target waterfall + double-upload.
+                    const uploadTargets = await this.resolveBrowserUploadTargets(providerUrl);
+                    const targetUrl = uploadTargets[0] ?? providerUrl;
+                    try {
+                        this.logTelemetry("upload.attempt", {
+                            providerUrl,
+                            targetUrl,
+                            path: "browser",
+                            timeoutMs,
+                        });
+                        this.logTransportAttempt({
+                            stage: "started",
+                            attemptIndex: providerIndex + 1,
+                            providerUrl,
+                            targetUrl,
+                            file: uploadFile,
+                            transportPath: "browser",
+                            timeoutBudgetMs: timeoutMs,
+                        });
+                        providerAttachment = await this.withTimeout(
+                            this.uploadViaBrowser(uploadFile, targetUrl, undefined, timeoutMs),
+                            timeoutMs,
+                            `browser provider ${targetUrl}`
+                        );
+                    } catch (innerErr: unknown) {
                         const uploadError = innerErr instanceof UploadError
-                                ? innerErr
-                                : new UploadError(UploadErrorCode.UNKNOWN, innerErr?.message || String(innerErr));
-                            const normalizedOutcome = classifyUploadError(uploadError);
-                            this.logTransportAttempt({
-                                stage: "result",
-                                attemptIndex: providerIndex + 1,
-                                providerUrl,
-                                targetUrl,
-                                file: uploadFile,
-                                transportPath: "browser",
-                                timeoutBudgetMs: resolveUploadTimeoutMs({
-                                    fileSizeBytes: uploadFile.size,
-                                    baselineTimeoutMs: BROWSER_PROVIDER_TIMEOUT_MS,
-                                }),
-                                success: false,
-                                reasonCode: normalizedOutcome.reasonCode,
-                                retryable: normalizedOutcome.retryable,
-                                errorMessage: normalizedOutcome.message,
-                            });
-                            providerErrors.push(uploadError);
-                        }
+                            ? innerErr
+                            : new UploadError(
+                                UploadErrorCode.UNKNOWN,
+                                innerErr instanceof Error ? innerErr.message : String(innerErr),
+                            );
+                        const normalizedOutcome = classifyUploadError(uploadError);
+                        this.logTransportAttempt({
+                            stage: "result",
+                            attemptIndex: providerIndex + 1,
+                            providerUrl,
+                            targetUrl,
+                            file: uploadFile,
+                            transportPath: "browser",
+                            timeoutBudgetMs: timeoutMs,
+                            success: false,
+                            reasonCode: normalizedOutcome.reasonCode,
+                            retryable: normalizedOutcome.retryable,
+                            errorMessage: normalizedOutcome.message,
+                        });
+                        providerErrors.push(uploadError);
                     }
 
                     if (!providerAttachment) {
@@ -919,72 +904,83 @@ export class Nip96UploadService implements UploadService {
             formData.append(fieldName, file);
             formData.append("caption", file.name);
 
-            let response: Response;
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
+            type BrowserUploadRound =
+                | { kind: "ok"; url: string }
+                | { kind: "retry_field"; error: UploadError }
+                | { kind: "fatal"; error: UploadError }
+                | { kind: "network_stop"; error: UploadError };
+
+            let round: BrowserUploadRound;
             try {
-                response = await fetch(providerUrl, {
+                // Single await for POST + body parse (OH1 sequential budget with discovery).
+                round = await fetch(providerUrl, {
                     method: "POST",
                     headers: {
                         "Authorization": `Nostr ${authHeader}`,
                     },
                     body: formData,
                     signal: controller.signal,
+                }).then(async (response): Promise<BrowserUploadRound> => {
+                    const bodyText = await response.text();
+                    if (!response.ok) {
+                        const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, `HTTP ${response.status}: ${bodyText || response.statusText}`);
+                        if (response.status === 400 && bodyText.toLowerCase().includes("no files")) {
+                            return { kind: "retry_field", error: err };
+                        }
+                        return { kind: "fatal", error: err };
+                    }
+                    let url: string | null = null;
+                    try {
+                        url = pickJson(bodyText, (data) => getUrlFromNip96Response(data as Nip96Response));
+                    } catch {
+                        return {
+                            kind: "retry_field",
+                            error: new UploadError(UploadErrorCode.PROVIDER_ERROR, "Failed to parse provider response as JSON"),
+                        };
+                    }
+                    if (!url) {
+                        return {
+                            kind: "retry_field",
+                            error: new UploadError(UploadErrorCode.PROVIDER_ERROR, "Upload succeeded but no URL found in response"),
+                        };
+                    }
+                    return { kind: "ok", url };
                 });
             } catch (e) {
-                clearTimeout(timeout);
                 if (e instanceof DOMException && e.name === "AbortError") {
-                    const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Provider timeout after ${fetchTimeoutMs}ms`);
-                    errors.push(err);
-                    continue;
+                    round = {
+                        kind: "retry_field",
+                        error: new UploadError(UploadErrorCode.NETWORK_ERROR, `Provider timeout after ${fetchTimeoutMs}ms`),
+                    };
+                } else {
+                    const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
+                    if (e instanceof TypeError || String(e).includes("Fetch failed")) {
+                        round = { kind: "network_stop", error: err };
+                    } else {
+                        round = { kind: "retry_field", error: err };
+                    }
                 }
-                const err = new UploadError(UploadErrorCode.NETWORK_ERROR, `Fetch failed: ${e}`);
-                errors.push(err);
-                // If it's a network error (like TypeError: Failed to fetch), retrying different field names 
-                // for the same provider is unlikely to fix it.
-                if (e instanceof TypeError || String(e).includes("Fetch failed")) {
-                    break;
-                }
-                continue;
             } finally {
                 clearTimeout(timeout);
             }
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, `HTTP ${response.status}: ${errorText || response.statusText}`);
-                errors.push(err);
-
-                // Some providers respond with "no files" for mismatched field names.
-                if (response.status === 400 && (errorText || "").toLowerCase().includes("no files")) {
-                    continue;
-                }
-
-                throw err;
+            if (round.kind === "ok") {
+                return {
+                    kind: getAttachmentKind(file),
+                    url: normalizeAttachmentUrl(round.url),
+                    contentType: file.type,
+                    fileName: file.name,
+                };
             }
-
-            let result: Nip96Response;
-            try {
-                result = await response.json() as Nip96Response;
-            } catch {
-                const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, "Failed to parse provider response as JSON");
-                errors.push(err);
-                continue;
+            errors.push(round.error);
+            if (round.kind === "fatal") {
+                throw round.error;
             }
-
-            const url = getUrlFromNip96Response(result);
-            if (!url) {
-                const err = new UploadError(UploadErrorCode.PROVIDER_ERROR, "Upload succeeded but no URL found in response");
-                errors.push(err);
-                continue;
+            if (round.kind === "network_stop") {
+                break;
             }
-
-            return {
-                kind: getAttachmentKind(file),
-                url: normalizeAttachmentUrl(url),
-                contentType: file.type,
-                fileName: file.name,
-            };
         }
 
         throw errors[errors.length - 1] || new UploadError(UploadErrorCode.UNKNOWN, "Upload failed unexpectedly");
@@ -994,42 +990,55 @@ export class Nip96UploadService implements UploadService {
         const formData = new FormData();
         formData.append("file", file);
 
-        let response: Response;
         try {
-            response = await fetch("/api/upload", {
+            const picked = await fetch("/api/upload", {
                 method: "POST",
                 body: formData,
+            }).then(async (response) => {
+                const bodyText = await response.text();
+                if (!response.ok) {
+                    let errorMessage = `Local API upload failed with status ${response.status}`;
+                    try {
+                        const errorBody = pickJson(bodyText, (data) => {
+                            if (!data || typeof data !== "object") return null;
+                            const error = (data as Readonly<Record<string, unknown>>).error;
+                            return typeof error === "string" && error.trim() ? error : null;
+                        });
+                        if (errorBody) {
+                            errorMessage = errorBody;
+                        }
+                    } catch {
+                        // Ignore response parse failures.
+                    }
+                    throw new UploadError(UploadErrorCode.PROVIDER_ERROR, errorMessage);
+                }
+                return pickJson(bodyText, (data) => {
+                    const result = (data && typeof data === "object")
+                        ? data as Readonly<Record<string, unknown>>
+                        : {};
+                    const rawUrl = typeof result.url === "string" ? result.url : "";
+                    const contentType = typeof result.contentType === "string"
+                        ? result.contentType
+                        : (file.type || getMimeType(file.name));
+                    if (!rawUrl) {
+                        throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Local API upload succeeded but URL is missing");
+                    }
+                    return { rawUrl, contentType };
+                });
             });
+
+            return {
+                kind: getAttachmentKind(file),
+                url: normalizeAttachmentUrl(picked.rawUrl),
+                contentType: picked.contentType,
+                fileName: file.name,
+            };
         } catch (e) {
+            if (e instanceof UploadError) {
+                throw e;
+            }
             throw new UploadError(UploadErrorCode.NETWORK_ERROR, `Local API upload failed: ${e}`);
         }
-
-        if (!response.ok) {
-            let errorMessage = `Local API upload failed with status ${response.status}`;
-            try {
-                const body = await response.json() as Readonly<Record<string, unknown>>;
-                if (typeof body.error === "string" && body.error.trim()) {
-                    errorMessage = body.error;
-                }
-            } catch {
-                // Ignore response parse failures.
-            }
-            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, errorMessage);
-        }
-
-        const result = await response.json() as Readonly<Record<string, unknown>>;
-        const rawUrl = typeof result.url === "string" ? result.url : "";
-        const contentType = typeof result.contentType === "string" ? result.contentType : (file.type || getMimeType(file.name));
-        if (!rawUrl) {
-            throw new UploadError(UploadErrorCode.PROVIDER_ERROR, "Local API upload succeeded but URL is missing");
-        }
-
-        return {
-            kind: getAttachmentKind(file),
-            url: normalizeAttachmentUrl(rawUrl),
-            contentType,
-            fileName: file.name,
-        };
     }
 
     private async signNip98Header(url: string, method: string, privateKeyHex: string, file?: File): Promise<string> {

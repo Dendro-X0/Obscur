@@ -1,5 +1,6 @@
-import type { ConduitDescriptor, ConduitRuntimeState, MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
-import { isConduitBlockedByTorPolicy } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor, ConduitRuntimeState } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { isConduitBlockedByTorPolicy } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 export const applyTorPolicyToConduitRuntime = (
   runtime: ConduitRuntimeState,

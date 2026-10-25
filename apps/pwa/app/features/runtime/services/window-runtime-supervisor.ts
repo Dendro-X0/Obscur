@@ -39,6 +39,7 @@ import {
   type WindowRuntimeSnapshot,
 } from "./window-runtime-contracts";
 import { reconcileWindowRuntimeBinding } from "@/app/features/runtime/services/window-runtime-binding";
+import { resolveBoundAuthProfileId } from "@/app/features/auth-kernel/hooks/resolve-bound-auth-profile-id";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 type Listener = () => void;
@@ -734,20 +735,22 @@ export const useWindowRuntime = () => {
   const identity = useIdentity();
   const runtimeSnapshot = useWindowRuntimeSnapshot();
 
+  const boundProfileId = resolveBoundAuthProfileId(runtimeSnapshot.session.profileId);
+
   return useMemo(() => ({
     snapshot: runtimeSnapshot,
     refreshWindowBinding: desktopProfileRuntime.refresh,
     createIdentityForBoundProfile: async (params: Readonly<{ passphrase: Passphrase; username?: string } & SessionUnlockOptions>): Promise<void> => {
       const ports = createAuthKernelPorts();
       await runAuthKernelBoundProfileCreate(ports, {
-        profileId: runtimeSnapshot.session.profileId,
+        profileId: boundProfileId,
         ...params,
       });
     },
     importIdentityForBoundProfile: async (params: Readonly<{ privateKeyHex: PrivateKeyHex; passphrase: Passphrase; username?: string } & SessionUnlockOptions>): Promise<void> => {
       const ports = createAuthKernelPorts();
       await runAuthKernelBoundProfileImport(ports, {
-        profileId: runtimeSnapshot.session.profileId,
+        profileId: boundProfileId,
         ...params,
       });
     },
@@ -758,7 +761,7 @@ export const useWindowRuntime = () => {
       }
       const ports = createAuthKernelPorts();
       await runAuthKernelBoundProfileUnlockWithPassphrase(ports, {
-        profileId: runtimeSnapshot.session.profileId,
+        profileId: boundProfileId,
         passphrase: params.passphrase,
         expectedPublicKeyHex: storedPublicKeyHex,
         staySignedIn: params.staySignedIn,
@@ -769,14 +772,14 @@ export const useWindowRuntime = () => {
       const expectedPublicKeyHex = storedPublicKeyHex ?? derivePublicKeyHex(params.privateKeyHex);
       const ports = createAuthKernelPorts();
       await runAuthKernelBoundProfileUnlockWithPrivateKey(ports, {
-        profileId: runtimeSnapshot.session.profileId,
+        profileId: boundProfileId,
         privateKeyHex: params.privateKeyHex,
         expectedPublicKeyHex,
         staySignedIn: params.staySignedIn,
       });
     },
     logoutBoundProfile: async (): Promise<void> => {
-      revokeDeviceTrust(runtimeSnapshot.session.profileId);
+      revokeDeviceTrust(boundProfileId);
       await identity.forgetIdentity();
       windowRuntimeSupervisor.resetToAuthRequired();
     },
@@ -787,7 +790,7 @@ export const useWindowRuntime = () => {
     markRuntimeReady: windowRuntimeSupervisor.markRuntimeReady,
     markRuntimeDegraded: windowRuntimeSupervisor.markRuntimeDegraded,
     markFatal: windowRuntimeSupervisor.markFatal,
-  }), [identity, runtimeSnapshot]);
+  }), [boundProfileId, identity, runtimeSnapshot]);
 };
 
 export const windowRuntimeSupervisorInternals = {

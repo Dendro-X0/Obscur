@@ -3,9 +3,9 @@ import type {
   ConduitMeshNostrEvent,
   ConduitMeshNostrFilter,
   ConduitMeshNostrSubscriptionPort,
-} from "@obscur/conduit-mesh";
-import type { NostrWsWirePort } from "@obscur/conduit-mesh";
-import { parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts";
+} from "@obscur/conduit-mesh/conduit-mesh-nostr-subscription-port";
+import type { NostrWsWirePort } from "@obscur/conduit-mesh/nostr-ws-wire-port";
+import { parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts/nostr-ws-wire-contract";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
 import { createRelayWebSocket } from "@/app/features/relays/hooks/create-relay-websocket";
 import { relayHealthMonitor } from "@/app/features/relays/hooks/relay-health-monitor";

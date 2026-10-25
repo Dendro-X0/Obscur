@@ -1,5 +1,6 @@
 "use client";
-import React, { startTransition, Suspense, useState, useMemo, lazy } from "react";
+import React, { startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState, lazy } from "react";
+import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Users, UserPlus, MessageSquare, UserCheck, Ban, Search, PlusCircle, Check, X, Globe, Trash2, EyeOff, MailOpen, Clock, Settings, } from "lucide-react";
 import { useNetwork } from "../providers/network-provider";
@@ -46,7 +47,15 @@ import { QRScanner } from "@/app/components/qr-scanner";
 import { useToasts } from "@dweb/ui-kit/toast";
 import { ConnectionImportExport } from "@/app/components/invites/connection-import-export";
 import { useNetworkRequestTransport } from "@/app/features/messaging/hooks/use-network-request-transport";
+import { useRelay } from "@/app/features/relays/providers/relay-provider";
+import { useRelayPoolRef } from "@/app/features/relays/hooks/use-relay-pool-ref";
+import { runManualAccountSyncRestore } from "@/app/features/account-sync/services/account-sync-manual-intent";
+import { NATIVE_KEY_SENTINEL } from "@/app/features/crypto/crypto-service";
+import { decodePrivateKey } from "@/app/features/auth/utils/decode-private-key";
+import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 type TabId = "all" | "groups" | "discovery" | "invitations" | "blocked" | "manage";
+/** Delay pointer capture until real drag — early capture + tiny jitter swallowed chip clicks. */
+const CATEGORY_DRAG_THRESHOLD_PX = 12;
 export function NetworkDashboard() {
     const { t } = useTranslation();
     const compact = useMobileCompactLayout();
@@ -54,12 +63,15 @@ export function NetworkDashboard() {
     const { identity, peerTrust, requestsInbox, blocklist, presence } = useNetwork();
     const { createdGroups, hasHydratedGroups, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, setIsNewGroupOpen, archivedCommunityMembershipRows, purgeArchivedCommunityMembership, purgeAllArchivedCommunityMemberships } = useGroups();
     const { setIsNewChatOpen, createdConnections, hasHydrated, } = useMessaging();
+    const { relayPool: pool } = useRelay();
+    const poolRef = useRelayPoolRef(pool);
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<TabId>("all");
     const [viewMode, setViewMode] = useState<"list" | "grid">("list");
     const [searchQuery, setSearchQuery] = useState("");
     const [revealedByPubkey, setRevealedByPubkey] = useState<Readonly<Record<string, boolean>>>({});
     const [isAddConnectionOpen, setIsAddConnectionOpen] = useState(false);
+    const [isRestoringConnections, setIsRestoringConnections] = useState(false);
     const { addToast } = useToasts();
     const { byScopeId: leaveOutboxByScopeId } = useCommunityLeaveOutboxIndex();
     // Group Join State
@@ -68,6 +80,41 @@ export function NetworkDashboard() {
     const [joinGroupId, setJoinGroupId] = useState("");
     const [joinRelayUrl, setJoinRelayUrl] = useState("");
     const publicKeyHex = (identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? null) as PublicKeyHex | null;
+    const handleRestoreConnectionsFromRelays = useCallback(async (): Promise<void> => {
+        if (!publicKeyHex || isRestoringConnections) {
+            return;
+        }
+        setIsRestoringConnections(true);
+        try {
+            let privateKeyHex = identity.state.privateKeyHex && identity.state.privateKeyHex !== NATIVE_KEY_SENTINEL
+                ? identity.state.privateKeyHex
+                : null;
+            if (!privateKeyHex && identity.state.privateKeyHex === NATIVE_KEY_SENTINEL) {
+                const nsecResult = await invokeNativeCommand<string>("get_session_nsec");
+                privateKeyHex = nsecResult.ok && nsecResult.value ? decodePrivateKey(nsecResult.value) : null;
+            }
+            if (!privateKeyHex) {
+                addToast({ type: "error", message: "Unlock this account before restoring from relays." });
+                return;
+            }
+            const result = await runManualAccountSyncRestore({
+                publicKeyHex,
+                privateKeyHex,
+                pool: poolRef.current,
+            });
+            addToast({
+                type: result.ok ? "success" : "error",
+                message: result.message,
+            });
+        } catch (error) {
+            addToast({
+                type: "error",
+                message: error instanceof Error ? error.message : "Restore failed.",
+            });
+        } finally {
+            setIsRestoringConnections(false);
+        }
+    }, [addToast, identity.state.privateKeyHex, isRestoringConnections, poolRef, publicKeyHex]);
     const membershipReadModelGroups = useMemo(() => (buildCommunityMembershipReadModelIndexGroupInputs({
         ownerPubkey: publicKeyHex,
         groups: createdGroups,
@@ -85,6 +132,118 @@ export function NetworkDashboard() {
     });
     const inviteResolver = useInviteResolver({ myPublicKeyHex: publicKeyHex });
     const requestTransport = useNetworkRequestTransport();
+    const categoryScrollerRef = useRef<HTMLDivElement | null>(null);
+    const categoryDragRef = useRef<{
+        pointerId: number;
+        startX: number;
+        startScrollLeft: number;
+        moved: boolean;
+        capturing: boolean;
+    } | null>(null);
+    const categoryDragMovedRef = useRef(false);
+    const [categoryDragging, setCategoryDragging] = useState(false);
+    const onCategoryPointerDownCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (!compact || event.pointerType === "touch" || event.button !== 0) {
+            return;
+        }
+        const scroller = categoryScrollerRef.current;
+        if (!scroller || scroller.scrollWidth <= scroller.clientWidth) {
+            return;
+        }
+        categoryDragMovedRef.current = false;
+        categoryDragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startScrollLeft: scroller.scrollLeft,
+            moved: false,
+            capturing: false,
+        };
+    }, [compact]);
+
+    const onCategoryPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = categoryDragRef.current;
+        const scroller = categoryScrollerRef.current;
+        if (!drag || !scroller || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        const dx = event.clientX - drag.startX;
+        if (!drag.moved && Math.abs(dx) > CATEGORY_DRAG_THRESHOLD_PX) {
+            drag.moved = true;
+            categoryDragMovedRef.current = true;
+            setCategoryDragging(true);
+            if (!drag.capturing) {
+                scroller.setPointerCapture(event.pointerId);
+                drag.capturing = true;
+            }
+        }
+        if (drag.moved) {
+            scroller.scrollLeft = drag.startScrollLeft - dx;
+            event.preventDefault();
+        }
+    }, []); // CATEGORY_DRAG_THRESHOLD_PX is module-const
+
+    const endCategoryPointerDrag = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = categoryDragRef.current;
+        const scroller = categoryScrollerRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        const didMove = drag.moved;
+        categoryDragRef.current = null;
+        setCategoryDragging(false);
+        if (scroller?.hasPointerCapture(event.pointerId)) {
+            scroller.releasePointerCapture(event.pointerId);
+        }
+        // Keep click-suppression through the following click event only after a real drag.
+        if (didMove) {
+            categoryDragMovedRef.current = true;
+            window.setTimeout(() => {
+                categoryDragMovedRef.current = false;
+            }, 0);
+        } else {
+            categoryDragMovedRef.current = false;
+        }
+    }, []);
+
+    const onCategoryLostPointerCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        const drag = categoryDragRef.current;
+        if (!drag || drag.pointerId !== event.pointerId) {
+            return;
+        }
+        categoryDragRef.current = null;
+        categoryDragMovedRef.current = false;
+        setCategoryDragging(false);
+    }, []);
+
+    const selectCategoryTab = useCallback((tabId: TabId) => {
+        if (categoryDragMovedRef.current) {
+            return;
+        }
+        startTransition(() => setActiveTab(tabId));
+    }, []);
+
+    useEffect(() => {
+        if (!compact) {
+            return;
+        }
+        const scroller = categoryScrollerRef.current;
+        if (!scroller) {
+            return;
+        }
+        const onWheel = (event: WheelEvent) => {
+            if (scroller.scrollWidth <= scroller.clientWidth) {
+                return;
+            }
+            if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) {
+                return;
+            }
+            event.preventDefault();
+            scroller.scrollLeft += event.deltaY;
+        };
+        scroller.addEventListener("wheel", onWheel, { passive: false });
+        return () => scroller.removeEventListener("wheel", onWheel);
+    }, [compact]);
+
     // Clear unread marks when switching to invitations tab
     React.useEffect(() => {
         if (activeTab === "invitations" && requestsInbox.state.items.some(i => i.unreadCount > 0)) {
@@ -139,10 +298,10 @@ export function NetworkDashboard() {
     }[] = [
         { id: "all", label: t("network.tabs.all"), compactLabel: t("network.tabs.all"), icon: UserCheck, badge: filteredAcceptedPeers.length },
         { id: "groups", label: t("network.tabs.groups"), compactLabel: t("network.tabs.groups"), icon: Users, badge: filteredGroups.length },
-        { id: "discovery", label: "Discovery", compactLabel: t("network.tabs.discoveryCompact"), icon: Globe },
+        { id: "discovery", label: t("network.tabs.discovery"), compactLabel: t("network.tabs.discoveryCompact"), icon: Globe },
         { id: "invitations", label: t("network.tabs.invitations"), compactLabel: t("network.tabs.invitationsCompact"), icon: MailOpen, badge: unreadInvitationCount },
         { id: "blocked", label: t("network.tabs.blocked"), compactLabel: t("network.tabs.blocked"), icon: Ban },
-        { id: "manage", label: "Manage", compactLabel: t("network.tabs.manageCompact"), icon: Settings },
+        { id: "manage", label: t("network.tabs.manage"), compactLabel: t("network.tabs.manageCompact"), icon: Settings },
     ];
     const handleGlobalSearch = async () => {
         const trimmedQuery = searchQuery.trim();
@@ -168,16 +327,24 @@ export function NetworkDashboard() {
     const renderEmptyState = (title: string, description: string, icon: React.ElementType, action?: {
         label: string;
         onClick: () => void;
+    }, secondaryAction?: {
+        label: string;
+        onClick: () => void;
     }) => (<div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[45vh] text-center animate-in fade-in slide-in-from-bottom-4 duration-150">
             <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] bg-muted border border-border shadow-inner">
                 {React.createElement(icon, { className: "h-10 w-10 text-muted-foreground" })}
             </div>
             <h3 className="text-xl font-black text-foreground">{title}</h3>
-            <p className="mt-2 max-w-xs text-sm text-muted-foreground leading-relaxed">{description}</p>
-            {action && (<Button className="mt-8 gap-2 h-11 px-6 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 font-bold transition-all hover:scale-105 active:scale-95 text-primary-foreground" onClick={action.onClick}>
-                    <PlusCircle className="h-5 w-5"/>
-                    {action.label}
-                </Button>)}
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground leading-relaxed">{description}</p>
+            {(action || secondaryAction) ? (<div className="mt-8 flex w-full max-w-sm flex-col items-stretch gap-2 sm:items-center">
+                    {action ? (<Button className="gap-2 h-11 px-6 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 font-bold transition-all hover:scale-105 active:scale-95 text-primary-foreground" onClick={action.onClick}>
+                            <PlusCircle className="h-5 w-5"/>
+                            {action.label}
+                        </Button>) : null}
+                    {secondaryAction ? (<Button variant="outline" className="h-11 gap-2 rounded-2xl border-border/70 bg-card font-bold" onClick={secondaryAction.onClick}>
+                            {secondaryAction.label}
+                        </Button>) : null}
+                </div>) : null}
         </div>);
     return (<div className="relative w-full flex flex-col min-h-full">
             {/* Top Action Header */}
@@ -225,29 +392,72 @@ export function NetworkDashboard() {
             </div>
 
             <div className="relative flex flex-1 min-h-0 flex-col lg:flex-row">
-                {/* Left Sidebar Menu */}
-                <div className={cn("scrollbar-none z-10 flex w-full shrink-0 border-b border-border/70 bg-card/35 lg:sticky lg:top-[110px] lg:h-[calc(100dvh-110px)] lg:min-h-[calc(100dvh-110px)] lg:w-72 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-background/40", compact
-            ? "grid grid-cols-3 gap-1 p-2"
-            : "flex-row gap-1 overflow-x-auto p-3", tablet && "justify-center")}>
+                {/* Left Sidebar Menu — compact: horizontal snap carousel */}
+                <div
+                  ref={categoryScrollerRef}
+                  role={compact ? "region" : undefined}
+                  aria-roledescription={compact ? "carousel" : undefined}
+                  aria-label={compact ? t("network.directory") : undefined}
+                  onPointerDownCapture={compact ? onCategoryPointerDownCapture : undefined}
+                  onPointerMove={compact ? onCategoryPointerMove : undefined}
+                  onPointerUp={compact ? endCategoryPointerDrag : undefined}
+                  onPointerCancel={compact ? endCategoryPointerDrag : undefined}
+                  onLostPointerCapture={compact ? onCategoryLostPointerCapture : undefined}
+                  className={cn(
+                    "scrollbar-none z-10 flex w-full shrink-0 border-b border-border/70 bg-card/35 lg:sticky lg:top-[110px] lg:h-[calc(100dvh-110px)] lg:min-h-[calc(100dvh-110px)] lg:w-72 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-background/40",
+                    compact
+                      ? "mobile-scroll-region cursor-grab touch-pan-x select-none flex-row gap-2 overflow-x-auto overscroll-x-contain snap-x snap-mandatory px-3 py-2.5 active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      : "flex-row gap-1 overflow-x-auto p-3",
+                    compact && categoryDragging && "cursor-grabbing [&_*]:pointer-events-none",
+                    tablet && !compact && "justify-center",
+                  )}
+                >
                     <div className="hidden lg:block mb-8 px-3">
                         <div className="flex items-center gap-2 mb-1.5 opacity-80">
                             <div className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"/>
                             <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{t("network.directory")}</h2>
                         </div>
                     </div>
-                    {tabs.map((tab) => (<button key={tab.id} onClick={() => startTransition(() => setActiveTab(tab.id as TabId))} aria-label={compact ? tab.compactLabel : tab.label} className={cn("relative flex items-center rounded-xl text-xs font-bold transition-all duration-300", compact
-                ? "h-12 min-w-0 flex-col justify-center gap-0.5 px-1"
-                : cn("flex-shrink-0 gap-3 px-4 lg:w-full", tablet ? "h-11" : "h-10"), activeTab === tab.id
-                ? "scale-[1.01] border border-emerald-400/30 bg-emerald-500/15 text-foreground shadow-md shadow-emerald-900/10 active:scale-[0.98]"
-                : "text-muted-foreground hover:bg-accent/70 hover:text-foreground")}>
-                            <tab.icon className={cn("h-4 w-4 shrink-0", activeTab === tab.id ? "text-emerald-500" : "opacity-60")}/>
+                    {tabs.map((tab) => {
+                      const active = activeTab === tab.id;
+                      return (
+                        <motion.button
+                          key={tab.id}
+                          type="button"
+                          whileTap={compact && !categoryDragging ? { scale: 0.96 } : undefined}
+                          animate={compact ? {
+                            scale: active ? 1 : 0.94,
+                            opacity: active ? 1 : 0.62,
+                          } : undefined}
+                          transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.65 }}
+                          onClick={() => selectCategoryTab(tab.id as TabId)}
+                          aria-label={compact ? tab.compactLabel : tab.label}
+                          aria-pressed={active}
+                          className={cn(
+                            "relative flex items-center rounded-xl text-xs font-bold",
+                            compact
+                              ? "h-[3.75rem] w-[5.75rem] shrink-0 snap-center flex-col justify-center gap-1 px-2"
+                              : cn("flex-shrink-0 gap-3 px-4 lg:w-full", tablet ? "h-11" : "h-10"),
+                            active
+                              ? "border border-emerald-400/30 bg-emerald-500/15 text-foreground shadow-md shadow-emerald-900/10"
+                              : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
+                          )}
+                        >
+                            <tab.icon className={cn("h-4 w-4 shrink-0", active ? "text-emerald-500" : "opacity-60")}/>
                             <span className={cn("whitespace-nowrap", compact ? "text-[10px] leading-none" : "")}>
                                 {compact ? tab.compactLabel : tab.label}
                             </span>
-                            {tab.badge ? (<span className={cn("flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1 text-[9px] font-black text-emerald-500", compact ? "absolute right-1 top-1 ml-0" : "ml-1.5")}>
-                                    {tab.badge}
-                                </span>) : null}
-                        </button>))}
+                            {tab.badge ? (
+                              <span className={cn(
+                                "flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-500/20 px-1 text-[9px] font-black text-emerald-500",
+                                compact ? "absolute right-1 top-1 ml-0" : "ml-1.5",
+                              )}>
+                                {tab.badge}
+                              </span>
+                            ) : null}
+                        </motion.button>
+                      );
+                    })}
                 </div>
 
                 {/* Main Content Pane */}
@@ -266,7 +476,22 @@ export function NetworkDashboard() {
 
                                 {(!hasHydrated || !peerTrust.hasHydrated || !requestsInbox.hasHydrated) ? (<div className="flex-1 flex items-center justify-center p-12 min-h-[40vh]">
                                         <LoaderIcon className="h-8 w-8 animate-pulse text-primary/50"/>
-                                    </div>) : filteredAcceptedPeers.length === 0 ? (renderEmptyState(t("network.noConnectionsFound"), t("network.noConnectionsDesc"), UserCheck, { label: t("network.findPeople"), onClick: () => router.push("/search") })) : (<div className={viewMode === "grid"
+                                    </div>) : filteredAcceptedPeers.length === 0 ? (renderEmptyState(
+                                        t("network.noConnectionsFound"),
+                                        t("network.noConnectionsDesc"),
+                                        UserCheck,
+                                        { label: t("network.findPeople"), onClick: () => router.push("/search") },
+                                        {
+                                            label: isRestoringConnections
+                                                ? t("common.loading", { defaultValue: "Restoring…" })
+                                                : t("network.restoreConnectionsCta"),
+                                            onClick: () => {
+                                                if (!isRestoringConnections) {
+                                                    void handleRestoreConnectionsFromRelays();
+                                                }
+                                            },
+                                        },
+                                    )) : (<div className={viewMode === "grid"
                     ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                     : tablet
                         ? "grid grid-cols-1 gap-3 sm:grid-cols-2"

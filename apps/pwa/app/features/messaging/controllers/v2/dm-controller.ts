@@ -29,8 +29,8 @@ import {
   sendDm,
   sendConnectionRequest,
   ProtocolAdaptationLayer,
-  type SendConfirmation,
-} from "@/app/features/protocol-adaptation";
+} from "@/app/features/protocol-adaptation/layer";
+import type { SendConfirmation } from "@/app/features/protocol-adaptation/nostr-adapter";
 import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import {
   assertDmOutboundAllowed,

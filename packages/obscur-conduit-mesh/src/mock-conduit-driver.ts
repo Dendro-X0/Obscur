@@ -1,12 +1,7 @@
-import type {
-  ConduitDescriptor,
-  ConduitDriverPort,
-  ConduitDialect,
-  MeshEnvelope,
-  MeshEvidenceRecord,
-  MeshInterest,
-  MeshPublishOutcome,
-} from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor, ConduitDialect } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshEvidenceRecord, MeshPublishOutcome } from "@obscur/conduit-mesh-contracts/evidence";
+import type { ConduitDriverPort } from "@obscur/conduit-mesh-contracts/mesh-port";
 
 export type MockConduitPublishBehavior = "accept" | "fail" | "degraded_accept";
 

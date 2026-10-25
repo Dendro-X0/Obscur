@@ -1,4 +1,4 @@
-import { isOnionMeshEndpoint } from "@obscur/conduit-mesh";
+import { isOnionMeshEndpoint } from "@obscur/conduit-mesh/resolve-conduit-http-transport";
 import {
   isPublicDefaultRelayHost,
   normalizeRelayHost,

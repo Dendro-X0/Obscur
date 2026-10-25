@@ -6,7 +6,7 @@ import type { IdentityRecord } from "@dweb/core/identity-record";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
-import type { AuthUnlockOptions } from "@dweb/auth";
+import type { AuthUnlockOptions } from "@dweb/auth/contracts/auth-unlock-options";
 import type { PoWDifficulty } from "@/app/features/auth/services/pow-key-generator";
 import {
   authKernelIdentityActions,

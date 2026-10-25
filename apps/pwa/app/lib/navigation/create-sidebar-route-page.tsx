@@ -1,7 +1,7 @@
 import type React from "react";
 import dynamic from "next/dynamic";
 import { RouteLoadingFallback } from "@/app/components/experience";
-import { isDesktopShellBuild } from "@/app/features/runtime/shell-contract";
+import { isDesktopShellBuild, isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
 type SidebarRouteLoadingCopy = Readonly<{
   title: string;
@@ -63,19 +63,25 @@ const createLazySidebarRoutePage = (
   };
 };
 
-const shouldUseEagerDesktopSidebarRoute = (): boolean => (
-  isDesktopShellBuild() && process.env.NODE_ENV === "production"
+/**
+ * Production static shells (desktop + mobile): eager page clients from local disk.
+ * Dev webpack: lazy chunks + boot-time warm-up (see navigation-warmup-owner) so
+ * first compile stays off the critical click path when possible.
+ */
+const shouldUseEagerShellSidebarRoute = (): boolean => (
+  process.env.NODE_ENV === "production"
+  && (isDesktopShellBuild() || isMobileShellProduct())
 );
 
 /**
- * Production desktop static/Tauri: eager page clients.
- * Dev desktop webpack: lazy chunks + boot-time warm-up (see navigation-warmup-owner).
+ * Production desktop/mobile static: eager page clients (on-device, no chunk wait).
+ * Dev: lazy + idle warm-up.
  */
 export function createSidebarRoutePage(
   loaders: SidebarRouteClientLoaders,
   loading: SidebarRouteLoadingCopy,
 ): React.ComponentType {
-  if (shouldUseEagerDesktopSidebarRoute()) {
+  if (shouldUseEagerShellSidebarRoute()) {
     return createEagerSidebarRoutePage(loaders.eager, loading);
   }
   return createLazySidebarRoutePage(loaders.lazy, loading);

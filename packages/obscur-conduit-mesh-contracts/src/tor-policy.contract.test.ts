@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  deriveEffectiveNetworkPolicy,
-  filterConduitsByTorPolicy,
-  isConduitBlockedByTorPolicy,
-  sortConduitsByTorPreference,
-} from "@obscur/conduit-mesh-contracts";
-import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts";
+import { deriveEffectiveNetworkPolicy, filterConduitsByTorPolicy, isConduitBlockedByTorPolicy, sortConduitsByTorPreference } from "@obscur/conduit-mesh-contracts/tor-policy";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
 
 const clearnetConduit = (): ConduitDescriptor => ({
   conduitId: "clearnet-custom",

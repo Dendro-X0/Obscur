@@ -16,7 +16,8 @@ import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
 import { isGroupConversationId } from "@/app/features/groups/utils/group-conversation-id";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { APP_OVERLAY_BACKDROP_CLASS, AppOverlayPortal } from "@/app/components/app-overlay-layer";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 import { VideoPosterTile } from "@/app/features/messaging/components/video-poster-tile";
 import { isLesPreviewPendingUrl, isVaultMediaPlaybackUrl } from "@/app/features/les/sdk/les-vault-media-adapter";
 type VaultMediaGridProps = Readonly<{

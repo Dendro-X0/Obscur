@@ -6,7 +6,7 @@ import { useDmKernelThread } from "./use-dm-kernel-thread";
 
 const listDmMessagesMock = vi.hoisted(() => vi.fn(async () => [] as Message[]));
 
-vi.mock("@/app/features/protocol-adaptation", () => ({
+vi.mock("@/app/features/protocol-adaptation/layer", () => ({
   listDmMessages: listDmMessagesMock,
 }));
 

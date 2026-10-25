@@ -7,11 +7,9 @@ import { Check, ChevronDown, Clock3, Loader2, RefreshCw, ShieldAlert, X } from "
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/utils";
-import {
-  buildIdentityBindingViewModel,
-  IdentityBindingAcceptDialog,
-  IdentityBindingPanel,
-} from "@/app/features/security";
+import { buildIdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
+import { IdentityBindingAcceptDialog } from "@/app/features/security/components/identity-binding-accept-dialog";
+import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import { assessIncomingRequestPreview } from "@/app/features/dm-kernel/dm-kernel-trust-action-gate";
 import { getPeerFirstSeenAtUnixMs } from "@/app/features/dm-kernel/dm-kernel-trust-peer-state";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";

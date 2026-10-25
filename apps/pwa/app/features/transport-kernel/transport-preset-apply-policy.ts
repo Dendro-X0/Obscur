@@ -1,4 +1,4 @@
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 import type { TransportPreset } from "./transport-preset-catalog";
 

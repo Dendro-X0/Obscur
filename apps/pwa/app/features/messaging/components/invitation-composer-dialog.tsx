@@ -19,9 +19,9 @@ import {
 } from "@/app/features/security/services/secret-input-firewall";
 import {
   buildIdentityBindingViewModel,
-  IdentityBindingPanel,
   type IdentityBindingResolverSource,
-} from "@/app/features/security";
+} from "@/app/features/security/services/identity-binding-presenter";
+import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import { toast } from "@dweb/ui-kit/toast";
 
 type InvitationComposerDialogProps = Readonly<{

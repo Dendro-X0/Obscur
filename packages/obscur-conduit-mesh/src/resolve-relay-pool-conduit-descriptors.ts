@@ -1,4 +1,4 @@
-import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
 
 import { isOnionMeshEndpoint } from "./resolve-conduit-http-transport";
 

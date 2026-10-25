@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts";
+import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts/nostr-wire-payload";
 
 describe("nostr wire payload helpers", () => {
   it("detects pre-built EVENT wire payloads", () => {

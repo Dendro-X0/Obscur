@@ -5,6 +5,16 @@
 **Scope:** `NEXT_PUBLIC_MOBILE_SHELL` / Tauri Android WebView + browser mobile-shell dev (`pnpm dev:mobile-shell:online`)  
 **Related:** [README.md](./README.md) · [mobile-ui-stack-evaluation.md](../../../program/mobile-ui-stack-evaluation.md)
 
+### Dev surfaces (pick one)
+
+| Command | Use for | Persistence |
+|---------|---------|-------------|
+| `pnpm dev:mobile-shell:online` | Layout smoke in Chrome device mode | Browser storage only — **not** SQLite |
+| `pnpm dev:mobile-preview:online` | Auth / unlock / SQLite iteration in a phone-sized Tauri window | Native SQLite (`OBSCUR_DATA_ROOT` → `.obscur-mobile-preview-data/`) |
+| Android emulator / APK | Release gates (M1+) | Native SQLite on device |
+
+Do not run mobile-shell and mobile-preview (or desktop live) on the same `:3340` at once.
+
 ---
 
 ## Executive summary

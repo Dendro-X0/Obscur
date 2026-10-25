@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ConduitDescriptor, MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 import {
   isOnionMeshEndpoint,

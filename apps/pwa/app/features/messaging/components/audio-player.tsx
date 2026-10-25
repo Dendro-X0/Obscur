@@ -5,7 +5,8 @@ import { ExternalLink, Play, Pause, RefreshCw, Volume2 } from "lucide-react";
 import { cn } from "@dweb/ui-kit/cn";
 import { classifyMediaError, type MediaErrorState } from "./media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 import {
     formatVoiceNoteRecordedAtLabel,
     type VoiceNoteAttachmentMetadata,

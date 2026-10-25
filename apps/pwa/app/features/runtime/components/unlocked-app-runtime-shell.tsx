@@ -24,6 +24,7 @@ import { ChatRouteMainShell, ChatRouteVoiceCallOverlay } from "./chat-route-main
 import { AccountScopeBoundaryOwner } from "@/app/features/runtime/components/account-scope-boundary-owner";
 import { DesktopNotificationHandler } from "@/app/components/desktop-notification-handler";
 import { AppMediaPreviewLayer } from "@/app/features/messaging/components/app-media-preview-layer";
+import { EmptyDeviceContinuityGate } from "@/app/features/account-sync/components/empty-device-continuity-gate";
 
 /**
  * Unlocked session tree. Providers stay mounted across sidebar navigation.
@@ -42,6 +43,7 @@ export function UnlockedAppRuntimeShell(props: Readonly<{ children: React.ReactN
         <RuntimeMessagingTransportOwnerProvider>
           <DesktopNotificationHandler />
           <AppMediaPreviewLayer />
+          <EmptyDeviceContinuityGate />
           <AppChromeProvider>
             <LazyGlobalDialogManager />
             <PersistentAppChrome>

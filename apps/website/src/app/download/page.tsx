@@ -24,13 +24,32 @@ const familyLabel = (platform: string, kind: string): string => {
 const formatSize = (sizeBytes: number): string =>
   sizeBytes > 0 ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MB` : "—";
 
-/** UI label — keep real filename in `title` / checksums; hide raw “unsigned” in the card. */
-const displayArtifactName = (fileName: string): string =>
-  fileName
+/**
+ * Card label — prefer public releaseTag over package-tree semver in the filename
+ * (e.g. Obscur_1.9.16_… → Obscur_2.0.0-beta.1_…). Real asset name stays in `title`
+ * and checksum rows so downloads/hashes stay honest.
+ */
+const displayArtifactName = (
+  fileName: string,
+  params?: Readonly<{ packageVersion?: string; releaseTag?: string }>,
+): string => {
+  let name = fileName
     .replace(/[-_]unsigned(?=\.|$)/gi, "")
     .replace(/[-_]debug(?=\.|$)/gi, "")
     .replace(/_{2,}/g, "_")
     .replace(/-{2,}/g, "-");
+  const packageVersion = params?.packageVersion?.trim();
+  const releaseTag = params?.releaseTag?.trim().replace(/^v/i, "");
+  if (
+    packageVersion
+    && releaseTag
+    && packageVersion !== releaseTag
+    && name.includes(packageVersion)
+  ) {
+    name = name.split(packageVersion).join(releaseTag);
+  }
+  return name;
+};
 
 const PLATFORM_INSTALL_HINTS = {
   windows:
@@ -85,6 +104,10 @@ export default async function DownloadPage() {
   const signingPolicy = manifest?.signingPolicy ?? "unsigned";
   const buildGuideHref = manifest?.buildFromSourceDocHref ?? "#";
   const signingPolicyHref = manifest?.signingPolicyDocHref;
+  const packageVersion = manifest?.version ?? site.currentVersion;
+  const releaseTag = manifest?.releaseTag ?? site.currentVersion;
+  const artifactLabel = (fileName: string) =>
+    displayArtifactName(fileName, { packageVersion, releaseTag });
 
   const desktopTargets = [
     { label: "Windows", target: release?.preferredDesktopDownload.windows },
@@ -226,7 +249,14 @@ export default async function DownloadPage() {
           <p className="eyebrow">All platforms</p>
           <h2 id="download-platforms-title">Pick your installer</h2>
           <p className="section-lead">
-            Desktop is the primary surface. Android is sideload-only. iOS is not available. Every
+            Release <strong>v{releaseTag}</strong>
+            {packageVersion !== releaseTag ? (
+              <>
+                {" "}
+                (package tree {packageVersion})
+              </>
+            ) : null}
+            . Desktop is the primary surface. Android is sideload-only. iOS is not available. Every
             offered installer follows the same self-signed policy.
           </p>
         </div>
@@ -249,7 +279,7 @@ export default async function DownloadPage() {
                   <>
                     <p className="download-pick-size">{formatSize(target.sizeBytes)}</p>
                     <p className="download-pick-file" title={target.assetName}>
-                      {displayArtifactName(target.assetName)}
+                      {artifactLabel(target.assetName)}
                     </p>
                     <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS[hintKey]}</p>
                     <a
@@ -289,7 +319,7 @@ export default async function DownloadPage() {
                   {formatSize(androidArtifact.sizeBytes)} · APK sideload
                 </p>
                 <p className="download-pick-file" title={androidArtifact.fileName}>
-                  {displayArtifactName(androidArtifact.fileName)}
+                  {artifactLabel(androidArtifact.fileName)}
                 </p>
                 <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS.android}</p>
                 <a
@@ -330,7 +360,8 @@ export default async function DownloadPage() {
           <summary className="download-verify-summary">
             <span className="download-verify-title">Optional: verify file integrity</span>
             <span className="download-verify-hint">
-              For advanced users — SHA-256 checksums ({manifest.version})
+              For advanced users — SHA-256 checksums (v{releaseTag}
+              {packageVersion !== releaseTag ? ` · package ${packageVersion}` : ""})
             </span>
           </summary>
           <div className="download-verify-body">
@@ -349,8 +380,8 @@ export default async function DownloadPage() {
                       <p className="checksum-filename">
                         {familyLabel(artifact.platform, artifact.kind)}
                       </p>
-                      <p className="checksum-meta">
-                        {artifact.fileName} · {formatSize(artifact.sizeBytes)}
+                      <p className="checksum-meta" title={artifact.fileName}>
+                        {artifactLabel(artifact.fileName)} · {formatSize(artifact.sizeBytes)}
                       </p>
                     </div>
                     {artifact.href ? (

@@ -1,6 +1,6 @@
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
-import { DEFAULT_MESH_TOR_STATE } from "@obscur/conduit-mesh-contracts";
-import { mapTorStatusSnapshotToMeshTorState } from "@obscur/conduit-mesh";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { DEFAULT_MESH_TOR_STATE } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { mapTorStatusSnapshotToMeshTorState } from "@obscur/conduit-mesh/map-tor-status-snapshot";
 
 import { listenToNativeEvent } from "@/app/features/runtime/native-event-adapter";
 import type { TorStatusSnapshot } from "@/app/features/relays/hooks/relay-native-adapter";

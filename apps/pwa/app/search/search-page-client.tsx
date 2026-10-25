@@ -45,7 +45,8 @@ import { buildInvitationRequestMessage, DEFAULT_INVITATION_INTRO, type Invitatio
 import { getDirectInvitationStatusCopy, getDirectInvitationToastCopy, getInvitationOutboxStatusCopy, type InvitationTone, } from "@/app/features/messaging/services/invitation-presentation";
 import { parsePublicKeyInput } from "@/app/features/profile/utils/parse-public-key-input";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
-import { buildIdentityBindingFromResolvedIdentity, IdentityBindingPanel } from "@/app/features/security";
+import { buildIdentityBindingFromResolvedIdentity } from "@/app/features/security/services/identity-binding-presenter";
+import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import { getV090RolloutPolicy } from "@/app/features/settings/services/v090-rollout-policy";
 import { normalizePublicUrl } from "@/app/shared/public-url";
 import { scheduleIdleWork } from "@/app/shared/schedule-idle-work";

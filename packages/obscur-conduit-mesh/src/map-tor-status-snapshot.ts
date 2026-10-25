@@ -1,4 +1,4 @@
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 /**
  * Documentation flag: UI process must never open SOCKS sockets.

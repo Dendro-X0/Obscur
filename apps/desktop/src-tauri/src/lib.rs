@@ -44,6 +44,8 @@ mod warmup;
 mod services;
 pub mod dev_shell_freshness;
 mod webview_media_permissions;
+#[cfg(desktop)]
+mod mobile_preview;
 
 use profiles::DesktopProfileState;
 use active_session_leases::ActiveSessionLeaseState;
@@ -248,22 +250,48 @@ pub fn run() {
                 } else {
                     String::new()
                 };
+                let mobile_preview = crate::mobile_preview::is_enabled();
+                if mobile_preview {
+                    eprintln!(
+                        "[obscur] OBSCUR_MOBILE_PREVIEW=1 — phone window {}x{}",
+                        crate::mobile_preview::PREVIEW_WIDTH,
+                        crate::mobile_preview::PREVIEW_HEIGHT,
+                    );
+                }
+                let preview_init = if mobile_preview {
+                    crate::mobile_preview::init_script()
+                } else {
+                    String::new()
+                };
+                let (inner_w, inner_h, min_w, min_h, resizable, title) = if mobile_preview {
+                    (
+                        crate::mobile_preview::PREVIEW_WIDTH,
+                        crate::mobile_preview::PREVIEW_HEIGHT,
+                        crate::mobile_preview::PREVIEW_MIN_WIDTH,
+                        crate::mobile_preview::PREVIEW_MIN_HEIGHT,
+                        true,
+                        "Obscur · Mobile Preview",
+                    )
+                } else {
+                    (1200.0, 800.0, 800.0, 600.0, true, "Obscur")
+                };
                 let base_builder = tauri::WebviewWindowBuilder::new(
                     app,
                     "main",
                     profiles::resolve_profile_window_url(&app.handle()),
                 )
                 .initialization_script(&format!(
-                    "{}{}{}",
+                    "{}{}{}{}",
                     profiles::main_window_boot_init_script(&app.handle()),
                     crate::data_root::data_root_boot_hint_script(&health),
                     static_dev_stamp_script,
+                    preview_init,
                 ))
                 .data_directory(main_data_dir)
-                .title("Obscur")
-                .inner_size(1200.0, 800.0)
-                .min_inner_size(800.0, 600.0)
-                .resizable(true)
+                .title(title)
+                .inner_size(inner_w, inner_h)
+                .min_inner_size(min_w, min_h)
+                .resizable(resizable)
                 .decorations(false)
                 .shadow(true); // We keep window shadow but remove OS border decorations
                 #[cfg(debug_assertions)]
@@ -314,66 +342,71 @@ pub fn run() {
                     incoming: Mutex::new(None),
                 });
                 app.manage(TrayBadgeState::new(base_icon.clone()));
-                let menu = create_tray_menu(&app.handle(), None)?;
+                // Phone preview: no tray chrome — close quits like a device shell.
+                if !crate::mobile_preview::is_enabled() {
+                    let menu = create_tray_menu(&app.handle(), None)?;
 
-                let _tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
-                    .icon(base_icon)
-                    .menu(&menu)
-                    .show_menu_on_left_click(false)
-                    .on_menu_event(|app, event| match event.id.as_ref() {
-                        TRAY_MENU_QUIT_ID => {
-                            let state = app.state::<TorState>();
-                            let _ = stop_tor_child(&state);
-                            app.exit(0);
-                        }
-                        TRAY_MENU_SHOW_ID => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.unminimize();
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                    let _tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
+                        .icon(base_icon)
+                        .menu(&menu)
+                        .show_menu_on_left_click(false)
+                        .on_menu_event(|app, event| match event.id.as_ref() {
+                            TRAY_MENU_QUIT_ID => {
+                                let state = app.state::<TorState>();
+                                let _ = stop_tor_child(&state);
+                                app.exit(0);
                             }
-                        }
-                        TRAY_MENU_HIDE_ID => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.hide();
+                            TRAY_MENU_SHOW_ID => {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.unminimize();
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
                             }
-                        }
-                        TRAY_MENU_ACCEPT_CALL_ID => {
-                            let _ = emit_tray_call_action(app, "accept");
-                            let _ = clear_incoming_tray_call_state(app);
-                            let _ = refresh_tray_menu(app);
-                            let _ = sync_incoming_call_surface_state(app);
-                        }
-                        TRAY_MENU_DECLINE_CALL_ID => {
-                            let _ = emit_tray_call_action(app, "decline");
-                            let _ = clear_incoming_tray_call_state(app);
-                            let _ = refresh_tray_menu(app);
-                            let _ = sync_incoming_call_surface_state(app);
-                        }
-                        _ => {}
-                    })
-                    .on_tray_icon_event(|tray, event| {
-                        if let TrayIconEvent::Click {
-                            button: tauri::tray::MouseButton::Left,
-                            ..
-                        } = event
-                        {
-                            let app = tray.app_handle();
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.unminimize();
-                                let _ = window.show();
-                                let _ = window.set_focus();
+                            TRAY_MENU_HIDE_ID => {
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.hide();
+                                }
                             }
-                        }
-                    })
-                    .build(app)?;
+                            TRAY_MENU_ACCEPT_CALL_ID => {
+                                let _ = emit_tray_call_action(app, "accept");
+                                let _ = clear_incoming_tray_call_state(app);
+                                let _ = refresh_tray_menu(app);
+                                let _ = sync_incoming_call_surface_state(app);
+                            }
+                            TRAY_MENU_DECLINE_CALL_ID => {
+                                let _ = emit_tray_call_action(app, "decline");
+                                let _ = clear_incoming_tray_call_state(app);
+                                let _ = refresh_tray_menu(app);
+                                let _ = sync_incoming_call_surface_state(app);
+                            }
+                            _ => {}
+                        })
+                        .on_tray_icon_event(|tray, event| {
+                            if let TrayIconEvent::Click {
+                                button: tauri::tray::MouseButton::Left,
+                                ..
+                            } = event
+                            {
+                                let app = tray.app_handle();
+                                if let Some(window) = app.get_webview_window("main") {
+                                    let _ = window.unminimize();
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                            }
+                        })
+                        .build(app)?;
+                }
             }
 
-            // Load and apply saved window state
+            // Load and apply saved window state (skip for phone preview — keep fixed size)
             #[cfg(desktop)]
             {
-                if let Some(state) = load_window_state(&app.handle()) {
-                    apply_window_state(&_window, state);
+                if !crate::mobile_preview::is_enabled() {
+                    if let Some(state) = load_window_state(&app.handle()) {
+                        apply_window_state(&_window, state);
+                    }
                 }
 
                 reveal_desktop_window(&_window, "setup");

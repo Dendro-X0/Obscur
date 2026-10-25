@@ -64,15 +64,15 @@ describe("protocol adaptation UI boundary (C0)", () => {
       "utf8",
     );
 
-    expect(provider).toContain("@/app/features/protocol-adaptation");
+    expect(provider).toContain("@/app/features/protocol-adaptation/layer");
     expect(provider).toContain("listDmConversations");
     expect(provider).not.toContain("dm-kernel-sidebar-port");
 
-    expect(controller).toContain("@/app/features/protocol-adaptation");
+    expect(controller).toContain("@/app/features/protocol-adaptation/layer");
     expect(controller).toMatch(/sendDm/);
     expect(controller).not.toMatch(/from\s+["']\.\/dm-send-pipeline["']/);
 
-    expect(threadHook).toContain("@/app/features/protocol-adaptation");
+    expect(threadHook).toContain("@/app/features/protocol-adaptation/layer");
     expect(threadHook).toContain("listDmMessages");
     expect(threadHook).not.toMatch(/\bloadDmKernelThread\b/);
   });

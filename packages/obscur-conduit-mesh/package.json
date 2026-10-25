@@ -1,6 +1,6 @@
 {
   "name": "@obscur/conduit-mesh",
-  "version": "1.9.16",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Conduit Mesh runtime — headless MeshPort, evidence ledger, lane switching.",
@@ -12,6 +12,15 @@
   "exports": {
     ".": "./src/index.ts",
     "./gateway": "./src/gateway.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./create-conduit-mesh": "./src/create-conduit-mesh.ts",
+    "./map-tor-status-snapshot": "./src/map-tor-status-snapshot.ts",
+    "./resolve-conduit-http-transport": "./src/resolve-conduit-http-transport.ts",
+    "./create-routed-conduit-mesh-fetch": "./src/create-routed-conduit-mesh-fetch.ts",
+    "./map-mesh-snapshot-to-relay-activity": "./src/map-mesh-snapshot-to-relay-activity.ts",
+    "./conduit-mesh-relay-pool-runtime": "./src/conduit-mesh-relay-pool-runtime.ts",
+    "./resolve-relay-pool-conduit-descriptors": "./src/resolve-relay-pool-conduit-descriptors.ts",
+    "./conduit-mesh-nostr-subscription-port": "./src/conduit-mesh-nostr-subscription-port.ts",
+    "./nostr-ws-wire-port": "./src/nostr-ws-wire-port.ts"
   }
 }

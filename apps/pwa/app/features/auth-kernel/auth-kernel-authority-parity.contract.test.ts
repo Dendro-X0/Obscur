@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { AUTH_KERNEL_PORT_IDS, DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY } from "@dweb/auth";
+import { AUTH_KERNEL_PORT_IDS } from "@dweb/auth";
+import { DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY } from "@dweb/auth/policy/session-credential-policy-contract";
 import {
   AUTH_KERNEL_LEGACY_BRIDGE_FILE,
   AUTH_KERNEL_LEGACY_SCATTER_FILES,

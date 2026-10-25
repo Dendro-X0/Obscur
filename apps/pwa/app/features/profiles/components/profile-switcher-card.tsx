@@ -165,8 +165,8 @@ export function ProfileSwitcherCard({ onBeforeSwitch }: Props): React.JSX.Elemen
         <h3 className="text-sm font-bold">Profiles</h3>
         <p className="text-xs text-zinc-500">
           {isDesktopRuntime
-            ? `Advanced management for ${desktopSnapshot.currentWindow.profileLabel}. Use the title-bar switcher for everyday switching, and open another profile in a new window for side-by-side testing.`
-            : "Single active profile. Switching locks the current session and reloads profile-scoped state."}
+            ? `Advanced management for ${desktopSnapshot.currentWindow.profileLabel}. Everyday switching: header avatar or /profiles on phone; title-bar switcher on desktop. Soft L3 dual windows stay lab-only.`
+            : "Single active profile. Switching reloads profile-scoped state on this device."}
         </p>
       </div>
 

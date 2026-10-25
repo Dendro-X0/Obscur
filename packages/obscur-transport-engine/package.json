@@ -1,6 +1,6 @@
 {
   "name": "@obscur/transport-engine",
-  "version": "1.9.16",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Transport engine — single TransportSnapshot owner; adapters supply metrics only.",

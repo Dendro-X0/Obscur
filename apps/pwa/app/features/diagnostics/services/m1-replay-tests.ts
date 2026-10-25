@@ -10,7 +10,7 @@
  */
 
 import { recoverMissingMediaFromCAS, getMediaRecoverySummary } from "@/app/features/vault/services/cas-media-recovery";
-import { logSecurityEvent, getRecentSecurityEvents, checkContactKeyOnMessage } from "@/app/features/security";
+import { logSecurityEvent, getRecentSecurityEvents, checkContactKeyOnMessage } from "@/app/features/security/services/security-integration";
 import { assessRelayCapability } from "@/app/features/groups/services/community-mode-contract";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 

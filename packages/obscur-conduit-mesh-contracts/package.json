@@ -1,6 +1,6 @@
 {
   "name": "@obscur/conduit-mesh-contracts",
-  "version": "1.9.16",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Conduit Mesh contracts — envelopes, evidence, conduits, MeshPort. Types only; no wire drivers.",
@@ -15,6 +15,12 @@
     "./mesh-snapshot": "./src/mesh-snapshot.ts",
     "./mesh-port": "./src/mesh-port.ts",
     "./custom-conduit-contract": "./src/custom-conduit-contract.ts",
-    "./offline-pack": "./src/offline-pack.ts"
+    "./offline-pack": "./src/offline-pack.ts",
+    "./tor-policy": "./src/tor-policy.ts",
+    "./nostr-ws-wire-contract": "./src/nostr-ws-wire-contract.ts",
+    "./nostr-wire-payload": "./src/nostr-wire-payload.ts",
+    "./mesh-dm-wire": "./src/mesh-dm-wire.ts",
+    "./resolve-candidate-conduits": "./src/resolve-candidate-conduits.ts",
+    "./validate-envelope": "./src/validate-envelope.ts"
   }
 }

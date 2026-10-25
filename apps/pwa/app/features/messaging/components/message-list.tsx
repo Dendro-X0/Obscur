@@ -37,7 +37,8 @@ import { MESSAGE_BUBBLE_ACTION_DOCK_HIDE_DELAY_MS, MESSAGE_BUBBLE_SUSTAIN_HOVER_
 import { buildAttachmentBuckets, buildAttachmentPresentation } from "./message-attachment-layout";
 import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
 import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import { messageMatchesSearchJumpTarget, resolveSearchJumpDomResolution, resolveSearchJumpStep, } from "./message-search-jump";
 import { VoiceCallInviteCard } from "./voice-call-invite-card";

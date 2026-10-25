@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { evaluateAuthRegistrationPolicy, resolveAuthSybilPolicyForTier } from "@dweb/auth";
+import { evaluateAuthRegistrationPolicy, resolveAuthSybilPolicyForTier } from "@dweb/auth/policy/registration-policy-engine";
 import {
   AUTH_KERNEL_REGISTRATION_THROTTLE_WINDOW_MS,
   checkAuthKernelRegistrationThrottle,

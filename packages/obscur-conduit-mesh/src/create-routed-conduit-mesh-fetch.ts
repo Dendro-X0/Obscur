@@ -1,7 +1,5 @@
-import type {
-  ConduitDescriptor,
-  MeshTorRuntimeState,
-} from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 import type { ConduitMeshFetch } from "./conduit-http-utils";
 import { resolveConduitHttpTransportMode } from "./resolve-conduit-http-transport";

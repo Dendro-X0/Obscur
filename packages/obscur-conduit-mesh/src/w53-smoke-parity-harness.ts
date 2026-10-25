@@ -1,9 +1,7 @@
-import type {
-  ConduitDescriptor,
-  MeshEnvelope,
-  MeshPublishOutcome,
-} from "@obscur/conduit-mesh-contracts";
-import { resolveCandidateConduits } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshPublishOutcome } from "@obscur/conduit-mesh-contracts/evidence";
+import { resolveCandidateConduits } from "@obscur/conduit-mesh-contracts/resolve-candidate-conduits";
 
 import type { ConduitMesh } from "./create-conduit-mesh";
 import { createConduitDriverFromDescriptor } from "./create-conduit-driver";

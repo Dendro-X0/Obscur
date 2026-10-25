@@ -30,7 +30,8 @@ import { DeleteProfileWindowDialog } from "@/app/features/profiles/components/de
 import { PortabilityQuickActionsPanel } from "@/app/features/profiles/components/portability-quick-actions-panel";
 import { DeviceSessionSettingsPanel } from "@/app/features/settings/components/device-session-settings-panel";
 import { SettingsToggle, SettingsToggleCard, toSettingsActionPhase, validateProfileInput, formatBytes, formatRatioPercent, PRIVATE_KEY_EXPORT_CONFIRM_TEXT, } from "../settings-tab-panel-shared";
-import { SecurityLiteracyNote, isPrivateKeyExportConfirmed } from "@/app/features/security";
+import { SecurityLiteracyNote } from "@/app/features/security/components/security-literacy-note";
+import { isPrivateKeyExportConfirmed } from "@/app/features/security/services/private-key-export-gate";
 import { getApiBaseUrl } from "@/app/features/relays/utils/api-base-url";
 import { deriveRelayNodeStatus, deriveRelayRuntimeStatus } from "@/app/features/relays/lib/relay-runtime-status";
 import { checkStorageHealth, runStorageRecovery } from "@/app/features/messaging/services/storage-health-service";

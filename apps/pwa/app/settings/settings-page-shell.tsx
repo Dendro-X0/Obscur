@@ -19,6 +19,8 @@ import { SETTINGS_NAV_GROUPS, SETTINGS_VALID_TABS, findSettingsNavItem } from "@
 import { dispatchSettingsSearchPrepare } from "@/app/features/settings/services/settings-search-navigate";
 import { focusSearchTargetById, settingsTabPanelElementId, } from "@/app/shared/search-target-highlight";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
+import { SettingsPanelContentSkeleton } from "@/app/components/experience";
+import { MobileProfileSwitchEntry } from "@/app/features/profiles/components/mobile-profile-switch-entry";
 function DeferredSettingsTabPanel(props: Readonly<{
     activeTab: SettingsTabId;
 }>): React.JSX.Element {
@@ -37,7 +39,11 @@ function DeferredSettingsTabPanel(props: Readonly<{
         };
     }, [props.activeTab]);
     if (!panelReady) {
-        return (<div data-testid="settings-tab-panel-deferred" className="min-h-[12rem] animate-pulse rounded-2xl bg-zinc-100/60 dark:bg-zinc-900/40" aria-hidden="true"/>);
+        return (
+            <div data-testid="settings-tab-panel-deferred" className="min-h-[12rem]">
+                <SettingsPanelContentSkeleton />
+            </div>
+        );
     }
     return <SettingsTabPanel activeTab={props.activeTab}/>;
 }
@@ -175,7 +181,14 @@ export default function SettingsPage(): React.JSX.Element {
 
           <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", compact ? "flex" : "hidden")}>
             <AnimatePresence mode="wait">
-              {showMobileMenu ? (<motion.div key="menu" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={cn("mobile-scroll-region flex min-h-0 flex-1 flex-col overflow-y-auto", compact ? "space-y-5 p-3" : "space-y-8 p-4")} data-testid="settings-mobile-menu-scroll">
+              {showMobileMenu ? (<motion.div key="menu" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className={cn(
+                  "mobile-scroll-region flex min-h-0 flex-1 flex-col overflow-y-auto",
+                  // Inner scroller must clear the fixed tab bar; AppShell inset alone is not enough with containScroll.
+                  compact
+                    ? "space-y-5 p-3 pb-[calc(var(--mobile-shell-bottom-inset,5.5rem)+1.25rem)]"
+                    : "space-y-8 p-4 pb-24",
+                )} data-testid="settings-mobile-menu-scroll">
+                  <MobileProfileSwitchEntry />
                   <SettingsSearchField onNavigate={handleSettingsSearchNavigate}/>
                   {SETTINGS_NAV_GROUPS.map((group) => (<div key={group.id} className={compact ? "space-y-2" : "space-y-3"}>
                       <h3 className={cn("px-1 font-black uppercase tracking-[0.25em] text-zinc-500 dark:text-zinc-400", compact ? "text-[10px]" : "text-[11px]")}>
@@ -210,7 +223,12 @@ export default function SettingsPage(): React.JSX.Element {
                       {t(findSettingsNavItem(activeTab)?.item.labelKey ?? "")}
                     </h2>
                   </div>
-                  <div data-testid="settings-mobile-panel-scroll" className={cn("mobile-scroll-region min-h-0 flex-1 overflow-y-auto", compact ? "p-2" : "p-3 sm:p-4")}>
+                  <div data-testid="settings-mobile-panel-scroll" className={cn(
+                    "mobile-scroll-region min-h-0 flex-1 overflow-y-auto",
+                    compact
+                      ? "p-2 pb-[calc(var(--mobile-shell-bottom-inset,5.5rem)+1.25rem)]"
+                      : "p-3 pb-24 sm:p-4",
+                  )}>
                     <DeferredSettingsTabPanel activeTab={activeTab}/>
                   </div>
                 </motion.div>)}

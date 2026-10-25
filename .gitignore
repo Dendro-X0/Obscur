@@ -56,6 +56,9 @@ pnpm-debug.log*
 .tmp-ci-head/
 .artifacts/
 
+# Mobile phone-preview harness isolated SQLite root
+.obscur-mobile-preview-data/
+
 # Package manager
 .pnpm-debug.log*
 .yarn/

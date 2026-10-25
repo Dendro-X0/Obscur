@@ -9,12 +9,12 @@ import { formatTime } from "../utils/formatting";
 import { RequestsInboxPanel } from "./requests-inbox-panel";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { ConversationRow } from "./conversation-row";
-import { Pin, Users, User, ChevronDown, ChevronRight, } from "lucide-react";
+import { Pin, Users, User, ChevronDown, ChevronRight, Download, UserPlus } from "lucide-react";
 import { getIncomingPendingRequestCount, getIncomingUnreadRequestTotal, getOpenPendingRequestCount } from "../services/request-inbox-view";
 import type { MessagingSidebarTab } from "../services/messaging-sidebar-tab";
 import { getPublicProfileHref } from "@/app/features/navigation/public-routes";
-import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { SidebarListChrome } from "./sidebar-list-chrome";
+import { resolveMessagingListChromeVariant } from "../services/resolve-messaging-list-chrome-variant";
 import { resolveConversationUnreadCount } from "../providers/unread-last-seen-suppression";
 const INITIAL_SIDEBAR_PAGE_SIZE = 25;
 const SIDEBAR_PAGE_STEP = 25;
@@ -145,6 +145,11 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
     const visibleCommunities = cappedCommunities.slice(0, visibleCommunityCount);
     const canLoadMoreDms = visibleDms.length < cappedDms.length;
     const canLoadMoreCommunities = visibleCommunities.length < cappedCommunities.length;
+    const showEmptyContinuityHint = hasHydrated
+        && !showHistorySyncNotice
+        && pinnedConversations.length === 0
+        && cappedDms.length === 0
+        && cappedCommunities.length === 0;
     const dmsUnread = conversationBuckets.dmsUnread;
     const groupsUnread = conversationBuckets.groupsUnread;
     const renderConversationList = React.useCallback((list: ReadonlyArray<Conversation>) => (list.map((conversation) => {
@@ -157,7 +162,7 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
                 void router.push(getPublicProfileHref(pubkey));
             }}/>);
     })), [hideConversation, interactionByConversationId, pinnedChatIdSet, resolvedNowMs, resolveConversationUnread, router, selectConversation, selectedConversation?.id, togglePin, isPeerOnline]);
-    const listChromeVariant = isMobileShellProduct() ? "mobile" : "desktop";
+    const listChromeVariant = resolveMessagingListChromeVariant();
     const isMobileFlatList = listChromeVariant === "mobile";
     const renderLoadMoreDms = canLoadMoreDms ? (<div className={cn("px-4", isMobileFlatList ? "py-2" : "py-3")}>
             <Button variant="ghost" className="h-9 w-full rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-300 hover:bg-black/[0.03] dark:hover:bg-white/[0.06]" onClick={() => setVisibleDmCount((count) => Math.min(count + SIDEBAR_PAGE_STEP, SIDEBAR_MAX_ITEMS))} data-testid="sidebar-load-more-dms">
@@ -199,6 +204,36 @@ export function Sidebar({ setIsNewChatOpen, setIsNewGroupOpen, searchQuery, setS
                                 <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-700/80 dark:text-indigo-300/80">
                                     Syncing history on this device...
                                 </p>
+                            </div>) : showEmptyContinuityHint ? (<div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+                                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                                    {t("messaging.emptyChatsTitle", { defaultValue: "No chats on this device yet" })}
+                                </p>
+                                <p className="max-w-xs text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                                    {t("messaging.emptyChatsDesc", {
+                                        defaultValue: "This profile’s local store is empty (new phone or preview). Restore from relays or Network, or start a chat — contacts are not copied automatically.",
+                                    })}
+                                </p>
+                                <div className="flex w-full max-w-xs flex-col gap-2">
+                                    <Button
+                                        type="button"
+                                        className="h-10 w-full gap-2 rounded-xl text-xs font-bold"
+                                        onClick={() => { void router.push("/network"); }}
+                                        data-testid="sidebar-empty-restore-network"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        {t("network.restoreConnectionsCta", { defaultValue: "Restore from relays" })}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="h-10 w-full gap-2 rounded-xl text-xs font-bold"
+                                        onClick={() => setIsNewChatOpen(true)}
+                                        data-testid="sidebar-empty-start-chat"
+                                    >
+                                        <UserPlus className="h-4 w-4" />
+                                        {t("messaging.newChat")}
+                                    </Button>
+                                </div>
                             </div>) : (<>
                                 {pinnedConversations.length > 0 && (<div className={isMobileFlatList ? "mb-2" : "mb-4"}>
                                         <div className={cn("flex items-center gap-2 px-4 text-[10px] font-black uppercase tracking-widest text-zinc-400", isMobileFlatList ? "py-1.5" : "py-2")}>

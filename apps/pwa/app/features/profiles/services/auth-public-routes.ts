@@ -67,12 +67,29 @@ const AUTH_PUBLIC_PROFILE_ROUTE_PREFIXES = [
   "/profiles",
 ] as const;
 
+/** Dev/lab UI fixtures that must render without unlock (call chrome preview, etc.). */
+const AUTH_PUBLIC_DEV_LAB_ROUTE_PREFIXES = [
+  "/lab",
+] as const;
+
 export const isAuthPublicProfileRoute = (pathname: string): boolean => {
   const normalized = pathname.trim() || "/";
   return AUTH_PUBLIC_PROFILE_ROUTE_PREFIXES.some((prefix) => (
     normalized === prefix || normalized.startsWith(`${prefix}/`)
   ));
 };
+
+export const isAuthPublicDevLabRoute = (pathname: string): boolean => {
+  const normalized = pathname.trim() || "/";
+  return AUTH_PUBLIC_DEV_LAB_ROUTE_PREFIXES.some((prefix) => (
+    normalized === prefix || normalized.startsWith(`${prefix}/`)
+  ));
+};
+
+/** Any route that may render without unlocked messaging shell. */
+export const isAuthPublicShellBypassRoute = (pathname: string): boolean => (
+  isAuthPublicProfileRoute(pathname) || isAuthPublicDevLabRoute(pathname)
+);
 
 /** Resolve cold-start redirect for locked desktop windows. */
 export const resolveLockedDesktopEntryRedirect = (params: Readonly<{

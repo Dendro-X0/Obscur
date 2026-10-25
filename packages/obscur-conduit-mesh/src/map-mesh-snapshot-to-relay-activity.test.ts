@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ConduitRuntimeState, MeshSnapshot } from "@obscur/conduit-mesh-contracts";
+import type { ConduitRuntimeState } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshSnapshot } from "@obscur/conduit-mesh-contracts/mesh-snapshot";
 
 import {
   mapMeshSnapshotToRelayActivitySnapshot,

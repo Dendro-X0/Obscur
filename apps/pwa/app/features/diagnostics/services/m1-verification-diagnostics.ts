@@ -13,7 +13,7 @@
  */
 
 import { getMediaRecoverySummary } from "@/app/features/vault/services/cas-media-recovery";
-import { getRecentSecurityEvents, getContactVerificationStatus } from "@/app/features/security";
+import { getRecentSecurityEvents, getContactVerificationStatus } from "@/app/features/security/services/security-integration";
 import { assessRelayCapability } from "@/app/features/groups/services/community-mode-contract";
 
 export interface M1DiagnosticResult {

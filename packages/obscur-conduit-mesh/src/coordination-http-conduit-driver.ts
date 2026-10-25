@@ -1,11 +1,7 @@
-import type {
-  ConduitDescriptor,
-  ConduitDriverPort,
-  MeshEnvelope,
-  MeshEvidenceRecord,
-  MeshInterest,
-  MeshPublishOutcome,
-} from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshEvidenceRecord, MeshPublishOutcome } from "@obscur/conduit-mesh-contracts/evidence";
+import type { ConduitDriverPort } from "@obscur/conduit-mesh-contracts/mesh-port";
 
 import type { ConduitMeshFetch } from "./conduit-http-utils";
 import { normalizeConduitBaseUrl } from "./conduit-http-utils";

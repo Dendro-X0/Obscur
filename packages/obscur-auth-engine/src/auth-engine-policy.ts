@@ -1,12 +1,9 @@
-import type {
-  AuthAssistantPort,
-  AuthBootPhase,
-  AuthBootSnapshot,
-  DeviceUnlockPort,
-  IdentityRootPort,
-  RegistrationPolicyPort,
-  RuntimeSessionPort,
-} from "@dweb/auth";
+import type { AuthBootPhase, AuthBootSnapshot } from "@dweb/auth/contracts/auth-boot-snapshot";
+import type { AuthAssistantPort } from "@dweb/auth/ports/auth-assistant-port";
+import type { DeviceUnlockPort } from "@dweb/auth/ports/device-unlock-port";
+import type { IdentityRootPort } from "@dweb/auth/ports/identity-root-port";
+import type { RegistrationPolicyPort } from "@dweb/auth/ports/registration-policy-port";
+import type { RuntimeSessionPort } from "@dweb/auth/ports/runtime-session-port";
 
 /** AUTH-KERN gates complete — auth-engine is runtime authority owner. */
 export const AUTH_ENGINE_AUTHORITY_ENABLED = true;

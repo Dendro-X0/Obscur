@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { derivePublicKeyHex } from "@dweb/crypto/derive-public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
@@ -16,6 +16,7 @@ const authScreenMocks = vi.hoisted(() => ({
   isNativeRuntime: false,
   hasStoredIdentity: true,
   manualLockActive: false,
+  resolveIdentityScopeProfileId: vi.fn(() => "default"),
   identityState: {
     status: "locked" as const,
     stored: {
@@ -144,6 +145,16 @@ vi.mock("@/app/features/profiles/services/identity-passphrase-unlock", () => ({
   hasPasswordProtectedUnlockOnDevice: vi.fn(async () => true),
 }));
 
+vi.mock("@/app/features/profiles/services/read-active-desktop-profile-id", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/app/features/profiles/services/read-active-desktop-profile-id")
+  >("@/app/features/profiles/services/read-active-desktop-profile-id");
+  return {
+    ...actual,
+    resolveIdentityScopeProfileId: () => authScreenMocks.resolveIdentityScopeProfileId(),
+  };
+});
+
 vi.mock("@/app/features/auth/utils/identity-persistence", async () => {
   const actual = await vi.importActual<typeof import("@/app/features/auth/utils/identity-persistence")>(
     "@/app/features/auth/utils/identity-persistence",
@@ -245,6 +256,29 @@ vi.mock("@/app/features/profiles/services/profile-window-account-binding", () =>
 
 import { getLastBoundAccountPublicKeyHex } from "@/app/features/profiles/services/profile-window-account-binding";
 
+/**
+ * React 19 + fireEvent.click does not reliably invoke onClick on these tab
+ * buttons in jsdom; call the fiber props handler directly when present.
+ */
+const clickAuthLoginTab = async (name: "Import Key" | "Log In"): Promise<void> => {
+  const tab = await screen.findByRole("button", { name });
+  const propsKey = Object.keys(tab).find((key) => key.startsWith("__reactProps"));
+  const reactProps = propsKey
+    ? (tab as unknown as Record<string, { onClick?: (event: unknown) => void }>)[propsKey]
+    : undefined;
+  await act(async () => {
+    if (typeof reactProps?.onClick === "function") {
+      reactProps.onClick({
+        type: "click",
+        preventDefault() {},
+        stopPropagation() {},
+      });
+      return;
+    }
+    fireEvent.click(tab);
+  });
+};
+
 describe("AuthScreen mismatch recovery UX", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -265,6 +299,10 @@ describe("AuthScreen mismatch recovery UX", () => {
       recoveryActions: [],
     };
     authScreenMocks.hasStoredIdentity = true;
+    authScreenMocks.resolveIdentityScopeProfileId.mockReset();
+    authScreenMocks.resolveIdentityScopeProfileId.mockReturnValue("default");
+    vi.mocked(hasPasswordProtectedUnlockOnDevice).mockReset();
+    vi.mocked(hasPasswordProtectedUnlockOnDevice).mockResolvedValue(true);
     authScreenMocks.resetNativeSecureStorage.mockClear();
     authScreenMocks.runtime.snapshot.phase = "auth_required";
     authScreenMocks.runtime.snapshot.session.profileId = "default";
@@ -285,9 +323,9 @@ describe("AuthScreen mismatch recovery UX", () => {
   it("renders manual lock conflict banner when profile was locked locally", async () => {
     authScreenMocks.manualLockActive = true;
     render(<AuthScreen />);
-    expect(await screen.findByRole("alert", { name: /manual lock active/i })).toBeInTheDocument();
-    expect(screen.getByText("Profile locked")).toBeInTheDocument();
-    expect(screen.getByText(/You locked Obscur on this profile window/i)).toBeInTheDocument();
+    expect(await screen.findByRole("alert", { name: /manual lock active/i })).toBeTruthy();
+    expect(screen.getByText("Profile locked")).toBeTruthy();
+    expect(screen.getByText(/You locked Obscur on this profile window/i)).toBeTruthy();
   });
 
   it("renders native secure storage mismatch recovery card", async () => {
@@ -318,11 +356,43 @@ describe("AuthScreen mismatch recovery UX", () => {
     expect(screen.queryByText("Secure Storage Needs Recovery")).not.toBeInTheDocument();
   });
 
-  it("shows web-only unlock copy without stay signed in", async () => {
+  it("defaults browser unlock to Import Key (device passwords do not transfer)", async () => {
     render(<AuthScreen />);
 
-    expect(await screen.findByText(/Enter your device login password to unlock/i)).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText("nsec1...")).toBeTruthy();
+    expect(document.body.textContent ?? "").toMatch(/Unlock .+ with your private key/i);
     expect(screen.queryByLabelText("Stay signed in on this device")).not.toBeInTheDocument();
+  });
+
+  it("shows device-password copy on Log In tab without stay signed in", async () => {
+    render(<AuthScreen />);
+    await clickAuthLoginTab("Log In");
+
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").toMatch(/device login password for/i);
+    });
+    expect(screen.queryByLabelText("Stay signed in on this device")).not.toBeInTheDocument();
+  });
+
+  it("probes device password unlock with identity-scope profile id when session says default", async () => {
+    authScreenMocks.resolveIdentityScopeProfileId.mockReturnValue("pk-e07f67dcb8a58f53b13");
+    authScreenMocks.runtime.snapshot.session.profileId = "default";
+    vi.mocked(hasPasswordProtectedUnlockOnDevice).mockClear();
+
+    render(<AuthScreen />);
+
+    await waitFor(() => {
+      expect(hasPasswordProtectedUnlockOnDevice).toHaveBeenCalledWith(
+        expect.objectContaining({ profileId: "pk-e07f67dcb8a58f53b13" }),
+      );
+    });
+  });
+
+  it("unlocks returning accounts from Import Key without a password field", async () => {
+    render(<AuthScreen />);
+    expect(await screen.findByPlaceholderText("nsec1...")).toBeTruthy();
+    expect(screen.queryByText(/Device login password \(optional/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").toMatch(/Paste your private key and unlock/i);
   });
 
   it("shows login help note on native desktop instead of a stay-signed-in checkbox", async () => {
@@ -333,7 +403,9 @@ describe("AuthScreen mismatch recovery UX", () => {
     authScreenMocks.runtime.snapshot.session.startupState.message = undefined;
     render(<AuthScreen />);
 
-    expect(await screen.findByText("How sign-in works on this device")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.body.textContent ?? "").toMatch(/How sign-in works on this device/);
+    });
     expect(screen.queryByLabelText("Stay signed in on this device")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /stay signed in/i })).not.toBeInTheDocument();
   });
@@ -354,13 +426,13 @@ describe("AuthScreen mismatch recovery UX", () => {
 
     render(<AuthScreen />);
 
-    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome Back" })).toBeTruthy();
   });
 
   it("never shows restore-from-backup block on the login tab", async () => {
     render(<AuthScreen />);
 
-    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome Back" })).toBeTruthy();
     expect(screen.queryByText("Choose unified backup")).not.toBeInTheDocument();
     expect(screen.queryByText("RESTORE FROM BACKUP")).not.toBeInTheDocument();
   });
@@ -379,7 +451,7 @@ describe("AuthScreen mismatch recovery UX", () => {
 
     render(<AuthScreen />);
 
-    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome Back" })).toBeTruthy();
     expect(screen.queryByText("Choose unified backup")).not.toBeInTheDocument();
     expect(screen.queryByText(/Importing your private key unlocks this account/)).not.toBeInTheDocument();
   });
@@ -412,7 +484,7 @@ describe("AuthScreen mismatch recovery UX", () => {
 
     render(<AuthScreen />);
 
-    expect(await screen.findByText("Welcome Back")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome Back" })).toBeTruthy();
     expect(screen.queryByText("Create New Identity")).not.toBeInTheDocument();
   });
 
@@ -469,7 +541,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     };
 
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    await clickAuthLoginTab("Import Key");
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: differentPrivateKey },
     });
@@ -502,7 +574,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     };
 
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    await clickAuthLoginTab("Import Key");
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: differentPrivateKey },
     });
@@ -513,8 +585,8 @@ describe("AuthScreen mismatch recovery UX", () => {
 
   it("shows the protect-your-identity note once on Import Key (no duplicate banner)", async () => {
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
-    expect(await screen.findByPlaceholderText("nsec1...")).toBeInTheDocument();
+    await clickAuthLoginTab("Import Key");
+    expect(await screen.findByPlaceholderText("nsec1...")).toBeTruthy();
     expect(screen.getAllByText("Protect your identity")).toHaveLength(1);
   });
 
@@ -524,7 +596,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     markRetiredIdentityPublicKey({ publicKeyHex, profileId: "default" });
 
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    await clickAuthLoginTab("Import Key");
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: privateKeyHex },
     });
@@ -569,7 +641,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     } as unknown as typeof authScreenMocks.identityState;
 
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    await clickAuthLoginTab("Import Key");
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: privateKeyHex },
     });
@@ -597,7 +669,7 @@ describe("AuthScreen mismatch recovery UX", () => {
     };
 
     render(<AuthScreen />);
-    fireEvent.click(await screen.findByRole("button", { name: "Import Key" }));
+    await clickAuthLoginTab("Import Key");
     fireEvent.change(screen.getByPlaceholderText("nsec1..."), {
       target: { value: privateKeyHex },
     });

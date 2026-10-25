@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  isMeshNativeDmWirePayload,
-  isNostrEventWirePayload,
-} from "@obscur/conduit-mesh-contracts";
+import { isMeshNativeDmWirePayload } from "@obscur/conduit-mesh-contracts/mesh-dm-wire";
+import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts/nostr-wire-payload";
 
 import { encodeCiphertextBase64 } from "./conduit-http-utils";
 import { createConduitMeshRelayPoolRuntime } from "./conduit-mesh-relay-pool-runtime";

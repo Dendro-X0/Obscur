@@ -5,15 +5,11 @@ import type React from "react";
 import dynamic from "next/dynamic";
 import type { SettingsTabId } from "@/app/features/settings/services/settings-search-index";
 import { settingsTabPanelModelProviderLoaders } from "../settings-tab-panel-models/settings-tab-panel-model-provider-registry";
-import { RouteLoadingFallback } from "@/app/components/experience";
+import { SettingsPanelContentSkeleton } from "@/app/components/experience";
 import { SettingsTabPanelErrorBoundary } from "./settings-tab-panel-error-boundary";
 
 const settingsTabPanelLoading = (): React.JSX.Element => (
-  <RouteLoadingFallback
-    title="Loading settings"
-    detail="Preparing panel..."
-    className="min-h-[12rem]"
-  />
+  <SettingsPanelContentSkeleton />
 );
 
 const panelLoaders = {

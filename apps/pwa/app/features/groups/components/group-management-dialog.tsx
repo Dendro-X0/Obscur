@@ -13,7 +13,7 @@ import { useUploadService } from "@/app/features/messaging/lib/upload-service";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { toast } from "../../../components/ui/toast";
 import { GroupQRCode } from "./group-qr-code";
-import { InviteMemberDialog } from "./invite-member-dialog";
+import { InviteConnectionsDialog } from "./invite-connections-dialog";
 import type { GroupConversation } from "../../messaging/types";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
@@ -78,8 +78,13 @@ interface GroupManagementDialogProps {
     communityController?: UseSealedCommunityResult;
     /** Opens directly to a tab (e.g. governance from home banner). */
     initialTab?: GroupManagementTabId;
+    /**
+     * Preferred invite opener owned by the parent (group home). Avoids nesting the
+     * invite overlay under the management shell stacking context.
+     */
+    onRequestInvite?: () => void;
 }
-export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKeyHex, myPrivateKeyHex, communityController, initialTab, }: GroupManagementDialogProps) {
+export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKeyHex, myPrivateKeyHex, communityController, initialTab, onRequestInvite, }: GroupManagementDialogProps) {
     const poolRef = useRelayPoolRef(pool);
     const router = useRouter();
     const { t } = useTranslation();
@@ -796,11 +801,11 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
             }} disabled={managedWorkspaceActionsBlocked} className="rounded-lg border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
                             <QrCode className="mr-2 h-4 w-4"/>
                             {t("groups.management.shareInvite")}
-                                        </Button>) : undefined} footer={activeTab === "general" && isAdmin ? (<div className="flex justify-end gap-3">
-                            <Button type="button" variant="ghost" onClick={onClose} className="rounded-lg text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
+                                        </Button>) : undefined} footer={activeTab === "general" && isAdmin ? (<div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                            <Button type="button" variant="ghost" onClick={onClose} className="h-11 w-full rounded-lg text-zinc-600 hover:text-zinc-900 sm:h-10 sm:w-auto dark:text-zinc-400 dark:hover:text-white">
                                 {t("common.cancel")}
                             </Button>
-                                        <Button type="button" onClick={() => void handleSaveGeneral()} disabled={isSaving || convertBlocksSave || (!convertAssessment.modeChanged && !convertAssessment.hostChanged && managedWorkspaceActionsBlocked)} className="rounded-lg bg-violet-600 px-6 hover:bg-violet-500" data-testid="group-manage-save">
+                                        <Button type="button" onClick={() => void handleSaveGeneral()} disabled={isSaving || convertBlocksSave || (!convertAssessment.modeChanged && !convertAssessment.hostChanged && managedWorkspaceActionsBlocked)} className="h-11 w-full rounded-lg bg-violet-600 px-6 hover:bg-violet-500 sm:h-10 sm:w-auto" data-testid="group-manage-save">
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                                 {requiresMemberVote && !convertAssessment.modeChanged && !convertAssessment.hostChanged ? t("groups.management.proposeChanges") : t("groups.management.saveChanges")}
                                         </Button>
@@ -808,7 +813,10 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
                 {activeTab === "general" ? (<GroupManagementGeneralPanel editName={editName} setEditName={setEditName} editAbout={editAbout} setEditAbout={setEditAbout} editPicture={editPicture} editAccess={editAccess} setEditAccess={setEditAccess} isAdmin={isAdmin} isUploading={isUploading} onPickAvatar={() => void handlePickAvatar()} requiresMemberVote={requiresMemberVote} stewardPolicy={stewardPolicy} communityMode={group.communityMode} relayUrl={group.relayUrl} relayCapabilities={relayCapabilities} isRelayCapabilitiesLoading={isRelayCapabilitiesLoading} managedWorkspaceRelayGate={managedWorkspaceRelayGate} editBotPubkeys={editBotPubkeys} onEditBotPubkeysChange={setEditBotPubkeys} editBotTriggers={editBotTriggers} onEditBotTriggersChange={setEditBotTriggers} requiresGovernanceProposal={requiresMemberVote} canConvertDirect={canConvertDirect} showStewardBootstrapHint={canConvertDirect && stewardPubkeysEmpty && (editCommunityMode === "managed_workspace" || (state.metadata?.communityMode ?? group.communityMode) === "managed_workspace")} editCommunityMode={editCommunityMode} setEditCommunityMode={setEditCommunityMode} editRelayHost={editRelayHost} setEditRelayHost={setEditRelayHost} convertHonestyAcked={convertHonestyAcked} setConvertHonestyAcked={setConvertHonestyAcked} convertAssessment={convertAssessment}/>) : null}
 
                 {activeTab === "members" ? (<GroupManagementMembersPanel visibleMemberPubkeys={visibleMemberRegistry} relayBackedMemberPubkeys={activeMembers} provisionalMemberPubkeys={provisionalMemberPubkeys} memberSearchQuery={memberSearchQuery} setMemberSearchQuery={setMemberSearchQuery} resolvedNames={resolvedNames} onlineMemberCount={onlineMemberCount} operatorHealth={operatorHealth} myPublicKeyHex={myPublicKeyHex} isAdmin={isAdmin} mutedMembers={mutedMembers} kickingMemberPubkey={kickingMemberPubkey} currentTime={currentTime} onInvite={() => {
-                if (!requireManagedWorkspaceRelayGate()) {
+                // Prefer parent-owned invite overlay (escapes management shell stacking).
+                // Do not gate-open with toast-only failures — button disable already covers hard blocks.
+                if (onRequestInvite) {
+                    onRequestInvite();
                     return;
                 }
                 setIsInviteModalOpen(true);
@@ -846,18 +854,30 @@ export function GroupManagementDialog({ isOpen, onClose, group, pool, myPublicKe
                 </DialogContent>
             </Dialog>
 
-            <InviteMemberDialog isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} groupId={group.groupId} relayUrl={group.relayUrl} roomKeyHex={roomKeyHex || ""} communityId={group.communityId} genesisEventId={group.genesisEventId} creatorPubkey={group.creatorPubkey} currentMemberPubkeys={inviteEligibleMemberPubkeys} metadata={{
-            id: group.groupId,
-            name: resolveCommunityDisplayName({
-                metadataName: state.metadata?.name,
-                persistedDisplayName: group.displayName,
-                groupId: group.groupId,
-                communityId: group.communityId,
-                fallback: group.displayName,
-            }),
-            about: state.metadata?.about || "",
-            picture: state.metadata?.picture || "",
-            access: state.metadata?.access || "invite-only",
-        }}/>
+            <InviteConnectionsDialog
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+                groupId={group.groupId}
+                relayUrl={group.relayUrl}
+                roomKeyHex={roomKeyHex || ""}
+                communityId={group.communityId}
+                genesisEventId={group.genesisEventId}
+                creatorPubkey={group.creatorPubkey}
+                currentMemberPubkeys={inviteEligibleMemberPubkeys}
+                onRefreshMembership={handleReconcileMembership}
+                metadata={{
+                    id: group.groupId,
+                    name: resolveCommunityDisplayName({
+                        metadataName: state.metadata?.name,
+                        persistedDisplayName: group.displayName,
+                        groupId: group.groupId,
+                        communityId: group.communityId,
+                        fallback: group.displayName,
+                    }),
+                    about: state.metadata?.about || "",
+                    picture: state.metadata?.picture || "",
+                    access: state.metadata?.access || "invite-only",
+                }}
+            />
         </>);
 }

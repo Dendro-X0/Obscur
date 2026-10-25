@@ -23,6 +23,7 @@ import {
   evaluateAuthKernelRegistrationGate,
   type AuthKernelRegistrationGateResult,
 } from "../auth-kernel-registration-gate";
+import { resolveBoundAuthProfileId } from "./resolve-bound-auth-profile-id";
 
 export function useAuthKernelSurfaceActions(): Readonly<{
   ports: ReturnType<typeof useAuthKernelPorts>;
@@ -53,7 +54,7 @@ export function useAuthKernelSurfaceActions(): Readonly<{
   const ports = useAuthKernelPorts();
   const runtime = useWindowRuntime();
   const identity = useIdentity();
-  const profileId = runtime.snapshot.session.profileId;
+  const profileId = resolveBoundAuthProfileId(runtime.snapshot.session.profileId);
 
   const evaluateRegistrationGate = useCallback(
     (boundProfileId: string) => evaluateAuthKernelRegistrationGate(boundProfileId),

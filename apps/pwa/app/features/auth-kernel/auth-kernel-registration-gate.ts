@@ -1,5 +1,5 @@
 import type { PoWDifficulty } from "@/app/features/auth/services/pow-key-generator";
-import type { RegistrationEvaluation } from "@dweb/auth";
+import type { RegistrationEvaluation } from "@dweb/auth/ports/registration-policy-port";
 import { createAuthKernelRegistrationPolicyPort } from "./auth-kernel-registration-policy-adapter";
 import { resolveAuthKernelSybilPolicy } from "./auth-kernel-sybil-policy-config";
 import {

@@ -127,8 +127,9 @@ export function GuideIndexShell({ sections }: GuideIndexShellProps) {
               <p className="eyebrow">User documentation</p>
               <h1>How to use Obscur</h1>
               <p className="guide-lede">
-                One feature per page — pick a step below for explanation and demo captures.
-                Networks carry ciphertext; Obscur encrypts on the client.
+                One feature per page — short copy plus silent demo captures from the product
+                library (enough for a basic introduction; no long film required). Networks carry
+                ciphertext; Obscur encrypts on the client.
               </p>
             </header>
 

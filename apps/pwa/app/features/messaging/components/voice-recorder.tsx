@@ -24,12 +24,14 @@ interface VoiceRecorderProps {
     onRecordingComplete: (file: File) => void;
     isUploading: boolean;
     disabled?: boolean;
+    /** Lets the composer swap to a full-row recording chrome. */
+    onRecordingChange?: (isRecording: boolean) => void;
 }
 
 /**
  * VoiceRecorder component using MediaRecorder API
  */
-export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: VoiceRecorderProps) {
+export function VoiceRecorder({ onRecordingComplete, isUploading, disabled, onRecordingChange }: VoiceRecorderProps) {
     const { t } = useTranslation();
     const [isRecording, setIsRecording] = useState(false);
     const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
@@ -200,6 +202,13 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
         };
     }, [clearTimer, releaseStream]);
 
+    useEffect(() => {
+        onRecordingChange?.(isRecording);
+        return () => {
+            onRecordingChange?.(false);
+        };
+    }, [isRecording, onRecordingChange]);
+
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -207,7 +216,11 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
     };
 
     return (
-        <div className="flex items-center gap-2 min-w-0">
+        <div
+            className={cn("flex min-w-0 items-center", isRecording ? "w-full flex-1" : "shrink-0")}
+            data-testid="voice-recorder"
+            data-recording={isRecording ? "1" : "0"}
+        >
             <MediaDeviceConsentDialog
                 isOpen={consentOpen}
                 kind="microphone"
@@ -216,42 +229,46 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
                 onGranted={handleConsentGranted}
             />
             {isRecording ? (
-                <div className="flex items-center gap-2.5 min-w-0 bg-gradient-to-r from-purple-50/95 via-white to-white dark:from-purple-950/40 dark:via-zinc-900 dark:to-zinc-900 border border-purple-500/35 px-3 py-2 rounded-full shadow-[0_8px_24px_rgba(168,85,247,0.18)] animate-in slide-in-from-right-2 duration-300">
-                    <div className="flex items-center gap-2 shrink-0">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-70 animate-ping" />
+                <div
+                    className="flex w-full min-w-0 items-center gap-2 px-0.5 animate-in fade-in duration-200"
+                    role="group"
+                    aria-label={t("messaging.recordVoiceNote")}
+                >
+                    <button
+                        type="button"
+                        onClick={cancelRecording}
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-rose-500 transition-colors hover:bg-rose-500/10 dark:hover:bg-rose-400/15"
+                        title={t("common.cancel")}
+                        aria-label={t("common.cancel")}
+                        data-testid="voice-recorder-cancel"
+                    >
+                        <Trash2 className="h-5 w-5" />
+                    </button>
+
+                    <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-2xl border border-rose-500/25 bg-rose-500/5 px-3 dark:border-rose-400/20 dark:bg-rose-400/10">
+                        <span className="relative flex h-2.5 w-2.5 shrink-0">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-70" />
                             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
                         </span>
-                        <span className="text-xs font-black font-mono tabular-nums text-zinc-900 dark:text-zinc-100 min-w-[2.25rem]">
+                        <span className="min-w-[2.5rem] shrink-0 font-mono text-xs font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                             {formatTime(recordingTime)}
                         </span>
+                        <VoiceRecordingWaveform
+                            waveform={waveformState}
+                            className="min-w-0 max-w-none flex-1"
+                        />
                     </div>
 
-                    <VoiceRecordingWaveform waveform={waveformState} />
-
-                    <div className="h-5 w-px bg-purple-200/80 dark:bg-zinc-700 shrink-0" />
-
-                    <div className="flex items-center gap-1 shrink-0">
-                        <button
-                            type="button"
-                            onClick={cancelRecording}
-                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 rounded-full transition-colors"
-                            title={t("common.cancel")}
-                            aria-label={t("common.cancel")}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={stopRecording}
-                            className="p-2 bg-gradient-to-br from-purple-600 to-indigo-500 text-white rounded-full hover:from-purple-500 hover:to-indigo-400 transition-transform active:scale-90 shadow-[0_0_16px_rgba(168,85,247,0.35)]"
-                            title={t("common.send")}
-                            aria-label={t("common.send")}
-                        >
-                            <Send className="h-3.5 w-3.5" />
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={stopRecording}
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-indigo-500 text-white shadow-[0_0_16px_rgba(168,85,247,0.35)] transition-transform active:scale-95 hover:from-purple-500 hover:to-indigo-400"
+                        title={t("common.send")}
+                        aria-label={t("common.send")}
+                        data-testid="voice-recorder-send"
+                    >
+                        <Send className="h-4 w-4 translate-x-px" />
+                    </button>
                 </div>
             ) : (
                 <Button
@@ -269,6 +286,7 @@ export function VoiceRecorder({ onRecordingComplete, isUploading, disabled }: Vo
                         ? (t("messaging.recordVoiceNote") || "Record voice note")
                         : (t("messaging.voiceRecordingUnsupported") || "Voice recording unavailable on this runtime")
                     }
+                    data-testid="voice-recorder-start"
                 >
                     {isUploading ? (
                         <Loader2 className="h-5 w-5 animate-spin text-purple-600" />

@@ -1,4 +1,4 @@
-import type { MeshEvidenceRecord } from "@obscur/conduit-mesh-contracts";
+import type { MeshEvidenceRecord } from "@obscur/conduit-mesh-contracts/evidence";
 
 export type EvidenceLedger = Readonly<{
   append: (record: MeshEvidenceRecord) => void;

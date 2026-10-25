@@ -75,7 +75,8 @@ Each phase: new route/layout under a dedicated mobile shell tree (planned under 
 
 | Environment | Use for |
 |-------------|---------|
-| Browser narrow viewport | Layout iteration only |
+| Browser narrow viewport (`dev:mobile-shell`) | Layout iteration only |
+| Desktop phone preview (`dev:mobile-preview`) | Auth / SQLite / mobile UI fast loop (not a release gate) |
 | Android emulator + 1 physical device | Release gates (M1+) |
 | Desktop Tauri | Regression — must not break desktop shell |
 

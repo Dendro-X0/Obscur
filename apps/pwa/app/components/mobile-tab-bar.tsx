@@ -3,14 +3,13 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, MessageSquare, Search, Settings, UserPlus, Users, FolderLock } from "lucide-react";
+import { Bell, MessageSquare, Search, Settings, Users, FolderLock } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/app/lib/utils";
 import { NAV_ITEMS } from "../lib/navigation/nav-items";
 import { useTranslation } from "react-i18next";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
-  hardNavigate,
   recoverFromRouteStall,
   shouldArmRouteStallWatchdog,
 } from "./route-stall-recovery.client";
@@ -18,7 +17,8 @@ import { ROUTE_NAVIGATION_STALL_HARD_FALLBACK_MS } from "./page-transition-recov
 import { prefetchRouteShell, prefetchSidebarRouteClientOnIntent } from "./route-navigation-warmup";
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { recordNavigationIntent } from "./navigation-performance-coordinator";
-import { useSecondaryPageLayoutTier } from "@/app/features/runtime/use-mobile-compact-layout";
+import { scheduleSidebarNavigation } from "./schedule-sidebar-navigation";
+import { useGlobalNavigationLoadingActions } from "./global-navigation-loading";
 
 const ICON_BY_HREF: Record<string, any> = {
     "/": MessageSquare,
@@ -37,8 +37,10 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
-    const layoutTier = useSecondaryPageLayoutTier();
-    const showOnViewport = isMobileShellProduct() || layoutTier !== "desktop";
+    const { beginNavigation } = useGlobalNavigationLoadingActions();
+    // Desktop-first: never mount tab bar outside the mobile product shell.
+    const showOnViewport = isMobileShellProduct();
+    const [pendingHref, setPendingHref] = React.useState<string | null>(null);
     const routeFallbackTimeoutIdRef = React.useRef<number | null>(null);
     const routePendingTargetRef = React.useRef<string | null>(null);
     const routePendingStartedAtUnixMsRef = React.useRef<number>(0);
@@ -98,6 +100,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
             const currentPathname = window.location.pathname;
             if (currentPathname === targetHref) {
                 clearRouteFallback();
+                setPendingHref(null);
                 return;
             }
             logAppEvent({
@@ -119,6 +122,12 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     }, [clearRouteFallback, pathname, router]);
 
     React.useEffect((): void => {
+        if (pendingHref && (pathname === pendingHref || (pendingHref !== "/" && pathname.startsWith(pendingHref)))) {
+            setPendingHref(null);
+        }
+    }, [pathname, pendingHref]);
+
+    React.useEffect((): void => {
         const pendingTarget = routePendingTargetRef.current;
         if (!pendingTarget || pathname !== pendingTarget) {
             return;
@@ -134,6 +143,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
             },
         });
         clearRouteFallback();
+        setPendingHref(null);
     }, [clearRouteFallback, pathname]);
 
     React.useEffect((): (() => void) => {
@@ -149,12 +159,15 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
     return (
         <nav
             data-testid="mobile-tab-bar"
+            aria-busy={pendingHref !== null}
             className="fixed bottom-0 left-0 right-0 z-50 block border-t border-black/10 bg-white/80 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur-xl dark:border-white/10 dark:bg-black/80"
         >
             <div className="flex items-center justify-around px-2">
                 {NAV_ITEMS.map((item) => {
                     const Icon = ICON_BY_HREF[item.href];
-                    const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+                    const isActive = pathname === item.href
+                        || (item.href !== "/" && pathname.startsWith(item.href))
+                        || pendingHref === item.href;
                     const badgeCount = navBadgeCounts[item.href] ?? 0;
                     const label = item.i18nKey ? t(item.i18nKey) : item.label;
 
@@ -162,6 +175,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                         <Link
                             key={item.href}
                             href={item.href}
+                            aria-current={isActive ? "page" : undefined}
                             onPointerEnter={(): void => {
                                 if (item.href === pathname) {
                                     return;
@@ -186,20 +200,31 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ navBadgeCounts = {} 
                                 }
                                 if (item.href === pathname) {
                                     event.preventDefault();
+                                    setPendingHref(null);
                                     return;
                                 }
+                                // Imperative soft push — Link alone can stall on native while
+                                // Next compiles a cold route (phone preview / mobile shell).
+                                event.preventDefault();
+                                setPendingHref(item.href);
+                                beginNavigation(item.href);
                                 recordNavigationIntent(item.href);
                                 armRouteHardFallback(item.href);
+                                scheduleSidebarNavigation(router, item.href, { immediate: true });
                             }}
                             className={cn(
                                 "relative flex flex-col items-center justify-center gap-1 px-3 py-1 transition-colors",
                                 isActive ? "text-purple-600 dark:text-purple-400" : "text-zinc-500 dark:text-zinc-400"
                             )}
                         >
-                            <div className="relative">
-                                <Icon className={cn("h-6 w-6 transition-transform", isActive && "scale-110")} />
+                            <div className="relative flex h-7 w-7 items-center justify-center">
+                                <Icon
+                                    className={cn("h-[1.375rem] w-[1.375rem] shrink-0 transition-transform", isActive && "scale-105")}
+                                    strokeWidth={1.75}
+                                    aria-hidden
+                                />
                                 {badgeCount > 0 && (
-                                    <span className="absolute -right-2 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
+                                    <span className="absolute -right-1.5 -top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white dark:ring-black">
                                         {badgeCount > 99 ? "99+" : badgeCount}
                                     </span>
                                 )}

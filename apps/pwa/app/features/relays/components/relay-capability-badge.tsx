@@ -144,15 +144,15 @@ export const RelayCapabilityBadge: React.FC<RelayCapabilityBadgeProps> = ({
   return (
     <div
       className={cn(
-        "flex flex-wrap gap-2 p-3 rounded-2xl border border-zinc-200 dark:border-white/5 bg-white dark:bg-[#0E0E10] shadow-sm",
+        "flex flex-wrap gap-2 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#0E0E10]",
         className
       )}
     >
-      <div className="w-full mb-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">
-          Relay Capabilities
+      <div className="mb-1 w-full">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+          Relay capabilities
         </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-600 truncate mt-0.5" title={relayUrl}>
+        <p className="mt-0.5 truncate text-xs text-zinc-500" title={relayUrl}>
           {relayUrl.replace(/^wss?:\/\//, "")}
         </p>
       </div>

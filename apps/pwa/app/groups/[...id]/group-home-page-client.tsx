@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
-import { Users, MessageSquare, Shield, Globe, ArrowLeft, Share2, ExternalLink, Bell, BellOff, LogOut, UserPlus, Ban, ChevronRight, Settings, Trash2, } from "lucide-react";
+import { Users, MessageSquare, Shield, ArrowLeft, Share2, ExternalLink, Bell, BellOff, LogOut, UserPlus, Ban, ChevronRight, Settings, Trash2, } from "lucide-react";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
@@ -1084,7 +1084,7 @@ export default function GroupHomePage() {
             </PageShell>);
     }
     return (<PageShell title={displayName}>
-            <div className={cn("mx-auto w-full px-4 sm:px-6", compact ? "max-w-3xl pt-0 pb-28 space-y-3" : tablet ? "max-w-3xl pt-4 pb-28 space-y-6" : "max-w-5xl pt-20 pb-20 md:pb-0 space-y-12", safeVisualMode ? "opacity-100" : "animate-in fade-in slide-in-from-bottom-4 duration-700")}>
+            <div className={cn("mx-auto w-full px-4 sm:px-6", compact ? "max-w-3xl pt-0 pb-28 space-y-3" : tablet ? "max-w-3xl pt-4 pb-28 space-y-6" : "max-w-5xl pt-20 pb-24 space-y-12", safeVisualMode ? "opacity-100" : "animate-in fade-in slide-in-from-bottom-4 duration-700")}>
                 {/* Back Button */}
                 <div className={compact ? undefined : "pt-6"}>
                     <button onClick={() => router.push("/network")} className="group flex items-center gap-2 text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-white">
@@ -1153,10 +1153,12 @@ export default function GroupHomePage() {
                                                 <h1 className={cn("font-black tracking-tight text-zinc-950 dark:text-white", compact ? "text-3xl" : "text-5xl sm:text-6xl")}>
                                                     {displayName}
                                                 </h1>
-                                                <div className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 dark:border-white/10 dark:bg-white/[0.05]">
-                                                    <Globe className="h-3.5 w-3.5 text-purple-400"/>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-400">
-                                                        {compact ? relayHostLabel : effectiveRelay.replace("wss://", "")}
+                                                <div
+                                                    className="flex items-center gap-1.5 rounded-md border border-black/5 bg-transparent px-2 py-0.5 dark:border-white/5"
+                                                    title={effectiveRelay}
+                                                >
+                                                    <span className="text-[10px] font-medium tracking-wide text-zinc-500 dark:text-zinc-500">
+                                                        {relayHostLabel}
                                                     </span>
                                                 </div>
                                                 {!compact ? rosterEvidenceHeaderExtras : null}
@@ -1164,10 +1166,15 @@ export default function GroupHomePage() {
                                                 <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className={cn("font-black tracking-tight text-zinc-950 dark:text-white", compact ? "text-3xl" : "text-5xl sm:text-6xl")}>
                                                     {displayName}
                                                 </motion.h1>
-                                                <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.4 }} className="flex items-center gap-2 rounded-full border border-black/10 bg-black/[0.04] px-3 py-1 dark:border-white/10 dark:bg-white/[0.05]">
-                                                    <Globe className="h-3.5 w-3.5 text-purple-400"/>
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-800 dark:text-zinc-400">
-                                                        {compact ? relayHostLabel : effectiveRelay.replace("wss://", "")}
+                                                <motion.div
+                                                    initial={{ scale: 0.8, opacity: 0 }}
+                                                    animate={{ scale: 1, opacity: 1 }}
+                                                    transition={{ delay: 0.4 }}
+                                                    className="flex items-center gap-1.5 rounded-md border border-black/5 bg-transparent px-2 py-0.5 dark:border-white/5"
+                                                    title={effectiveRelay}
+                                                >
+                                                    <span className="text-[10px] font-medium tracking-wide text-zinc-500 dark:text-zinc-500">
+                                                        {relayHostLabel}
                                                     </span>
                                                 </motion.div>
                                                 {!compact ? rosterEvidenceHeaderExtras : null}
@@ -1180,21 +1187,21 @@ export default function GroupHomePage() {
 
                                 {/* Premium Action Bar */}
                                 <div className={cn("flex w-full items-center justify-center md:justify-start", compact ? "flex-col gap-2" : "flex-wrap gap-3")}>
-                                    {!isGuest ? (<Button onClick={handleEnterCommunityChat} className={cn("rounded-xl border border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-100 font-black shadow-lg shadow-zinc-900/5 transition-all hover:scale-[1.02] active:scale-95 gap-2 dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:shadow-white/5", compact ? "h-11 w-full px-4 text-sm" : "h-16 px-10 rounded-2xl text-lg gap-3")}>
-                                            <MessageSquare className={compact ? "h-4 w-4" : "h-6 w-6"}/>
+                                    {!isGuest ? (<Button onClick={handleEnterCommunityChat} className={cn("rounded-xl border border-zinc-300 bg-white text-zinc-950 hover:bg-zinc-100 font-black shadow-lg shadow-zinc-900/5 transition-all hover:scale-[1.02] active:scale-95 gap-2 dark:border-white/10 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:shadow-white/5", compact ? "h-12 w-full px-4 text-sm" : "h-16 px-10 rounded-2xl text-lg gap-3")}>
+                                            <MessageSquare className={compact ? "h-5 w-5" : "h-6 w-6"}/>
                                             {t("groups.home.enterChat")}
-                                        </Button>) : (<Button onClick={() => void handleGuestJoin()} disabled={guestJoinBlocked} title={guestJoinBlocked ? guestJoinTrust.userMessage : undefined} className={cn("rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-2 disabled:opacity-50", compact ? "h-11 w-full px-4 text-sm" : "h-16 px-10 rounded-2xl text-lg gap-3")}>
-                                            <UserPlus className={compact ? "h-4 w-4" : "h-6 w-6"}/>
+                                        </Button>) : (<Button onClick={() => void handleGuestJoin()} disabled={guestJoinBlocked} title={guestJoinBlocked ? guestJoinTrust.userMessage : undefined} className={cn("rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black shadow-2xl shadow-purple-500/20 transition-all hover:scale-[1.02] active:scale-95 gap-2 disabled:opacity-50", compact ? "h-12 w-full px-4 text-sm" : "h-16 px-10 rounded-2xl text-lg gap-3")}>
+                                            <UserPlus className={compact ? "h-5 w-5" : "h-6 w-6"}/>
                                             {t("groups.home.joinCommunity")}
                                         </Button>)}
 
                                     {!isGuest ? (compact ? (<div className="grid w-full grid-cols-2 gap-2">
-                                                <Button onClick={handleOpenInviteConnections} className="h-10 gap-1.5 rounded-xl border border-zinc-300 bg-zinc-900 text-xs font-bold text-white dark:border-white/5 dark:bg-zinc-800/80">
-                                                    <UserPlus className="h-4 w-4"/>
+                                                <Button onClick={handleOpenInviteConnections} className="h-11 gap-2 rounded-xl border border-zinc-300 bg-zinc-900 text-xs font-bold text-white dark:border-white/5 dark:bg-zinc-800/80">
+                                                    <UserPlus className="h-5 w-5"/>
                                                     {t("groups.home.invite")}
                                                 </Button>
-                                                {group ? (<Button onClick={() => openCommunityManagement()} variant="outline" className="h-10 gap-1.5 rounded-xl border border-zinc-300 bg-white text-xs font-bold text-zinc-900 hover:bg-zinc-50 dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-white/5">
-                                                        <Settings className="h-4 w-4"/>
+                                                {group ? (<Button onClick={() => openCommunityManagement()} variant="outline" className="h-11 gap-2 rounded-xl border border-zinc-300 bg-white text-xs font-bold text-zinc-900 hover:bg-zinc-50 dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-white/5">
+                                                        <Settings className="h-5 w-5"/>
                                                         {t("groups.home.manage")}
                                                     </Button>) : null}
                                             </div>) : (<>
@@ -1210,21 +1217,21 @@ export default function GroupHomePage() {
                                         </>)) : null}
 
                                     {!isGuest ? (<div className={cn("flex items-center rounded-xl border border-black/10 bg-black/[0.04] dark:border-white/5 dark:bg-white/[0.03]", compact
-                ? "w-full justify-center gap-0.5 p-0.5"
+                ? "w-full justify-evenly gap-1 p-1.5"
                 : "gap-2 rounded-2xl p-1", safeVisualMode ? "backdrop-blur-none" : "backdrop-blur-md")}>
-                                        <Button variant="ghost" onClick={toggleNotifications} className={cn("rounded-lg transition-all hover:bg-black/[0.06] dark:hover:bg-white/5", compact ? "h-10 w-10" : "h-14 w-14 rounded-xl", notificationsEnabled ? "text-purple-600 dark:text-purple-400" : "text-zinc-600 dark:text-zinc-500")} aria-label={notificationsEnabled ? t("groups.home.notifications.disableAria") : t("groups.home.notifications.enableAria")}>
-                                            {notificationsEnabled ? (<Bell className={compact ? "h-4 w-4" : "h-6 w-6"}/>) : (<BellOff className={compact ? "h-4 w-4" : "h-6 w-6"}/>)}
+                                        <Button variant="ghost" onClick={toggleNotifications} className={cn("rounded-lg transition-all hover:bg-black/[0.06] dark:hover:bg-white/5", compact ? "h-12 w-12" : "h-14 w-14 rounded-xl", notificationsEnabled ? "text-purple-600 dark:text-purple-400" : "text-zinc-600 dark:text-zinc-500")} aria-label={notificationsEnabled ? t("groups.home.notifications.disableAria") : t("groups.home.notifications.enableAria")}>
+                                            {notificationsEnabled ? (<Bell className="h-6 w-6" strokeWidth={compact ? 2 : undefined}/>) : (<BellOff className="h-6 w-6" strokeWidth={compact ? 2 : undefined}/>)}
                                         </Button>
 
-                                        <Button variant="ghost" className={cn("rounded-lg text-zinc-600 transition-all hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white", compact ? "h-10 w-10" : "h-14 w-14 rounded-xl")} aria-label={t("groups.home.copyDiscoveryLinkAria")} onClick={() => {
+                                        <Button variant="ghost" className={cn("rounded-lg text-zinc-600 transition-all hover:bg-black/[0.06] hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white", compact ? "h-12 w-12" : "h-14 w-14 rounded-xl")} aria-label={t("groups.home.copyDiscoveryLinkAria")} onClick={() => {
                 const url = toAbsoluteAppUrl(getPublicGroupHref(group?.id || id || "", effectiveRelay || undefined));
                 navigator.clipboard.writeText(url);
                 toast.success(t("groups.home.discoveryLinkCopied"));
             }}>
-                                            <Share2 className={compact ? "h-4 w-4" : "h-6 w-6"}/>
+                                            <Share2 className="h-6 w-6" strokeWidth={compact ? 2 : undefined}/>
                                         </Button>
 
-                                        <div className={cn("bg-black/10 dark:bg-white/10", compact ? "mx-0.5 h-6 w-px" : "mx-1 h-8 w-[1px]")}/>
+                                        <div className={cn("bg-black/10 dark:bg-white/10", compact ? "mx-0.5 h-8 w-px" : "mx-1 h-8 w-[1px]")}/>
 
                                         <Button variant="ghost" onClick={() => {
                 if (!groupActionRouteParams.routeToken) {
@@ -1232,8 +1239,8 @@ export default function GroupHomePage() {
                     return;
                 }
                 router.push(buildGroupLeaveHref(groupActionRouteParams));
-            }} className={cn("rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90", compact ? "h-10 w-10 hover:scale-105" : "h-14 w-14 rounded-xl hover:scale-110")} aria-label={t("groups.home.leaveAria")}>
-                                            <LogOut className={compact ? "h-4 w-4" : "h-6 w-6"}/>
+            }} className={cn("rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all active:scale-90", compact ? "h-12 w-12 hover:scale-105" : "h-14 w-14 rounded-xl hover:scale-110")} aria-label={t("groups.home.leaveAria")}>
+                                            <LogOut className="h-6 w-6" strokeWidth={compact ? 2 : undefined}/>
                                         </Button>
                                     </div>) : null}
                                 </div>
@@ -1370,7 +1377,7 @@ export default function GroupHomePage() {
                 {!isGuest && group && shouldMountGroupManagementDialog(isManagementOpen) ? (<GroupManagementDialog isOpen onClose={() => {
                 setIsManagementOpen(false);
                 setManagementInitialTab(undefined);
-            }} initialTab={managementInitialTab} group={group} pool={relayPool} myPublicKeyHex={identityState.publicKeyHex || null} myPrivateKeyHex={identityState.privateKeyHex || null} communityController={sealedCommunityController}/>) : null}
+            }} initialTab={managementInitialTab} group={group} pool={relayPool} myPublicKeyHex={identityState.publicKeyHex || null} myPrivateKeyHex={identityState.privateKeyHex || null} communityController={sealedCommunityController} onRequestInvite={() => setIsInviteConnectionsOpen(true)}/>) : null}
 
                 {!isGuest && group && (<InviteConnectionsDialog isOpen={isInviteConnectionsOpen} onClose={() => setIsInviteConnectionsOpen(false)} groupId={group.groupId} relayUrl={group.relayUrl} roomKeyHex={roomKeyHex || ""} communityId={group.communityId} genesisEventId={group.genesisEventId} creatorPubkey={group.creatorPubkey} onRefreshMembership={refreshMembershipForInviteOpen} currentMemberPubkeys={inviteEligibleMemberPubkeys} metadata={{
                 id: group.groupId,

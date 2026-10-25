@@ -167,9 +167,9 @@ export function GroupManagementSettingsPanel({
                 action={
                     <Button
                         type="button"
-                        variant="secondary"
+                        variant="danger"
                         size="sm"
-                        className={compact ? "h-8 px-3 text-xs text-rose-400" : "text-rose-400"}
+                        className={compact ? "h-8 px-3 text-xs" : undefined}
                         onClick={onLeave}
                     >
                         {t("groups.management.safety.leave")}

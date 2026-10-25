@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
-import { DEFAULT_MESH_TOR_STATE } from "@obscur/conduit-mesh-contracts";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { DEFAULT_MESH_TOR_STATE } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 import {
   fetchConduitMeshTorHostState,

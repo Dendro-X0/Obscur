@@ -1,12 +1,8 @@
-import type {
-  ConduitDescriptor,
-  ConduitDriverPort,
-  MeshEnvelope,
-  MeshEvidenceRecord,
-  MeshInterest,
-  MeshPublishOutcome,
-} from "@obscur/conduit-mesh-contracts";
-import { buildNostrWsWirePayload } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshEvidenceRecord, MeshPublishOutcome } from "@obscur/conduit-mesh-contracts/evidence";
+import type { ConduitDriverPort } from "@obscur/conduit-mesh-contracts/mesh-port";
+import { buildNostrWsWirePayload } from "@obscur/conduit-mesh-contracts/nostr-ws-wire-contract";
 
 import type { NostrWsWirePort } from "./nostr-ws-wire-port";
 

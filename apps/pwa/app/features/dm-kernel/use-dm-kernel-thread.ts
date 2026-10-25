@@ -14,7 +14,7 @@ import { normalizePublicKeyHex } from "@/app/features/profile/utils/normalize-pu
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { subscribeNativeDmRelayBackfillRepair } from "@/app/features/messaging/services/native-dm-sqlite-repair";
 import { DM_KERNEL_PAGE_SIZE } from "./dm-kernel-page-size";
-import { listDmMessages } from "@/app/features/protocol-adaptation";
+import { listDmMessages } from "@/app/features/protocol-adaptation/layer";
 import { logDmKernelOneSidedIfNeeded } from "./dm-kernel-integrity";
 import { invalidateDmKernelThreadSessionCache } from "./dm-kernel-thread-session-cache";
 import { buildDmSiblingConversationIds, inferPeerFromConversationId } from "@/app/features/messaging/utils/dm-conversation-sibling-ids";

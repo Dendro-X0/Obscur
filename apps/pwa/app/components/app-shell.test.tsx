@@ -119,6 +119,12 @@ vi.mock("./global-navigation-loading", () => ({
     beginChunkLoad: vi.fn(),
     endChunkLoad: vi.fn(),
   }),
+  useGlobalNavigationLoadingState: () => ({
+    visible: false,
+    progress: 0,
+    completing: false,
+    targetPathname: null,
+  }),
   GlobalNavigationChunkLoadingBoundary: () => null,
 }));
 
@@ -162,6 +168,18 @@ describe("AppShell navigation", () => {
     resetNavigationPerformanceCoordinatorForTests();
     appShellMocks.pathname = "/";
     appShellMocks.isDesktop = false;
+    appShellMocks.isMobileShellProduct = false;
+    // Desktop-width default — AppShell now reads layout tier for tab-bar inset.
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      onchange: null,
+    }));
     vi.stubGlobal("requestIdleCallback", (callback: IdleRequestCallback) => {
       const handle = window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline), 0);
       return handle;
@@ -405,6 +423,26 @@ describe("AppShell navigation", () => {
     });
 
     expect(screen.getByTestId("mobile-tab-bar")).toBeInTheDocument();
+    expect(document.documentElement.getAttribute("data-obscur-mobile-chrome")).toBe("tabs");
+    expect(document.querySelector(".pb-mobile-tab-bar")).toBeTruthy();
     appShellMocks.isMobileShellProduct = false;
+  });
+
+  it("does not reserve mobile tab-bar inset on desktop shell product", async () => {
+    appShellMocks.isDesktop = true;
+    appShellMocks.isMobileShellProduct = false;
+    const { container } = render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId("mobile-tab-bar")).not.toBeInTheDocument();
+    expect(container.querySelector(".pb-mobile-tab-bar")).toBeNull();
+    expect(document.documentElement.getAttribute("data-obscur-mobile-chrome")).toBe("none");
+    appShellMocks.isDesktop = false;
   });
 });

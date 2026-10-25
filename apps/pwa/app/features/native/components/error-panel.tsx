@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { nativeErrorStore, type NativeError } from "../lib/native-error-store";
 import { X, WifiOff, RefreshCcw, ChevronDown } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -50,12 +51,17 @@ export function useNativeErrors() {
 
 export function ErrorPanel() {
     const { errors, removeError, dismissError } = useNativeErrors();
+    const hideRelayOnMobile = isMobileShellProduct();
+    const visibleErrors = useMemo(
+        () => (hideRelayOnMobile ? errors.filter((error) => !isRelaySoftWarning(error.code)) : errors),
+        [errors, hideRelayOnMobile],
+    );
 
-    if (errors.length === 0) return null;
+    if (visibleErrors.length === 0) return null;
 
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-full max-w-sm pointer-events-none">
-            {errors.map((error) => {
+            {visibleErrors.map((error) => {
                 const soft = isRelaySoftWarning(error.code);
                 return (
                     <div

@@ -11,10 +11,32 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useIsDesktop } from "@/app/features/desktop/hooks/use-tauri";
+import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 
 type SidebarPortalVariant = "desktop" | "mobileDrawer";
 
 type HostsSnapshot = Readonly<Partial<Record<SidebarPortalVariant, HTMLElement | null>>>;
+
+/**
+ * Prefer the open mobile drawer host whenever it is mounted so phone layouts
+ * (incl. Tauri phone-preview) do not park the chat list in the hidden desktop rail.
+ * Mobile product shell renders the list inline — never portal there.
+ */
+export const resolveChatSidebarPortalTarget = (
+  hosts: HostsSnapshot,
+  options: Readonly<{ isDesktop: boolean; mobileShellProduct: boolean }>,
+): HTMLElement | null => {
+  if (options.mobileShellProduct) {
+    return null;
+  }
+  if (hosts.mobileDrawer) {
+    return hosts.mobileDrawer;
+  }
+  if (options.isDesktop) {
+    return hosts.desktop ?? null;
+  }
+  return null;
+};
 
 const EMPTY_HOSTS_SNAPSHOT: HostsSnapshot = {};
 
@@ -113,9 +135,10 @@ export function ChatSidebarPortal(props: Readonly<{ children: React.ReactNode }>
     return null;
   }
 
-  const target = isDesktop
-    ? (hosts.desktop ?? null)
-    : (hosts.mobileDrawer ?? null);
+  const target = resolveChatSidebarPortalTarget(hosts, {
+    isDesktop,
+    mobileShellProduct: isMobileShellProduct(),
+  });
 
   if (!target) {
     return null;

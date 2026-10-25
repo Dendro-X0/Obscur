@@ -99,8 +99,11 @@ export function GroupManagementGeneralPanel({
         <div className={cn("mx-auto max-w-2xl", compact ? "space-y-3" : "space-y-5")}>
             <section className={sectionClass}>
                 <Label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t("groups.management.general.avatar")}</Label>
-                <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="relative shrink-0 self-start">
+                <div className={cn(
+                    "mt-3 flex gap-4",
+                    compact ? "flex-col items-center" : "flex-col sm:flex-row sm:items-center",
+                )}>
+                    <div className={cn("relative shrink-0", compact ? "self-center" : "self-start")}>
                         <div className="relative h-20 w-20 overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800">
                             {editPicture ? (
                                 <Image src={editPicture} alt="" fill unoptimized className="object-cover" />
@@ -176,16 +179,18 @@ export function GroupManagementGeneralPanel({
                             disabled={!isAdmin || managedSettingsBlocked}
                             onClick={() => setEditAccess(mode)}
                             className={cn(
-                                "flex flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center text-xs font-medium transition-colors disabled:opacity-50",
-                                compact ? "py-2" : "px-3 py-3",
+                                "flex flex-col items-center text-center font-medium transition-colors disabled:opacity-50",
+                                compact
+                                    ? "gap-2 rounded-xl border px-1.5 py-3 text-[11px] leading-tight"
+                                    : "gap-1.5 rounded-lg border px-3 py-3 text-xs",
                                 editAccess === mode
                                     ? "border-violet-500/60 bg-violet-100 text-violet-900 dark:border-violet-500/50 dark:bg-violet-600/15 dark:text-violet-100"
                                     : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-600",
                             )}
                         >
-                            {mode === "open" ? <Globe className="h-4 w-4" /> : null}
-                            {mode === "discoverable" ? <Users className="h-4 w-4" /> : null}
-                            {mode === "invite-only" ? <Lock className="h-4 w-4" /> : null}
+                            {mode === "open" ? <Globe className={compact ? "h-6 w-6" : "h-4 w-4"} strokeWidth={compact ? 2 : undefined} /> : null}
+                            {mode === "discoverable" ? <Users className={compact ? "h-6 w-6" : "h-4 w-4"} strokeWidth={compact ? 2 : undefined} /> : null}
+                            {mode === "invite-only" ? <Lock className={compact ? "h-6 w-6" : "h-4 w-4"} strokeWidth={compact ? 2 : undefined} /> : null}
                             <span>
                                 {mode === "discoverable"
                                     ? t("groups.management.general.discoveryModeListed")

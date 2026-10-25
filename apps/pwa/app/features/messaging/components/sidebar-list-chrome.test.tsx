@@ -43,4 +43,11 @@ describe("SidebarListChrome", () => {
         expect(screen.getByTestId("sidebar-unified-search-input")).toBeInTheDocument();
         expect(screen.getByRole("tablist")).toBeInTheDocument();
     });
+
+    it("renders desktop chrome template separately from mobile", () => {
+        render(<SidebarListChrome {...baseProps} variant="desktop" />);
+        expect(screen.getByTestId("sidebar-desktop-chrome")).toBeInTheDocument();
+        expect(screen.queryByTestId("sidebar-mobile-chrome")).not.toBeInTheDocument();
+        expect(screen.getByTestId("sidebar-unified-search-input")).toBeInTheDocument();
+    });
 });

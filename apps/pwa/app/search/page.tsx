@@ -9,7 +9,7 @@ export default createSidebarRoutePage(
     lazy: () => import("./search-page-client"),
   },
   {
-    title: "Loading search",
-    detail: "Preparing discovery tools...",
+    title: "Search",
+    detail: "Opening search on this device…",
   },
 );

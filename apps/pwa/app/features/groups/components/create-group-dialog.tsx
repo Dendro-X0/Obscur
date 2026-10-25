@@ -245,6 +245,34 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                 && !workspaceKernelCreateDeferred
                 && (coordinationOnlyDev || createRelayTransportReady)
                 && (!publicHonestyRequired || publicLimitsAcked));
+    // Compact layouts hide the honesty column below the fold — surface why Create is off.
+    const createDisabledReason = (() => {
+        if (isValid || managedCreateBlocked || workspaceCreateBlockedEffective || workspaceKernelCreateDeferred) {
+            return null;
+        }
+        if (info.name.trim().length === 0) {
+            return t("groups.create.disabled.needName");
+        }
+        if (info.host.trim().length === 0 || !relayHostAllowed) {
+            return t("groups.create.disabled.needHost");
+        }
+        if (!createRelayTransportReady) {
+            return t("groups.create.disabled.relayNotReady");
+        }
+        if (publicHonestyRequired && !publicLimitsAcked) {
+            return t("groups.create.disabled.needHonestyAck");
+        }
+        if (isQuickGroup && !sovereignCreateAllowed) {
+            return t("groups.create.disabled.sovereignBlocked");
+        }
+        if (isQuickGroup && !quickGroupTrust.allowed) {
+            return t("groups.create.disabled.quickTrustBlocked");
+        }
+        if (!isQuickGroup && !coordinationGateSatisfied) {
+            return t("groups.create.disabled.needCoordination");
+        }
+        return t("groups.create.disabled.incomplete");
+    })();
     const createActionLabel = t("groups.createAction");
     const creatingActionLabel = t("groups.creatingAction");
     const isCreateBusy = Boolean(isCreating || isUploading);
@@ -539,12 +567,6 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
             ? "groups.create.tier.team.public.hint"
             : "groups.create.tier.public.teamBetter")}
                                     </p>
-                                    {publicHonestyRequired ? (<label className="mt-3 flex items-start gap-2 text-[11px] font-medium">
-                                            <input type="checkbox" className="mt-0.5" checked={publicLimitsAcked} onChange={(event) => setPublicLimitsAcked(event.target.checked)} data-testid="create-group-public-limits-ack"/>
-                                            <span>{t(isTeamWorkspace
-            ? "groups.create.tier.team.public.ack"
-            : "groups.create.tier.public.ack")}</span>
-                                        </label>) : null}
                                 </div>) : null}
                             {isTeamWorkspace ? (<div className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[11px] leading-relaxed text-sky-900 dark:text-sky-100" role="status" data-testid="create-group-workspace-trust-panel">
                                     <p className="font-semibold">
@@ -647,6 +669,21 @@ export function CreateGroupDialog({ isOpen, onClose, onCreate, isCreating, creat
                         </p>
                         {coordinationUnreachable ? (<p className="mt-2 text-xs opacity-90">
                                 {t("groups.create.coordinationStartHint")}
+                            </p>) : null}
+                    </div>) : null}
+
+                {/* Sticky create gates — ack + blocked reason stay above Create on compact layouts */}
+                {publicHonestyRequired || createDisabledReason ? (<div className="shrink-0 border-t border-zinc-100 bg-zinc-50/80 px-6 py-3 dark:border-[#1a1a1c] dark:bg-[#0f0f11]/80" data-testid="create-group-submit-gates">
+                        {publicHonestyRequired ? (<label className="flex items-start gap-2 text-[11px] font-medium leading-snug text-amber-950 dark:text-amber-100">
+                                <input type="checkbox" className="mt-0.5 shrink-0" checked={publicLimitsAcked} onChange={(event) => setPublicLimitsAcked(event.target.checked)} data-testid="create-group-public-limits-ack"/>
+                                <span>{t(isTeamWorkspace
+            ? "groups.create.tier.team.public.ack"
+            : "groups.create.tier.public.ack")}</span>
+                            </label>) : null}
+                        {createDisabledReason ? (<p className={cn("text-[11px] leading-snug", publicHonestyRequired && !publicLimitsAcked
+            ? "mt-1.5 text-amber-800 dark:text-amber-200/90"
+            : cn(publicHonestyRequired && "mt-2", "text-zinc-600 dark:text-zinc-400"))} data-testid="create-group-disabled-reason" role="status">
+                                {createDisabledReason}
                             </p>) : null}
                     </div>) : null}
 

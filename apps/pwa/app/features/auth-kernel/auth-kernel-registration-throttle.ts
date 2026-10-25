@@ -1,5 +1,5 @@
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
-import type { RegistrationEvaluation } from "@dweb/auth";
+import type { RegistrationEvaluation } from "@dweb/auth/ports/registration-policy-port";
 
 const REGISTRATION_ATTEMPTS_KEY = "auth.kernel.registration_attempts";
 

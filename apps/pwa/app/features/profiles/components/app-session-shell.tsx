@@ -8,7 +8,10 @@ import { isDesktopShellProduct } from "@/app/features/runtime/shell-contract";
 import { useWindowRuntime } from "@/app/features/runtime/services/window-runtime-supervisor";
 import { isProfileWindowUnlockedForAppShell } from "@/app/features/runtime/services/window-runtime-contracts";
 import { UnlockedAppRuntimeShell } from "@/app/features/runtime/components/unlocked-app-runtime-shell";
-import { isAuthPublicProfileRoute } from "@/app/features/profiles/services/auth-public-routes";
+import {
+  isAuthPublicDevLabRoute,
+  isAuthPublicProfileRoute,
+} from "@/app/features/profiles/services/auth-public-routes";
 import { ProfileManagementShell } from "./profile-management-shell";
 
 export function AppSessionShell(props: Readonly<{ children: React.ReactNode }>): React.JSX.Element | null {
@@ -24,6 +27,11 @@ export function AppSessionShell(props: Readonly<{ children: React.ReactNode }>):
   // UnlockedAppRuntimeShell under /profiles (desktop-warmup-progress + heap).
   const isPublicProfileRoute = isAuthPublicProfileRoute(pathname)
     && (isDesktopShellProduct() || hasNativeRuntime());
+
+  // Call-UI lab (and future /lab/*): render fixtures without unlock or messaging shell.
+  if (isAuthPublicDevLabRoute(pathname)) {
+    return <>{props.children}</>;
+  }
 
   // PL1 / N1: picker must stay light even after keychain rehydrate unlocks the window.
   // Mounting UnlockedAppRuntimeShell on /profiles drove lease/relay/DM IPC storms (E19).

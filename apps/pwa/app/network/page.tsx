@@ -9,7 +9,7 @@ export default createSidebarRoutePage(
     lazy: () => import("./network-page-client"),
   },
   {
-    title: "Loading network",
-    detail: "Preparing contacts, trust graph, and community tools...",
+    title: "Network",
+    detail: "Opening from this device…",
   },
 );

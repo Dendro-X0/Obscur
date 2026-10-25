@@ -4,11 +4,9 @@ import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNetwork } from "@/app/features/network/providers/network-provider";
 import { useNetworkRequestTransport } from "@/app/features/messaging/hooks/use-network-request-transport";
-import {
-  buildIdentityBindingViewModel,
-  IdentityBindingAcceptDialog,
-  IdentityBindingPanel,
-} from "@/app/features/security";
+import { buildIdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
+import { IdentityBindingAcceptDialog } from "@/app/features/security/components/identity-binding-accept-dialog";
+import { IdentityBindingPanel } from "@/app/features/security/components/identity-binding-panel";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 

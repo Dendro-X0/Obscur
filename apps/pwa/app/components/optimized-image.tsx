@@ -6,7 +6,8 @@ import { cn } from "@dweb/ui-kit/cn";
 import { ExternalLink, ImageOff, Loader2, RefreshCw } from "lucide-react";
 import { classifyMediaError } from "@/app/features/messaging/components/media-error-state";
 import { logRuntimeEvent } from "@/app/shared/runtime-log-classification";
-import { LinkOpenConfirmDialog, useGuardedExternalLinkOpen } from "@/app/features/security";
+import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
+import { useGuardedExternalLinkOpen } from "@/app/features/security/hooks/use-guarded-external-link-open";
 
 interface OptimizedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt' | 'onLoad' | 'onError' | 'width' | 'height'> {
     src: string;

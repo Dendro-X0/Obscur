@@ -4,7 +4,7 @@
  * @see specs/backend/r-relay-web-l3-soak-design-2026-07.md
  */
 
-import { extractEventIdFromNostrWirePayload, parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts";
+import { extractEventIdFromNostrWirePayload, parseNostrWsOkMessage } from "@obscur/conduit-mesh-contracts/nostr-ws-wire-contract";
 
 import type { NostrWsWirePort, NostrWsWirePublishResult } from "./nostr-ws-wire-port";
 

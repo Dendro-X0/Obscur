@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -182,12 +183,19 @@ export function useRegisterAppChrome(overrides: AppChromeOverrides): void {
     return () => remove(id);
   }, [id, remove]);
 
-  useEffect(() => {
-    upsert(id, pickSerializableOverrides(overrides));
-    // Depend on serialized flags only — `overrides` is a new object reference most renders.
+  // Layout effect so thread mode can hide the tab bar before paint (avoids
+  // composer/tab-bar overlap for one frame after selecting a conversation).
+  useLayoutEffect(() => {
+    upsert(id, JSON.parse(serialized) as AppChromeOverrides);
   }, [id, upsert, serialized]);
 }
 
 export function useAppChromeMergedSlot(): AppChromeSlot {
   return useAppChromeRegistry().mergedSlot;
+}
+
+/** Safe outside AppChromeProvider (locked / boot trees) — returns defaults. */
+export function useOptionalAppChromeMergedSlot(): AppChromeSlot {
+  const context = useContext(AppChromeRegistryContext);
+  return context?.mergedSlot ?? DEFAULT_APP_CHROME_SLOT;
 }

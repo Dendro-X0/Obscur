@@ -3,7 +3,7 @@
 import type React from "react";
 import { Check, Globe, Home, Layers, Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
 
 import { Button } from "@dweb/ui-kit/button";
 import { cn } from "@/app/lib/utils";

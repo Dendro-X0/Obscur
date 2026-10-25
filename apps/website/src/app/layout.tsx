@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Fraunces, Space_Grotesk } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { FeedbackBand } from "./feedback-band";
 import { SiteFooter, SiteNav } from "./site-nav";
 import "./globals.css";
 
 const headlineFont = Fraunces({
   variable: "--font-headline",
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["500", "600", "700"],
 });
 
 const bodyFont = Space_Grotesk({
@@ -15,10 +16,16 @@ const bodyFont = Space_Grotesk({
   weight: ["400", "500", "700"],
 });
 
+const monoFont = IBM_Plex_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+});
+
 export const metadata: Metadata = {
   title: "Obscur | Private Communication With Release Evidence",
   description:
-    "Official Obscur website for release notes, architecture links, feature captures, and download artifacts.",
+    "Official Obscur site — private messaging with verified releases, a silent demo guide, active maintenance, and room for feedback or custom services.",
   icons: {
     icon: [
       {
@@ -42,10 +49,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${headlineFont.variable} ${bodyFont.variable}`}>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <body className={`${headlineFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
         <SiteNav />
         {children}
+        <FeedbackBand />
         <SiteFooter />
       </body>
     </html>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { evaluateAuthRegistrationPolicy, resolveAuthSybilPolicyForTier } from "@dweb/auth";
+import { evaluateAuthRegistrationPolicy, resolveAuthSybilPolicyForTier } from "@dweb/auth/policy/registration-policy-engine";
 import { AUTH_KERNEL_BAND, AUTH_KERNEL_KERN_GATES_COMPLETE } from "./auth-kernel-policy";
 import { evaluateAuthKernelRegistrationGate } from "./auth-kernel-registration-gate";
 import {

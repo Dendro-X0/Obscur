@@ -1,27 +1,13 @@
-import type {
-  ConduitDescriptor,
-  ConduitDriverPort,
-  ConduitHealth,
-  ConduitRuntimeState,
-  MeshEnvelope,
-  MeshEvidenceRecord,
-  MeshInboundEnvelopeHandler,
-  MeshInterest,
-  MeshPort,
-  MeshPublishOutcome,
-  MeshRecoveryReasonCode,
-  MeshUnsubscribe,
-} from "@obscur/conduit-mesh-contracts";
-import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts";
-import {
-  DEFAULT_MESH_TOR_STATE,
-  filterConduitsByTorPolicy,
-  resolveCandidateConduits,
-  resolveTorBlockedFailureReason,
-  satisfiesEvidenceClass,
-  sortConduitsByTorPreference,
-  validateMeshEnvelope,
-} from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor, ConduitHealth, ConduitRuntimeState } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshEvidenceRecord, MeshInboundEnvelopeHandler, MeshPublishOutcome, MeshUnsubscribe } from "@obscur/conduit-mesh-contracts/evidence";
+import type { ConduitDriverPort, MeshPort } from "@obscur/conduit-mesh-contracts/mesh-port";
+import type { MeshRecoveryReasonCode } from "@obscur/conduit-mesh-contracts/mesh-snapshot";
+import type { MeshTorRuntimeState } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { satisfiesEvidenceClass } from "@obscur/conduit-mesh-contracts/evidence";
+import { resolveCandidateConduits } from "@obscur/conduit-mesh-contracts/resolve-candidate-conduits";
+import { DEFAULT_MESH_TOR_STATE, filterConduitsByTorPolicy, resolveTorBlockedFailureReason, sortConduitsByTorPreference } from "@obscur/conduit-mesh-contracts/tor-policy";
+import { validateMeshEnvelope } from "@obscur/conduit-mesh-contracts/validate-envelope";
 import type { EngineScope } from "@obscur/engine-contracts";
 
 import { applyTorPolicyToConduitRuntime } from "./apply-tor-policy-to-runtime";

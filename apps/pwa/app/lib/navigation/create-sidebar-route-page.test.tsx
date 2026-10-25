@@ -48,4 +48,17 @@ describe("createSidebarRoutePage", () => {
     });
     expect(Page.name).toBe("LazySidebarRoutePage");
   });
+
+  it("returns an eager page factory on production mobile shell builds", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DESKTOP_SHELL", "0");
+    vi.stubEnv("NEXT_PUBLIC_MOBILE_SHELL", "1");
+    vi.stubEnv("NEXT_PUBLIC_MOBILE_PREVIEW", "0");
+    vi.stubEnv("NODE_ENV", "production");
+    const { createSidebarRoutePage } = await import("./create-sidebar-route-page");
+    const Page = createSidebarRoutePage(fixtureLoaders, {
+      title: "Vault",
+      detail: "Opening local vault…",
+    });
+    expect(Page.name).toBe("EagerSidebarRoutePage");
+  });
 });

@@ -9,7 +9,7 @@ export default createSidebarRoutePage(
     lazy: () => import("./vault-page-client"),
   },
   {
-    title: "Loading vault",
-    detail: "Preparing encrypted storage...",
+    title: "Vault",
+    detail: "Opening local vault…",
   },
 );

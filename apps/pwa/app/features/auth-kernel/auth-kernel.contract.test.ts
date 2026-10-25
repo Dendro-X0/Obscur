@@ -7,10 +7,8 @@ import {
   AUTH_KERNEL_LEGACY_SCATTER_FILES,
 } from "./auth-kernel-subtraction-manifest";
 import { AUTH_KERNEL_BAND, AUTH_KERNEL_KERN_GATES_COMPLETE, isAuthKernelAuthority } from "./auth-kernel-policy";
-import {
-  AUTH_KERNEL_PORT_IDS,
-  DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY,
-} from "@dweb/auth";
+import { AUTH_KERNEL_PORT_IDS } from "@dweb/auth";
+import { DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY } from "@dweb/auth/policy/session-credential-policy-contract";
 
 describe("auth-kernel policy", () => {
   it("is runtime authority after AUTH-K-AUTHORITY flip", () => {

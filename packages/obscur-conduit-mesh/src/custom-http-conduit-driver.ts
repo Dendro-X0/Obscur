@@ -1,16 +1,9 @@
-import type {
-  ConduitDescriptor,
-  ConduitDriverPort,
-  MeshEnvelope,
-  MeshEvidenceRecord,
-  MeshInterest,
-  MeshPublishOutcome,
-} from "@obscur/conduit-mesh-contracts";
-import {
-  CUSTOM_CONDUIT_HTTP_PATHS,
-  CUSTOM_CONDUIT_HTTP_V1,
-} from "@obscur/conduit-mesh-contracts";
-import type { CustomConduitHealthResponse, CustomConduitPublishResponse } from "@obscur/conduit-mesh-contracts";
+import type { ConduitDescriptor } from "@obscur/conduit-mesh-contracts/conduit";
+import type { MeshEnvelope, MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
+import type { MeshEvidenceRecord, MeshPublishOutcome } from "@obscur/conduit-mesh-contracts/evidence";
+import type { ConduitDriverPort } from "@obscur/conduit-mesh-contracts/mesh-port";
+import { CUSTOM_CONDUIT_HTTP_PATHS, CUSTOM_CONDUIT_HTTP_V1 } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
+import type { CustomConduitHealthResponse, CustomConduitPublishResponse } from "@obscur/conduit-mesh-contracts/custom-conduit-contract";
 
 import type { ConduitMeshFetch } from "./conduit-http-utils";
 import { encodeCiphertextBase64, normalizeConduitBaseUrl } from "./conduit-http-utils";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts";
+import { isNostrEventWirePayload } from "@obscur/conduit-mesh-contracts/nostr-wire-payload";
 
 import { createConduitMeshRelayPoolRuntime } from "./conduit-mesh-relay-pool-runtime";
 import { createInMemoryConduitFetchRouter } from "./in-memory-conduit-fetch-router";
