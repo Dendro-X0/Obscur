@@ -15,7 +15,7 @@ _Last updated: 2026-08-15 · **v1.9.16** · docs shelf cleanup · active `progra
 | 3 | [program/obscur-v2-install-build-guide.md](./program/obscur-v2-install-build-guide.md) | How to dev, package, and install |
 | 3b | [program/ci-local-fast-loop.md](./program/ci-local-fast-loop.md) | Local CI tiers before GitHub Full Release waits |
 
-Agents: [AGENTS.md](../AGENTS.md) → [rules/](../rules/README.md) · **Docs + silent GIFs:** [program/agent-docs-gif-standard.md](./program/agent-docs-gif-standard.md) (`docs/assets/gifs/` + `docs/assets/demo/<version>/`)
+Agents: [START-HERE.md](./START-HERE.md) · handoff [current-session.md](./handoffs/current-session.md) · **Docs + silent GIFs:** [program/agent-docs-gif-standard.md](./program/agent-docs-gif-standard.md) (`docs/assets/gifs/` + demo version shelves under `docs/assets/demo/`)
 
 **Shelf cleanup:** [program/docs-shelf-cleanup-charter-2026-08.md](./program/docs-shelf-cleanup-charter-2026-08.md)
 
@@ -33,7 +33,7 @@ Agents: [AGENTS.md](../AGENTS.md) → [rules/](../rules/README.md) · **Docs + s
 | [protocols/](./protocols/README.md) | Wire contracts | Coordination / envelopes |
 | [trust/](./trust/README.md) | Matrices | Ship evidence |
 | [archive/](./archive/README.md) | Historical | **Not** daily truth |
-| [business/](./business/README.md) | Strategy · productization · hitch growth | Commercial / agent business boot |
+| `business/` (local-only, gitignored) | Strategy · productization · hitch growth | Commercial / agent business boot — not in CI checkout |
 
 Superseded program docs → [archive/program/inactive-2026-08/](./archive/program/inactive-2026-08/README.md) · [inactive-2026-06/](./archive/program/inactive-2026-06/README.md)
 

@@ -2,9 +2,9 @@
 
 **Purpose:** How Obscur maintains original functional goals across a large monorepo while pausing, siloing, redesigning, and re-integrating modules without patch-debug drift.
 
-_Last updated: 2026-06-18_  
-**Always-on rule:** [`.agent/skills/obscur-modular-iteration/SKILL.md`](../../.agent/skills/obscur-modular-iteration/SKILL.md) (Cursor IDE mirror: `.cursor/rules/obscur-modular-iteration.mdc` — local only, not in CI checkout)
-**Agent skill:** [`.agent/skills/obscur-modular-iteration/SKILL.md`](../../.agent/skills/obscur-modular-iteration/SKILL.md)
+_Last updated: 2026-10-25_  
+**Always-on rule:** this contract + [design-goals-and-constraints.md](./design-goals-and-constraints.md) · [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)  
+**IDE mirror (local only):** Cursor rule `obscur-modular-iteration` under `.cursor/rules/` (not required in CI checkout)
 
 ---
 
@@ -31,7 +31,7 @@ This contract applies to humans and agents. It complements [design-goals-and-con
 
 ## Silo strategy (impasse)
 
-When a module hits an impasse (≥3 failed iterations on the same band per [rules/11](../../rules/11-feasibility-and-modular-safety.md)):
+When a module hits an impasse (≥3 failed iterations on the same band — see [stability-first-delivery.md](./stability-first-delivery.md)):
 
 1. **Stop patching** the silo — register the symptom, owners, and blockers.
 2. **Isolate** — no new reconcile/bridge layers touching working modules.
@@ -55,7 +55,7 @@ The whole repository uses **modular boundaries** so functions are:
 |----------|-------------|
 | **Easy to integrate** | Explicit contracts (`profileId`, typed ports, feature services) — no ambient singletons |
 | **Easy to isolate** | Feature folders under `apps/pwa/app/features/*`, packages under `packages/*`, native under `apps/desktop/src-tauri/` |
-| **One owner per lifecycle** | One canonical mutation path per user action ([rules/01](../../rules/01-operating-principles.md)) |
+| **One owner per lifecycle** | One canonical mutation path per user action ([design-goals-and-constraints.md](./design-goals-and-constraints.md)) |
 | **Investigate before fix** | Trace one user action; name owner; list parallel writers |
 | **Failed modules return via redesign** | Re-integration only after subtraction + integration study + proof plan |
 
@@ -67,12 +67,12 @@ For any non-trivial task:
 
 | Phase | Activity | Gate |
 |-------|----------|------|
-| **0. Gate** | [obscur-session-gate](../../.agent/skills/obscur-session-gate/SKILL.md) — handoff, PAUSED/CANCELLED | No diff if conflict |
+| **0. Gate** | Handoff [current-session.md](../handoffs/current-session.md) — PAUSED/CANCELLED | No diff if conflict |
 | **1. Explore** | Read relevant modules, registers, truth map — **not** whole repo or `docs/archive/` | Components named |
 | **2. Reason** | Classify: owner, parallel paths, integration surface | Written in spec or session header |
 | **3. Plan / spec** | Investigation or design spec (`specs/backend/`, `docs/program/`) | **No code** for bugs/cross-module |
 | **4. Mental simulation** | Walk one user action; sender vs receiver; failure modes | Integration risks listed |
-| **5. Implement** | Smallest slice; [subtraction](../../.agent/skills/obscur-subtraction-change/SKILL.md) before adapters | Matches spec |
+| **5. Implement** | Smallest slice; subtraction before adapters | Matches spec |
 | **6. Proof** | L1–L4 per [testing-and-issue-tracking-spec.md](../archive/program/inactive-2026-06/testing-and-issue-tracking-spec.md) | No vague "fixed" |
 
 **Forbidden:** jumping to implementation from "fix X" or "make UI good" without phases 1–4.
@@ -98,7 +98,7 @@ When bringing a redesigned or paused module back:
 | [CURRENT.md](../CURRENT.md) | Version truth + daily boot |
 | [handoffs/current-session.md](../handoffs/current-session.md) | PAUSED / CANCELLED / next step |
 | [12-core-architecture-truth-map.md](../encyclopedia/12-core-architecture-truth-map.md) | Owner map |
-| [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md) | Stop patch loops |
+| [stability-first-delivery.md](./stability-first-delivery.md) | Stop patch loops |
 | Global `backend-rigor` | Specs-first + L-layers |
 
 ---

@@ -2,7 +2,7 @@
 
 **Decision:** **Desktop is the primary development surface.** Android builds are **wrap-up only**. **Manual verification is deferred** during batch implementation — see [deferred-manual-verification-checklist.md](../archive/program/inactive-2026-06/deferred-manual-verification-checklist.md) and [v1.8.x-batch-implementation-lane.md](../archive/program/inactive-2026-06/v1.8.x-batch-implementation-lane.md).
 
-Charter: [rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md) · Handoff: [current-session.md](../handoffs/current-session.md) · Order: [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
+Charter: this doc · Handoff: [current-session.md](../handoffs/current-session.md) · Order: [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
 
 ---
 

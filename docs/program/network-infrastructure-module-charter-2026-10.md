@@ -150,7 +150,7 @@ Physical layout preference (when implementing):
 
 | Piece | Prefer |
 |-------|--------|
-| Reason codes + classifiers | `apps/pwa/app/features/transport-kernel/` or `packages/obscur-network-contracts` (if extracted) |
+| Reason codes + classifiers | `apps/pwa/app/features/transport-kernel/` (optional future extract: obscur-network-contracts) |
 | Dial | Keep Rust `net` / relay commands — shrink glue, don’t fork |
 | Docs | This charter + slice designs under `specs/backend/nim-*` |
 

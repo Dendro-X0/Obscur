@@ -79,14 +79,14 @@ Do not claim SQLite convergence complete until grep audit + Phase B rows pass ([
 
 ## 4. Architecture invariants (non-negotiable)
 
-From [`rules/01-operating-principles.md`](../../rules/01-operating-principles.md) — apply to **every** v1.9.x change:
+From the operating principles in this doc and [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md) — apply to **every** v1.9.x change:
 
 1. **One owner** per lifecycle / state / transport path.
 2. **Explicit `profileId`** and keys — no ambient “current user” in shared code.
 3. **Local state ≠ network truth** — UI success requires evidence.
 4. **One canonical path** per user action — fix by **subtraction** when paths overlap.
 5. **Ship claims** only when runtime + tests agree.
-6. **Three-iteration cap** per band — then feasibility review ([rules/11-feasibility-and-modular-safety.md](../../rules/11-feasibility-and-modular-safety.md)).
+6. **Three-iteration cap** per band — then feasibility review ([stability-first-delivery.md](./stability-first-delivery.md)).
 
 **Owner map:** [12-core-architecture-truth-map.md](../encyclopedia/12-core-architecture-truth-map.md) · [14-module-owner-index.md](../encyclopedia/14-module-owner-index.md)
 

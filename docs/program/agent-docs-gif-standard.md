@@ -136,7 +136,7 @@ Template:
 8. Optional: web tier at 20 FPS under docs/assets/gifs/web/
 ```
 
-**Canonical capture method:** continuous **fixed-timestep** screenshots (JPEG ok) during the ritual — not stitched held stills. Portable helper: CodaCtrl `scripts/lib/docs-gif-smooth-capture.mjs` · standard: CodaCtrl `docs/studio/AGENT-DOCS-GIF-STANDARD.md` §3.
+**Canonical capture method:** continuous **fixed-timestep** screenshots (JPEG ok) during the ritual — not stitched held stills. Portable helper + standard live in the **CodaCtrl** repo (docs-gif-smooth-capture · AGENT-DOCS-GIF-STANDARD §3) — not paths in this Obscur tree.
 
 ### Capture environments (simulate live ritual)
 

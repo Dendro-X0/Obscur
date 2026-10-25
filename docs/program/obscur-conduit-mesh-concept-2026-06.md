@@ -335,7 +335,7 @@ This document **does not** reopen community membership rewrite ([membership-grap
 
 ## References
 
-- [rules/04-messaging-and-relay.md](../../rules/04-messaging-and-relay.md)
+- [messaging/](../messaging/) · [v1.9.x-execution-contract.md](./v1.9.x-execution-contract.md)
 - [product-layers-and-nostr.md](../architecture/product-layers-and-nostr.md)
 - [obscur-backend-engine-roadmap.md](./obscur-backend-engine-roadmap.md)
 - [docs/exploration/modules/05-relays-transport.md](../exploration/modules/05-relays-transport.md)

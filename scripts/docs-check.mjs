@@ -12,6 +12,26 @@ const isLikelyFileRef = (value) =>
   value.startsWith("package.json") ||
   value.startsWith("pnpm-workspace.yaml");
 
+/** Placeholder / ellipsis examples in prose — not real paths. */
+const isPlaceholderPathRef = (value) =>
+  /[<>]/.test(value)
+  || value.includes("...")
+  || value.includes("|");
+
+/**
+ * Paths intentionally absent from CI checkouts (see .gitignore).
+ * Local machines may have them; docs may still mention them.
+ */
+const isCiAbsentPath = (absPath) => {
+  const rel = path.relative(repoRoot, absPath).replaceAll("\\", "/");
+  return (
+    rel === "docs/business"
+    || rel.startsWith("docs/business/")
+    || rel === "apps/pwa/out"
+    || rel.startsWith("apps/pwa/out/")
+  );
+};
+
 const cleanTarget = (target) => {
   const noAnchor = target.split("#")[0];
   const noQuery = noAnchor.split("?")[0];
@@ -129,7 +149,9 @@ const main = async () => {
       if (/^(https?:|mailto:|#)/i.test(link)) continue;
       const target = cleanTarget(link);
       if (!target) continue;
+      if (isPlaceholderPathRef(target)) continue;
       const resolved = path.resolve(path.dirname(mdFile), target);
+      if (isCiAbsentPath(resolved)) continue;
       if (!(await exists(resolved))) {
         errors.push(`[broken-link] ${relDoc} -> ${link}`);
       }
@@ -137,11 +159,13 @@ const main = async () => {
 
     for (const ref of collectCodePathRefs(text)) {
       if (ref.includes("*")) continue;
+      if (isPlaceholderPathRef(ref)) continue;
       if (ref.includes("`r") || ref.includes("\u0007") || ref.includes("\b")) {
         errors.push(`[encoding-garbage] ${relDoc} -> ${JSON.stringify(ref)}`);
         continue;
       }
       const resolved = path.resolve(repoRoot, ref);
+      if (isCiAbsentPath(resolved)) continue;
       if (!(await exists(resolved))) {
         errors.push(`[stale-path-ref] ${relDoc} -> ${ref}`);
       }

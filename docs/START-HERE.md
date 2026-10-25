@@ -11,7 +11,7 @@ _Last updated: 2026-10-13 · **v1.9.16** · native perf N1 lock
 1. **[CURRENT.md](./CURRENT.md)** — **v1.9.16** · dialect research **PAUSED** (~5 minutes)
 2. **[handoffs/current-session.md](./handoffs/current-session.md)** — next atomic step for this repo
 3. **[program/obscur-v2-known-limitations.md](./program/obscur-v2-known-limitations.md)** — honest demo limits (when presenting or supporting)
-4. **[AGENTS.md](../AGENTS.md)** — if you are an agent (code policy only)
+4. **[program/modular-iteration-contract.md](./program/modular-iteration-contract.md)** — if you are an agent (execution order + goal preservation)
 5. **Shell / IPC / profiles work:** [program/obscur-native-performance-standards.md](./program/obscur-native-performance-standards.md) (§11 N1 lock) · then `pnpm verify:native-perf-n1`
 
 That is enough for most sessions.
@@ -26,7 +26,7 @@ That is enough for most sessions.
 | [encyclopedia/08-maintainer-playbook.md](./encyclopedia/08-maintainer-playbook.md) | Commands, triage, local dev |
 | [encyclopedia/12-core-architecture-truth-map.md](./encyclopedia/12-core-architecture-truth-map.md) | Owner boundaries |
 | [README.md](./README.md) | Full shelf index for humans |
-| [business/README.md](./business/README.md) | Productization · hitch growth · commercial strategy |
+| `business/` (local-only) | Productization · hitch growth · commercial strategy |
 
 ---
 
