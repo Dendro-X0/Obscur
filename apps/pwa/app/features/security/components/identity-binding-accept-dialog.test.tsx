@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { APP_OVERLAY_PORTAL_WRAPPER_CLASS } from "@/app/components/app-overlay-layer";
 import { IdentityBindingAcceptDialog } from "./identity-binding-accept-dialog";
+import type { IdentityBindingViewModel } from "@/app/features/security/services/identity-binding-presenter";
 import en from "@/app/lib/i18n/locales/en.json";
 
 vi.mock("react-i18next", () => ({
@@ -11,14 +12,18 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-const BINDING = {
-  displayName: "DemoUser",
+const BINDING: IdentityBindingViewModel = {
+  publicKeyHex: "a".repeat(64) as IdentityBindingViewModel["publicKeyHex"],
+  npub: "npub1sc9examplexqx19e8s",
   npubFragment: "npub1sc9…xqx19e8s",
-  resolvedViaLabel: "Incoming connection request",
-  resolvedViaDetail: "8b8b1bc3…e87b7c8c",
+  hexFragment: "aaaaaaaa…aaaaaaaa",
+  displayName: "DemoUser",
+  displayNameUntrusted: false,
+  resolverSource: "connection_request",
+  friendCode: null,
   avatarUrl: null,
-  literacyNote: null,
-} as const;
+  confidence: "direct",
+};
 
 describe("IdentityBindingAcceptDialog overlay stack", () => {
   it("portals above app shell sidebar stacking context", () => {

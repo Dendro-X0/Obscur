@@ -53,7 +53,7 @@ describe("ensureNativeSqliteOpenForWrites", () => {
       if (command === "desktop_db_ensure_open") {
         return { ok: true, value: true };
       }
-      return { ok: false, message: `unexpected ${command}` };
+      return { ok: false, reason: "failed", message: `unexpected ${command}` };
     });
     await expect(ensureNativeSqliteOpenForWrites()).resolves.toBe(true);
     expect(invokeNativeCommand).toHaveBeenCalledWith(
@@ -69,9 +69,13 @@ describe("ensureNativeSqliteOpenForWrites", () => {
         return { ok: true, value: null };
       }
       if (command === "desktop_db_ensure_open") {
-        return { ok: false, message: "Local database is locked. Unlock this profile to continue." };
+        return {
+          ok: false,
+          reason: "failed",
+          message: "Local database is locked. Unlock this profile to continue.",
+        };
       }
-      return { ok: false, message: `unexpected ${command}` };
+      return { ok: false, reason: "failed", message: `unexpected ${command}` };
     });
     await expect(ensureNativeSqliteOpenForWrites()).resolves.toBe(false);
   });
@@ -89,6 +93,7 @@ describe("activateNativeStorageAtRestUnlock (soft-lock slice 3)", () => {
   it("returns false when native unlock invoke fails", async () => {
     vi.mocked(invokeNativeCommand).mockResolvedValue({
       ok: false,
+      reason: "failed",
       message: "Local database is locked. Unlock this profile to continue.",
     });
     await expect(

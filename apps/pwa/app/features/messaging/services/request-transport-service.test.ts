@@ -63,10 +63,12 @@ describe("request-transport-service internals", () => {
     const markAccept = vi.fn();
     const sendDm = vi.fn(async () => ({
       success: false,
-      deliveryStatus: "queued_retrying",
+      deliveryStatus: "queued_retrying" as const,
+      messageId: "accept-queued-1",
+      eventId: "evt-queued-1",
       retryAtUnixMs: Date.now() + 30_000,
       relayResults: [{ relayUrl: "wss://relay.test", success: false, error: "timeout" }],
-      failureReason: "no_active_relays",
+      failureReason: "no_active_relays" as const,
     }));
     const service = createRequestTransportService({
       sendConnectionRequest: vi.fn(),
@@ -115,8 +117,9 @@ describe("request-transport-service internals", () => {
     const waitForWritableRelay = vi.fn(async () => true);
     const sendDm = vi.fn(async () => ({
       success: true,
-      deliveryStatus: "sent_quorum",
+      deliveryStatus: "sent_quorum" as const,
       messageId: "accept-1",
+      eventId: "evt-accept-1",
       relayResults: [{ relayUrl: "wss://relay.test", success: true }],
     }));
     const service = createRequestTransportService({

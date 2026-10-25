@@ -23,8 +23,8 @@ vi.mock("@dweb/ui-kit/toast", () => ({
 }));
 
 vi.mock("@/app/features/les/sdk/les-chat-save", () => ({
-  loadLesSavedAttachmentUrlSet: (...args: unknown[]) => loadLesSavedAttachmentUrlSet(...args),
-  emitLesCatalogChanged: (...args: unknown[]) => emitLesCatalogChanged(...args),
+  loadLesSavedAttachmentUrlSet,
+  emitLesCatalogChanged,
 }));
 
 vi.mock("@/app/features/storage/services/vault-at-rest", () => ({
@@ -32,7 +32,7 @@ vi.mock("@/app/features/storage/services/vault-at-rest", () => ({
 }));
 
 vi.mock("@/app/features/vault/services/save-chat-attachment-to-vault", () => ({
-  saveChatAttachmentWithOutcome: (...args: unknown[]) => saveChatAttachmentWithOutcome(...args),
+  saveChatAttachmentWithOutcome,
 }));
 
 vi.mock("@/app/features/security/components/vault-write-unlock-dialog", () => ({

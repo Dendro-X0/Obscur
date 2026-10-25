@@ -1,40 +1,42 @@
 import { describe, expect, it, vi } from "vitest";
 import { schedulePostPaintIdleWork } from "./post-paint-idle-schedule";
 
+type CallbackSlot = { current: (() => void) | null };
+
 describe("schedulePostPaintIdleWork", () => {
   it("does not run until paint + delay + idle complete", () => {
     const work = vi.fn();
-    let afterPaint: (() => void) | null = null;
-    let afterDelay: (() => void) | null = null;
-    let afterIdle: (() => void) | null = null;
+    const afterPaint: CallbackSlot = { current: null };
+    const afterDelay: CallbackSlot = { current: null };
+    const afterIdle: CallbackSlot = { current: null };
 
     const cancel = schedulePostPaintIdleWork(work, {
       scheduleAfterPaint: (callback) => {
-        afterPaint = callback;
+        afterPaint.current = callback;
         return () => {
-          afterPaint = null;
+          afterPaint.current = null;
         };
       },
       scheduleDelay: (callback) => {
-        afterDelay = callback;
+        afterDelay.current = callback;
         return () => {
-          afterDelay = null;
+          afterDelay.current = null;
         };
       },
-      scheduleIdle: (callback) => {
-        afterIdle = callback;
+      scheduleIdle: (callback, _timeoutMs) => {
+        afterIdle.current = callback;
         return () => {
-          afterIdle = null;
+          afterIdle.current = null;
         };
       },
     });
 
     expect(work).not.toHaveBeenCalled();
-    afterPaint?.();
+    afterPaint.current?.();
     expect(work).not.toHaveBeenCalled();
-    afterDelay?.();
+    afterDelay.current?.();
     expect(work).not.toHaveBeenCalled();
-    afterIdle?.();
+    afterIdle.current?.();
     expect(work).toHaveBeenCalledTimes(1);
 
     cancel();
@@ -42,35 +44,35 @@ describe("schedulePostPaintIdleWork", () => {
 
   it("cancel before idle prevents work", () => {
     const work = vi.fn();
-    let afterPaint: (() => void) | null = null;
-    let afterDelay: (() => void) | null = null;
-    let afterIdle: (() => void) | null = null;
+    const afterPaint: CallbackSlot = { current: null };
+    const afterDelay: CallbackSlot = { current: null };
+    const afterIdle: CallbackSlot = { current: null };
 
     const cancel = schedulePostPaintIdleWork(work, {
       scheduleAfterPaint: (callback) => {
-        afterPaint = callback;
+        afterPaint.current = callback;
         return () => {
-          afterPaint = null;
+          afterPaint.current = null;
         };
       },
       scheduleDelay: (callback) => {
-        afterDelay = callback;
+        afterDelay.current = callback;
         return () => {
-          afterDelay = null;
+          afterDelay.current = null;
         };
       },
-      scheduleIdle: (callback) => {
-        afterIdle = callback;
+      scheduleIdle: (callback, _timeoutMs) => {
+        afterIdle.current = callback;
         return () => {
-          afterIdle = null;
+          afterIdle.current = null;
         };
       },
     });
 
-    afterPaint?.();
-    afterDelay?.();
+    afterPaint.current?.();
+    afterDelay.current?.();
     cancel();
-    afterIdle?.();
+    afterIdle.current?.();
     expect(work).not.toHaveBeenCalled();
   });
 });

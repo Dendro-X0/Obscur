@@ -21,6 +21,12 @@ const acceptedProjection = (): AccountProjectionSnapshot => ({
   },
   conversationsById: {},
   messagesByConversationId: {},
+  sync: {
+    checkpointsByTimelineKey: {},
+    bootstrapImportApplied: true,
+  },
+  lastSequence: 1,
+  updatedAtUnixMs: 1,
 });
 
 const pendingProjection = (): AccountProjectionSnapshot => ({
