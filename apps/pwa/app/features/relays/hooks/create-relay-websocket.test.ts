@@ -53,7 +53,7 @@ describe("create-relay-websocket", () => {
     expect(socket).toBe(nativeSocket as any);
   });
 
-  it("Slice 2b: refuses all Quiet NativeRelay dials under cap=0", () => {
+  it("Slice 2b: caps Quiet NativeRelay dials at process budget (RELAY_WARMUP_PUBLIC_DIAL_CAP)", () => {
     runtimeMocks.hasNativeRuntime.mockReturnValue(true);
     const nativeSocket = { kind: "native", close: vi.fn() };
     relayMocks.NativeRelay.mockImplementation(function NativeRelayMock() {
@@ -62,9 +62,14 @@ describe("create-relay-websocket", () => {
 
     const first = createRelayWebSocket("wss://nos.lol");
     const second = createRelayWebSocket("wss://relay.primal.net");
+    const third = createRelayWebSocket("wss://relay.damus.io");
 
-    expect(relayMocks.NativeRelay).not.toHaveBeenCalled();
-    expect((first as { readyState: number }).readyState).toBe(3);
-    expect((second as { readyState: number }).readyState).toBe(3);
+    expect(relayMocks.NativeRelay).toHaveBeenCalledTimes(2);
+    expect(relayMocks.NativeRelay).toHaveBeenCalledWith("wss://nos.lol");
+    expect(relayMocks.NativeRelay).toHaveBeenCalledWith("wss://relay.primal.net");
+    expect(first).toBe(nativeSocket as any);
+    expect(second).toBe(nativeSocket as any);
+    expect((third as { readyState: number }).readyState).toBe(3);
   });
 });
+

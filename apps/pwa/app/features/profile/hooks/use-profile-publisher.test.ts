@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
       id: "signed-profile-event",
       sig: "sig",
     })),
+    discoveryCacheGetProfile: vi.fn(() => null),
     discoveryCacheUpsertProfile: vi.fn(),
     seedProfileMetadataCache: vi.fn(),
   };
@@ -89,6 +90,7 @@ vi.mock("@/app/features/relays/lib/nostr-core-relay", () => ({
 
 vi.mock("@/app/features/search/services/discovery-cache", () => ({
   discoveryCache: {
+    getProfile: mocks.discoveryCacheGetProfile,
     upsertProfile: mocks.discoveryCacheUpsertProfile,
   },
 }));
