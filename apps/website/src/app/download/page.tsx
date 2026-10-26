@@ -105,7 +105,9 @@ export default async function DownloadPage() {
   const buildGuideHref = manifest?.buildFromSourceDocHref ?? "#";
   const signingPolicyHref = manifest?.signingPolicyDocHref;
   const packageVersion = manifest?.version ?? site.currentVersion;
-  const releaseTag = manifest?.releaseTag ?? site.currentVersion;
+  // Prefer version.json / site identity over a stale checked-in manifest.releaseTag
+  // (hero already uses site.currentVersion — keep the platform list in lockstep).
+  const releaseTag = site.currentVersion;
   const artifactLabel = (fileName: string) =>
     displayArtifactName(fileName, { packageVersion, releaseTag });
 

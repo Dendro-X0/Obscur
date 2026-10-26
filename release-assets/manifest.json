@@ -1,47 +1,46 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-10-25T14:45:00Z",
-  "gitCommit": "local-v2.0.0-beta.2-package",
+  "generatedAt": "2026-10-26T07:12:22Z",
+  "gitCommit": "e2b5835e",
   "version": "2.0.0",
-  "releaseTag": "2.0.0-beta.2",
+  "releaseTag": "2.0.0-beta.3",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "local pnpm desktop:package + build:android:release (v2.0.0-beta.2 · 2026-10-25)",
-  "clientBuildStamp": "shell-2026-10-25T12:21:56Z",
+  "sourceRun": "Obscur Full Release CI https://github.com/Dendro-X0/Obscur/actions/runs/40281639059 (v2.0.0-beta.3)",
   "artifacts": [
     {
       "platform": "windows",
       "kind": "nsis-installer",
-      "buildCommand": "pnpm desktop:package",
+      "buildCommand": "Obscur Full Release CI (desktop-windows)",
       "path": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
       "fileName": "Obscur_2.0.0_x64-setup.exe",
-      "sizeBytes": 9413195,
-      "sha256": "002ac23ec6adf5a7148e14e8a5f62c49bed3aa578b1df3873735fa7fb444ae02",
-      "builtAt": "2026-10-25T12:31:00Z",
-      "notes": "v2.0.0-beta.2 Windows NSIS. Desktop bottom-inset fix. Updater .sig skipped (Missing comment in secret key)."
+      "sizeBytes": 9282787,
+      "sha256": "0a44d38491ae2b772ddb38794e89bdd543507d51d34ab298c5fa858a4308419f",
+      "builtAt": "2026-10-26T07:12:22Z",
+      "notes": "v2.0.0-beta.3 Windows NSIS from Full Release CI."
     },
     {
       "platform": "macos",
       "kind": "dmg",
       "buildCommand": "Obscur Full Release CI (desktop-macos)",
-      "path": "release-assets/macos/Obscur_1.9.16_aarch64.dmg",
-      "fileName": "Obscur_1.9.16_aarch64.dmg",
-      "sizeBytes": 6889672,
-      "sha256": "594e64a8711ad4a610529cf4439d41760c21f31a3f593b622fe8f74d8565e7c3",
-      "builtAt": "2026-08-16T08:00:00Z",
-      "notes": "Carried into v2.0.0-beta.2 GitHub Release from v2.0.0-beta.1 / v1.9.16 assets; verify SHA-256. Not rebuilt this cut."
+      "path": "release-assets/macos/Obscur_2.0.0_aarch64.dmg",
+      "fileName": "Obscur_2.0.0_aarch64.dmg",
+      "sizeBytes": 8067073,
+      "sha256": "3d18adc993f70bf3d700ddcaedf15a2815763ea37711c53469fbe74b14c18acf",
+      "builtAt": "2026-10-26T07:12:22Z",
+      "notes": "v2.0.0-beta.3 Apple Silicon DMG from Full Release CI."
     },
     {
       "platform": "linux",
       "kind": "appimage",
       "buildCommand": "Obscur Full Release CI (desktop-linux)",
-      "path": "release-assets/linux/Obscur_1.9.16_amd64.AppImage",
-      "fileName": "Obscur_1.9.16_amd64.AppImage",
-      "sizeBytes": 82713080,
-      "sha256": "597c99e1ddaf05e949521f3ab8d4940f11841e2119b2703cbbac314779475778",
-      "builtAt": "2026-08-16T08:00:00Z",
-      "notes": "Carried into v2.0.0-beta.2 GitHub Release from v2.0.0-beta.1 / v1.9.16 assets; verify SHA-256. Not rebuilt this cut."
+      "path": "release-assets/linux/Obscur_2.0.0_amd64.AppImage",
+      "fileName": "Obscur_2.0.0_amd64.AppImage",
+      "sizeBytes": 85023224,
+      "sha256": "87ac9148f9da1d5543122d269413558d65e3fa687ad57d0ea7a112fd4892fdd5",
+      "builtAt": "2026-10-26T07:12:22Z",
+      "notes": "v2.0.0-beta.3 Linux AppImage from Full Release CI."
     },
     {
       "platform": "web",
@@ -49,42 +48,41 @@
       "buildCommand": "Obscur Full Release CI (web-pwa)",
       "path": "release-assets/web/obscur-pwa-static.tar.gz",
       "fileName": "obscur-pwa-static.tar.gz",
-      "sizeBytes": 2443141,
-      "sha256": "9b1e71daf091328572f3703afd970641d5ea0651ba9e30335b30f49cd64f80a9",
-      "builtAt": "2026-08-16T08:00:00Z",
-      "notes": "Carried from v2.0.0-beta.1; browser PWA not the production path."
+      "sizeBytes": 2575069,
+      "sha256": "fc7713ae852fab0e527e0ffb786ad8a16da8cdccf5bdefc56f6272a28381f563",
+      "builtAt": "2026-10-26T07:12:22Z",
+      "notes": "v2.0.0-beta.3 static shell tarball from Full Release CI."
     },
     {
       "platform": "android",
       "kind": "apk-universal-release-unsigned",
-      "buildCommand": "pnpm build:android:release",
-      "path": "release-assets/android/Obscur_2.0.0_universal-release-unsigned.apk",
-      "fileName": "Obscur_2.0.0_universal-release-unsigned.apk",
-      "sizeBytes": 70079447,
-      "sha256": "abeb9c6da4b8eaa64057138136680ce5611f8b1069b56e14c58c21b35bd6bae3",
-      "builtAt": "2026-10-25T13:43:26Z",
-      "abiFilter": "universal (local release unsigned)",
+      "buildCommand": "Obscur Full Release CI (mobile-android)",
+      "path": "release-assets/android/Obscur_2.0.0_app-universal-release-unsigned.apk",
+      "fileName": "Obscur_2.0.0_app-universal-release-unsigned.apk",
+      "sizeBytes": 68185163,
+      "sha256": "c9da4f37729ed437884b2c5b184f56d304d5d843957798921a03ba2d1db67e87",
+      "builtAt": "2026-10-26T07:12:22Z",
+      "abiFilter": "universal (CI release unsigned)",
       "installHint": "Allow install from this source, then open the APK. Optional: adb install -t -r <apk>",
       "note": "Unsigned; no Play Developer Program / Play Store listing"
     },
     {
       "platform": "android",
       "kind": "aab-universal-release",
-      "buildCommand": "pnpm build:android:release",
-      "path": "release-assets/android/Obscur_2.0.0_universal-release.aab",
-      "fileName": "Obscur_2.0.0_universal-release.aab",
-      "sizeBytes": 39715418,
-      "sha256": "fc797a59f965e4712dd5eef30e675048823dd736ae5c51f33b43a630658507bf",
-      "builtAt": "2026-10-25T13:43:26Z",
+      "buildCommand": "Obscur Full Release CI (mobile-android)",
+      "path": "release-assets/android/Obscur_2.0.0_app-universal-release.aab",
+      "fileName": "Obscur_2.0.0_app-universal-release.aab",
+      "sizeBytes": 38849664,
+      "sha256": "7c6e3b46808a800b49d39170635538b20c414e4cd7d3c85909fdc8c1daf7bb5c",
+      "builtAt": "2026-10-26T07:12:22Z",
       "abiFilter": "universal",
       "note": "Play Console AAB when keystore ready — not a sideload APK"
     }
   ],
   "notes": [
-    "Public GitHub release tag: v2.0.0-beta.2 (package tree 2.0.0)",
+    "Public GitHub release tag: v2.0.0-beta.3 (package tree 2.0.0)",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
-    "Windows NSIS + Android APK/AAB rebuilt 2026-10-25; macOS/Linux/web carried from beta.1",
-    "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected",
-    "i18n presetPath/videoCall locale keys landed in source after this package — rebuild for those strings"
+    "Windows / macOS / Linux / Android / web all rebuilt by Full Release CI 2026-10-26",
+    "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected"
   ]
 }
