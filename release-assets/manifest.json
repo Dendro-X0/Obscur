@@ -7,7 +7,8 @@
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "Obscur Full Release CI https://github.com/Dendro-X0/Obscur/actions/runs/40281639059 (v2.0.0-beta.3)",
+  "sourceRun": "Obscur Full Release CI (workflow_dispatch publish v2.0.0-beta.3 · run 40281639059)",
+  "clientBuildStamp": "shell-from-ci-v2.0.0-beta.3",
   "artifacts": [
     {
       "platform": "windows",
@@ -51,7 +52,7 @@
       "sizeBytes": 2575069,
       "sha256": "fc7713ae852fab0e527e0ffb786ad8a16da8cdccf5bdefc56f6272a28381f563",
       "builtAt": "2026-10-26T07:12:22Z",
-      "notes": "v2.0.0-beta.3 static shell tarball from Full Release CI."
+      "notes": "v2.0.0-beta.3 static PWA tarball from Full Release CI."
     },
     {
       "platform": "android",
@@ -82,7 +83,8 @@
   "notes": [
     "Public GitHub release tag: v2.0.0-beta.3 (package tree 2.0.0)",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
-    "Windows / macOS / Linux / Android / web all rebuilt by Full Release CI 2026-10-26",
-    "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected"
+    "Windows + macOS + Linux + Android + web rebuilt by Full Release CI 2026-10-26",
+    "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected",
+    "Installer filenames embed package semver 2.0.0 (not the marketing beta tag)"
   ]
 }

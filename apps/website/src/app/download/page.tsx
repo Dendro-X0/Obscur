@@ -25,31 +25,17 @@ const formatSize = (sizeBytes: number): string =>
   sizeBytes > 0 ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MB` : "—";
 
 /**
- * Card label — prefer public releaseTag over package-tree semver in the filename
- * (e.g. Obscur_1.9.16_… → Obscur_2.0.0-beta.1_…). Real asset name stays in `title`
- * and checksum rows so downloads/hashes stay honest.
+ * Card label — clean unsigned/debug noise only.
+ * Do not rewrite package semver (2.0.0) into marketing tags (2.0.0-beta.N):
+ * GitHub assets embed package tree version; rewriting made the list look like
+ * beta.2 while the hero already showed beta.3.
  */
-const displayArtifactName = (
-  fileName: string,
-  params?: Readonly<{ packageVersion?: string; releaseTag?: string }>,
-): string => {
-  let name = fileName
+const displayArtifactName = (fileName: string): string =>
+  fileName
     .replace(/[-_]unsigned(?=\.|$)/gi, "")
     .replace(/[-_]debug(?=\.|$)/gi, "")
     .replace(/_{2,}/g, "_")
     .replace(/-{2,}/g, "-");
-  const packageVersion = params?.packageVersion?.trim();
-  const releaseTag = params?.releaseTag?.trim().replace(/^v/i, "");
-  if (
-    packageVersion
-    && releaseTag
-    && packageVersion !== releaseTag
-    && name.includes(packageVersion)
-  ) {
-    name = name.split(packageVersion).join(releaseTag);
-  }
-  return name;
-};
 
 const PLATFORM_INSTALL_HINTS = {
   windows:
@@ -104,12 +90,12 @@ export default async function DownloadPage() {
   const signingPolicy = manifest?.signingPolicy ?? "unsigned";
   const buildGuideHref = manifest?.buildFromSourceDocHref ?? "#";
   const signingPolicyHref = manifest?.signingPolicyDocHref;
-  const packageVersion = manifest?.version ?? site.currentVersion;
   // Prefer version.json / site identity over a stale checked-in manifest.releaseTag
   // (hero already uses site.currentVersion — keep the platform list in lockstep).
-  const releaseTag = site.currentVersion;
-  const artifactLabel = (fileName: string) =>
-    displayArtifactName(fileName, { packageVersion, releaseTag });
+  const releaseTag = site.currentVersion.replace(/^v/i, "");
+  const packageVersion = manifest?.version
+    ?? (releaseTag.includes("-") ? releaseTag.slice(0, releaseTag.indexOf("-")) : releaseTag);
+  const artifactLabel = (fileName: string) => displayArtifactName(fileName);
 
   const desktopTargets = [
     { label: "Windows", target: release?.preferredDesktopDownload.windows },
