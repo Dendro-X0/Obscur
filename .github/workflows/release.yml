@@ -433,7 +433,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
+        # v4+ skips removed Google `tools` package (v2 defaults install it and fail).
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
       - name: Install NDK
         run: sdkmanager "ndk;25.2.9519653"
       - name: Resolve Android NDK path
