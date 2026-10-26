@@ -282,6 +282,51 @@ describe("message-list render meta cache", () => {
         });
     });
 
+    it("caps stale connected calls without leave at max duration — does not stamp app-open time", () => {
+        const roomId = "dm-voice-room-stale-connected";
+        const invitedAt = Date.now() - (6 * 24 * 60 * 60 * 1000);
+        const connectedAt = invitedAt + 30_000;
+        const maxConnectedMs = 2 * 60 * 60 * 1000;
+        const messages: ReadonlyArray<Message> = [
+            createMessage({
+                id: "msg-invite-stale",
+                timestamp: new Date(invitedAt),
+                content: JSON.stringify({
+                    type: "voice-call-invite",
+                    roomId,
+                    invitedAtUnixMs: invitedAt,
+                    expiresAtUnixMs: invitedAt + 5 * 60 * 1000,
+                }),
+            }),
+            createMessage({
+                id: "msg-answer-stale",
+                timestamp: new Date(connectedAt),
+                content: JSON.stringify({
+                    type: "voice-call-signal",
+                    roomId,
+                    signalType: "answer",
+                    sentAtUnixMs: connectedAt,
+                }),
+            }),
+        ];
+
+        const caches = buildMessageRenderCaches({
+            messages,
+            expandedRelayUrlsByMessageId: new Set<string>(),
+        });
+
+        const summary = caches.voiceCallRoomSummaryByRoomId.get(roomId);
+        expect(summary).toMatchObject({
+            roomId,
+            connectedAtUnixMs: connectedAt,
+            endedAtUnixMs: connectedAt + maxConnectedMs,
+            endedNormally: false,
+            durationSeconds: Math.floor(maxConnectedMs / 1000),
+        });
+        // Must not rewrite ENDED to roughly "now" (app open).
+        expect(summary?.endedAtUnixMs).toBeLessThan(Date.now() - (5 * 24 * 60 * 60 * 1000));
+    });
+
     it("strips BOM and suppresses community invite text when JSON is prefixed", () => {
         const raw = `\uFEFF${JSON.stringify({
             type: "community-invite",

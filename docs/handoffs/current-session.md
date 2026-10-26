@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-10-21T13:15:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.2 packaged · **B2 smoke next** · Stay Tauri
+- Last Updated (UTC): 2026-10-26T06:40:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.3 Full Release (all OS) in flight · Stay Tauri
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -24,7 +24,7 @@ If a task cannot proceed without centering Nostr-as-the-product, STOP and ask.
 
 ## Active Objective
 
-**Cut `v2.0.0-beta.2`** (package tree 2.0.0): local desktop + Android package Done → [release notes](../releases/v2.0.0-beta.2-release.md) → B2 smoke → tag when Pass. iOS not on Windows. Video / Soft L3 / Tor / Spaces remain PAUSED.
+**Cut `v2.0.0-beta.3`** (package tree 2.0.0): Obscur Full Release for **Windows + macOS + Linux** (+ Android/web) so installers are not stale 1.9.16 carryovers. Soft L3 / Tor Verified / Spaces / Matrix remain PAUSED. Video **player UX** landed; do **not** claim video *calls* usable.
 
 ## Sequencing
 
@@ -47,17 +47,13 @@ FOCUS — Public trust face · hitch / PB1-C · M1-L3 only with camera
 ## Next Atomic Step
 
 ```text
-v2.0.0-beta.2 — GitHub prerelease PUBLISHED (2026-10-25)
-https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.2
-Package tree 2.0.0 · version.json releaseTag 2.0.0-beta.2 (pushed main)
-Desktop: Obscur_2.0.0_x64-setup.exe
-  SHA256 002ac23ec6adf5a7148e14e8a5f62c49bed3aa578b1df3873735fa7fb444ae02
-Android: Obscur_2.0.0_universal-release-unsigned.apk (+ .aab)
-Website: /download follows GitHub assets for releaseTag
-NEXT: confirm Vercel website deploy · optional B2 smoke
-Do NOT open video / Spaces / Matrix / Soft L3 / new CU-UX unless P0.
-Do NOT claim video usable · Tor Verified · delete-for-all on Quiet · history migrate.
-Do NOT greenfield · Do NOT promote Matrix · Do NOT market as a Nostr client
+v2.0.0-beta.3 — Obscur Full Release dispatch (Win/macOS/Linux + Android + web)
+version.json releaseTag 2.0.0-beta.3 · package tree 2.0.0
+WHY: beta.1/2 CI failed version:check → no fresh macOS/Linux artifacts
+NEXT: wait CI green → confirm GitHub assets include dmg + AppImage/deb + exe
+THEN: website /download follows releaseTag · optional smoke
+Do NOT claim video calls usable · Tor Verified · Soft L3 · Spaces · Matrix promote
+Do NOT greenfield · Do NOT market as a Nostr client
 ```
 
 

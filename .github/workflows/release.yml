@@ -50,7 +50,18 @@ jobs:
           fi
           TAG="${TAG#v}"
           TAG="v${TAG}"
-          SEMVER="${TAG#v}"
+          TAG_BODY="${TAG#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          # Installers embed package.json semver (x.y.z). Marketing tags may be x.y.z-beta.N.
+          if [[ "${TAG_BODY}" == "${PKG_VERSION}" ]]; then
+            SEMVER="${PKG_VERSION}"
+          elif [[ "${TAG_BODY}" == "${PKG_VERSION}-"* ]]; then
+            SEMVER="${PKG_VERSION}"
+            echo "Marketing tag ${TAG} → artifact semver ${SEMVER}"
+          else
+            echo "Release tag ${TAG} does not match package.json version ${PKG_VERSION} (or ${PKG_VERSION}-*)." >&2
+            exit 1
+          fi
           echo "semver=${SEMVER}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Resolved release: tag=${TAG} semver=${SEMVER}"

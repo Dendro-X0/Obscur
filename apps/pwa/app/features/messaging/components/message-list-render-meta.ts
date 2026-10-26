@@ -406,6 +406,8 @@ export const buildMessageRenderCaches = (params: Readonly<{
     const voiceCallRoomSummaryByRoomId = new Map<string, VoiceCallRoomRenderSummary>();
     const nowUnixMs = Date.now();
     const CALL_STALENESS_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+    // Align with voice-call-crdt / call-state TTL — never stamp wall-clock "now" as end.
+    const MAX_CONNECTED_CALL_DURATION_MS = 2 * 60 * 60 * 1000;
 
     voiceCallRoomAccumulatorByRoomId.forEach((accumulator, roomId) => {
         const connectedAtUnixMs = accumulator.connectedAtUnixMs;
@@ -415,6 +417,7 @@ export const buildMessageRenderCaches = (params: Readonly<{
 
         // Ghost-call fix: Treat expired or stale calls as ended
         let effectiveEndedAtUnixMs = endedAtUnixMs;
+        let endedFromLeaveSignal = hasEndedAt;
         const expiresAtUnixMs = accumulator.expiresAtUnixMs;
         const invitedAtUnixMs = accumulator.invitedAtUnixMs;
 
@@ -431,17 +434,18 @@ export const buildMessageRenderCaches = (params: Readonly<{
             }
         }
 
-        // If call was connected but no leave signal and it's very old, consider it ended
+        // Connected without leave: cap at max duration from connect — do NOT use Date.now()
+        // (that rewrote ENDED/DURATION to "app open" for days-old history cards).
         if (hasConnectedAt && !hasEndedAt && connectedAtUnixMs !== null) {
             const connectedDurationMs = nowUnixMs - connectedAtUnixMs;
-            // Calls longer than 2 hours are likely stale/abandoned
-            if (connectedDurationMs > 2 * 60 * 60 * 1000) {
-                effectiveEndedAtUnixMs = nowUnixMs;
+            if (connectedDurationMs > MAX_CONNECTED_CALL_DURATION_MS) {
+                effectiveEndedAtUnixMs = connectedAtUnixMs + MAX_CONNECTED_CALL_DURATION_MS;
             }
         }
 
         const hasEffectiveEndedAt = effectiveEndedAtUnixMs !== null;
-        const endedNormally = hasConnectedAt && hasEffectiveEndedAt;
+        // Only a real leave (or peer end) counts as "ended normally"; synthetic caps are abandoned.
+        const endedNormally = hasConnectedAt && endedFromLeaveSignal;
         const durationSeconds = (hasConnectedAt && effectiveEndedAtUnixMs !== null)
             ? Math.max(0, Math.floor((effectiveEndedAtUnixMs - connectedAtUnixMs) / 1000))
             : null;

@@ -62,6 +62,9 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
         && resolvedNowUnixMs !== null
         && invite.expiresAtUnixMs <= resolvedNowUnixMs;
     const endedWithoutConnection = (callSummary?.endedAtUnixMs ?? null) !== null && !hasConnected;
+    const abandonedAfterConnect = hasConnected
+        && (callSummary?.endedAtUnixMs ?? null) !== null
+        && !callSummary?.endedNormally;
     const wasInterruptedByFailure = liveStatusPhase === "interrupted"
         && (liveReasonCode === "network_interrupted" || liveReasonCode === "session_closed");
     const missedWithoutFailure = !hasConnected && (liveReasonCode === "left_by_user"
@@ -78,7 +81,7 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
         ? "failed"
         : callSummary?.endedNormally
         ? "completed"
-        : wasInterruptedByFailure
+        : wasInterruptedByFailure || abandonedAfterConnect
             ? "failed"
             : missedWithoutFailure
                 ? "missed"
@@ -323,7 +326,7 @@ export function VoiceCallInviteCard({ invite, isOutgoing, isJoining = false, onJ
                   {endedAtLabel}
                 </span>
               </>) : null}
-            {cardState === "completed" ? (<>
+            {(cardState === "completed" || (cardState === "failed" && hasConnected && durationLabel)) ? (<>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-surface-contrast-secondary">
                     {t("messaging.voiceCallDuration")}
                 </span>

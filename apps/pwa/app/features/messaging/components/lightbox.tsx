@@ -22,7 +22,7 @@ import { MEDIA_VIEWER_MIN_ZOOM, MEDIA_VIEWER_MAX_ZOOM, buildMediaViewerState, cl
 import { MESSAGING_OVERLAY_BACKDROP_CLASS, MessagingOverlayPortal } from "./messaging-overlay-portal";
 import { AttachmentContextMenu, type AttachmentContextMenuState } from "./attachment-context-menu";
 import { getAttachmentContextMenuTriggerProps } from "./attachment-context-menu-handlers";
-import { ChevronLeft, ChevronRight, Download, FileText, Minus, Plus, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, Maximize2, Minimize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { SaveToVaultControl } from "./save-to-vault-control";
 interface LightboxProps {
     readonly item: MediaItem | undefined;
@@ -112,21 +112,7 @@ export function Lightbox(props: Omit<LightboxProps, "exportGate" | "onRequestOpe
       confirmPendingLink,
       requestOpenExternalLinkPreferNative,
     } = useGuardedExternalLinkOpen();
-    React.useEffect(() => {
-        if (!props.item) {
-            return;
-        }
-        const onKeyDown = (event: KeyboardEvent): void => {
-            if (event.key === "Escape") {
-                event.preventDefault();
-                props.onClose();
-            }
-        };
-        window.addEventListener("keydown", onKeyDown, true);
-        return () => {
-            window.removeEventListener("keydown", onKeyDown, true);
-        };
-    }, [props.item, props.onClose]);
+    // Escape is owned by Legacy/V083 lightboxes (exit image fullscreen first, then close).
     React.useEffect(() => {
         const onSettingsChanged = () => setChatUxV083Enabled(PrivacySettingsService.getSettings().chatUxV083);
         window.addEventListener("privacy-settings-changed", onSettingsChanged);
@@ -169,14 +155,13 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
     const [isSavedToVault, setIsSavedToVault] = React.useState(false);
     const [showVaultUnlock, setShowVaultUnlock] = React.useState(false);
   const [zoom, setZoom] = React.useState(1);
+  const [isImageFullscreen, setIsImageFullscreen] = React.useState(false);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const imageStageRef = React.useRef<HTMLDivElement | null>(null);
   const imageDragRef = React.useRef<HTMLDivElement | null>(null);
   const [dragConstraints, setDragConstraints] = React.useState({ left: 0, right: 0, top: 0, bottom: 0 });
-    if (!item)
-        return null;
-    const kind = inferAttachmentKind(item.attachment);
+    const kind = item ? inferAttachmentKind(item.attachment) : null;
   const canZoomImage = kind === "image";
   const zoomBy = React.useCallback((delta: number) => {
     setZoom((prev) => clampZoom(prev + delta, MEDIA_VIEWER_MIN_ZOOM, MEDIA_VIEWER_MAX_ZOOM));
@@ -188,6 +173,7 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
   }, [x, y]);
   React.useEffect(() => {
     resetView();
+    setIsImageFullscreen(false);
   }, [item?.attachment.url, resetView]);
   React.useEffect(() => {
     const updateConstraints = () => {
@@ -207,7 +193,7 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
       window.clearTimeout(timeout);
       window.removeEventListener("resize", updateConstraints);
     };
-  }, [zoom, x, y, item?.attachment.url]);
+  }, [zoom, x, y, item?.attachment.url, isImageFullscreen]);
   React.useEffect(() => {
     const attachmentUrl = item?.attachment.url;
     return () => {
@@ -216,6 +202,24 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
       }
     };
   }, [item?.attachment.url]);
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      if (canZoomImage && isImageFullscreen) {
+        setIsImageFullscreen(false);
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canZoomImage, isImageFullscreen, onClose]);
+    if (!item) {
+        return null;
+    }
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
         await exportGate.runExportWithGate(item, async () => {
@@ -264,13 +268,35 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
             setIsSavingToVault(false);
         }
     };
-    return (<div data-escape-layer="open" className={cn(MESSAGING_OVERLAY_BACKDROP_CLASS, "flex items-center justify-center p-4")} onPointerDown={onClose}>
+    return (<div
+      data-escape-layer="open"
+      data-testid="lightbox-backdrop"
+      data-image-fullscreen={canZoomImage && isImageFullscreen ? "1" : "0"}
+      className={cn(
+        MESSAGING_OVERLAY_BACKDROP_CLASS,
+        "flex items-center justify-center",
+        canZoomImage && isImageFullscreen ? "p-0" : "p-4",
+      )}
+      onPointerDown={() => {
+        if (canZoomImage && isImageFullscreen) {
+          setIsImageFullscreen(false);
+          return;
+        }
+        onClose();
+      }}
+    >
       <VaultWriteUnlockDialog
         isOpen={showVaultUnlock}
         onClose={() => setShowVaultUnlock(false)}
         onUnlocked={() => { void retrySaveAfterUnlock(); }}
       />
-      <div className="relative w-full max-w-5xl" onPointerDown={(event) => event.stopPropagation()}>
+      <div
+        className={cn(
+          "relative",
+          canZoomImage && isImageFullscreen ? "h-full w-full max-w-none" : "w-full max-w-5xl",
+        )}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <div className="absolute right-2 top-2 z-10 flex items-center gap-2">
           {canZoomImage ? (<>
             <button type="button" className="media-viewer-control" onClick={() => zoomBy(-0.2)} aria-label={t("common.zoomOut")}>
@@ -281,6 +307,16 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
             </button>
             <button type="button" className="media-viewer-control" onClick={() => zoomBy(0.2)} aria-label={t("common.zoomIn")}>
               <Plus className="h-4 w-4"/>
+            </button>
+            <button
+              type="button"
+              className="media-viewer-control"
+              data-testid="lightbox-image-fullscreen-toggle"
+              onClick={() => setIsImageFullscreen((prev) => !prev)}
+              aria-label={isImageFullscreen ? t("common.exitFullscreen") : t("common.enterFullscreen")}
+              aria-pressed={isImageFullscreen}
+            >
+              {isImageFullscreen ? <Minimize2 className="h-4 w-4"/> : <Maximize2 className="h-4 w-4"/>}
             </button>
           </>) : null}
           {canSaveChatAttachmentsToLocalVault() ? (
@@ -297,18 +333,33 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
             <X className="h-4 w-4"/>
           </button>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-zinc-300/65 bg-white/90 shadow-[0_24px_80px_rgba(15,23,42,0.24)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_28px_90px_rgba(0,0,0,0.6)]" {...getAttachmentContextMenuTriggerProps(item.attachment, openAttachmentContextMenu)}>
+        <div
+          className={cn(
+            "overflow-hidden bg-white/90 dark:bg-black/90",
+            canZoomImage && isImageFullscreen
+              ? "h-full w-full rounded-none border-0 shadow-none"
+              : "rounded-2xl border border-zinc-300/65 shadow-[0_24px_80px_rgba(15,23,42,0.24)] dark:border-white/10 dark:shadow-[0_28px_90px_rgba(0,0,0,0.6)]",
+          )}
+          {...getAttachmentContextMenuTriggerProps(item.attachment, openAttachmentContextMenu)}
+        >
           {kind === "image" ? (
             <div
               ref={imageStageRef}
               tabIndex={0}
-              className="relative flex max-h-[90vh] w-full items-center justify-center overflow-hidden"
+              className={cn(
+                "relative flex w-full items-center justify-center overflow-hidden",
+                isImageFullscreen ? "h-[100dvh] max-h-[100dvh]" : "max-h-[90vh]",
+              )}
               onPointerDown={(event) => {
                 event.stopPropagation();
                 imageStageRef.current?.focus({ preventScroll: true });
               }}
               onMouseDown={(event) => {
                 event.preventDefault();
+              }}
+              onDoubleClick={(event) => {
+                event.stopPropagation();
+                setIsImageFullscreen((prev) => !prev);
               }}
               onWheel={(event) => {
                 event.preventDefault();
@@ -329,7 +380,18 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
                   imageDragRef.current?.focus({ preventScroll: true });
                 }}
               >
-                <Image src={item.attachment.url} alt={item.attachment.fileName} width={1280} height={720} unoptimized className="h-auto w-full max-h-[90vh] object-contain select-none" draggable={false}/>
+                <Image
+                  src={item.attachment.url}
+                  alt={item.attachment.fileName}
+                  width={2048}
+                  height={2048}
+                  unoptimized
+                  className={cn(
+                    "h-auto w-full object-contain select-none",
+                    isImageFullscreen ? "max-h-[100dvh] max-w-[100vw]" : "max-h-[90vh]",
+                  )}
+                  draggable={false}
+                />
               </motion.div>
             </div>
           ) : kind === "voice_note" ? (<div className="p-6" onPointerDown={(event) => event.stopPropagation()}>
@@ -347,10 +409,13 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
     const { t } = useTranslation();
     const kind = inferAttachmentKind(item!.attachment);
     const [zoom, setZoom] = React.useState(1);
+    const [isImageFullscreen, setIsImageFullscreen] = React.useState(false);
     const [isPinching, setIsPinching] = React.useState(false);
     const [isSavingToVault, setIsSavingToVault] = React.useState(false);
     const [isSavedToVault, setIsSavedToVault] = React.useState(false);
     const [showVaultUnlock, setShowVaultUnlock] = React.useState(false);
+    const canZoomImage = kind === "image";
+    const imageFullscreen = canZoomImage && isImageFullscreen;
     const pinchStartDistanceRef = React.useRef<number | null>(null);
     const pinchStartZoomRef = React.useRef(1);
     const imageStageRef = React.useRef<HTMLDivElement | null>(null);
@@ -385,6 +450,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
     React.useEffect(() => {
         resetView();
         setIsSavedToVault(false);
+        setIsImageFullscreen(false);
     }, [item?.attachment.url, resetView]);
     React.useEffect(() => {
         const updateConstraints = () => {
@@ -404,7 +470,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
             window.clearTimeout(timeout);
             window.removeEventListener("resize", updateConstraints);
         };
-    }, [zoom, x, y, item?.attachment.url]);
+    }, [zoom, x, y, item?.attachment.url, imageFullscreen]);
     React.useEffect(() => {
         const attachmentUrl = item?.attachment.url;
         return () => {
@@ -415,8 +481,20 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
     }, [item?.attachment.url]);
     React.useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape")
+            if (event.key === "Escape") {
+                if (isImageFullscreen && canZoomImage) {
+                    event.preventDefault();
+                    setIsImageFullscreen(false);
+                    return;
+                }
                 onClose();
+            }
+            if (event.key === "f" || event.key === "F") {
+                if (canZoomImage) {
+                    event.preventDefault();
+                    setIsImageFullscreen((prev) => !prev);
+                }
+            }
             if (event.key === "+" || event.key === "=")
                 zoomBy(0.2);
             if (event.key === "-")
@@ -428,7 +506,7 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [hasNext, hasPrev, onClose, onNext, onPrev, zoomBy]);
+    }, [canZoomImage, hasNext, hasPrev, isImageFullscreen, onClose, onNext, onPrev, zoomBy]);
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
         await exportGate.runExportWithGate(item!, async () => {
@@ -485,8 +563,28 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
         onClose={() => setShowVaultUnlock(false)}
         onUnlocked={() => { void retrySaveAfterUnlock(); }}
       />
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} data-escape-layer="open" className={cn(MESSAGING_OVERLAY_BACKDROP_CLASS, "flex items-center justify-center p-4 md:p-8")} onPointerDown={onClose}>
-        <div className="absolute left-5 top-5 z-[120] max-w-[min(70vw,24rem)] rounded-[28px] border border-zinc-300/70 bg-white/95 px-4 py-3 shadow-xl dark:border-white/15 dark:bg-black/70" onPointerDown={(event) => event.stopPropagation()}>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        data-escape-layer="open"
+        data-testid="lightbox-backdrop"
+        data-image-fullscreen={imageFullscreen ? "1" : "0"}
+        className={cn(
+          MESSAGING_OVERLAY_BACKDROP_CLASS,
+          "flex items-center justify-center",
+          imageFullscreen ? "p-0" : "p-4 md:p-8",
+        )}
+        onPointerDown={() => {
+          if (imageFullscreen) {
+            setIsImageFullscreen(false);
+            return;
+          }
+          onClose();
+        }}
+      >
+        {!imageFullscreen ? (
+        <div className="absolute left-5 top-5 z-[120] max-w-[min(70vw,24rem)] rounded-[28px] border border-zinc-300/70 bg-white/95 px-4 py-3 shadow-xl dark:border-white/15 dark:bg-black/70 max-md:left-3 max-md:top-3 max-md:max-w-[min(58vw,18rem)] max-md:rounded-2xl max-md:px-3 max-md:py-2" onPointerDown={(event) => event.stopPropagation()}>
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-zinc-300/70 bg-zinc-100/90 px-2 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-700 dark:border-white/10 dark:bg-white/10 dark:text-white/75">
               {previewTypeLabel}
@@ -495,11 +593,12 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
                 {previewPositionLabel}
               </span>) : null}
           </div>
-          <p className="mt-2 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <p className="mt-2 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100 max-md:mt-1 max-md:text-xs">
             {item!.attachment.fileName}
           </p>
         </div>
-        <div className="absolute top-5 right-5 z-[120] flex items-center gap-2 rounded-2xl border border-zinc-300/70 bg-white/92 p-2 shadow-xl dark:border-white/15 dark:bg-black/70" onPointerDown={(e) => e.stopPropagation()}>
+        ) : null}
+        <div className="absolute top-5 right-5 z-[120] flex items-center gap-2 rounded-2xl border border-zinc-300/70 bg-white/92 p-2 shadow-xl dark:border-white/15 dark:bg-black/70 max-md:top-3 max-md:right-3" onPointerDown={(e) => e.stopPropagation()}>
           {kind === "image" ? (<>
               <button type="button" className="media-viewer-control" onClick={() => zoomBy(-0.2)} disabled={!viewerState.canZoomOut} aria-label={t("common.zoomOut")}>
                 <Minus className="h-4 w-4"/>
@@ -509,6 +608,16 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
               </button>
               <button type="button" className="media-viewer-control" onClick={() => zoomBy(0.2)} disabled={!viewerState.canZoomIn} aria-label={t("common.zoomIn")}>
                 <Plus className="h-4 w-4"/>
+              </button>
+              <button
+                type="button"
+                className="media-viewer-control"
+                data-testid="lightbox-image-fullscreen-toggle"
+                onClick={() => setIsImageFullscreen((prev) => !prev)}
+                aria-label={isImageFullscreen ? t("common.exitFullscreen") : t("common.enterFullscreen")}
+                aria-pressed={isImageFullscreen}
+              >
+                {isImageFullscreen ? <Minimize2 className="h-4 w-4"/> : <Maximize2 className="h-4 w-4"/>}
               </button>
             </>) : null}
           {canSaveChatAttachmentsToLocalVault() ? (
@@ -526,11 +635,28 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
           </button>
         </div>
 
-        <div {...getAttachmentContextMenuTriggerProps(item!.attachment, openAttachmentContextMenu)}>
-        {kind === "image" ? (<div ref={imageStageRef} tabIndex={0} className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/55 shadow-[0_30px_100px_rgba(15,23,42,0.2)] outline-none dark:border-white/10 dark:bg-black/60 dark:shadow-[0_36px_110px_rgba(0,0,0,0.62)]" onPointerDown={(event) => {
+        <div
+          className={cn(imageFullscreen && "h-full w-full")}
+          {...getAttachmentContextMenuTriggerProps(item!.attachment, openAttachmentContextMenu)}
+        >
+        {kind === "image" ? (<div
+            ref={imageStageRef}
+            tabIndex={0}
+            className={cn(
+              "relative flex w-full items-center justify-center overflow-hidden outline-none",
+              imageFullscreen
+                ? "h-[100dvh] max-h-[100dvh] rounded-none border-0 bg-black shadow-none"
+                : "h-full max-h-[86vh] rounded-3xl border border-zinc-300/60 bg-white/55 shadow-[0_30px_100px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-black/60 dark:shadow-[0_36px_110px_rgba(0,0,0,0.62)]",
+            )}
+            onPointerDown={(event) => {
                 event.stopPropagation();
                 imageStageRef.current?.focus({ preventScroll: true });
-            }} onWheel={(event) => {
+            }}
+            onDoubleClick={(event) => {
+                event.stopPropagation();
+                setIsImageFullscreen((prev) => !prev);
+            }}
+            onWheel={(event) => {
                 event.preventDefault();
                 zoomBy(event.deltaY < 0 ? 0.15 : -0.15);
             }} onTouchStart={(event) => {
@@ -555,23 +681,35 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
                 event.stopPropagation();
                 imageDragRef.current?.focus({ preventScroll: true });
             }}>
-              <Image src={item!.attachment.url} alt={item!.attachment.fileName} width={2048} height={2048} unoptimized className="max-h-[86vh] w-auto max-w-[92vw] object-contain select-none" priority draggable={false}/>
+              <Image
+                src={item!.attachment.url}
+                alt={item!.attachment.fileName}
+                width={2048}
+                height={2048}
+                unoptimized
+                className={cn(
+                  "w-auto object-contain select-none",
+                  imageFullscreen ? "max-h-[100dvh] max-w-[100vw]" : "max-h-[86vh] max-w-[92vw]",
+                )}
+                priority
+                draggable={false}
+              />
             </motion.div>
             <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-zinc-300/65 bg-white/85 px-2 py-1 text-[10px] font-bold tracking-wider text-zinc-800 dark:border-white/15 dark:bg-black/60 dark:text-white">
               {Math.round(viewerState.zoom * 100)}%
             </div>
           </div>) : kind === "voice_note" ? (<div onPointerDown={(event) => event.stopPropagation()}>
             <VoiceNoteLightboxPlayer src={item!.attachment.url} voiceNoteMetadata={getVoiceNoteAttachmentMetadata(item!.attachment)} onRequestOpenExternalLink={onRequestOpenExternalLink}/>
-          </div>) : kind === "audio" ? (<div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/90 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
+          </div>) : kind === "audio" ? (<div className="w-full max-w-2xl rounded-3xl border border-zinc-300/60 bg-white/90 p-8 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)] max-md:max-w-full max-md:rounded-2xl max-md:p-4" onPointerDown={(event) => event.stopPropagation()}>
             <AudioPlayer src={item!.attachment.url} isOutgoing={false} voiceNoteMetadata={null} onRequestOpenExternalLink={onRequestOpenExternalLink}/>
-          </div>) : (kind === "file" && isPdfAttachment(item!.attachment)) ? (<div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/90 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+          </div>) : (kind === "file" && isPdfAttachment(item!.attachment)) ? (<div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/90 p-4 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)] max-md:max-w-full max-md:rounded-2xl max-md:p-2" onPointerDown={(event) => event.stopPropagation()}>
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200 max-md:mb-2 max-md:text-xs">
               <FileText className="h-4 w-4"/>
-              <span>{item!.attachment.fileName}</span>
+              <span className="truncate">{item!.attachment.fileName}</span>
             </div>
-            <iframe src={item!.attachment.url} title={`PDF preview: ${item!.attachment.fileName}`} className="h-[78vh] w-full rounded-2xl border border-zinc-300/60 bg-white dark:border-white/10 dark:bg-zinc-950"/>
-          </div>) : (<div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/90 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)]" onPointerDown={(event) => event.stopPropagation()}>
-            <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh]" onRequestOpenExternalLink={onRequestOpenExternalLink}/>
+            <iframe src={item!.attachment.url} title={`PDF preview: ${item!.attachment.fileName}`} className="h-[78vh] w-full rounded-2xl border border-zinc-300/60 bg-white dark:border-white/10 dark:bg-zinc-950 max-md:h-[72dvh] max-md:rounded-xl"/>
+          </div>) : (<div className="w-full max-w-6xl overflow-hidden rounded-3xl border border-zinc-300/60 bg-white/90 shadow-[0_28px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-black/90 dark:shadow-[0_30px_95px_rgba(0,0,0,0.58)] max-md:max-w-full max-md:rounded-2xl" onPointerDown={(event) => event.stopPropagation()}>
+            <VideoPlayer src={item!.attachment.url} isOutgoing={false} className="max-h-[90vh] max-md:max-h-[78dvh]" onRequestOpenExternalLink={onRequestOpenExternalLink}/>
           </div>)}
         </div>
 

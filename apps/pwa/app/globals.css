@@ -624,6 +624,12 @@
     box-shadow: 0 8px 24px -14px oklch(0 0 0 / 0.4);
   }
 
+  /* Mobile shell: larger hit targets for lightbox / media chrome */
+  .mobile-mode .media-viewer-control {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
   .media-viewer-control:hover {
     background: var(--media-control-bg-hover);
     transform: translateY(-1px);

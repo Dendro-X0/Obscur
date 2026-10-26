@@ -152,6 +152,51 @@ describe("call-record-sqlite-store (ACC-04)", () => {
     expect(summary.endedAtUnixMs).toBe(31_000);
   });
 
+  it("does not stamp Date.now() for expired calls missing endedAt", () => {
+    const before = Date.now();
+    const record = buildTerminalCallRecord({
+      profileId: "default",
+      status: terminalStatus({
+        state: "expired",
+        isExpired: true,
+        startedAt: 1_000,
+        endedAt: null,
+        activeCount: 0,
+      }),
+      accountPublicKeyHex: ACCOUNT,
+      terminalHint: "timeout",
+    });
+    const after = Date.now();
+    expect(record?.ended_at).toBe(1_000 + 2 * 60 * 60 * 1000);
+    expect(record?.ended_at).not.toBeGreaterThanOrEqual(before);
+    expect(record?.ended_at).toBeLessThan(after);
+  });
+
+  it("prefers the earlier terminal end when sqlite was rewritten to app-open time", () => {
+    const merged = mergeVoiceCallRoomSummaries(
+      {
+        roomId: "room-1",
+        invitedAtUnixMs: 1_000,
+        expiresAtUnixMs: 5_000,
+        connectedAtUnixMs: 2_000,
+        endedAtUnixMs: 2_000 + 2 * 60 * 60 * 1000,
+        endedNormally: false,
+        durationSeconds: 2 * 60 * 60,
+      },
+      {
+        roomId: "room-1",
+        invitedAtUnixMs: 1_000,
+        expiresAtUnixMs: null,
+        connectedAtUnixMs: 2_000,
+        endedAtUnixMs: Date.now(),
+        endedNormally: true,
+        durationSeconds: 500_000,
+      },
+    );
+    expect(merged?.endedAtUnixMs).toBe(2_000 + 2 * 60 * 60 * 1000);
+    expect(merged?.durationSeconds).toBe(2 * 60 * 60);
+  });
+
   it("prefers sqlite terminal end time when DM timeline is incomplete", () => {
     const merged = mergeVoiceCallRoomSummaries(
       {

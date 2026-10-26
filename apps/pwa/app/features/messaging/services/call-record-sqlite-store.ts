@@ -16,6 +16,9 @@ import { requiresSqlitePersistence } from "@/app/features/runtime/native-persist
 import type { VoiceCallRoomRenderSummary } from "../components/message-list-render-meta";
 import type { CallStatus } from "./call-state-crdt";
 
+/** Match call-state-crdt DEFAULT_CALL_TTL_MS — keep type-only import to avoid pulling CRDT into the client graph. */
+const TERMINAL_CALL_TTL_MS = 2 * 60 * 60 * 1000;
+
 export type TerminalCallHint = "declined" | "ended" | "timeout";
 
 let callPersistenceEngineHost: HostEnginePort | null = null;
@@ -73,9 +76,12 @@ export const buildTerminalCallRecord = (params: Readonly<{
     return null;
   }
 
-  const endedAt = params.status.endedAt
-    ?? (params.status.isExpired ? Date.now() : null);
   const startedAt = params.status.startedAt;
+  // Never stamp wall-clock now for expired calls — that rewrote history ENDED to app-open time.
+  const endedAt = params.status.endedAt
+    ?? (params.status.isExpired && startedAt != null
+      ? startedAt + TERMINAL_CALL_TTL_MS
+      : null);
   const durationMs = startedAt && endedAt ? Math.max(0, endedAt - startedAt) : null;
 
   return {
@@ -174,18 +180,43 @@ export const mergeVoiceCallRoomSummaries = (
   if (!fromSqlite) {
     return fromMessages;
   }
+  const connectedAtUnixMs = fromMessages.connectedAtUnixMs ?? fromSqlite.connectedAtUnixMs;
+  const endedAtUnixMs = (() => {
+    const messageEnded = fromMessages.endedAtUnixMs;
+    const sqliteEnded = fromSqlite.endedAtUnixMs;
+    // Prefer the earlier terminal stamp so a corrupt "app open" sqlite end cannot win.
+    if (messageEnded != null && sqliteEnded != null) {
+      return Math.min(messageEnded, sqliteEnded);
+    }
+    return sqliteEnded ?? messageEnded;
+  })();
+  // Sqlite may only flip to completed when the DM timeline has no terminal end yet.
+  const endedNormally = fromMessages.endedNormally
+    || (
+      fromMessages.endedAtUnixMs == null
+      && fromSqlite.endedNormally
+      && fromSqlite.connectedAtUnixMs !== null
+    );
+  const durationSeconds = (() => {
+    if (connectedAtUnixMs != null && endedAtUnixMs != null
+      && (endedNormally || fromMessages.durationSeconds != null || fromSqlite.durationSeconds != null)) {
+      return Math.max(0, Math.floor((endedAtUnixMs - connectedAtUnixMs) / 1000));
+    }
+    if (fromMessages.durationSeconds != null) {
+      return fromMessages.durationSeconds;
+    }
+    return fromSqlite.connectedAtUnixMs !== null ? fromSqlite.durationSeconds : null;
+  })();
+
   return {
     roomId: fromMessages.roomId,
     invitedAtUnixMs: fromMessages.invitedAtUnixMs ?? fromSqlite.invitedAtUnixMs,
     expiresAtUnixMs: fromMessages.expiresAtUnixMs ?? fromSqlite.expiresAtUnixMs,
-    connectedAtUnixMs: fromMessages.connectedAtUnixMs ?? fromSqlite.connectedAtUnixMs,
-    endedAtUnixMs: fromSqlite.endedAtUnixMs ?? fromMessages.endedAtUnixMs,
+    connectedAtUnixMs,
+    endedAtUnixMs,
     // Do not let a non-answered sqlite "ended" flip the card to CALL COMPLETED.
-    endedNormally: fromMessages.endedNormally
-      || (fromSqlite.endedNormally && fromSqlite.connectedAtUnixMs !== null),
-    durationSeconds: fromMessages.durationSeconds ?? (
-      fromSqlite.connectedAtUnixMs !== null ? fromSqlite.durationSeconds : null
-    ),
+    endedNormally,
+    durationSeconds,
   };
 };
 

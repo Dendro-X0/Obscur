@@ -123,4 +123,39 @@ describe("Lightbox preview navigation", () => {
     expect(screen.getByRole("button", { name: "Next", hidden: true })).toBeEnabled();
     expect(screen.getAllByText("1 / 2")).not.toHaveLength(0);
   });
+
+  it("toggles in-app fullscreen for image previews and exits fullscreen before closing", () => {
+    const onClose = vi.fn();
+    const imageItem: MediaItem = {
+      messageId: "m-img",
+      timestamp: new Date(2_000),
+      attachment: {
+        kind: "image",
+        url: "https://cdn.example.com/sunset.jpg",
+        contentType: "image/jpeg",
+        fileName: "sunset.jpg",
+      },
+    };
+
+    render(
+      <Lightbox
+        item={imageItem}
+        onClose={onClose}
+      />,
+    );
+
+    const backdrop = screen.getByTestId("lightbox-backdrop");
+    expect(backdrop.getAttribute("data-image-fullscreen")).toBe("0");
+
+    fireEvent.click(screen.getByTestId("lightbox-image-fullscreen-toggle"));
+    expect(backdrop.getAttribute("data-image-fullscreen")).toBe("1");
+    expect(screen.queryByText("sunset.jpg")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(backdrop.getAttribute("data-image-fullscreen")).toBe("0");
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
