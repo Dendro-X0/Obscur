@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-10-26T06:40:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.3 Full Release (all OS) in flight · Stay Tauri
+- Last Updated (UTC): 2026-10-26T07:15:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.3 **Published** (Win/macOS/Linux) · Stay Tauri
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -47,11 +47,11 @@ FOCUS — Public trust face · hitch / PB1-C · M1-L3 only with camera
 ## Next Atomic Step
 
 ```text
-v2.0.0-beta.3 — Obscur Full Release dispatch (Win/macOS/Linux + Android + web)
+v2.0.0-beta.3 — PUBLISHED (Latest) — https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.3
+CI: https://github.com/Dendro-X0/Obscur/actions/runs/40281639059
+Assets: Obscur_2.0.0_x64-setup.exe · _aarch64.dmg · _amd64.AppImage · APK/AAB · pwa tar.gz
 version.json releaseTag 2.0.0-beta.3 · package tree 2.0.0
-WHY: beta.1/2 CI failed version:check → no fresh macOS/Linux artifacts
-NEXT: wait CI green → confirm GitHub assets include dmg + AppImage/deb + exe
-THEN: website /download follows releaseTag · optional smoke
+NEXT: confirm website /download · optional smoke
 Do NOT claim video calls usable · Tor Verified · Soft L3 · Spaces · Matrix promote
 Do NOT greenfield · Do NOT market as a Nostr client
 ```
