@@ -192,7 +192,7 @@ describe("VideoPlayer", () => {
         fireEvent.loadedMetadata(video);
         fireEvent.canPlay(video);
         act(() => {
-            void video.play();
+            void video!.play();
         });
 
         fireEvent.click(screen.getByTestId("video-player-fullscreen-toggle"));
@@ -258,7 +258,7 @@ describe("VideoPlayer", () => {
         fireEvent.loadedMetadata(video);
         fireEvent.canPlay(video);
         act(() => {
-            void video.play();
+            void video!.play();
         });
 
         fireEvent.click(screen.getByTestId("video-player-fullscreen-toggle"));
@@ -340,7 +340,9 @@ describe("VideoPlayer", () => {
     });
 
     it("requests picture-in-picture when supported", async () => {
-        const requestPictureInPicture = vi.fn(async () => undefined);
+        const requestPictureInPicture = vi.fn(
+            async (): Promise<PictureInPictureWindow> => ({} as PictureInPictureWindow),
+        );
         Object.defineProperty(document, "pictureInPictureEnabled", {
             configurable: true,
             value: true,
