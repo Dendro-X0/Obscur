@@ -1,11 +1,11 @@
 # Program docs — active shelf
 
-**41 files** (≤45 target). Front door: [../CURRENT.md](../CURRENT.md) · [../START-HERE.md](../START-HERE.md).
+**~50 files.** Front door: [../CURRENT.md](../CURRENT.md) · [../START-HERE.md](../START-HERE.md).
 
-_Last updated: 2026-10-13 · native perf standards · version **1.9.16** · website download primary_
+_Last updated: 2026-11-03 · **v2.0.0-beta.3** · rewrite band · cleanup Wave 1_
 
-Archived Landed/EXIT/closed trackers → [../archive/program/inactive-2026-08/](../archive/program/inactive-2026-08/README.md) · prior wave [../archive/program/inactive-2026-06/](../archive/program/inactive-2026-06/).  
-Cleanup charter: [docs-shelf-cleanup-charter-2026-08.md](./docs-shelf-cleanup-charter-2026-08.md)
+Archived → [../archive/program/inactive-2026-11/](../archive/program/inactive-2026-11/README.md) · [inactive-2026-08](../archive/program/inactive-2026-08/) · [inactive-2026-06](../archive/program/inactive-2026-06/).  
+Cleanup charter: [docs-shelf-cleanup-charter-2026-11.md](./docs-shelf-cleanup-charter-2026-11.md)
 
 ---
 
@@ -13,7 +13,7 @@ Cleanup charter: [docs-shelf-cleanup-charter-2026-08.md](./docs-shelf-cleanup-ch
 
 | Document | Role |
 |----------|------|
-| [docs-shelf-cleanup-charter-2026-08.md](./docs-shelf-cleanup-charter-2026-08.md) | Keep/archive criteria for this shelf |
+| [docs-shelf-cleanup-charter-2026-11.md](./docs-shelf-cleanup-charter-2026-11.md) | Keep/archive criteria for docs + specs |
 | [agent-docs-gif-standard.md](./agent-docs-gif-standard.md) | Agents: silent GIFs 20–30 FPS + `assets/gifs` / `demo/<ver>` MD shelf |
 | [PROGRAM.md](./PROGRAM.md) | Program index pointer |
 | [modular-iteration-contract.md](./modular-iteration-contract.md) | Silo / re-integration; agent discipline |

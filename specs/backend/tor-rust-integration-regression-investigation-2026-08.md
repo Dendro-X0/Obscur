@@ -2,7 +2,7 @@
 
 **Date (UTC):** 2026-08-08  
 **Status:** Investigation Ready · maintainer evidence accepted · **no Tor-OFF re-verify**  
-**Parents:** [tor-local-first-redesign-2026-08.md](./tor-local-first-redesign-2026-08.md) · [tor-enable-wedge-investigation-2026-08.md](./tor-enable-wedge-investigation-2026-08.md) · [obscur-ecosystem-charter.md](../../docs/program/obscur-ecosystem-charter.md)
+**Parents:** [tor-local-first-redesign-2026-08.md](./tor-local-first-redesign-2026-08.md) · [tor-enable-wedge-investigation-2026-08.md](../archive/backend-inactive-2026-11/tor-enable-wedge-investigation-2026-08.md) · [obscur-ecosystem-charter.md](../../docs/program/obscur-ecosystem-charter.md)
 
 ```text
 HANDOFF ATOMIC STEP: Codebase-wide Tor integration investigation → new architecture (not stall L3)

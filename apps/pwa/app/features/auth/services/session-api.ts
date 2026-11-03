@@ -4,6 +4,7 @@ import { getResolvedProfileId } from "@/app/features/profiles/services/profile-r
 import { isRememberMeEnabledForProfile } from "@/app/features/auth/services/session-bootstrap-contracts";
 import { SESSION_AUTO_UNLOCK_ENABLED, NATIVE_SECURE_SESSION_RESTORE_ENABLED } from "@/app/features/auth/services/session-credential-policy";
 import { requireHardwareUnlockGateIfEnabled } from "@/app/features/security/services/hardware-unlock-gate";
+import { isAuthKernelManualLockActive } from "@/app/features/auth-kernel/auth-kernel-manual-lock-state";
 
 export interface SessionStatus {
     isActive: boolean;
@@ -64,6 +65,8 @@ export class SessionApi {
 
         const activeProfileId = getResolvedProfileId();
         const rememberEnabled = isRememberMeEnabledForProfile(activeProfileId);
+        // FM1 L3: title-bar Lock must not be undone by status→get_native_npub hydrate.
+        const manualLockActive = isAuthKernelManualLockActive(activeProfileId);
 
         const statusResult = await invokeNativeCommand<SessionStatusWire>("get_session_status", undefined, { timeoutMs: 3_000 });
         if (statusResult.ok) {
@@ -79,9 +82,13 @@ export class SessionApi {
             }
         }
 
-        if (NATIVE_SECURE_SESSION_RESTORE_ENABLED || (SESSION_AUTO_UNLOCK_ENABLED && rememberEnabled)) {
+        if (
+            !manualLockActive
+            && (NATIVE_SECURE_SESSION_RESTORE_ENABLED || (SESSION_AUTO_UNLOCK_ENABLED && rememberEnabled))
+        ) {
             // Fallback rehydration path for native profile windows: get_native_npub can
             // restore in-memory session from keychain when status payload is stale.
+            // Skipped while auth-kernel manual lock is active (Lock must keep session inactive).
             const npubResult = await invokeNativeCommand<string | null>("get_native_npub", undefined, { timeoutMs: 3_000 });
             if (npubResult.ok && typeof npubResult.value === "string" && npubResult.value.trim().length > 0) {
                 setMobileSecurityDiagnostics({

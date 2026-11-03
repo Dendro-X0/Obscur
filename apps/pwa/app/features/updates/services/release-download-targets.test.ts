@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyDesktopArch,
   inferDesktopPlatformFromUserAgent,
+  listDesktopDownloadVariants,
   pickPreferredDesktopAsset,
   toReleaseDownloadTarget,
   type ReleaseAsset,
@@ -21,6 +23,15 @@ const assets: readonly ReleaseAsset[] = [
     name: "Obscur_1.3.15_amd64.AppImage",
     browser_download_url: "https://example.com/Obscur_1.3.15_amd64.AppImage",
     size: 84_500_000,
+  },
+];
+
+const multiArchWindows: readonly ReleaseAsset[] = [
+  ...assets,
+  {
+    name: "Obscur_1.3.15_arm64-setup.exe",
+    browser_download_url: "https://example.com/Obscur_1.3.15_arm64-setup.exe",
+    size: 9_100_000,
   },
 ];
 
@@ -46,6 +57,43 @@ describe("release-download-targets", () => {
       href: "https://example.com/Obscur_1.3.15_x64-setup.exe",
       assetName: "Obscur_1.3.15_x64-setup.exe",
       sizeBytes: 9_220_000,
+      arch: "x64",
     });
+  });
+
+  it("classifies arch from installer names", () => {
+    expect(classifyDesktopArch("Obscur_2.0.0_x64-setup.exe")).toBe("x64");
+    expect(classifyDesktopArch("Obscur_2.0.0_aarch64.dmg")).toBe("arm64");
+    expect(classifyDesktopArch("Obscur_2.0.0_amd64.AppImage")).toBe("x64");
+    expect(classifyDesktopArch("Obscur_2.0.0_universal.dmg")).toBe("universal");
+  });
+
+  it("lists multi-arch windows variants with preferred first", () => {
+    const variants = listDesktopDownloadVariants(multiArchWindows, "windows");
+    expect(variants.map((v) => v.assetName)).toEqual([
+      "Obscur_1.3.15_x64-setup.exe",
+      "Obscur_1.3.15_arm64-setup.exe",
+    ]);
+    expect(variants[0]?.label).toBe("Windows (x64)");
+    expect(variants[1]?.label).toBe("Windows (ARM64)");
+  });
+
+  it("prefers linux amd64 AppImage when aarch64 is also present", () => {
+    const linuxPair: readonly ReleaseAsset[] = [
+      {
+        name: "Obscur_2.0.0_aarch64.AppImage",
+        browser_download_url: "https://example.com/Obscur_2.0.0_aarch64.AppImage",
+        size: 80_000_000,
+      },
+      {
+        name: "Obscur_2.0.0_amd64.AppImage",
+        browser_download_url: "https://example.com/Obscur_2.0.0_amd64.AppImage",
+        size: 85_000_000,
+      },
+    ];
+    expect(pickPreferredDesktopAsset(linuxPair, "linux")?.name).toBe("Obscur_2.0.0_amd64.AppImage");
+    const variants = listDesktopDownloadVariants(linuxPair, "linux");
+    expect(variants[0]?.assetName).toBe("Obscur_2.0.0_amd64.AppImage");
+    expect(variants).toHaveLength(2);
   });
 });

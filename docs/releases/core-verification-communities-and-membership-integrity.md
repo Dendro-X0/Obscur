@@ -34,7 +34,7 @@ This lane verifies:
 
 Reference incidents and guardrails:
 
-1. `docs/encyclopedia/16-cross-device-group-visibility-incident.md`
+1. `docs/archive/encyclopedia-historical-2026-11/16-cross-device-group-visibility-incident.md`
 2. `docs/encyclopedia/18-account-scope-and-discovery-guardrails.md`
 
 ## Required Invariants

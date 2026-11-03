@@ -11,7 +11,7 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { RelayPoolContract, DeleteResult } from "./dm-controller-types";
-import { nostrAdapter } from "@/app/features/protocol-adaptation/nostr-adapter";
+import { sendDmNostrOnly } from "@/app/features/protocol-adaptation/layer";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { messagingClientOperations } from "@/app/features/messaging/services/messaging-client-operations";
 import { createDeleteCommandMessage, encodeCommandMessage } from "../../utils/commands";
@@ -49,7 +49,7 @@ export const deleteMessages = async (params: Readonly<{
   const deletePayload = encodeCommandMessage(createDeleteCommandMessage(primaryTargetId));
 
   // Send as a DM to the peer (the peer's receive pipeline will process the delete command)
-  const result = await nostrAdapter.sendDm({
+  const result = await sendDmNostrOnly({
     pool,
     senderPublicKeyHex,
     senderPrivateKeyHex,

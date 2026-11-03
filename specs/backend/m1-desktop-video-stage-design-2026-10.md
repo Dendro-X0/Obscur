@@ -3,7 +3,7 @@
 **Date (UTC):** 2026-10-19  
 **Status:** Implemented (L1) · desktop video floating stage · not full-window · not usable claim  
 **Parents:** [m1-video-dial-ui-design-2026-10.md](./m1-video-dial-ui-design-2026-10.md) · [realtime-call-perf-stability-ux-investigation-2026-10.md](./realtime-call-perf-stability-ux-investigation-2026-10.md)  
-**UI:** [docs/frontend-spec-desktop-video-call-stage-2026-10.md](../../docs/frontend-spec-desktop-video-call-stage-2026-10.md)
+**UI:** [frontend-spec-desktop-video-call-stage-2026-10.md](../frontend/frontend-spec-desktop-video-call-stage-2026-10.md)
 
 ```text
 HANDOFF ATOMIC STEP: Maintainer named R5 desktop video stage

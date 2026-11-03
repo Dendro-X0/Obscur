@@ -3,7 +3,7 @@
 **Status:** **Fixed (runtime)** — agent L3 on parity CDP 2026-07-30  
 **Date:** 2026-07-28 (UTC) · evidence + repair 2026-07-30  
 **Symptom:** After unlock, F5 / WebView refresh lands on **Welcome Back** (Tester1) despite copy promising OS secure storage restore  
-**Related:** [`auth-gateway-reload-restore-hang-investigation-2026-07.md`](./auth-gateway-reload-restore-hang-investigation-2026-07.md) · [`auth-keychain-restore-failed-r2-investigation-2026-07.md`](./auth-keychain-restore-failed-r2-investigation-2026-07.md) · charter [`obscur-auth-kernel-charter-2026-06.md`](../../docs/program/obscur-auth-kernel-charter-2026-06.md) · design [`r-auth-slice1-design-2026-07.md`](./r-auth-slice1-design-2026-07.md)
+**Related:** [`auth-gateway-reload-restore-hang-investigation-2026-07.md`](./auth-gateway-reload-restore-hang-investigation-2026-07.md) · [`../archive/backend-inactive-2026-11/auth-keychain-restore-failed-r2-investigation-2026-07.md`](../archive/backend-inactive-2026-11/auth-keychain-restore-failed-r2-investigation-2026-07.md) · charter [`obscur-auth-kernel-charter-2026-06.md`](../../docs/program/obscur-auth-kernel-charter-2026-06.md) · design [`../archive/backend-inactive-2026-11/r-auth-slice1-design-2026-07.md`](../archive/backend-inactive-2026-11/r-auth-slice1-design-2026-07.md)
 
 ---
 

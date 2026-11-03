@@ -16,6 +16,7 @@ import { accountSyncStatusStore } from "./account-sync-status-store";
 import { accountProjectionRuntime } from "./account-projection-runtime";
 import { encryptedAccountBackupService } from "./encrypted-account-backup-service";
 import { fetchLatestEventFromRelayUrls } from "./direct-relay-query";
+import { mergeRelayListPreferEnabled, persistHealedRelayList } from "./restore-relay-list-persist";
 import type {
   AccountRehydrateReport,
   AccountRestoreStatus,
@@ -67,36 +68,22 @@ const parseProfileEvent = (event: NostrEvent): RelayRehydrateProfile | null => {
   }
 };
 
+/** NIP-65 Kind 10002 only — Kind 3 contact lists must not clobber relay enable state. */
 const parseRelayListFromEvent = (event: NostrEvent): RelayListSnapshot => {
-  if (event.kind === 10002) {
-    const relays = new Map<string, boolean>();
-    for (const tag of event.tags) {
-      if (tag[0] !== "r" || typeof tag[1] !== "string") {
-        continue;
-      }
-      const marker = tag[2];
-      relays.set(tag[1].trim(), marker !== "read");
-    }
-    return Array.from(relays.entries())
-      .filter(([url]) => url.length > 0)
-      .map(([url, enabled]) => ({ url, enabled }));
+  if (event.kind !== 10002) {
+    return [];
   }
-
-  if (event.kind === 3) {
-    try {
-      const parsed = JSON.parse(event.content) as Record<string, { read?: boolean; write?: boolean }>;
-      return Object.entries(parsed)
-        .filter(([url]) => url.trim().length > 0)
-        .map(([url, permissions]) => ({
-          url: url.trim(),
-          enabled: permissions?.write !== false,
-        }));
-    } catch {
-      return [];
+  const relays = new Map<string, boolean>();
+  for (const tag of event.tags) {
+    if (tag[0] !== "r" || typeof tag[1] !== "string") {
+      continue;
     }
+    const marker = tag[2];
+    relays.set(tag[1].trim(), marker !== "read");
   }
-
-  return [];
+  return Array.from(relays.entries())
+    .filter(([url]) => url.length > 0)
+    .map(([url, enabled]) => ({ url, enabled }));
 };
 
 const fetchLatestOwnEvent = async (
@@ -238,11 +225,8 @@ export const accountRehydrateService = {
         fetchLatestOwnEvent(
           params.pool,
           params.publicKeyHex,
-          [
-            { kinds: [10002], authors: [params.publicKeyHex], limit: 1 },
-            { kinds: [3], authors: [params.publicKeyHex], limit: 1 },
-          ],
-          (event) => event.kind === 10002 || event.kind === 3
+          [{ kinds: [10002], authors: [params.publicKeyHex], limit: 1 }],
+          (event) => event.kind === 10002
         ),
       ]);
       profileEvent = fetchedProfileEvent;
@@ -253,9 +237,11 @@ export const accountRehydrateService = {
       }
     }
 
-    const relayList = relayListEvent ? parseRelayListFromEvent(relayListEvent) : relayListInternals.loadRelayListFromStorage(params.publicKeyHex, profileId);
+    const localRelayList = relayListInternals.loadRelayListFromStorage(params.publicKeyHex, profileId);
+    const relayListFromEvent = relayListEvent ? parseRelayListFromEvent(relayListEvent) : [];
+    const relayList = mergeRelayListPreferEnabled(localRelayList, relayListFromEvent);
     if (relayList.length > 0) {
-      relayListInternals.saveRelayListToStorage(params.publicKeyHex, relayList, profileId);
+      persistHealedRelayList(params.publicKeyHex, relayList, profileId);
     }
 
     accountSyncStatusStore.updateSnapshot({

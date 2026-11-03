@@ -3,7 +3,7 @@
 **Date (UTC):** 2026-08-08  
 **Status:** Investigation complete · verify **BLOCKED on this host** (outbound)  
 **Maintainer ask:** Relays must stay available via public Nostr when Docker is absent; production has no Docker.  
-**Parents:** Tor R4 PAUSED ([tor-r4-host-bootstrap-feasibility-2026-08.md](./tor-r4-host-bootstrap-feasibility-2026-08.md)) · DM thin-refactor Pass
+**Parents:** Tor R4 PAUSED (../archive/backend-inactive-2026-11/tor-r4-host-bootstrap-feasibility-2026-08.md)) · DM thin-refactor Pass
 
 ```text
 HANDOFF:              Public Nostr always-on — product contract OK; host outbound blocked

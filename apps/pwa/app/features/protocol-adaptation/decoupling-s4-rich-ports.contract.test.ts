@@ -23,29 +23,33 @@ describe("decoupling S4 rich port narrowing", () => {
     "utf8",
   );
 
-  it("exports platform canonical ports from the public index", () => {
+  it("exports platform canonical ports from the layer leaf (index stays types-only)", () => {
+    expect(index).toContain('from "./types"');
     for (const port of PLATFORM_CANONICAL_PORTS) {
-      expect(index).toContain(port);
       expect(layer).toContain(`export const ${port} = ProtocolAdaptationLayer.${port}`);
     }
   });
 
-  it("keeps Obscur-Nostr rich ports documented and exported for existing shell", () => {
+  it("keeps Obscur-Nostr rich ports documented and exported from the layer leaf", () => {
     expect(layer).toContain("Obscur-Nostr rich");
     for (const port of OBSCUR_NOSTR_RICH_PORTS) {
-      expect(index).toContain(port);
+      expect(layer).toContain(`export const ${port} = ProtocolAdaptationLayer.${port}`);
     }
   });
 
-  it("keeps Nostr-private send on nostrAdapter for delete and retry", () => {
+  it("routes delete and retry through layer sendDmNostrOnly (K1); adapter remains private impl", () => {
     expect(OBSCUR_NOSTR_PRIVATE_SEND).toBe("nostrAdapter.sendDm");
-    expect(deletePipeline).toContain(OBSCUR_NOSTR_PRIVATE_SEND);
-    expect(retry).toContain(OBSCUR_NOSTR_PRIVATE_SEND);
-    expect(layer).toContain("nostrAdapter.sendDm");
+    expect(deletePipeline).toContain("sendDmNostrOnly");
+    expect(retry).toContain("sendDmNostrOnly");
+    expect(deletePipeline).not.toContain("nostrAdapter");
+    expect(retry).not.toContain("nostrAdapter");
+    expect(layer).toContain("sendDmNostrOnly");
+    expect(layer).toContain(OBSCUR_NOSTR_PRIVATE_SEND);
   });
 
-  it("re-exports nostrAdapter from the package index for Obscur-Nostr private callers", () => {
-    expect(index).toContain('from "./nostr-adapter"');
-    expect(index).toContain("nostrAdapter");
+  it("keeps nostrAdapter on the nostr-adapter leaf (not the thin public index)", () => {
+    const shim = readFileSync(path.join(__dirname, "nostr-adapter.ts"), "utf8");
+    expect(shim).toContain("nostrAdapter");
+    expect(index).not.toContain("nostrAdapter");
   });
 });

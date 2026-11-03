@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   filterDownloadableReleaseAssets,
   inferDesktopPlatformFromUserAgent,
+  listDesktopDownloadVariants,
   pickPreferredDesktopAsset,
   toReleaseDownloadTarget,
   type DesktopPlatform,
@@ -93,7 +94,34 @@ export type ReleaseSnapshot = Readonly<{
   htmlUrl: string;
   downloadableAssets: readonly ReleaseAsset[];
   preferredDesktopDownload: Readonly<Record<DesktopPlatform, ReleaseDownloadTarget | null>>;
+  /** All installers per OS (preferred first). Grows when Full Release publishes multi-arch. */
+  desktopDownloadVariants: Readonly<Record<"windows" | "macos" | "linux", readonly ReleaseDownloadTarget[]>>;
 }>;
+
+const buildDesktopDownloadMaps = (
+  downloadableAssets: readonly ReleaseAsset[],
+): Pick<ReleaseSnapshot, "preferredDesktopDownload" | "desktopDownloadVariants"> => ({
+  preferredDesktopDownload: {
+    windows: toReleaseDownloadTarget(
+      pickPreferredDesktopAsset(downloadableAssets, "windows"),
+      "Windows installer",
+    ),
+    macos: toReleaseDownloadTarget(
+      pickPreferredDesktopAsset(downloadableAssets, "macos"),
+      "macOS installer",
+    ),
+    linux: toReleaseDownloadTarget(
+      pickPreferredDesktopAsset(downloadableAssets, "linux"),
+      "Linux package",
+    ),
+    unknown: null,
+  },
+  desktopDownloadVariants: {
+    windows: listDesktopDownloadVariants(downloadableAssets, "windows"),
+    macos: listDesktopDownloadVariants(downloadableAssets, "macos"),
+    linux: listDesktopDownloadVariants(downloadableAssets, "linux"),
+  },
+});
 
 export type ManifestArtifact = Readonly<{
   platform: string;
@@ -560,21 +588,7 @@ const githubAssetsToReleaseSnapshot = (
     tag: tag.startsWith("v") ? tag : `v${tag}`,
     htmlUrl,
     downloadableAssets,
-    preferredDesktopDownload: {
-      windows: toReleaseDownloadTarget(
-        pickPreferredDesktopAsset(downloadableAssets, "windows"),
-        "Windows installer",
-      ),
-      macos: toReleaseDownloadTarget(
-        pickPreferredDesktopAsset(downloadableAssets, "macos"),
-        "macOS installer",
-      ),
-      linux: toReleaseDownloadTarget(
-        pickPreferredDesktopAsset(downloadableAssets, "linux"),
-        "Linux package",
-      ),
-      unknown: null,
-    },
+    ...buildDesktopDownloadMaps(downloadableAssets),
   };
 };
 
@@ -713,21 +727,7 @@ const manifestToReleaseSnapshot = (
     tag,
     htmlUrl: `${REPO_GITHUB_BASE}/releases/tag/${tag}`,
     downloadableAssets,
-    preferredDesktopDownload: {
-      windows: toReleaseDownloadTarget(
-        pickPreferredDesktopAsset(downloadableAssets, "windows"),
-        "Windows installer",
-      ),
-      macos: toReleaseDownloadTarget(
-        pickPreferredDesktopAsset(downloadableAssets, "macos"),
-        "macOS installer",
-      ),
-      linux: toReleaseDownloadTarget(
-        pickPreferredDesktopAsset(downloadableAssets, "linux"),
-        "Linux package",
-      ),
-      unknown: null,
-    },
+    ...buildDesktopDownloadMaps(downloadableAssets),
   };
 };
 
@@ -778,21 +778,7 @@ const readUnifiedReleaseSnapshot = async (): Promise<ReleaseSnapshot | null> => 
       tag,
       htmlUrl: releaseNotesUrl,
       downloadableAssets,
-      preferredDesktopDownload: {
-        windows: toReleaseDownloadTarget(
-          pickPreferredDesktopAsset(downloadableAssets, "windows"),
-          "Windows installer",
-        ),
-        macos: toReleaseDownloadTarget(
-          pickPreferredDesktopAsset(downloadableAssets, "macos"),
-          "macOS installer",
-        ),
-        linux: toReleaseDownloadTarget(
-          pickPreferredDesktopAsset(downloadableAssets, "linux"),
-          "Linux package",
-        ),
-        unknown: null,
-      },
+      ...buildDesktopDownloadMaps(downloadableAssets),
     };
   } catch {
     return null;
@@ -1017,7 +1003,7 @@ export const loadSiteContent = async (): Promise<SiteContent> => {
     },
     {
       label: "Release Evidence Packet",
-      href: `${REPO_GITHUB_BASE}/tree/main/docs/assets/demo/v1.3.8`,
+      href: `${REPO_GITHUB_BASE}/tree/main/docs/assets/demo/v2.0.0`,
     },
   ];
 

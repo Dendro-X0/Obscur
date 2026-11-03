@@ -41,8 +41,9 @@ vi.mock("@/app/features/vault/services/save-chat-attachment-to-vault", () => ({
     saveChatAttachmentWithOutcome: vi.fn(async () => ({ status: "saved" as const })),
 }));
 
-vi.mock("@/app/features/vault/services/local-media-store", () => ({
-    downloadAttachmentToUserPath: vi.fn(async () => true),
+vi.mock("@/app/features/storage/services/inbound-media-export", () => ({
+    requiresInboundMediaExportConfirm: vi.fn(() => false),
+    exportInboundMediaToUserPath: vi.fn(async () => ({ status: "saved" as const })),
 }));
 
 const attachment: Attachment = {
@@ -83,15 +84,19 @@ describe("AttachmentContextMenu", () => {
 
     it("downloads to a user-chosen folder from the context menu", async () => {
         const onClose = vi.fn();
-        const { downloadAttachmentToUserPath } = await import("@/app/features/vault/services/local-media-store");
+        const { exportInboundMediaToUserPath } = await import("@/app/features/storage/services/inbound-media-export");
         const { toast } = await import("@dweb/ui-kit/toast");
-        vi.mocked(downloadAttachmentToUserPath).mockResolvedValue("saved");
+        vi.mocked(exportInboundMediaToUserPath).mockResolvedValue({ status: "saved" });
 
         render(<AttachmentContextMenu state={{ attachment, x: 120, y: 80 }} onClose={onClose}/>);
         fireEvent.click(screen.getByTestId("attachment-download-to-folder"));
 
         await waitFor(() => {
-            expect(downloadAttachmentToUserPath).toHaveBeenCalledWith({ attachment });
+            expect(exportInboundMediaToUserPath).toHaveBeenCalledWith({
+                attachment,
+                userConsentConfirmed: true,
+                contentAvailabilityState: undefined,
+            });
             expect(toast.success).toHaveBeenCalledWith("vault.exportDecryptedCopySuccess");
             expect(onClose).toHaveBeenCalled();
         });
@@ -99,18 +104,40 @@ describe("AttachmentContextMenu", () => {
 
     it("stays silent when the save dialog is cancelled", async () => {
         const onClose = vi.fn();
-        const { downloadAttachmentToUserPath } = await import("@/app/features/vault/services/local-media-store");
+        const { exportInboundMediaToUserPath } = await import("@/app/features/storage/services/inbound-media-export");
         const { toast } = await import("@dweb/ui-kit/toast");
-        vi.mocked(downloadAttachmentToUserPath).mockResolvedValue("cancelled");
+        vi.mocked(exportInboundMediaToUserPath).mockResolvedValue({ status: "cancelled" });
 
         render(<AttachmentContextMenu state={{ attachment, x: 120, y: 80 }} onClose={onClose}/>);
         fireEvent.click(screen.getByTestId("attachment-download-to-folder"));
 
         await waitFor(() => {
-            expect(downloadAttachmentToUserPath).toHaveBeenCalled();
+            expect(exportInboundMediaToUserPath).toHaveBeenCalled();
             expect(onClose).toHaveBeenCalled();
         });
         expect(toast.error).not.toHaveBeenCalled();
         expect(toast.success).not.toHaveBeenCalled();
+    });
+
+    it("requires confirm before exporting quarantined inbound media", async () => {
+        const onClose = vi.fn();
+        const { requiresInboundMediaExportConfirm, exportInboundMediaToUserPath } = await import(
+            "@/app/features/storage/services/inbound-media-export"
+        );
+        vi.mocked(requiresInboundMediaExportConfirm).mockReturnValue(true);
+
+        render(
+            <AttachmentContextMenu
+                state={{ attachment, x: 120, y: 80, contentAvailabilityState: "quarantined" }}
+                onClose={onClose}
+            />,
+        );
+        fireEvent.click(screen.getByTestId("attachment-download-to-folder"));
+
+        await waitFor(() => {
+            expect(requiresInboundMediaExportConfirm).toHaveBeenCalled();
+        });
+        expect(exportInboundMediaToUserPath).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
     });
 });

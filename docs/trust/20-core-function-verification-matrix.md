@@ -294,7 +294,7 @@ Canonical owners:
 
 Reference:
 
-1. `docs/encyclopedia/17-dm-delete-restore-divergence-incident.md`
+1. `docs/archive/encyclopedia-historical-2026-11/17-dm-delete-restore-divergence-incident.md`
 
 Minimum automated checks:
 

@@ -290,6 +290,33 @@ export function ChatView(props: ChatViewProps) {
         messages: props.messages,
         contactTrustSensitivity: contactTrustSensitivity.sensitivity,
     });
+    // After peerTrust wipe, live SQLite/thread messages may still exist while the
+    // stranger banner thinks the peer is new. Re-accept from local residue only
+    // when this is not an active contact-request sandbox / outgoing-request path.
+    React.useEffect(() => {
+        if (props.conversation.kind !== "dm") {
+            return;
+        }
+        if (!props.hasHydrated || props.isPeerAccepted) {
+            return;
+        }
+        if (props.contactRequestComposeMode === "sandbox_text" || props.outgoingResendEligible) {
+            return;
+        }
+        if (props.messages.length === 0 || !props.onAcceptPeer) {
+            return;
+        }
+        void props.onAcceptPeer();
+    }, [
+        props.contactRequestComposeMode,
+        props.conversation.kind,
+        props.conversation.id,
+        props.hasHydrated,
+        props.isPeerAccepted,
+        props.messages.length,
+        props.onAcceptPeer,
+        props.outgoingResendEligible,
+    ]);
     const isDeletedRecipient = props.conversation.kind === "dm" && metadata?.isDeleted === true;
     const resolvedNowMs = props.nowMs;
     const normalizedHistorySearchQuery = historySearchQuery.trim().toLowerCase();

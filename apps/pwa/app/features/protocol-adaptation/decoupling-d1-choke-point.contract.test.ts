@@ -61,7 +61,7 @@ describe("decoupling D1 choke point", () => {
     expect(violations).toEqual([]);
   });
 
-  it("routes delete and retry sends through nostrAdapter", () => {
+  it("routes delete and retry sends through ProtocolAdaptationLayer (K1)", () => {
     const deletePipeline = readFileSync(
       path.join(appRoot, "features/messaging/controllers/v2/dm-delete-pipeline.ts"),
       "utf8",
@@ -70,10 +70,14 @@ describe("decoupling D1 choke point", () => {
       path.join(appRoot, "features/messaging/controllers/v2/dm-send-with-retry.ts"),
       "utf8",
     );
-    expect(deletePipeline).toContain("nostrAdapter.sendDm");
-    expect(retry).toContain("nostrAdapter.sendDm");
+    expect(deletePipeline).toContain("sendDmNostrOnly");
+    expect(retry).toContain("sendDmNostrOnly");
+    expect(deletePipeline).not.toContain("nostrAdapter");
+    expect(retry).not.toContain("nostrAdapter");
     expect(deletePipeline).not.toContain("dm-send-pipeline");
     expect(retry).not.toContain("dm-send-pipeline");
+    expect(deletePipeline).not.toMatch(/protocol-adaptation\/nostr-adapter/);
+    expect(retry).not.toMatch(/protocol-adaptation\/nostr-adapter/);
   });
 
   it("keeps the Nostr adapter implementation under protocol-adaptation/nostr", () => {

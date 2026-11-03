@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import type { PersistedChatState } from "@/app/features/messaging/types";
+import { derivePeerPubkeyFromDmConversationId } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -181,20 +182,62 @@ const saveToStorage = (
 
 const extractAcceptedPeersFromPersistedChatState = (
   persisted: PersistedChatState | null | undefined,
+  accountPublicKeyHex?: PublicKeyHex | string | null,
 ): ReadonlyArray<PublicKeyHex> => {
   if (!persisted) {
     return [];
   }
 
-  // Trust is derived exclusively from explicit accept events, not from address-book presence.
-  // createdConnections entries are NOT a trust signal — a connection can exist without a
-  // completed two-way handshake (e.g. sender side before receiver accepts).
+  // Trust comes from explicit accept events — not bare address-book rows.
+  // createdConnections alone are NOT a trust signal (handshake may still be pending).
   const acceptedFromRequests: ReadonlyArray<PublicKeyHex> = (persisted.connectionRequests ?? [])
     .filter((request) => request.status === "accepted")
     .map((request) => normalizePublicKeyHex(request.id))
     .filter((peer): peer is PublicKeyHex => peer !== null);
 
-  return Array.from(new Set(acceptedFromRequests));
+  const pendingRequestPeers = new Set(
+    (persisted.connectionRequests ?? [])
+      .filter((request) => request.status === "pending")
+      .map((request) => normalizePublicKeyHex(request.id))
+      .filter((peer): peer is PublicKeyHex => peer !== null),
+  );
+
+  // After peerTrust wipe, recover peers that already have DM message residue.
+  // Outbound-delivered thread residue implies sandbox allowed a prior accept.
+  const acceptedFromMessageThreads: PublicKeyHex[] = [];
+  const account = normalizePublicKeyHex(accountPublicKeyHex ?? "");
+  if (account) {
+    Object.entries(persisted.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
+      if (!messages || messages.length === 0) {
+        return;
+      }
+      const peer = derivePeerPubkeyFromDmConversationId(conversationId, account);
+      if (!peer || pendingRequestPeers.has(peer)) {
+        return;
+      }
+      acceptedFromMessageThreads.push(peer);
+    });
+  }
+
+  // Native mirrors often strip message bodies. A createdConnections preview with
+  // non-empty lastMessage and no pending request is thread residue (ASE keeps
+  // true strangers out of the Chats sidebar until accept).
+  const acceptedFromThreadPreviews: PublicKeyHex[] = [];
+  for (const connection of persisted.createdConnections ?? []) {
+    const peer = normalizePublicKeyHex(connection.pubkey);
+    if (!peer || pendingRequestPeers.has(peer)) {
+      continue;
+    }
+    if ((connection.lastMessage?.trim().length ?? 0) > 0) {
+      acceptedFromThreadPreviews.push(peer);
+    }
+  }
+
+  return Array.from(new Set([
+    ...acceptedFromRequests,
+    ...acceptedFromMessageThreads,
+    ...acceptedFromThreadPreviews,
+  ]));
 };
 
 const extractAcceptedPeersFromRequestEvidence = (
@@ -271,6 +314,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
       const acceptedFromChat: ReadonlyArray<PublicKeyHex> = extractAcceptedPeersFromPersistedChatState(
         messagingChatStateReadPort.load(currentPublicKeyHex),
+        currentPublicKeyHex,
       );
       const acceptedFromEvidence = extractAcceptedPeersFromRequestEvidence(profileIdRef.current);
       const recovered = Array.from(new Set([...acceptedFromChat, ...acceptedFromEvidence]));

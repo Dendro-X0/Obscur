@@ -1,0 +1,25 @@
+{
+  "capturedAt": "2026-11-03T03:26:53.091Z",
+  "surface": "tauri-desktop-cdp",
+  "band": "platform-P4d-private-dc-adapter-CDP",
+  "cdp": "http://127.0.0.1:9230",
+  "labBaseUrl": "http://127.0.0.1:8791",
+  "previousProtocol": "nostr",
+  "matrix": {
+    "hooksPresent": true,
+    "sessionWritten": true,
+    "protocolActive": true,
+    "connectOk": true,
+    "listConversations": true,
+    "listMessages": true,
+    "sendMessage": true
+  },
+  "verdict": "Pass",
+  "nonClaims": [
+    "production company-DC interoperability",
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "Matrix promote",
+    "multi-protocol Verified"
+  ]
+}

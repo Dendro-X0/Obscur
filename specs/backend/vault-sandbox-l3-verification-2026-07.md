@@ -3,7 +3,7 @@
 **Band:** `VAULT-SANDBOX-1`  
 **Parent plan:** [vault-encryption-sandbox-plan-2026-07.md](./vault-encryption-sandbox-plan-2026-07.md)  
 **Scope release:** [v1.9.13-scope.md](../../docs/program/v1.9.13-scope.md)  
-**Taxonomy design:** [vault-profile-directory-taxonomy-design-2026-07.md](./vault-profile-directory-taxonomy-design-2026-07.md)  
+**Taxonomy design:** [vault-profile-directory-taxonomy-design-2026-07.md](../archive/backend-inactive-2026-11/vault-profile-directory-taxonomy-design-2026-07.md)  
 **Charter:** [v1.9.8-portable-storage-and-encryption-charter.md](../../docs/program/v1.9.8-portable-storage-and-encryption-charter.md)  
 **Status:** Ready for maintainer G8 soak — Phases 1–5 + **5b taxonomy** (L1 green) · chat→vault still **DISABLED**
 
@@ -147,7 +147,7 @@ When **L3 + L3-MP + L4** are checked:
 
 1. Mark gap **G8** closed in [vault-encryption-sandbox-plan-2026-07.md](./vault-encryption-sandbox-plan-2026-07.md).
 2. Product copy may claim vault-at-rest encryption per plan §9.
-3. **Phase 6b** chat→vault flag may flip only after this sign-off **and** the Phase 6 L3 chat-save chain in [vault-chat-save-phase6-design-2026-07.md](./vault-chat-save-phase6-design-2026-07.md).
+3. **Phase 6b** chat→vault flag may flip only after this sign-off **and** the Phase 6 L3 chat-save chain in [vault-chat-save-phase6-design-2026-07.md](../archive/backend-inactive-2026-11/vault-chat-save-phase6-design-2026-07.md).
 
 ---
 

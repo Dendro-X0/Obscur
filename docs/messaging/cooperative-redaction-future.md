@@ -79,5 +79,5 @@ relay delete event → expand ids (thread gather + derive) → display gate Set 
 ## References
 
 - [investigation-delete-for-everyone.md](./investigation-delete-for-everyone.md) — why v1.5 patches failed
-- [encyclopedia/17-dm-delete-restore-divergence-incident.md](../encyclopedia/17-dm-delete-restore-divergence-incident.md)
+- [encyclopedia/17-dm-delete-restore-divergence-incident.md](../archive/encyclopedia-historical-2026-11/17-dm-delete-restore-divergence-incident.md)
 - [gateway/client-unified-gateway.md](../gateway/client-unified-gateway.md) — ClientGateway must own redaction apply

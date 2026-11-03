@@ -12,7 +12,7 @@ import { cn } from "@/app/lib/utils";
 import { getVoiceNoteAttachmentMetadata } from "@/app/features/messaging/services/voice-note-metadata";
 import { PrivacySettingsService } from "../../settings/services/privacy-settings-service";
 import { canSaveChatAttachmentsToLocalVault, saveChatAttachmentWithOutcome } from "@/app/features/vault/services/save-chat-attachment-to-vault";
-import { downloadAttachmentToUserPath } from "@/app/features/vault/services/local-media-store";
+import { exportInboundMediaToUserPath } from "@/app/features/storage/services/inbound-media-export";
 import { AttachmentExportConfirmDialog } from "@/app/features/security/components/attachment-export-confirm-dialog";
 import { VaultWriteUnlockDialog } from "@/app/features/security/components/vault-write-unlock-dialog";
 import { LinkOpenConfirmDialog } from "@/app/features/security/components/link-open-confirm-dialog";
@@ -223,14 +223,15 @@ function LegacyLightbox({ item, onClose, exportGate, onRequestOpenExternalLink, 
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
         await exportGate.runExportWithGate(item, async () => {
-            const downloaded = await downloadAttachmentToUserPath({
+            const exported = await exportInboundMediaToUserPath({
                 attachment: item.attachment,
                 sourceUrl: item.attachment.url,
+                userConsentConfirmed: true,
             });
-            if (downloaded === "cancelled") {
+            if (exported.status === "cancelled" || exported.status === "consent_required") {
                 return;
             }
-            if (downloaded !== "saved") {
+            if (exported.status !== "saved") {
                 toast.error(t("vault.downloadToFolderFailed"));
                 return;
             }
@@ -510,14 +511,15 @@ function V083Lightbox({ item, onClose, onPrev, onNext, hasPrev, hasNext, activeI
     const onDownload = async (event: React.MouseEvent) => {
         event.stopPropagation();
         await exportGate.runExportWithGate(item!, async () => {
-            const downloaded = await downloadAttachmentToUserPath({
+            const exported = await exportInboundMediaToUserPath({
                 attachment: item!.attachment,
                 sourceUrl: item!.attachment.url,
+                userConsentConfirmed: true,
             });
-            if (downloaded === "cancelled") {
+            if (exported.status === "cancelled" || exported.status === "consent_required") {
                 return;
             }
-            if (downloaded !== "saved") {
+            if (exported.status !== "saved") {
                 toast.error(t("vault.downloadToFolderFailed"));
                 return;
             }

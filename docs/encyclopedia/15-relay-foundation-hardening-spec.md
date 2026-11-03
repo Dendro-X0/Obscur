@@ -1,13 +1,15 @@
 # 15 Relay Foundation Hardening Spec
 
-_Last reviewed: 2026-03-19 (baseline commit 0a799f5)._
+_Last reviewed: 2026-11-03 (Wave 5 — merged failure atlas from ch.13)._
 
-Status note (2026-03-19):
+**Wave 5:** Failure triage from former ch.13 lives in [#failure-atlas](#failure-atlas) below. Stub: [13-relay-and-startup-failure-atlas.md](./13-relay-and-startup-failure-atlas.md).
+
+Status note (2026-03-19, still true):
 - This spec contains historical warm-up references from earlier relay rollout experiments.
 - `warm-up-supervisor` is not part of the active startup owner chain in the current workspace.
 - Treat warm-up sections as archived design context only, and use active owner truth from:
   - `docs/encyclopedia/12-core-architecture-truth-map.md`
-  - `docs/encyclopedia/13-relay-and-startup-failure-atlas.md`
+  - this document’s Failure Atlas
   - `docs/history/version-context.md`
 
 Status: Active (Phase 1 through Phase 4 landed)
@@ -59,7 +61,7 @@ Landed outputs:
 - canonical owner lookup:
   - `docs/encyclopedia/14-module-owner-index.md`
 - relay/startup failure map:
-  - `docs/encyclopedia/13-relay-and-startup-failure-atlas.md`
+  - this document → [#failure-atlas](#failure-atlas) (merged from ch.13 in Wave 5)
 - runtime architecture and repository context refresh:
   - `docs/encyclopedia/02-repository-map.md`
   - `docs/encyclopedia/03-runtime-architecture.md`
@@ -163,3 +165,71 @@ pnpm.cmd docs:check
 3. Which degraded/fatal reason-code path was added or changed?
 4. Which diagnostics prove startup/reconnect outcome?
 5. Which tests cover sender/receiver or two-device behavior?
+
+---
+
+## Failure Atlas
+
+<a id="failure-atlas"></a>
+
+Runtime triage map for startup stalls, relay degradation, and cross-device convergence (merged from former ch.13).
+
+### Startup owner stack
+
+1. `apps/pwa/app/components/providers.tsx`
+2. `apps/pwa/app/features/profiles/components/desktop-profile-bootstrap.tsx`
+3. `apps/pwa/app/features/auth/components/auth-gateway.tsx`
+4. `apps/pwa/app/features/runtime/components/profile-bound-auth-shell.tsx`
+5. `apps/pwa/app/features/runtime/components/runtime-activation-manager.tsx`
+6. `apps/pwa/app/features/runtime/services/window-runtime-supervisor.ts`
+
+### Relay owner stack
+
+1. Relay runtime — `apps/pwa/app/features/relays/services/relay-runtime-supervisor.ts`
+2. Relay recovery — `apps/pwa/app/features/relays/services/relay-recovery-policy.ts`
+3. Relay transport — `apps/pwa/app/features/relays/hooks/enhanced-relay-pool.ts`
+
+### State surfaces
+
+- `window.obscurWindowRuntime.getSnapshot()` — profile/identity/runtime activation
+- `window.obscurRelayRuntime.getSnapshot()` — writable/subscribable relay + recovery
+- `window.obscurRelayTransportJournal.getSnapshot()` — subscription replay / outbound evidence
+- `window.obscurAppEvents.getDigest(300)` — compact diagnostics
+
+### Failure classes
+
+1. **Long / infinite startup** — `desktop-profile-bootstrap.tsx` · `open-identity-db.ts` · `use-identity.ts` · `profile-bound-auth-shell.tsx` · `runtime-activation-manager.tsx`
+2. **Relay degraded, UI looks fine** — `relay-runtime-supervisor.ts` · `relay-recovery-policy.ts` · `runtime-activation-manager.tsx` (`relay_runtime_degraded`). Do not infer health from banners; use snapshots.
+3. **Page transitions freeze under churn** — `app-shell.tsx` · `page-transition-recovery.ts` · `relay-provider.tsx` · `account-projection-runtime.ts`
+4. **Cross-device DM loses self-authored** — `dm-subscription-manager.ts` · `dm-sync-orchestrator.ts` · `incoming-dm-event-handler.ts` · `encrypted-account-backup-service.ts` · `message-persistence-service.ts`
+5. **Group membership disagrees across surfaces** — `community-membership-recovery.ts` · `community-membership-reconstruction.ts` · `group-provider.tsx`
+6. **Account switch: empty chats, stale Vault** — `messaging-provider.tsx` · `chat-state-store.ts` · `message-persistence-service.ts` · `use-vault-media.ts` · `local-media-store.ts`
+7. **Discover `OBSCUR-*` / empty chat mis-route** — `search-page-client.tsx` · `search-page-helpers.ts` · `identity-resolver.ts` · `search-result-card.tsx`
+
+### Minimal runtime capture
+
+```js
+window.obscurWindowRuntime?.getSnapshot?.()
+window.obscurRelayRuntime?.getSnapshot?.()
+window.obscurRelayTransportJournal?.getSnapshot?.()
+window.obscurAppEvents?.getDigest?.(300)
+```
+
+Sync regressions:
+
+```js
+window.obscurAppEvents?.findByName?.("account_sync.backup_restore_merge_diagnostics", 20)
+window.obscurAppEvents?.findByName?.("account_sync.backup_restore_apply_diagnostics", 20)
+window.obscurAppEvents?.findByName?.("messaging.legacy_migration_diagnostics", 20)
+window.obscurAppEvents?.findByName?.("relay.runtime_performance_gate", 20)
+```
+
+### Triage order
+
+1. Identify canonical owner for the failing state.
+2. Confirm layer: startup · relay runtime · projection/sync · UI liveness.
+3. Collect compact snapshots before long logs.
+4. Isolate overlapping mutation paths before patches.
+5. Land fix with focused tests + docs in the same change set.
+
+Full pre-merge ch.13 text: [../archive/encyclopedia-historical-2026-11/13-relay-and-startup-failure-atlas.md](../archive/encyclopedia-historical-2026-11/13-relay-and-startup-failure-atlas.md)

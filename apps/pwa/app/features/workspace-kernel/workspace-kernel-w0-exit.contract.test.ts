@@ -26,12 +26,17 @@ describe("workspace-kernel W0 exit contract", () => {
     expect(manifest).toMatch(/W[0-4].*landed|Workspace kernel W0.*Landed/i);
   });
 
-  it("workspace-kernel module exports policy and port scaffolds", () => {
+  it("workspace-kernel root keeps authority gate; leave assert lives on leave-port", () => {
     const index = readFileSync(
       path.join(pwaRoot, "app/features/workspace-kernel/index.ts"),
       "utf8",
     );
+    const leavePort = readFileSync(
+      path.join(pwaRoot, "app/features/workspace-kernel/workspace-kernel-leave-port.ts"),
+      "utf8",
+    );
     expect(index).toContain("isWorkspaceKernelAuthority");
-    expect(index).toContain("assertWorkspaceLeaveRequiresRelayConfirmation");
+    expect(index).not.toContain("assertWorkspaceLeaveRequiresRelayConfirmation");
+    expect(leavePort).toContain("assertWorkspaceLeaveRequiresRelayConfirmation");
   });
 });

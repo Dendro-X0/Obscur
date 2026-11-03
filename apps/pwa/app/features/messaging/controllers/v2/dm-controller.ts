@@ -29,8 +29,8 @@ import {
   sendDm,
   sendConnectionRequest,
   ProtocolAdaptationLayer,
+  type CanonicalSendConfirmation,
 } from "@/app/features/protocol-adaptation/layer";
-import type { SendConfirmation } from "@/app/features/protocol-adaptation/nostr-adapter";
 import { getRelayPublishFailureUserMessage } from "@/app/features/relays/services/relay-publish-user-copy";
 import {
   assertDmOutboundAllowed,
@@ -755,8 +755,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         })
       : null;
 
-    // Background confirmation handler — upgrades status after relay OK responses
-    const handleConfirmed = (confirmation: SendConfirmation): void => {
+    // Background confirmation handler — K8 CanonicalSendConfirmation (no per-relay rows).
+    const handleConfirmed = (confirmation: CanonicalSendConfirmation): void => {
       const confirmedStatus: MessageStatus = confirmation.success ? "accepted" : "failed";
       setMessages(prev =>
         prev.map(m =>
@@ -764,12 +764,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
             ? {
                 ...m,
                 status: confirmedStatus,
-                relayResults: confirmation.relayResults.map(r => ({
-                  relayUrl: r.relayUrl,
-                  success: r.success,
-                  error: r.error,
-                  latency: r.latencyMs,
-                })),
+                // Per-relay evidence stays pipeline-side; shell keeps status only.
+                relayResults: m.relayResults,
               }
             : m
         )
@@ -801,7 +797,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
           deliveryStatus: confirmation.deliveryStatus,
           messageId: optimisticId,
           eventId: publishEvidenceRef.canonicalDmId ?? "",
-          relayResults: confirmation.relayResults,
+          relayResults: [],
           error: confirmation.error,
           partialWireDelivery: confirmation.partialWireDelivery,
           reasonCode: confirmation.reasonCode,
@@ -822,8 +818,8 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         toast.error(getRelayPublishFailureUserMessage({
           reasonCode: confirmation.reasonCode,
           error: confirmation.error,
-          successCount: confirmation.relayResults.filter(result => result.success).length,
-          totalRelays: confirmation.relayResults.length,
+          successCount: confirmation.successCount,
+          totalRelays: confirmation.totalRelays,
           partialWireDelivery: confirmation.partialWireDelivery,
         }));
         return;

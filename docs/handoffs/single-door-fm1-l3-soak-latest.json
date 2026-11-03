@@ -1,0 +1,73 @@
+{
+  "capturedAt": "2026-11-02T10:37:18.119Z",
+  "surface": "tauri-desktop-cdp",
+  "cdp": "http://127.0.0.1:9230",
+  "band": "single-door-FM1-L3",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "S5 L3 dual-profile FS soak"
+  ],
+  "user": "Tester1",
+  "steps": [
+    {
+      "step": "shell_before_lock",
+      "session": {
+        "is_active": true,
+        "npub": "e07f67dcb8a58f53b13fd15ae549c31fb3817a3a6cf0e8bd6903bae3c191ea56",
+        "is_native": true
+      },
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Obscur / e07f67dc...c191ea56 NETWORK Add Create Group Join DIRECTORY All People 1 Groups 7 Discovery Invitations Blocked Manage CONNECTIONS 1 Tester2 3db055b4…d946830f OFFLINE TRUSTED",
+      "hasPw": false,
+      "profileLocked": false,
+      "hasDirectory": true,
+      "welcomeBack": false
+    },
+    {
+      "step": "after_lock",
+      "session": {
+        "is_active": false,
+        "npub": null,
+        "is_native": true
+      },
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Obscur / e07f67dc...c191ea56 NETWORK Add Create Group Join DIRECTORY All People 1 Groups 7 Discovery Invitations Blocked Manage CONNECTIONS 1 Tester2 3db055b4…d946830f OFFLINE TRUSTED",
+      "hasPw": false,
+      "profileLocked": false,
+      "hasDirectory": true,
+      "welcomeBack": false
+    },
+    {
+      "step": "gate_wait",
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Obscur / e07f67dc...c191ea56 NETWORK Add Create Group Join DIRECTORY All People 1 Groups 7 Discovery Invitations Blocked Manage CONNECTIONS 1 Tester2 3db055b4…d946830f OFFLINE TRUSTED",
+      "hasPw": false,
+      "profileLocked": false,
+      "hasDirectory": true,
+      "welcomeBack": false
+    },
+    {
+      "step": "password_only_reentry",
+      "shell": true,
+      "session": {
+        "is_active": false,
+        "npub": null,
+        "is_native": true
+      },
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Obscur / e07f67dc...c191ea56 NETWORK Add Create Group Join DIRECTORY All People 1 Groups 7 Discovery Invitations Blocked Manage CONNECTIONS 1 Tester2 3db055b4…d946830f OFFLINE TRUSTED",
+      "hasPw": false,
+      "profileLocked": false,
+      "hasDirectory": true,
+      "welcomeBack": false
+    }
+  ],
+  "matrix": {
+    "sessionInactiveAfterLock": true,
+    "lockReturnsToGate": false,
+    "passwordOnlyReentryShell": true,
+    "s5L2Only": true
+  },
+  "verdict": "Pass"
+}

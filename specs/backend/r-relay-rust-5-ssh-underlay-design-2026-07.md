@@ -1,7 +1,7 @@
 # Design — R-RELAY-RUST-5 SSH underlay (`ssh_tunnel`)
 
 **Status:** RUST-5d L1 Pass · SSH preset pack in catalog  
-**Prior:** [RUST-4c](./r-relay-rust-4c-legacy-delete-design-2026-07.md) · [mesh charter](./r-relay-rust-mesh-charter-2026-07.md) · L3-product + Tauri UI soak Pass  
+**Prior:** [RUST-4c](../archive/backend-inactive-2026-11/r-relay-rust-4c-legacy-delete-design-2026-07.md) · [mesh charter](./r-relay-rust-mesh-charter-2026-07.md) · L3-product + Tauri UI soak Pass  
 **Charter slot:** P3 reserved → **SSH underlay** (local L3 precondition met)
 
 ---

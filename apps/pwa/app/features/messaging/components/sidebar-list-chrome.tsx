@@ -13,7 +13,7 @@ export type {
 
 /**
  * Shell-gated dispatcher. Prefer editing desktop-* or mobile-* templates — not this file.
- * @see docs/frontend-spec-desktop-mobile-layout-separation-2026-10.md
+ * @see specs/frontend/frontend-spec-desktop-mobile-layout-separation-2026-10.md
  */
 export function SidebarListChrome(props: SidebarListChromeProps): React.JSX.Element {
   const { variant, ...surfaceProps } = props;

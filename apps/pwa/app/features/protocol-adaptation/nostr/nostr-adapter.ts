@@ -1,4 +1,10 @@
 import type { DmConversation, Message } from "@/app/features/messaging/types";
+import {
+  formatNostrCanonicalSendRequiresCredentialsError,
+  mapRichConversationToCanonical,
+  mapRichMessageToCanonical,
+  OBSCUR_NOSTR_CAPABILITIES,
+} from "@obscur/protocol-nostr";
 import { loadDmKernelSidebar } from "@/app/features/dm-kernel/dm-kernel-sidebar-port";
 import {
   loadDmKernelThread,
@@ -8,8 +14,8 @@ import {
   sendDm as sendDmPipeline,
   sendConnectionRequest as sendConnectionRequestPipeline,
 } from "@/app/features/messaging/controllers/v2/dm-send-pipeline";
-import type { SendConfirmation } from "@/app/features/messaging/controllers/v2/dm-send-pipeline";
 import { applyActiveTransport } from "../apply-active-transport";
+import type { SendConfirmation } from "../send-confirmation";
 import type {
   CanonicalConversation,
   CanonicalMessage,
@@ -18,41 +24,10 @@ import type {
   TransportId,
 } from "../types";
 
+/** @deprecated Import `SendConfirmation` from `protocol-adaptation/layer` or `send-confirmation`. */
 export type { SendConfirmation };
 
 let connectedTransport: TransportId | null = null;
-
-const mapMessageStatus = (
-  status: Message["status"],
-): CanonicalMessage["status"] => {
-  if (status === "failed" || status === "rejected") {
-    return "failed";
-  }
-  if (status === "sending" || status === "queued") {
-    return "sending";
-  }
-  if (status === "delivered") {
-    return "delivered";
-  }
-  return "sent";
-};
-
-const toCanonicalMessage = (
-  message: Message,
-  conversationId: string,
-): CanonicalMessage => ({
-  id: message.id,
-  conversationId: message.conversationId ?? conversationId,
-  body: message.content,
-  sentAtUnixMs: message.timestamp.getTime(),
-  direction: message.isOutgoing ? "out" : "in",
-  status: mapMessageStatus(message.status),
-});
-
-const toCanonicalConversation = (conversation: DmConversation): CanonicalConversation => ({
-  id: conversation.id,
-  title: conversation.displayName,
-});
 
 /**
  * Phase 0 Nostr adapter — wraps existing DM send/list ports.
@@ -66,15 +41,11 @@ export const nostrAdapter: ProtocolAdapter & {
 } = {
   id: "nostr",
 
-  capabilities: (): ProtocolCapabilities => ({
-    dms: true,
-    groups: true,
-    reactions: true,
-    media: true,
-  }),
+  capabilities: (): ProtocolCapabilities => OBSCUR_NOSTR_CAPABILITIES,
 
-  connect: async (transport: TransportId): Promise<void> => {
+  connect: async (transport: TransportId, _profileId?: string): Promise<void> => {
     // C1: Clearnet|Tor honors existing Tor gateway; Quiet persists without uncapped Quiet.
+    // profileId reserved for session carriers (Matrix / private_dc); Nostr uses transport prefs.
     const result = await applyActiveTransport(transport);
     connectedTransport = result.transportId;
     if (result.errorMessage) {
@@ -89,18 +60,16 @@ export const nostrAdapter: ProtocolAdapter & {
 
   listConversations: async (profileId: string): Promise<ReadonlyArray<CanonicalConversation>> => {
     const rows = await loadDmKernelSidebar(profileId);
-    return rows.map(toCanonicalConversation);
+    return rows.map(mapRichConversationToCanonical);
   },
 
   listMessages: async (params): Promise<ReadonlyArray<CanonicalMessage>> => {
     const rows = await loadDmKernelThread(params);
-    return rows.map((row) => toCanonicalMessage(row, params.conversationId));
+    return rows.map((row) => mapRichMessageToCanonical(row, params.conversationId));
   },
 
   sendMessage: async (params): Promise<CanonicalMessage> => {
-    throw new Error(
-      `NostrAdapter.sendMessage requires full DM credentials; use ProtocolAdaptationLayer.sendDm or nostrAdapter.sendDm (conversation=${params.conversationId.slice(0, 16)})`,
-    );
+    throw new Error(formatNostrCanonicalSendRequiresCredentialsError(params.conversationId));
   },
 
   /** Rich native sidebar list — used by MessagingProvider through the layer. */

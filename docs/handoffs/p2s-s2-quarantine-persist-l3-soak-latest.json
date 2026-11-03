@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-11-02T15:58:55.706Z",
+  "surface": "tauri-desktop-cdp",
+  "cdp": "http://127.0.0.1:9230",
+  "band": "p2s-S2-L3-quarantine-persist",
+  "matrix": {
+    "hooksPresent": true,
+    "planNeverSystemOpen": true,
+    "planPathBelongs": true,
+    "persistWritten": true,
+    "productReadOk": true,
+    "persistModuleNoShellOpen": true
+  },
+  "verdict": "Pass",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "OS ACL multi-user isolation",
+    "cross-profile deny (see S5)"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "capturedAt": "2026-11-02T13:10:35.953Z",
+  "surface": "private-dc-lab-http",
+  "band": "platform-P4c-private-dc-L2-lab",
+  "baseUrl": "http://127.0.0.1:8791",
+  "matrix": {
+    "listConversations": true,
+    "listMessages": true,
+    "sendMessage": true,
+    "unauthorizedDenied": true
+  },
+  "verdict": "Pass",
+  "nonClaims": [
+    "production company-DC interoperability",
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "Matrix promote",
+    "multi-protocol Verified"
+  ]
+}

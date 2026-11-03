@@ -10,10 +10,13 @@ import { cn } from "@/app/lib/utils";
 import { requiresAttachmentExportConfirm } from "@/app/features/dm-kernel/dm-kernel-trust-export-action-gate";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import {
+    exportInboundMediaToUserPath,
+    requiresInboundMediaExportConfirm,
+} from "@/app/features/storage/services/inbound-media-export";
+import {
     canSaveChatAttachmentsToLocalVault,
     saveChatAttachmentWithOutcome,
 } from "@/app/features/vault/services/save-chat-attachment-to-vault";
-import { downloadAttachmentToUserPath } from "@/app/features/vault/services/local-media-store";
 import { AttachmentExportConfirmDialog } from "@/app/features/security/components/attachment-export-confirm-dialog";
 import { VaultWriteUnlockDialog } from "@/app/features/security/components/vault-write-unlock-dialog";
 
@@ -21,6 +24,8 @@ export type AttachmentContextMenuState = Readonly<{
     attachment: Attachment;
     x: number;
     y: number;
+    /** P2-S S4 — when quarantined, export always requires consent. */
+    contentAvailabilityState?: string | null;
 }> | null;
 
 type AttachmentContextMenuProps = Readonly<{
@@ -47,15 +52,27 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
     const pendingDownloadAttachmentRef = React.useRef<Attachment | null>(null);
     const canSaveToVault = canSaveChatAttachmentsToLocalVault();
 
-    const runDownloadToFolder = React.useCallback(async (attachment: Attachment): Promise<void> => {
+    const runDownloadToFolder = React.useCallback(async (
+        attachment: Attachment,
+        userConsentConfirmed: boolean,
+    ): Promise<void> => {
         setIsDownloading(true);
         try {
-            const result = await downloadAttachmentToUserPath({ attachment });
-            if (result === "cancelled") {
+            const result = await exportInboundMediaToUserPath({
+                attachment,
+                userConsentConfirmed,
+                contentAvailabilityState: state?.contentAvailabilityState,
+            });
+            if (result.status === "consent_required") {
+                pendingDownloadAttachmentRef.current = attachment;
+                setPendingDownloadFileName(attachment.fileName?.trim() || t("common.file"));
+                return;
+            }
+            if (result.status === "cancelled") {
                 onClose();
                 return;
             }
-            if (result !== "saved") {
+            if (result.status !== "saved") {
                 toast.error(t("vault.downloadToFolderFailed"));
                 return;
             }
@@ -64,13 +81,13 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
         } finally {
             setIsDownloading(false);
         }
-    }, [onClose, t]);
+    }, [onClose, state?.contentAvailabilityState, t]);
 
     const requestDownloadToFolder = React.useCallback((attachment: Attachment): void => {
         if (isDownloading) {
             return;
         }
-        const needsConfirm = requiresAttachmentExportConfirm({
+        const trustNeedsConfirm = requiresAttachmentExportConfirm({
             peerPublicKeyHex: "",
             isPeerAccepted: true,
             attachmentFileName: attachment.fileName ?? "attachment",
@@ -78,13 +95,19 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
             threadFirstPeerMessageAtUnixMs: null,
             profileId: getResolvedProfileId(),
         });
-        if (needsConfirm) {
+        const sandboxNeedsConfirm = requiresInboundMediaExportConfirm({
+            contentAvailabilityState: state?.contentAvailabilityState,
+            mimeType: attachment.contentType,
+            fileName: attachment.fileName,
+        });
+        if (trustNeedsConfirm || sandboxNeedsConfirm) {
             pendingDownloadAttachmentRef.current = attachment;
             setPendingDownloadFileName(attachment.fileName?.trim() || t("common.file"));
             return;
         }
-        void runDownloadToFolder(attachment);
-    }, [isDownloading, runDownloadToFolder, t]);
+        // Preview-safe + no trust friction: consent implied by explicit menu click (not auto-open).
+        void runDownloadToFolder(attachment, true);
+    }, [isDownloading, runDownloadToFolder, state?.contentAvailabilityState, t]);
 
     React.useEffect(() => {
         if (typeof document === "undefined") {
@@ -193,7 +216,7 @@ export function AttachmentContextMenu({ state, onClose, onCopyUrl, onOpenInNewTa
                     pendingDownloadAttachmentRef.current = null;
                     setPendingDownloadFileName(null);
                     if (attachment) {
-                        void runDownloadToFolder(attachment);
+                        void runDownloadToFolder(attachment, true);
                     }
                 }}
             />

@@ -39,7 +39,7 @@ Example detail from gateway:
 | Obscur UI “stuck” logic | **No** — UI correctly waits for Bootstrapped 100%; gateway never claims Ready |
 | Network/DPI/firewall interferes with Tor TLS | **Yes** — TCP connect succeeds (`conn_done` / handshake stage) then **TLS handshake dies** on diverse hosts |
 
-Same class as [tor-r4-host-bootstrap-feasibility-2026-08.md](./tor-r4-host-bootstrap-feasibility-2026-08.md) § network ceiling.
+Same class as [tor-r4-host-bootstrap-feasibility-2026-08.md](../archive/backend-inactive-2026-11/tor-r4-host-bootstrap-feasibility-2026-08.md) § network ceiling.
 
 ## How to confirm further (operator)
 

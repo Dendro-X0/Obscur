@@ -1,0 +1,20 @@
+{
+  "capturedAt": "2026-11-02T16:13:12.465Z",
+  "surface": "tauri-desktop-cdp",
+  "cdp": "http://127.0.0.1:9230",
+  "band": "p2s-S3-L3-inbound-preview",
+  "matrix": {
+    "hooksPresent": true,
+    "quarantinedBlocked": true,
+    "deniedExeBlocked": true,
+    "allowedPngPreview": true,
+    "previewModuleNoShellOpen": true
+  },
+  "verdict": "Pass",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "export consent (see S4)",
+    "cross-profile deny (see S5)"
+  ]
+}

@@ -74,6 +74,8 @@ import {
     shouldNativeDmSkipChatStateSidebarConnectionHydrate,
 } from "../services/native-dm-conversation-list-owner";
 import { listDmConversations } from "@/app/features/protocol-adaptation/layer";
+import { installPalSoakHooks } from "@/app/features/protocol-adaptation/pal-soak-hooks";
+import { installStorageSoakHooks } from "@/app/features/storage/storage-soak-hooks";
 import { hasNativeRuntime } from "@/app/features/runtime/runtime-capabilities";
 import { isTauri } from "@dweb/db";
 
@@ -213,6 +215,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const loadSidebarConversations = useCallback(async (profileId: string): Promise<ReadonlyArray<DmConversation>> => (
         listDmConversations(profileId)
     ), []);
+
+    useEffect(() => {
+        installPalSoakHooks();
+        installStorageSoakHooks();
+    }, []);
 
     /** Slice 3e: messages-index-rebuilt can fire per decrypt — coalesce sidebar SQLite reloads. */
     const sidebarReloadTimerRef = React.useRef<number | null>(null);

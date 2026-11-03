@@ -19,6 +19,7 @@ import { syncCheckpointInternals } from "@/app/features/messaging/lib/sync-check
 import { PrivacySettingsService, defaultPrivacySettings } from "@/app/features/settings/services/privacy-settings-service";
 import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
+import { mergeRelayListPreferEnabled, persistHealedRelayList } from "./restore-relay-list-persist";
 import { contactRequestOutboxInternals } from "@/app/features/search/hooks/use-contact-request-outbox";
 import type { ContactRequestRecord } from "@/app/features/search/types/discovery";
 import { useProfileInternals } from "@/app/features/profile/hooks/use-profile";
@@ -652,6 +653,39 @@ const mergePeerTrust = (
   mutedPeers: uniqueStrings([...current.mutedPeers, ...incoming.mutedPeers]) as ReadonlyArray<PublicKeyHex>,
 });
 
+/** After sparse backup restore, re-accept peers evidenced by local DM thread residue. */
+const enrichPeerTrustFromLocalThreadResidue = (params: Readonly<{
+  publicKeyHex: PublicKeyHex;
+  peerTrust: StoredPeerTrustSnapshot;
+  chatState: EncryptedAccountBackupPayload["chatState"];
+  nativeSqliteEvidence?: EncryptedAccountBackupPayload["nativeSqliteEvidence"];
+}>): StoredPeerTrustSnapshot => {
+  const fromChat = peerTrustInternals.extractAcceptedPeersFromPersistedChatState(
+    params.chatState,
+    params.publicKeyHex,
+  );
+  const account = params.publicKeyHex.trim().toLowerCase();
+  const fromSqlite: string[] = [];
+  for (const message of params.nativeSqliteEvidence?.dmMessages ?? []) {
+    const sender = message.sender_pubkey.trim().toLowerCase();
+    const recipient = message.recipient_pubkey.trim().toLowerCase();
+    if (sender === account && recipient.length === 64) {
+      fromSqlite.push(recipient);
+    }
+    if (recipient === account && sender.length === 64) {
+      fromSqlite.push(sender);
+    }
+  }
+  return {
+    ...params.peerTrust,
+    acceptedPeers: uniqueStrings([
+      ...params.peerTrust.acceptedPeers,
+      ...fromChat,
+      ...fromSqlite,
+    ]) as ReadonlyArray<PublicKeyHex>,
+  };
+};
+
 const mergeRequestFlowEvidence = (
   current: RequestFlowEvidenceStateSnapshot,
   incoming: RequestFlowEvidenceStateSnapshot
@@ -704,16 +738,7 @@ const mergeCheckpoints = (
 const mergeRelayList = (
   current: RelayListSnapshot,
   incoming: RelayListSnapshot
-): RelayListSnapshot => {
-  const byUrl = new Map<string, RelayListSnapshot[number]>();
-  for (const relay of [...current, ...incoming]) {
-    if (!relay.url.trim()) {
-      continue;
-    }
-    byUrl.set(relay.url.trim(), { url: relay.url.trim(), enabled: relay.enabled });
-  }
-  return Array.from(byUrl.values());
-};
+): RelayListSnapshot => mergeRelayListPreferEnabled(current, incoming);
 
 
 const saveRecoverySnapshot = (publicKeyHex: PublicKeyHex, payload: EncryptedAccountBackupPayload): void => {
@@ -1334,7 +1359,13 @@ const applyBackupPayload = async (
 
   applyRestoredProfileSnapshot(restoredProfile);
   void syncProfileDraftFromStoredIdentity({ publicKeyHex });
-  peerTrustInternals.saveToStorage(publicKeyHex, mergedPayload.peerTrust);
+  const peerTrustEnrichedFromResidue = enrichPeerTrustFromLocalThreadResidue({
+    publicKeyHex,
+    peerTrust: mergedPayload.peerTrust,
+    chatState: mergedPayload.chatState,
+    nativeSqliteEvidence: mergedPayload.nativeSqliteEvidence,
+  });
+  peerTrustInternals.saveToStorage(publicKeyHex, peerTrustEnrichedFromResidue);
   requestFlowEvidenceStoreInternals.writeState(mergedPayload.requestFlowEvidence, profileId);
   contactRequestOutboxInternals.writeState(mergedPayload.requestOutbox, profileId);
   syncCheckpointInternals.persistCheckpointState(new Map(
@@ -1394,7 +1425,7 @@ const applyBackupPayload = async (
       parseRoomKeySnapshots,
     });
     PrivacySettingsService.saveSettings(mergedPayload.privacySettings);
-    relayListInternals.saveRelayListToStorage(publicKeyHex, mergedPayload.relayList, profileId);
+    persistHealedRelayList(publicKeyHex, mergedPayload.relayList, profileId);
     persistUiSettingsSnapshot(profileId, mergedPayload.uiSettings);
   });
 };

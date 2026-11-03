@@ -9,8 +9,8 @@ export const OBSCUR_NOSTR_PACKAGE_NAME = "@obscur/protocol-nostr" as const;
 export const OBSCUR_NOSTR_PROTOCOL_ID = "nostr" as const;
 
 /**
- * Live runtime home until a later extract moves the adapter body into this package.
- * Do not treat the package as empty — port surfaces and identity live here now.
+ * Live adapter orchestration home (connect/send/list wiring).
+ * Pure body leaves (e.g. canonical-from-rich) already live in this package (P7).
  */
 export const OBSCUR_NOSTR_IMPLEMENTATION_HOME =
   "apps/pwa/app/features/protocol-adaptation/nostr/" as const;

@@ -14,7 +14,7 @@ describe("protocol adaptation Matrix C2", () => {
     const layer = read("layer.ts");
     expect(layer).toContain('["matrix", matrixAdapter]');
     expect(layer).toContain("SELECTABLE_PROTOCOL_IDS");
-    expect(layer).toContain('readActiveProtocolId() === "matrix"');
+    expect(layer).toContain('activeProtocol === "matrix"');
     expect(layer).toContain("getRichListAdapter");
   });
 
@@ -60,13 +60,17 @@ describe("protocol adaptation Matrix C2", () => {
 
   it("does not bridge Matrix sends into Nostr publish", () => {
     const layer = read("layer.ts");
-    expect(layer).toContain("matrixAdapter.sendMessage");
-    // Matrix branch must not call nostr pipeline
-    const matrixBranch = layer.slice(
-      layer.indexOf('readActiveProtocolId() === "matrix"'),
-      layer.indexOf("return nostrAdapter.sendDm"),
+    expect(layer).toContain("matrixAdapter");
+    expect(layer).toContain("adapter.sendMessage");
+    // Shared non-Nostr sendDm branch (Matrix + private_dc) must not call nostr pipeline
+    const branchStart = layer.indexOf('activeProtocol === "matrix"');
+    expect(branchStart).toBeGreaterThanOrEqual(0);
+    const nonNostrBranch = layer.slice(
+      branchStart,
+      layer.indexOf("return nostrAdapter.sendDm", branchStart),
     );
-    expect(matrixBranch).not.toContain("nostrAdapter.sendDm");
-    expect(matrixBranch).not.toContain("sendDmPipeline");
+    expect(nonNostrBranch).toContain("matrixAdapter");
+    expect(nonNostrBranch).not.toContain("nostrAdapter.sendDm");
+    expect(nonNostrBranch).not.toContain("sendDmPipeline");
   });
 });

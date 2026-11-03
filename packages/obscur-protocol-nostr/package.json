@@ -3,10 +3,14 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Obscur-Nostr protocol module package — attachment point for bespoke forks. Live adapter still hosts in apps/pwa until a later extract.",
+  "description": "Obscur-Nostr protocol module — identity, port surfaces, and first body leaves (P7 canonical maps). Adapter orchestration still hosts in apps/pwa.",
   "exports": {
     ".": "./src/index.ts",
     "./port-surfaces": "./src/port-surfaces.ts",
-    "./module-identity": "./src/module-identity.ts"
+    "./module-identity": "./src/module-identity.ts",
+    "./canonical-from-rich": "./src/canonical-from-rich.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./display-name": "./src/display-name.ts",
+    "./migration-hints": "./src/migration-hints.ts"
   }
 }

@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { AUTH_KERNEL_PACKAGE_VERSION, AUTH_KERNEL_PORT_IDS } from "./index";
+import { authFailed, authOk } from "./contracts/auth-result";
+import { resolveStaySignedInFromOptions } from "./contracts/auth-unlock-options";
 import {
-  AUTH_KERNEL_PACKAGE_VERSION,
-  AUTH_KERNEL_PORT_IDS,
   DESKTOP_OS_SESSION_RESTORE_PRODUCT_READY,
-  authFailed,
-  authOk,
   createDesktopShellPolicySnapshot,
-  resolveStaySignedInFromOptions,
-} from "./index";
+} from "./policy/session-credential-policy-contract";
 
 describe("@dweb/auth package contracts", () => {
   it("exports four auth kernel port ids", () => {

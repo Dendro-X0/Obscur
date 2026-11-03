@@ -65,11 +65,16 @@ describe("engine-host headless w0 — memory port", () => {
     expect(conversations).toHaveLength(1);
   });
 
-  it("exports createSubprocessEngineHost for libobscur CLI bridge", () => {
-    const source = readFileSync(
-      join(REPO_ROOT, "packages/obscur-engine-host/src/index.ts"),
+  it("exports createSubprocessEngineHost via @obscur/engine-host/subprocess", () => {
+    const pkg = readFileSync(
+      join(REPO_ROOT, "packages/obscur-engine-host/package.json"),
       "utf8",
     );
+    const source = readFileSync(
+      join(REPO_ROOT, "packages/obscur-engine-host/src/subprocess-engine-host.ts"),
+      "utf8",
+    );
+    expect(pkg).toContain('"./subprocess"');
     expect(source).toContain("createSubprocessEngineHost");
   });
 

@@ -20,7 +20,7 @@ One page for **how to run**, **how to package**, and **what to expect** — no c
 | **Relay only (external stack)** | Terminal 1: `pnpm dev:relay:docker` · Terminal 2: `pnpm dev:coordination` · Terminal 3: `pnpm dev:desktop:no-coord -- --skip-build` | Faster restarts; cold-kill does not take down relay |
 | **Desktop installer (local)** | `pnpm desktop:package` | `release-assets/{windows,macos,linux}/` |
 | **Demo / prod smoke (no NSIS)** | `pnpm desktop:demo-preflight` → `pnpm desktop:build:exe` | Release exe; smoke before packaging — [demo-recording-prod-preflight-design-2026-07.md](../../specs/backend/demo-recording-prod-preflight-design-2026-07.md) |
-| **Desktop/mobile installers (CI)** | Push `v*` tag **or** Actions → **Obscur Full Release** | Artifacts on workflow run; publish via dispatch + `publish_release=true` |
+| **Desktop/mobile installers (CI)** | Push `v*` tag **or** Actions → **Obscur Full Release** | Multi-arch desktop: Win x64 · mac aarch64+x64 · Linux x64+arm (`ubuntu-24.04-arm`); Win ARM deferred · [release-download-sync design](../../specs/ci/2026-11-03-release-download-sync-design.md) |
 | **Android debug APK (emulator)** | `pnpm build:android:debug:emulator` | Universal debug APK under `gen/android/.../debug/` |
 | **Android prereq check** | `pnpm verify:android-prerequisites` | Non-destructive SDK/JDK/Rust check |
 | **Release gates** | `pnpm release:test-pack` · `pnpm docs:check` | Before tag or Phase 3 sign-off |

@@ -30,7 +30,7 @@ describe("protocol adaptation transport C1", () => {
   it("layer exposes applyTransport for Settings", () => {
     const layer = read("layer.ts");
     expect(layer).toContain("applyTransport");
-    expect(layer).toContain(".connect(transportId)");
+    expect(layer).toContain(".connect(transportId, profileId)");
   });
 
   it("Protocols settings panel calls applyTransport", () => {

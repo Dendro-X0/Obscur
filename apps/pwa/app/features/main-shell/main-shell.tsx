@@ -76,6 +76,7 @@ import { readBotTriggersFromMetadataField, summarizeCommunityBotTriggerStatuses,
 import { resolveMainShellGroupThreadRelayIngestEnabled, resolveMainShellSealedCommunityEnabled, } from "@/app/features/groups/services/sealed-community-instance-policy";
 import { getResolvedClientGateway } from "@/app/features/profiles/services/resolve-client-gateway";
 import { LockScreen } from "@/app/components/lock-screen";
+import { resolveUnlockAccountDisplayName } from "@/app/features/auth/services/resolve-unlock-account-display-name";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { EmptyConversationView } from "./components/empty-conversation-view";
 import { DevPanel } from "../dev-tools/components/dev-panel";
@@ -3962,6 +3963,7 @@ function NostrMessengerContent() {
                 }
                 unlock();
                 await reprobeNativeSqliteWriteReady();
+                toast.success(t("auth.welcomeBackToast"));
                 return true;
             }
             await identity.unlockIdentity({ passphrase: passphrase as Passphrase });
@@ -4437,8 +4439,15 @@ function NostrMessengerContent() {
         return <AppLoadingScreen title="Restoring identity" detail="Unlocking profile context..."/>;
     }
     if (shouldShowLockScreen) {
-        return (<LockScreen publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? ""} username={identity.state.stored?.username} isUnlocking={isUnlocking} onUnlock={handleUnlock} hasPin={hasPin} onUnlockPin={handleUnlockPin} onForget={identity.forgetIdentity} errorMessage={nativeSqliteWriteBlocked
-                ? "Local database is locked. Unlock this profile (device password or Import Key), then retry."
+        const lockUsername = resolveUnlockAccountDisplayName({
+            profileId: activeProfileId,
+            publicKeyHex: identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex,
+            identityUsername: identity.state.stored?.username,
+        });
+        const storageOnlySoftLock = nativeSqliteWriteBlocked
+            && identity.state.status === "unlocked";
+        return (<LockScreen publicKeyHex={identity.state.publicKeyHex ?? identity.state.stored?.publicKeyHex ?? ""} username={lockUsername} isUnlocking={isUnlocking} onUnlock={handleUnlock} hasPin={hasPin} onUnlockPin={handleUnlockPin} onForget={storageOnlySoftLock ? undefined : identity.forgetIdentity} storageOnly={storageOnlySoftLock} errorMessage={storageOnlySoftLock
+                ? "Encrypted local storage is still locked. Enter your device password to continue."
                 : undefined}/>);
     }
     const syncStatusBanners = (<>

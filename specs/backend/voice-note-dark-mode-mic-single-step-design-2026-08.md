@@ -1,7 +1,7 @@
 # Design — Voice note dark contrast + single-step mic grant
 
 **Date (UTC):** 2026-08-04  
-**Investigation:** [voice-note-dark-mode-mic-single-step-investigation-2026-08.md](./voice-note-dark-mode-mic-single-step-investigation-2026-08.md)
+**Investigation:** [voice-note-dark-mode-mic-single-step-investigation-2026-08.md](../archive/backend-inactive-2026-11/voice-note-dark-mode-mic-single-step-investigation-2026-08.md)
 
 ---
 

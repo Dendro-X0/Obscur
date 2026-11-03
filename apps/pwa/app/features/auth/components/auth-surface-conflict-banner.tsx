@@ -25,10 +25,13 @@ type Props = Readonly<{
   conflict: AuthSurfaceConflict;
   actions?: React.ReactNode;
   className?: string;
+  /** Quiet status chip — title + one short line; hide hint essays. */
+  compact?: boolean;
 }>;
 
 export function AuthSurfaceConflictBanner(props: Props): React.JSX.Element {
   const { t } = useTranslation();
+  const compact = props.compact === true;
   const body = props.conflict.detailMessage?.trim()
     ? props.conflict.detailMessage
     : t(props.conflict.bodyKey);
@@ -38,23 +41,35 @@ export function AuthSurfaceConflictBanner(props: Props): React.JSX.Element {
       role="alert"
       aria-label={t(props.conflict.ariaLabelKey)}
       className={cn(
-        "mb-6 rounded-[28px] border p-5",
+        "rounded-2xl border",
+        compact ? "mb-4 px-3.5 py-2.5" : "mb-6 rounded-[28px] p-5",
         toneClasses[props.conflict.tone],
         props.className,
       )}
     >
-      <div className="flex items-start gap-4">
-        <AlertCircle className={cn("mt-0.5 h-5 w-5 shrink-0", titleToneClasses[props.conflict.tone])} />
-        <div className="min-w-0 flex-1 space-y-3">
+      <div className={cn("flex items-start", compact ? "gap-2.5" : "gap-4")}>
+        <AlertCircle className={cn(
+          "shrink-0",
+          compact ? "mt-0.5 h-4 w-4" : "mt-0.5 h-5 w-5",
+          titleToneClasses[props.conflict.tone],
+        )} />
+        <div className={cn("min-w-0 flex-1", compact ? "space-y-0.5" : "space-y-3")}>
           <div>
-            <p className={cn("text-sm font-black uppercase tracking-[0.16em]", titleToneClasses[props.conflict.tone])}>
+            <p className={cn(
+              "font-black uppercase tracking-[0.16em]",
+              compact ? "text-[11px]" : "text-sm",
+              titleToneClasses[props.conflict.tone],
+            )}>
               {t(props.conflict.titleKey)}
             </p>
-            <p className="mt-2 text-sm font-medium leading-relaxed">
+            <p className={cn(
+              "font-medium leading-snug",
+              compact ? "mt-0.5 text-xs opacity-90" : "mt-2 text-sm leading-relaxed",
+            )}>
               {body}
             </p>
           </div>
-          {props.conflict.hintKey ? (
+          {!compact && props.conflict.hintKey ? (
             <p className="text-xs font-semibold opacity-80">
               {t(props.conflict.hintKey)}
             </p>

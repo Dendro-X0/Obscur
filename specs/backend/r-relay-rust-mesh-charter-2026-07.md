@@ -1,7 +1,7 @@
 # Charter — R-RELAY-RUST: Rust conduit mesh (Nostr optional · alternatives first)
 
 **Status:** **ACTIVE** — maintainer-chartered 2026-07-30 (supersedes JS-pool patch band as primary transport path)  
-**Amends:** [r-relay-transport-refactor-charter-2026-07.md](./r-relay-transport-refactor-charter-2026-07.md) (R-RELAY-1 pool pad remains useful stopgap; not the end state)  
+**Amends:** [r-relay-transport-refactor-charter-2026-07.md](../archive/backend-inactive-2026-11/r-relay-transport-refactor-charter-2026-07.md) (R-RELAY-1 pool pad remains useful stopgap; not the end state)  
 **North star:** [obscur-conduit-mesh-concept-2026-06.md](../../docs/program/obscur-conduit-mesh-concept-2026-06.md)  
 **Feasibility:** [rules/11](../../rules/11-feasibility-and-modular-safety.md) · public Nostr as **default** transport = currently **infeasible** (upstream TLS/503 + TS pool dual-truth)  
 **Does not un-pause:** community · AUTH-SESSION-1 · Dev Lab

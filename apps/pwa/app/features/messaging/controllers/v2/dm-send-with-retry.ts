@@ -13,9 +13,9 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolContract, SendResult } from "./dm-controller-types";
 import {
-  nostrAdapter,
-  type SendConfirmation,
-} from "@/app/features/protocol-adaptation/nostr-adapter";
+  sendDmNostrOnly,
+  type CanonicalSendConfirmation,
+} from "@/app/features/protocol-adaptation/layer";
 import { queueMessage, initMessageQueue, triggerQueueProcessing, getQueueStats } from "../../services/dm-message-queue";
 import { recordDmMessage } from "../../dm-ledger";
 import type { Message } from "../../types";
@@ -29,7 +29,7 @@ export interface SendWithRetryParams {
   plaintext: string;
   conversationId: string;
   customTags?: ReadonlyArray<ReadonlyArray<string>>;
-  onConfirmed?: (confirmation: SendConfirmation) => void;
+  onConfirmed?: (confirmation: CanonicalSendConfirmation) => void;
 }
 
 export interface SendWithRetryResult extends SendResult {
@@ -144,7 +144,7 @@ export const sendDmWithRetry = async (params: SendWithRetryParams): Promise<Send
   // Initialize queue on first use
   if (!queueInitialized) {
     initMessageQueue(async (queued) => {
-      const result = await nostrAdapter.sendDm({
+      const result = await sendDmNostrOnly({
         pool,
         senderPublicKeyHex: queued.senderPubkey,
         senderPrivateKeyHex: queued.senderPrivateKeyHex,
@@ -174,7 +174,7 @@ export const sendDmWithRetry = async (params: SendWithRetryParams): Promise<Send
 
   // Try immediate send first
   const sendStartTime = performance.now();
-  const result = await nostrAdapter.sendDm({
+  const result = await sendDmNostrOnly({
     pool,
     senderPublicKeyHex,
     senderPrivateKeyHex,

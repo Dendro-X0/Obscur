@@ -22,6 +22,10 @@ import type {
 import { publishToRelays, resolveTargetRelayUrls } from "./dm-relay-transport";
 import { dmReceivePipelineInternals } from "./dm-receive-pipeline";
 import { inferRelayPublishReasonCode } from "@/app/features/relays/services/relay-publish-user-copy";
+import {
+  toCanonicalSendConfirmation,
+  type CanonicalSendConfirmation,
+} from "@/app/features/protocol-adaptation/send-confirmation";
 
 // ---------------------------------------------------------------------------
 // Dedup guard — prevents double-send from React strict mode or re-renders
@@ -208,7 +212,8 @@ export const sendDm = async (params: Readonly<{
   plaintext: string;
   customTags?: ReadonlyArray<ReadonlyArray<string>>;
   preferredFormat?: DmFormat;
-  onConfirmed?: (confirmation: SendConfirmation) => void;
+  /** K8 — slim confirmation only (no per-relay outcomes). */
+  onConfirmed?: (confirmation: CanonicalSendConfirmation) => void;
   dedupSet?: Set<string>;
   profileId?: string;
 }>): Promise<SendResult> => {
@@ -334,7 +339,7 @@ export const sendDm = async (params: Readonly<{
         firedToOpenCount,
       });
       capturedConfirmation = confirmation;
-      onConfirmed?.(confirmation);
+      onConfirmed?.(toCanonicalSendConfirmation(confirmation));
     }).catch(err => {
       console.error("[dm-send] confirmation error", err);
       const confirmation = buildSendConfirmation({
@@ -347,7 +352,7 @@ export const sendDm = async (params: Readonly<{
         firedToOpenCount,
       });
       capturedConfirmation = confirmation;
-      onConfirmed?.(confirmation);
+      onConfirmed?.(toCanonicalSendConfirmation(confirmation));
     }).finally(() => {
       inflight.delete(dedupKey);
     });

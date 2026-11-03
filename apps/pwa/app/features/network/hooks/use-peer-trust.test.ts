@@ -171,7 +171,7 @@ describe("use-peer-trust internals", () => {
     expect(result).toEqual([acceptedRequestPeer.toLowerCase()]);
   });
 
-  it("createdConnections alone (no accepted request) does NOT produce trusted peers", () => {
+  it("createdConnections with empty preview (no accepted request) does NOT produce trusted peers", () => {
     const addressBookPeer = "b".repeat(64).toUpperCase();
 
     const persisted = createPersistedChatState({
@@ -179,17 +179,84 @@ describe("use-peer-trust internals", () => {
       createdConnections: [
         {
           id: "dm-1",
-          displayName: "pending-contact",
+          displayName: "address-book-only",
           pubkey: addressBookPeer,
-          lastMessage: "hey",
-          unreadCount: 1,
-          lastMessageTimeMs: 1000,
+          lastMessage: "",
+          unreadCount: 0,
+          lastMessageTimeMs: 0,
         },
       ],
     });
 
     const result = peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted);
     expect(result).toEqual([]);
+  });
+
+  it("recovers trust from DM message-thread residue after peerTrust wipe", () => {
+    const account = "a".repeat(64);
+    const peer = "b".repeat(64);
+    const conversationId = [account, peer].sort().join(":");
+    const persisted = createPersistedChatState({
+      messagesByConversationId: {
+        [conversationId]: [
+          {
+            id: "m1",
+            content: "Dm-test",
+            timestampMs: 1,
+            isOutgoing: true,
+            status: "delivered",
+          },
+        ],
+      },
+    });
+
+    expect(
+      peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted, account),
+    ).toEqual([peer]);
+  });
+
+  it("recovers trust from non-empty connection preview when message bodies were stripped", () => {
+    const peer = "b".repeat(64);
+    const persisted = createPersistedChatState({
+      createdConnections: [
+        {
+          id: "dm-1",
+          displayName: "Tester2",
+          pubkey: peer,
+          lastMessage: "Dm-test",
+          unreadCount: 0,
+          lastMessageTimeMs: 1,
+        },
+      ],
+    });
+
+    expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted)).toEqual([peer]);
+  });
+
+  it("does not recover preview peers that still have a pending request", () => {
+    const peer = "b".repeat(64);
+    const persisted = createPersistedChatState({
+      connectionRequests: [
+        {
+          id: peer,
+          status: "pending",
+          isOutgoing: true,
+          timestampMs: 1,
+        },
+      ],
+      createdConnections: [
+        {
+          id: "dm-1",
+          displayName: "pending",
+          pubkey: peer,
+          lastMessage: "hi",
+          unreadCount: 0,
+          lastMessageTimeMs: 1,
+        },
+      ],
+    });
+
+    expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted)).toEqual([]);
   });
 
   it("ignores non-accepted requests and invalid pubkeys", () => {

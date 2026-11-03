@@ -24,6 +24,7 @@
 | [final-vo-beta-close-v1.9.16.md](./final-vo-beta-close-v1.9.16.md) | Post-edit VO + open-beta end card |
 | [v2.0.0-beta-release.md](../../../releases/v2.0.0-beta-release.md) | Open beta release notes + build stamp |
 | [presenter-checklist.md](./presenter-checklist.md) | Cold-run setup + exit criteria |
+| [pre-demo-validation-2026-11.md](./pre-demo-validation-2026-11.md) | **2026-11** feedback-cut validation before recording |
 | [gif-inventory.md](./gif-inventory.md) | Visual evidence map + capture gaps |
 | [group-chat-gif-shot-list.md](./group-chat-gif-shot-list.md) | Group demo GIF sequence (Docker relay, invite, chat) |
 | [obscur-v2-known-limitations.md](../../../program/obscur-v2-known-limitations.md) | Hand to viewers — honest scope |

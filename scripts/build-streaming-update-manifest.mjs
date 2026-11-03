@@ -64,8 +64,28 @@ const readOptionalSignature = async (artifactPath) => {
   return null;
 };
 
-const pickArtifact = (files, allowedExtensions) => {
+const pickArtifact = (files, allowedExtensions, preferredNameSubstrings = []) => {
   const matching = files.filter((file) => allowedExtensions.has(extname(file).toLowerCase()));
+  if (matching.length === 0) {
+    return null;
+  }
+  for (const needle of preferredNameSubstrings) {
+    const preferred = matching.find((file) => basename(file).toLowerCase().includes(needle));
+    if (preferred) {
+      return preferred;
+    }
+  }
+  matching.sort((left, right) => left.localeCompare(right));
+  return matching[0];
+};
+
+const findArtifact = (files, allowedExtensions, requiredNameSubstring) => {
+  const matching = files.filter((file) => {
+    if (!allowedExtensions.has(extname(file).toLowerCase())) {
+      return false;
+    }
+    return basename(file).toLowerCase().includes(requiredNameSubstring);
+  });
   if (matching.length === 0) {
     return null;
   }
@@ -135,9 +155,14 @@ const main = async () => {
   const macosFiles = await walk(resolve(assetsDir, "macos"));
   const linuxFiles = await walk(resolve(assetsDir, "linux"));
 
-  const windowsArtifact = pickArtifact(windowsFiles, new Set([".exe", ".msi"]));
-  const macosArtifact = pickArtifact(macosFiles, new Set([".dmg"]));
-  const linuxArtifact = pickArtifact(linuxFiles, new Set([".appimage", ".deb"]));
+  const windowsExt = new Set([".exe", ".msi"]);
+  const macosExt = new Set([".dmg"]);
+  const linuxExt = new Set([".appimage", ".deb"]);
+
+  // Preferred keys stay stable for existing clients; Phase B adds optional arch variants.
+  const windowsArtifact = pickArtifact(windowsFiles, windowsExt, ["_x64-setup", "x64", "x86_64"]);
+  const macosArtifact = pickArtifact(macosFiles, macosExt, ["aarch64", "arm64"]);
+  const linuxArtifact = pickArtifact(linuxFiles, linuxExt, ["amd64", "x86_64", "x64"]);
 
   if (!windowsArtifact || !macosArtifact || !linuxArtifact) {
     throw new Error(
@@ -150,6 +175,24 @@ const main = async () => {
     "darwin-aarch64": await buildArtifactEntry({ filePath: macosArtifact, baseUrl }),
     "linux-x86_64": await buildArtifactEntry({ filePath: linuxArtifact, baseUrl }),
   };
+
+  const macosIntel = findArtifact(macosFiles, macosExt, "x64")
+    ?? findArtifact(macosFiles, macosExt, "x86_64");
+  if (macosIntel && macosIntel !== macosArtifact) {
+    artifactEntries["darwin-x86_64"] = await buildArtifactEntry({
+      filePath: macosIntel,
+      baseUrl,
+    });
+  }
+
+  const linuxArm = findArtifact(linuxFiles, linuxExt, "aarch64")
+    ?? findArtifact(linuxFiles, linuxExt, "arm64");
+  if (linuxArm && linuxArm !== linuxArtifact) {
+    artifactEntries["linux-aarch64"] = await buildArtifactEntry({
+      filePath: linuxArm,
+      baseUrl,
+    });
+  }
 
   const manifest = {
     version,

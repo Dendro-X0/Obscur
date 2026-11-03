@@ -42,6 +42,7 @@ async fn hydrate_profile_session(
             is_native: true,
         }));
     }
+    // Intentional restore path (force_session_restore) — set_keys clears hydrate_suppressed.
     if let Some(nsec) = native_keychain::read_nsec_for_profile(profile_id)? {
         session.set_keys(profile_id, &nsec).await?;
         if let Some(keys) = session.get_keys(profile_id).await {
@@ -211,12 +212,8 @@ pub async fn session_status_for_window(
     session: &SessionState,
     profiles: &tauri::State<'_, DesktopProfileState>,
 ) -> Result<SessionStatus, String> {
+    // Observational only — never keychain-hydrate here (FM1 L3: status must not undo Lock).
     let profile_id = resolve_profile_for_window(app, profiles, window).await?;
-    if session.get_keys(&profile_id).await.is_none() {
-        if let Ok(Some(nsec)) = native_keychain::read_nsec_for_profile(&profile_id) {
-            let _ = session.set_keys(&profile_id, &nsec).await;
-        }
-    }
     let keys_opt = session.get_keys(&profile_id).await;
     let npub = keys_opt.map(|k| k.public_key().to_string());
     let is_active = npub.is_some();

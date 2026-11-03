@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, Lock, Shield, User, Fingerprint } from 'lucide-react';
 
 const LOCKED_IDENTITY_LABEL = "Locked profile";
@@ -13,6 +13,8 @@ interface LockScreenProps {
     hasPin?: boolean;
     onUnlockPin?: (pin: string) => Promise<boolean>;
     onUnlockBiometric?: () => Promise<boolean>;
+    /** Soft-lock: identity already unlocked; only encrypted local storage needs the device password. */
+    storageOnly?: boolean;
 }
 
 export const LockScreen: React.FC<LockScreenProps> = ({
@@ -24,13 +26,18 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     username,
     hasPin = false,
     onUnlockPin,
-    onUnlockBiometric
+    onUnlockBiometric,
+    storageOnly = false,
 }) => {
     const [passphrase, setPassphrase] = useState('');
     const [pin, setPin] = useState('');
-    const [mode, setMode] = useState<'password' | 'pin'>(hasPin ? 'pin' : 'password');
+    const [mode, setMode] = useState<'password' | 'pin'>(hasPin && !storageOnly ? 'pin' : 'password');
     const [error, setError] = useState<string | null>(errorMessage ?? null);
     const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        setError(errorMessage ?? null);
+    }, [errorMessage]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,7 +50,9 @@ export const LockScreen: React.FC<LockScreenProps> = ({
             }
             const success = await onUnlock(passphrase);
             if (!success) {
-                setError('Invalid password. Please try again.');
+                setError(storageOnly
+                    ? 'Could not open local storage with that password.'
+                    : 'Invalid password. Please try again.');
             }
         } else {
             if (pin.length < 4) {
@@ -60,10 +69,14 @@ export const LockScreen: React.FC<LockScreenProps> = ({
         }
     };
 
+    const title = storageOnly ? 'Local data locked' : 'Identity Locked';
+    const description = storageOnly
+        ? 'Your identity is already unlocked. Enter your device password to open encrypted storage on this computer.'
+        : 'Your identity is protected. Enter your password to resume messaging.';
+
     return (
         <div className="relative flex-1 flex items-center justify-center overflow-y-auto bg-zinc-950/90 backdrop-blur-md px-4 py-safe">
             <div className="w-full max-w-md p-8 rounded-3xl border border-white/5 bg-zinc-900/50 shadow-2xl overflow-hidden relative group my-auto">
-                {/* Background glow effect */}
                 <div className="absolute -inset-24 top-0 bg-white/5 blur-3xl rounded-full opacity-20 pointer-events-none" />
 
                 <div className="relative flex flex-col items-center text-center space-y-6">
@@ -72,10 +85,15 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                     </div>
 
                     <div className="space-y-2">
-                        <h1 className="text-2xl font-semibold text-white tracking-tight">Identity Locked</h1>
+                        <h1 className="text-2xl font-semibold text-white tracking-tight">{title}</h1>
                         <p className="text-zinc-400 text-sm leading-relaxed max-w-[280px] mx-auto">
-                            Your identity is protected. Enter your password to resume messaging.
+                            {description}
                         </p>
+                        {storageOnly ? (
+                            <p className="text-[11px] text-zinc-500 max-w-[300px] mx-auto">
+                                This is not a second account sign-in — only local database encryption.
+                            </p>
+                        ) : null}
                     </div>
 
                     {(username || publicKeyHex) && (
@@ -103,7 +121,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                                         className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200"
                                         aria-label={isVisible ? "Hide password" : "Show password"}
                                     >
-                                        {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="h-4 w-4" />}
                                     </button>
                                 </div>
                             ) : (
@@ -140,47 +158,37 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                             ) : (
                                 <>
                                     <Shield className="w-5 h-5" strokeWidth={2.5} />
-                                    <span>Unlock Identity</span>
+                                    <span>{storageOnly ? 'Unlock local data' : 'Unlock Identity'}</span>
                                 </>
                             )}
                         </button>
 
-                        {hasPin && (
+                        {hasPin && !storageOnly ? (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setMode(mode === 'pin' ? 'password' : 'pin');
-                                    setError(null);
-                                }}
-                                className="w-full text-zinc-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors py-2"
+                                onClick={() => setMode(mode === 'password' ? 'pin' : 'password')}
+                                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                             >
-                                {mode === 'pin' ? 'Use Full Password' : 'Use PIN instead'}
+                                {mode === 'password' ? 'Use PIN instead' : 'Use password instead'}
                             </button>
-                        )}
+                        ) : null}
 
-                        {onUnlockBiometric && (
-                            <div className="pt-2">
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        setError(null);
-                                        const success = await onUnlockBiometric();
-                                        if (!success) {
-                                            setError('Biometric authentication failed.');
-                                        }
-                                    }}
-                                    className="w-full h-12 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 text-cyan-400 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 group"
-                                >
-                                    <Fingerprint className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Use Biometrics</span>
-                                </button>
-                            </div>
-                        )}
+                        {onUnlockBiometric && !storageOnly ? (
+                            <button
+                                type="button"
+                                onClick={() => { void onUnlockBiometric(); }}
+                                className="w-full flex items-center justify-center gap-2 text-xs text-zinc-500 hover:text-zinc-300 py-2"
+                            >
+                                <Fingerprint className="w-4 h-4" />
+                                Use biometrics
+                            </button>
+                        ) : null}
                     </form>
 
-                    {onForget && (
+                    {!storageOnly && onForget ? (
                         <button
                             type="button"
+                            className="text-[10px] text-zinc-600 hover:text-red-400 uppercase tracking-widest font-bold"
                             onClick={() => {
                                 if (window.confirm("Are you sure you want to reset your identity? This will permanently delete your local keys and you will need to start over.")) {
                                     void onForget().then(() => {
@@ -188,15 +196,14 @@ export const LockScreen: React.FC<LockScreenProps> = ({
                                     });
                                 }
                             }}
-                            className="text-zinc-500 hover:text-red-400 text-xs font-medium transition-colors"
                         >
                             Forgot password? Reset account
                         </button>
-                    )}
+                    ) : null}
 
-                    <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-[0.1em]">
+                    <div className="text-[9px] text-zinc-700 uppercase tracking-[0.2em] font-black pt-2">
                         Secured by Nostr Protocol
-                    </p>
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,7 +1,8 @@
 # v2.0.0 presenter checklist — cold run
 
 **Use with:** [README.md](./README.md) demo script  
-**Sign-off:** Maintainer only — one successful cold run required for Phase 5 EXIT
+**Sign-off:** Maintainer only — one successful cold run required for Phase 5 EXIT  
+**2026-11 public feedback video:** run [pre-demo-validation-2026-11.md](./pre-demo-validation-2026-11.md) first (agent preflight + operator Pass before record)
 
 ---
 

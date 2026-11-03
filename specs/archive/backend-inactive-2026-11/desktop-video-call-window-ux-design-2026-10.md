@@ -2,7 +2,7 @@
 
 **Date (UTC):** 2026-10-20  
 **Status:** Implemented · L1  
-**Frontend:** [frontend-spec-desktop-video-call-window-2026-10.md](../../docs/frontend-spec-desktop-video-call-window-2026-10.md)
+**Frontend:** [frontend-spec-desktop-video-call-window-2026-10.md](../frontend/frontend-spec-desktop-video-call-window-2026-10.md)
 
 ```text
 HANDOFF ATOMIC STEP: Floating video window does not block chat multitasking

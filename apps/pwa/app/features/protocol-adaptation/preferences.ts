@@ -21,7 +21,7 @@ const emitProtocolAdaptationChanged = (): void => {
 };
 
 const isProtocolId = (value: string): value is ProtocolId => (
-  value === "nostr" || value === "matrix"
+  value === "nostr" || value === "matrix" || value === "private_dc"
 );
 
 const isTransportId = (value: string): value is TransportId => (

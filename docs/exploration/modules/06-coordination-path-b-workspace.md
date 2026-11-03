@@ -81,7 +81,7 @@ No dedicated coordination documentation directory exists in the repo (exploratio
 | Relay tiers: `public_default` blocks managed workspace; `trusted_private` / `managed_intranet` allow | `community-mode-contract.ts` + fork doc |
 | `TransportKind`: `obscur_coordination`, `team_relay`, `nostr` | Kernel spec §4.3 |
 | Membership truth rewrite: coordination **only** authority for `managed_workspace`; stop monotonic OR-set | `community-membership-truth-rewrite-2026-05.md` |
-| Demo matrix K-M1–K-M6 | `docs/assets/demo/v1.9.0/README.md` |
+| Demo matrix K-M1–K-M6 | `docs/archive/demo/v1.9.0/README.md` (archived) |
 | **Decision record unfilled** (Path A vs B checkbox empty) | `community-fork-decision-2026-05.md` §Decision record |
 
 ---
@@ -334,7 +334,7 @@ flowchart LR
 - `docs/program/obscur-r1-workspace-consolidation.md`
 - `docs/program/v1.9.0-kernel-backend-spec.md` §4.7–4.9
 - `docs/program/community-membership-truth-rewrite-2026-05.md`
-- `docs/assets/demo/v1.9.0/README.md` — K-M1–K-M6
+- `docs/archive/demo/v1.9.0/README.md` — K-M1–K-M6 (archived)
 
 **Prior modules:**
 

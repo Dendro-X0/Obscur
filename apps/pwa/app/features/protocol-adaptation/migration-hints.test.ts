@@ -19,5 +19,12 @@ describe("protocol migration hints (C3)", () => {
   it("summarizes protocol switches", () => {
     expect(getProtocolSwitchSummary("matrix")).toMatch(/Matrix/i);
     expect(getProtocolSwitchSummary("nostr")).toMatch(/Nostr/i);
+    expect(getProtocolSwitchSummary("private_dc")).toMatch(/Private DC/i);
+  });
+
+  it("returns Private DC spike hints", () => {
+    const hints = getProtocolMigrationHints("private_dc");
+    expect(hints.some((h) => h.id === "private-dc-spike")).toBe(true);
+    expect(hints.some((h) => h.id === "private-dc-no-bridge")).toBe(true);
   });
 });

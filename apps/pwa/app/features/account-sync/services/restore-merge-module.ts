@@ -21,6 +21,7 @@ import {
 } from "@/app/features/groups/services/community-membership-reconstruction";
 import { downgradeInviteResponseOnlyJoinedLedgerEntries } from "@/app/features/groups/services/community-invite-response-only-ledger-policy";
 import { mergeProfileSnapshotsForRestore } from "./restore-profile-merge";
+import { mergeRelayListPreferEnabled } from "./restore-relay-list-persist";
 import {
   enrichCommunityMembershipLedgerMemberPubkeysFromInviteEvidence,
   enrichPersistedCreatedGroupsMemberPubkeysFromInviteEvidence,
@@ -783,18 +784,7 @@ const mergeCheckpoints = (
 const mergeRelayList = (
   current: EncryptedAccountBackupPayload["relayList"] | undefined,
   incoming: EncryptedAccountBackupPayload["relayList"] | undefined,
-): EncryptedAccountBackupPayload["relayList"] => {
-  // RelayListSnapshot is an array, merge by url with incoming taking precedence
-  const currentArray = current ?? [];
-  const incomingArray = incoming ?? [];
-
-  const byUrl = new Map(currentArray.map(r => [r.url, r]));
-  for (const relay of incomingArray) {
-    byUrl.set(relay.url, relay);
-  }
-
-  return Array.from(byUrl.values());
-};
+): EncryptedAccountBackupPayload["relayList"] => mergeRelayListPreferEnabled(current, incoming);
 
 const DEFAULT_THEME_PREFERENCE = "system";
 const DEFAULT_ACCESSIBILITY_PREFERENCES: NonNullable<EncryptedAccountBackupPayload["uiSettings"]>["accessibilityPreferences"] = {

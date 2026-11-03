@@ -2,8 +2,8 @@
  * @obscur/protocol-nostr — attachment point for Obscur-Nostr.
  *
  * Register the live adapter with ProtocolAdaptationLayer under OBSCUR_NOSTR_PROTOCOL_ID.
- * Runtime adapter body: OBSCUR_NOSTR_IMPLEMENTATION_HOME (apps/pwa) until a later move.
- * Forks depend on this package for identity + port-surface constants first.
+ * Runtime adapter orchestration: OBSCUR_NOSTR_IMPLEMENTATION_HOME (apps/pwa).
+ * P7+: pure body leaves (canonical maps) live in this package.
  */
 
 export {
@@ -17,3 +17,26 @@ export {
   OBSCUR_NOSTR_RICH_PORTS,
   OBSCUR_NOSTR_PRIVATE_SEND,
 } from "./port-surfaces";
+
+export {
+  mapRichConversationToCanonical,
+  mapRichMessageToCanonical,
+  type ObscurNostrCanonicalConversation,
+  type ObscurNostrCanonicalMessage,
+  type ObscurNostrRichConversationLike,
+  type ObscurNostrRichMessageLike,
+} from "./canonical-from-rich";
+
+export {
+  OBSCUR_NOSTR_CAPABILITIES,
+  formatNostrCanonicalSendRequiresCredentialsError,
+  type ObscurNostrCapabilities,
+} from "./capabilities";
+
+export { OBSCUR_NOSTR_DISPLAY_NAME } from "./display-name";
+
+export {
+  getObscurNostrMigrationHints,
+  getObscurNostrSwitchSummary,
+  type ObscurNostrMigrationHint,
+} from "./migration-hints";

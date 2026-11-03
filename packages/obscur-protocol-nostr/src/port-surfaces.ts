@@ -9,8 +9,9 @@
  * These stay wired for behavior parity. They are not the long-term platform DTO.
  *
  * Obscur-Nostr private — always Nostr wire even if Matrix is the active protocol id:
- *   nostrAdapter.sendDm · nostrAdapter.sendConnectionRequest
- * Use for delete/retry and other Nostr-only pipelines (see D1).
+ *   Adapter impl: nostrAdapter.sendDm
+ *   Messaging entry (K1): ProtocolAdaptationLayer.sendDmNostrOnly → adapter
+ * Delete/retry must not import nostrAdapter from messaging (see D1).
  */
 
 export const PLATFORM_CANONICAL_PORTS = [

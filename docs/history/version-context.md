@@ -7,7 +7,7 @@ This file defines how version history is represented after consolidating version
 ## Canonical Context Sources
 
 1. Program history and milestone consolidation:
-: `docs/encyclopedia/11-program-milestones-and-stability-history.md`
+: `docs/archive/encyclopedia-historical-2026-11/11-program-milestones-and-stability-history.md`
 2. Active roadmap:
 : `docs/program/current-roadmap.md`
 3. Release execution:

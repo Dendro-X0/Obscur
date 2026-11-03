@@ -6,11 +6,15 @@ export type ReleaseAsset = Readonly<{
 
 export type DesktopPlatform = "windows" | "macos" | "linux" | "unknown";
 
+/** CPU / bundle arch inferred from Tauri-style asset names. */
+export type DesktopArch = "x64" | "arm64" | "universal" | "unknown";
+
 export type ReleaseDownloadTarget = Readonly<{
   label: string;
   href: string;
   assetName: string;
   sizeBytes: number;
+  arch?: DesktopArch;
 }>;
 
 const WINDOWS_MATCHERS = [".exe", ".msi"];
@@ -52,6 +56,48 @@ export const classifyReleaseAssetFamily = (
   return "other";
 };
 
+/** Infer arch from Obscur/Tauri installer filenames (x64, aarch64, amd64, universal, …). */
+export const classifyDesktopArch = (assetName: string): DesktopArch => {
+  const name = normalizeAssetName(assetName);
+  if (name.includes("universal")) return "universal";
+  if (
+    name.includes("aarch64")
+    || name.includes("arm64")
+    || /(?:^|[_\-.])arm(?:[_\-.]|$)/.test(name)
+  ) {
+    return "arm64";
+  }
+  if (
+    name.includes("x64")
+    || name.includes("amd64")
+    || name.includes("x86_64")
+    || name.includes("intel")
+  ) {
+    return "x64";
+  }
+  return "unknown";
+};
+
+const ARCH_SHORT_LABEL: Readonly<Record<DesktopArch, string>> = {
+  x64: "x64",
+  arm64: "ARM64",
+  universal: "Universal",
+  unknown: "Installer",
+};
+
+const platformDisplayName = (platform: DesktopPlatform): string => {
+  switch (platform) {
+    case "windows":
+      return "Windows";
+    case "macos":
+      return "macOS";
+    case "linux":
+      return "Linux";
+    default:
+      return "Desktop";
+  }
+};
+
 const pickAssetByMatchers = (
   assets: readonly ReleaseAsset[],
   preferredMatchers: readonly string[],
@@ -81,6 +127,11 @@ export const pickPreferredDesktopAsset = (
     return pickAssetByMatchers(assets, MACOS_MATCHERS);
   }
   if (platform === "linux") {
+    const amd64AppImage = assets.find((asset) => {
+      const name = normalizeAssetName(asset.name);
+      return name.endsWith(".appimage") && (name.includes("amd64") || name.includes("x86_64") || name.includes("_x64"));
+    });
+    if (amd64AppImage) return amd64AppImage;
     const appImage = assets.find((asset) => normalizeAssetName(asset.name).endsWith(".appimage"));
     if (appImage) return appImage;
     return pickAssetByMatchers(assets, LINUX_MATCHERS);
@@ -100,7 +151,44 @@ export const toReleaseDownloadTarget = (
     href: asset.browser_download_url,
     assetName: asset.name,
     sizeBytes: asset.size,
+    arch: classifyDesktopArch(asset.name),
   };
+};
+
+/**
+ * All downloadable installers for one desktop OS, preferred first.
+ * Ready for multi-arch Releases (x64 + ARM64, etc.) when CI publishes them.
+ */
+export const listDesktopDownloadVariants = (
+  assets: readonly ReleaseAsset[],
+  platform: DesktopPlatform,
+): readonly ReleaseDownloadTarget[] => {
+  if (platform === "unknown") {
+    return [];
+  }
+  const matched = assets.filter((asset) => classifyReleaseAssetFamily(asset) === platform);
+  if (matched.length === 0) {
+    return [];
+  }
+  const preferred = pickPreferredDesktopAsset(matched, platform);
+  const ordered = [...matched].sort((left, right) => {
+    if (preferred) {
+      if (left.name === preferred.name) return -1;
+      if (right.name === preferred.name) return 1;
+    }
+    return left.name.localeCompare(right.name);
+  });
+  const osName = platformDisplayName(platform);
+  return ordered.map((asset) => {
+    const arch = classifyDesktopArch(asset.name);
+    return {
+      label: `${osName} (${ARCH_SHORT_LABEL[arch]})`,
+      href: asset.browser_download_url,
+      assetName: asset.name,
+      sizeBytes: asset.size,
+      arch,
+    };
+  });
 };
 
 export const filterDownloadableReleaseAssets = (

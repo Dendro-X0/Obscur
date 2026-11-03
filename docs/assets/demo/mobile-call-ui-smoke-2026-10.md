@@ -60,5 +60,5 @@ http://127.0.0.1:3340/lab/call-ui-preview
 ## Related
 
 - `apps/pwa/app/features/messaging/services/realtime-call-presentation.ts`
-- `docs/frontend-spec-desktop-video-call-stage-2026-10.md` (desktop only)
+- `specs/frontend/frontend-spec-desktop-video-call-stage-2026-10.md` (desktop only)
 - Handoff: do not open video L3 before v2.0.0-beta.1 tag unless P0

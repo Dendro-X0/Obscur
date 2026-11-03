@@ -98,10 +98,25 @@ export default async function DownloadPage() {
   const artifactLabel = (fileName: string) => displayArtifactName(fileName);
 
   const desktopTargets = [
-    { label: "Windows", target: release?.preferredDesktopDownload.windows },
-    { label: "macOS", target: release?.preferredDesktopDownload.macos },
-    { label: "Linux", target: release?.preferredDesktopDownload.linux },
-  ] as const;
+    {
+      label: "Windows" as const,
+      platformKey: "windows" as const,
+      target: release?.preferredDesktopDownload.windows ?? null,
+      variants: release?.desktopDownloadVariants.windows ?? [],
+    },
+    {
+      label: "macOS" as const,
+      platformKey: "macos" as const,
+      target: release?.preferredDesktopDownload.macos ?? null,
+      variants: release?.desktopDownloadVariants.macos ?? [],
+    },
+    {
+      label: "Linux" as const,
+      platformKey: "linux" as const,
+      target: release?.preferredDesktopDownload.linux ?? null,
+      variants: release?.desktopDownloadVariants.linux ?? [],
+    },
+  ];
 
   const primaryPlatformHint =
     detectedPlatform === "android"
@@ -161,8 +176,17 @@ export default async function DownloadPage() {
           )}
 
           <ul className="download-hero-points">
-            <li>Private messaging — identity stays on your device</li>
+            <li>Private messaging — identity stays on your device · E2EE</li>
             <li>No account signup · no store listing required</li>
+            <li>
+              Open beta feedback cut — not Tor Verified · not Soft L3 Fixed · video calls not
+              claimed usable · Matrix / Private DC are lab optional
+            </li>
+            <li>
+              DMs: <strong>Hide on this device</strong> (not Telegram-style erase-everywhere).
+              Managed workspaces can remove from that sealed relay — see{" "}
+              <Link href="/limitations">Product scope</Link>
+            </li>
             <li>
               Installers are self-signed / unsigned — each OS may warn; that is expected without
               Apple / Microsoft / Play developer programs
@@ -250,10 +274,12 @@ export default async function DownloadPage() {
         </div>
 
         <div className="download-pick-grid">
-          {desktopTargets.map(({ label, target }) => {
+          {desktopTargets.map(({ label, target, variants }) => {
             const isSuggested = primaryPlatformHint === label;
             const hintKey =
               label === "Windows" ? "windows" : label === "macOS" ? "macos" : "linux";
+            const primary = variants[0] ?? target;
+            const secondary = variants.slice(1);
             return (
               <article
                 key={label}
@@ -263,21 +289,37 @@ export default async function DownloadPage() {
                   <h3>{label}</h3>
                   {isSuggested ? <span className="download-pick-badge">For you</span> : null}
                 </div>
-                {target ? (
+                {primary ? (
                   <>
-                    <p className="download-pick-size">{formatSize(target.sizeBytes)}</p>
-                    <p className="download-pick-file" title={target.assetName}>
-                      {artifactLabel(target.assetName)}
+                    <p className="download-pick-size">
+                      {formatSize(primary.sizeBytes)}
+                      {primary.arch && primary.arch !== "unknown" ? ` · ${primary.arch === "arm64" ? "ARM64" : primary.arch === "x64" ? "x64" : "Universal"}` : ""}
+                    </p>
+                    <p className="download-pick-file" title={primary.assetName}>
+                      {artifactLabel(primary.assetName)}
                     </p>
                     <p className="download-pick-hint">{PLATFORM_INSTALL_HINTS[hintKey]}</p>
                     <a
                       className="button button-primary"
-                      href={target.href}
+                      href={primary.href}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Download
+                      Download{primary.arch && primary.arch !== "unknown" ? ` (${primary.arch === "arm64" ? "ARM64" : primary.arch === "x64" ? "x64" : "Universal"})` : ""}
                     </a>
+                    {secondary.length > 0 ? (
+                      <ul className="download-pick-variants">
+                        {secondary.map((variant) => (
+                          <li key={variant.assetName}>
+                            <a href={variant.href} target="_blank" rel="noreferrer">
+                              {variant.label}
+                              {" · "}
+                              {formatSize(variant.sizeBytes)}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </>
                 ) : (
                   <>

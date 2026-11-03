@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { shouldOfferEmptyDeviceContinuityGate } from "./empty-device-continuity-policy";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  readEmptyDeviceContinuityDismissed,
+  shouldOfferEmptyDeviceContinuityGate,
+  writeEmptyDeviceContinuityDismissed,
+} from "./empty-device-continuity-policy";
 
 describe("shouldOfferEmptyDeviceContinuityGate", () => {
   const readyEmpty = {
@@ -37,7 +41,7 @@ describe("shouldOfferEmptyDeviceContinuityGate", () => {
     })).toBe(false);
   });
 
-  it("respects session dismiss and locked identity", () => {
+  it("respects durable dismiss and locked identity", () => {
     expect(shouldOfferEmptyDeviceContinuityGate({
       ...readyEmpty,
       dismissed: true,
@@ -46,5 +50,29 @@ describe("shouldOfferEmptyDeviceContinuityGate", () => {
       ...readyEmpty,
       identityReady: false,
     })).toBe(false);
+  });
+});
+
+describe("empty device continuity dismiss persistence", () => {
+  const profileId = "default";
+  const publicKeyHex = "a".repeat(64);
+
+  afterEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+
+  it("survives a simulated app relaunch via localStorage", () => {
+    writeEmptyDeviceContinuityDismissed(profileId, publicKeyHex);
+    window.sessionStorage.clear();
+    expect(readEmptyDeviceContinuityDismissed(profileId, publicKeyHex)).toBe(true);
+  });
+
+  it("migrates legacy sessionStorage dismiss into localStorage", () => {
+    const key = `obscur.empty_device_continuity.dismissed.v1.${profileId}.${publicKeyHex}`;
+    window.sessionStorage.setItem(key, "1");
+    expect(readEmptyDeviceContinuityDismissed(profileId, publicKeyHex)).toBe(true);
+    expect(window.localStorage.getItem(key)).toBe("1");
+    expect(window.sessionStorage.getItem(key)).toBeNull();
   });
 });

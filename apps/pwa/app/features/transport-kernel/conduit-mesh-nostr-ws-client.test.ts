@@ -75,25 +75,37 @@ describe("conduit-mesh-nostr-ws-client", () => {
 
     client.setRelayUrls(["wss://relay.damus.io", "wss://nos.lol"]);
 
-    // Slice 2b: public-only pool dials zero Quiet (cap=0); private still uses factory.
-    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalled();
-    expect(client.getConnectionSnapshots()).toEqual([]);
+    // Cap=2 beta: public Quiet dials go through the factory (not raw browser WebSocket).
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledTimes(2);
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://relay.damus.io");
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
+
+    relaySocketMocks.createRelayWebSocket.mockClear();
     client.setRelayUrls(["ws://localhost:7000", "wss://nos.lol"]);
+    // Private is new; nos.lol already open from prior set — no re-dial.
     expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledTimes(1);
     expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("ws://localhost:7000");
+    client.dispose();
   });
 
-  it("Slice 2b: public-only Quiet URLs do not dial under cap=0", async () => {
+  it("Slice 2b: public-only Quiet dials at most RELAY_WARMUP_PUBLIC_DIAL_CAP", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
-    const first = createConduitMeshNostrWsClient();
-    const second = createConduitMeshNostrWsClient();
+    const { RELAY_WARMUP_PUBLIC_DIAL_CAP } = await import(
+      "@/app/features/relays/services/relay-warmup-dial-cap"
+    );
+    const client = createConduitMeshNostrWsClient();
 
-    first.setRelayUrls(["wss://nos.lol"]);
-    second.setRelayUrls(["wss://relay.primal.net"]);
+    client.setRelayUrls([
+      "wss://nos.lol",
+      "wss://relay.primal.net",
+      "wss://relay.damus.io",
+    ]);
 
-    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalled();
-    first.dispose();
-    second.dispose();
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledTimes(RELAY_WARMUP_PUBLIC_DIAL_CAP);
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://relay.primal.net");
+    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalledWith("wss://relay.damus.io");
+    client.dispose();
   });
 
   it("records connection success on open (P3 sample wiring)", async () => {
@@ -264,10 +276,14 @@ describe("conduit-mesh-nostr-ws-client", () => {
 
     expect(closeSpy).toHaveBeenCalled();
     expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("ws://localhost:7000");
-    expect(client.getConnectionSnapshots()).toEqual([
-      expect.objectContaining({ url: "ws://localhost:7000", status: "connecting" }),
-    ]);
-    expect(relaySocketMocks.createRelayWebSocket).not.toHaveBeenCalledWith("wss://nos.lol");
+    expect(relaySocketMocks.createRelayWebSocket).toHaveBeenCalledWith("wss://nos.lol");
+    expect(client.getConnectionSnapshots()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: "ws://localhost:7000", status: "connecting" }),
+        expect.objectContaining({ url: "wss://nos.lol", status: "connecting" }),
+      ]),
+    );
+    expect(client.getConnectionSnapshots()).toHaveLength(2);
     client.dispose();
   });
 

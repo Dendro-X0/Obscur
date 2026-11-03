@@ -4,6 +4,8 @@ _Status: Draft - Pending review and user validation_
 _Last updated: 2026-05-02_
 _Last reviewed: 2026-05-03 (baseline commit 7111e10a)._
 
+**Wave 5:** User-facing soak steps formerly in ch.20 → stub [20-community-verification-guide.md](./20-community-verification-guide.md) · cold-run [../assets/demo/v2.0.0/pre-demo-validation-2026-11.md](../assets/demo/v2.0.0/pre-demo-validation-2026-11.md).
+
 ## 1. Problem Statement
 
 The community/group system has experienced critical data loss issues where:
@@ -864,7 +866,7 @@ interface CommunityMembershipLedgerEntryV2 {
 ## 14. Related Documents
 
 - `docs/encyclopedia/10-community-and-groups-overhaul.md` - Operating model
-- `docs/encyclopedia/16-cross-device-group-visibility-incident.md` - Historical incident
+- `docs/archive/encyclopedia-historical-2026-11/16-cross-device-group-visibility-incident.md` - Historical incident
 - `docs/handoffs/current-session.md` - Session context
 - Code: `apps/pwa/app/features/groups/services/community-membership-ledger.ts`
 - Code: `apps/pwa/app/features/groups/providers/group-provider.tsx`

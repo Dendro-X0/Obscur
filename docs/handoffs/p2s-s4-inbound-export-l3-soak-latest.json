@@ -1,0 +1,21 @@
+{
+  "capturedAt": "2026-11-02T14:28:48.912Z",
+  "surface": "tauri-desktop-cdp",
+  "cdp": "http://127.0.0.1:9230",
+  "band": "p2s-S4-L3-inbound-export",
+  "matrix": {
+    "hooksPresent": true,
+    "quarantineRequiresConfirm": true,
+    "deniedExeRequiresConfirm": true,
+    "exportWithoutConsentBlocked": true,
+    "planNeverSystemOpen": true,
+    "exportModuleNoShellOpen": true
+  },
+  "verdict": "Pass",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "antivirus replacement",
+    "unattended save-as success after consent"
+  ]
+}

@@ -1086,6 +1086,25 @@ img {
   opacity: 0.75;
 }
 
+.download-pick-variants {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.download-pick-variants a {
+  color: var(--site-muted, #8a8a8a);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.download-pick-variants a:hover {
+  color: inherit;
+}
+
 .download-pick-hint {
   margin: 0 0 auto;
   color: var(--muted);

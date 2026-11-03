@@ -1,0 +1,70 @@
+{
+  "capturedAt": "2026-11-02T11:54:44.746Z",
+  "surface": "tauri-desktop-cdp",
+  "cdp": "http://127.0.0.1:9230",
+  "band": "platform-P2-daily-door-L3",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "Matrix promote",
+    "Continuity promote"
+  ],
+  "steps": [
+    {
+      "step": "gate",
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Switch profile Change Language PROFILE LOCKED Unlock this window to continue. Keys stay on this device. SIGNING IN AS Tester1 Account key: e07f67dc…c191ea56 Device password · this computer only DEVICE LOGIN PASSWORD Log In Advanced: unlock with private key About sign-in & privacy SELF-CUSTODY ANONYMOUS",
+      "hasPw": true,
+      "placeholders": [
+        "enter your password"
+      ],
+      "hasNsecPlaceholder": false,
+      "hasOauthCopy": false,
+      "hasAdvancedToggle": true
+    },
+    {
+      "step": "after_advanced",
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Switch profile Change Language PROFILE LOCKED Unlock this window to continue. Keys stay on this device. SIGNING IN AS Tester1 Account key: e07f67dc…c191ea56 Paste your private key to unlock PRIVATE KEY Unlock Hide private key unlock About sign-in & privacy SELF-CUSTODY ANONYMOUS",
+      "hasPw": true,
+      "placeholders": [
+        "nsec1..."
+      ],
+      "hasNsecPlaceholder": true,
+      "hasOauthCopy": false,
+      "hasAdvancedToggle": false
+    },
+    {
+      "step": "after_hide_advanced",
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Switch profile Change Language PROFILE LOCKED Unlock this window to continue. Keys stay on this device. SIGNING IN AS Tester1 Account key: e07f67dc…c191ea56 Device password · this computer only DEVICE LOGIN PASSWORD Log In Advanced: unlock with private key About sign-in & privacy SELF-CUSTODY ANONYMOUS",
+      "hasPw": true,
+      "placeholders": [
+        "enter your password"
+      ],
+      "hasNsecPlaceholder": false,
+      "hasOauthCopy": false,
+      "hasAdvancedToggle": true
+    },
+    {
+      "step": "password_reentry",
+      "shell": true,
+      "href": "http://127.0.0.1:1430/network",
+      "text": "OBSCUR TESTER1 Switch profile Unlocking profile…",
+      "hasPw": false,
+      "placeholders": [],
+      "hasNsecPlaceholder": false,
+      "hasOauthCopy": false,
+      "hasAdvancedToggle": false
+    }
+  ],
+  "matrix": {
+    "passphrasePrimaryVisible": true,
+    "advancedTogglePresent": true,
+    "privateKeyHiddenByDefault": true,
+    "privateKeyAfterAdvanced": true,
+    "noOauthOnGate": true,
+    "passwordReentryShell": true
+  },
+  "verdict": "Pass"
+}

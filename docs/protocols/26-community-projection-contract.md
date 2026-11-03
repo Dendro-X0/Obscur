@@ -11,7 +11,7 @@ It should be read together with:
 
 1. `docs/protocols/25-community-ledger-and-projection-architecture-spec.md`
 2. `docs/encyclopedia/10-community-and-groups-overhaul.md`
-3. `docs/encyclopedia/16-cross-device-group-visibility-incident.md`
+3. `docs/archive/encyclopedia-historical-2026-11/16-cross-device-group-visibility-incident.md`
 4. `docs/releases/core-verification-communities-and-membership-integrity.md`
 
 ## Purpose

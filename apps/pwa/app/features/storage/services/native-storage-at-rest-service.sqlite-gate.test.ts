@@ -29,9 +29,21 @@ import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import {
   activateNativeStorageAtRestUnlock,
   ensureNativeSqliteOpenForWrites,
+  restoreNativeVaultEncryptionSessionIfNeeded,
+  syncNativeVaultEncryptionSessionAfterIdentityUnlock,
 } from "./native-storage-at-rest-service";
-import { establishProfileStorageKeySession, getProfileStorageKeyMaterial } from "./profile-storage-key-session";
+import {
+  establishProfileStorageKeySession,
+  establishProfileStorageKeySessionFromMaterial,
+  getProfileStorageKeyMaterial,
+} from "./profile-storage-key-session";
+import { isVaultWriteEncryptionReady } from "./vault-at-rest";
 import { profileDataKeyMaterialToBase64 } from "./profile-data-key";
+import { fromBase64 } from "@dweb/crypto/from-base64";
+
+vi.mock("@dweb/crypto/from-base64", () => ({
+  fromBase64: vi.fn(() => new Uint8Array(32)),
+}));
 
 describe("ensureNativeSqliteOpenForWrites", () => {
   beforeEach(() => {
@@ -116,5 +128,76 @@ describe("activateNativeStorageAtRestUnlock (soft-lock slice 3)", () => {
       "desktop_storage_at_rest_unlock",
       expect.objectContaining({ profileId: "default" }),
     );
+  });
+});
+
+describe("syncNativeVaultEncryptionSessionAfterIdentityUnlock (Slice C)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(hasNativeRuntime).mockReturnValue(true);
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValue(false);
+    vi.mocked(establishProfileStorageKeySession).mockResolvedValue(undefined as never);
+    vi.mocked(establishProfileStorageKeySessionFromMaterial).mockReturnValue(undefined as never);
+    vi.mocked(getProfileStorageKeyMaterial).mockReturnValue(new Uint8Array(32) as never);
+    vi.mocked(profileDataKeyMaterialToBase64).mockReturnValue("dGVzdA==");
+    vi.mocked(fromBase64).mockReturnValue(new Uint8Array(32));
+  });
+
+  it("restores PDK from keychain when no passphrase is provided (Advanced key path)", async () => {
+    const keyB64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    vi.mocked(invokeNativeCommand).mockImplementation(async (command) => {
+      if (command === "desktop_storage_at_rest_restore_keychain") {
+        return { ok: true, value: keyB64 };
+      }
+      return { ok: false, reason: "failed", message: `unexpected ${command}` };
+    });
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValueOnce(false).mockReturnValue(true);
+
+    await expect(
+      syncNativeVaultEncryptionSessionAfterIdentityUnlock({ profileId: "default" }),
+    ).resolves.toBe(true);
+    expect(invokeNativeCommand).toHaveBeenCalledWith(
+      "desktop_storage_at_rest_restore_keychain",
+      { profileId: "default" },
+      expect.objectContaining({ timeoutMs: 8_000 }),
+    );
+    expect(establishProfileStorageKeySessionFromMaterial).toHaveBeenCalled();
+  });
+
+  it("falls back to keychain restore when passphrase activate fails", async () => {
+    vi.mocked(invokeNativeCommand).mockImplementation(async (command) => {
+      if (command === "desktop_storage_at_rest_unlock") {
+        return { ok: false, reason: "failed", message: "locked" };
+      }
+      if (command === "desktop_storage_at_rest_restore_keychain") {
+        return { ok: true, value: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" };
+      }
+      return { ok: false, reason: "failed", message: `unexpected ${command}` };
+    });
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValueOnce(false).mockReturnValue(true);
+
+    await expect(
+      syncNativeVaultEncryptionSessionAfterIdentityUnlock({
+        profileId: "default",
+        passphrase: "DevicePass#2026" as never,
+      }),
+    ).resolves.toBe(true);
+    expect(invokeNativeCommand).toHaveBeenCalledWith(
+      "desktop_storage_at_rest_unlock",
+      expect.objectContaining({ profileId: "default" }),
+    );
+    expect(invokeNativeCommand).toHaveBeenCalledWith(
+      "desktop_storage_at_rest_restore_keychain",
+      { profileId: "default" },
+      expect.objectContaining({ timeoutMs: 8_000 }),
+    );
+  });
+
+  it("restoreNativeVaultEncryptionSessionIfNeeded returns true when vault already ready", async () => {
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValue(true);
+    await expect(
+      restoreNativeVaultEncryptionSessionIfNeeded({ profileId: "default" }),
+    ).resolves.toBe(true);
+    expect(invokeNativeCommand).not.toHaveBeenCalled();
   });
 });

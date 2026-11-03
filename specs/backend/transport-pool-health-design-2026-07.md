@@ -1,7 +1,7 @@
 # Transport pool health — design (v1.9.14 P14-P)
 
 **Date:** 2026-07-17  
-**Investigation:** [transport-pool-presets-investigation-2026-07.md](./transport-pool-presets-investigation-2026-07.md)  
+**Investigation:** [transport-pool-presets-investigation-2026-07.md](../archive/backend-inactive-2026-11/transport-pool-presets-investigation-2026-07.md)  
 **Scope:** Mesh pool → supervisor → Settings badge truth (no legacy pool deletion)
 
 ---

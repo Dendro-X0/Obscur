@@ -158,7 +158,11 @@ export const ensureNativeSqliteOpenForWrites = async (
   return reopen.ok === true;
 };
 
-/** Passphrase unlock establishes keys; keychain unlock restores persisted profile data key. */
+/**
+ * Slice C — after identity unlock, open PDK without a second UI when possible.
+ * Passphrase: activate (also writes keychain). If activate fails, fall back to keychain PDK.
+ * Key / stay-signed-in: restore PDK from keychain only (not identity silent unlock).
+ */
 export const syncNativeVaultEncryptionSessionAfterIdentityUnlock = async (
   params?: Readonly<{ profileId?: string; passphrase?: Passphrase }>,
 ): Promise<boolean> => {
@@ -167,10 +171,14 @@ export const syncNativeVaultEncryptionSessionAfterIdentityUnlock = async (
   }
   const profileId = resolveStorageProfileId(params?.profileId);
   if (params?.passphrase?.trim()) {
-    return activateNativeStorageAtRestUnlock({
+    const activated = await activateNativeStorageAtRestUnlock({
       profileId,
       passphrase: params.passphrase,
     });
+    if (activated) {
+      return true;
+    }
+    return restoreNativeVaultEncryptionSessionIfNeeded({ profileId });
   }
   return restoreNativeVaultEncryptionSessionIfNeeded({ profileId });
 };

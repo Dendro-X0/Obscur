@@ -216,7 +216,7 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | 5b.2 | Write + disk inventory + migrate flat Phase-5 blobs |
 | 5b.3 | Isolation P1–P7 (caches, path gate, dual-profile L1) |
 
-**Design:** [vault-profile-directory-taxonomy-design-2026-07.md](./vault-profile-directory-taxonomy-design-2026-07.md)
+**Design:** [vault-profile-directory-taxonomy-design-2026-07.md](../archive/backend-inactive-2026-11/vault-profile-directory-taxonomy-design-2026-07.md)
 
 **Status (2026-07-15):** **T1–T2 implemented** (L1) — category writes/scan/migrate; profile path gate; **G8 runbook updated** for category dirs + L3-MP — maintainer soak pending
 
@@ -232,7 +232,7 @@ Obscur Vault becomes an **encryption sandbox**: media bytes under the user data 
 | 6.2 | Flip `VAULT_SAVE_FROM_CHAT_ENABLED` only with chain proof |
 | 6.3 | No success toast without aggregator row visible |
 
-**Investigation:** [vault-chat-save-re-enable-investigation-2026-07.md](./vault-chat-save-re-enable-investigation-2026-07.md)
+**Investigation:** [vault-chat-save-re-enable-investigation-2026-07.md](../archive/backend-inactive-2026-11/vault-chat-save-re-enable-investigation-2026-07.md)
 
 **Status:** **DISABLED** — Phase 6a row-proof implementation landed (flag false) · flip after G8 + L3 chain
 
@@ -312,6 +312,6 @@ Do **not** claim process isolation or malware immunity — only **filesystem-neu
 | Envelope | `apps/pwa/app/features/storage/services/vault-at-rest.ts` |
 | Aggregator | `apps/pwa/app/features/vault/services/vault-media-aggregator.ts` |
 | Chat save (disabled) | `apps/pwa/app/features/vault/services/save-chat-attachment-to-vault.ts` |
-| Phase 6 investigation | [vault-chat-save-re-enable-investigation-2026-07.md](./vault-chat-save-re-enable-investigation-2026-07.md) |
+| Phase 6 investigation | [vault-chat-save-re-enable-investigation-2026-07.md](../archive/backend-inactive-2026-11/vault-chat-save-re-enable-investigation-2026-07.md) |
 | Verification matrix | `docs/releases/core-verification-media-and-vault-durability.md` |
 | Data root | `apps/desktop/src-tauri/src/data_root.rs` |

@@ -119,7 +119,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
+          node-version: "22"
           cache: pnpm
 
       - name: Install dependencies
@@ -136,14 +136,40 @@ jobs:
 
       # release:test-pack runs on every main push via reliability-gates — avoid duplicate ~3m gate here.
 
+  # Phase B multi-arch: one job per OS×arch. Windows ARM64 deferred (no Tor sidecar triple).
   build-desktop:
-    name: Build Desktop (${{ matrix.os }})
+    name: Build Desktop (${{ matrix.artifact_name }})
     needs: [preflight-checks]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: windows-latest
+            platform: windows
+            rust_target: x86_64-pc-windows-msvc
+            tor_triple: x86_64-pc-windows-msvc
+            artifact_name: desktop-windows-x86_64
+          - os: macos-latest
+            platform: macos
+            rust_target: aarch64-apple-darwin
+            tor_triple: aarch64-apple-darwin
+            artifact_name: desktop-macos-aarch64
+          - os: macos-latest
+            platform: macos
+            rust_target: x86_64-apple-darwin
+            tor_triple: x86_64-apple-darwin
+            artifact_name: desktop-macos-x86_64
+          - os: ubuntu-latest
+            platform: linux
+            rust_target: x86_64-unknown-linux-gnu
+            tor_triple: x86_64-unknown-linux-gnu
+            artifact_name: desktop-linux-x86_64
+          - os: ubuntu-24.04-arm
+            platform: linux
+            rust_target: aarch64-unknown-linux-gnu
+            tor_triple: aarch64-unknown-linux-gnu
+            artifact_name: desktop-linux-aarch64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -154,10 +180,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
+          node-version: "22"
           cache: pnpm
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -178,8 +206,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             apps/desktop/src-tauri/target
-          key: ${{ matrix.os }}-cargo-tauri-${{ hashFiles('package.json', 'version.json', 'apps/desktop/src-tauri/Cargo.toml', 'apps/desktop/src-tauri/tauri.conf.json', 'pnpm-lock.yaml') }}
+          key: ${{ matrix.artifact_name }}-cargo-tauri-${{ hashFiles('package.json', 'version.json', 'apps/desktop/src-tauri/Cargo.toml', 'apps/desktop/src-tauri/tauri.conf.json', 'pnpm-lock.yaml') }}
           restore-keys: |
+            ${{ matrix.artifact_name }}-cargo-tauri-
             ${{ matrix.os }}-cargo-tauri-
 
       - name: Prefetch Cargo dependencies (retry flaky crates.io)
@@ -192,7 +221,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2 3 4; do
-            if cargo fetch; then
+            if cargo fetch --target "${{ matrix.rust_target }}"; then
               echo "cargo fetch succeeded on attempt ${attempt}"
               exit 0
             fi
@@ -241,6 +270,11 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf apps/desktop/src-tauri/target/release/bundle
+          rm -rf "apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle"
+
+      - name: Install Tor sidecar for target triple
+        shell: bash
+        run: node scripts/setup-tor.mjs --triple="${{ matrix.tor_triple }}"
 
       - name: Prepare unsigned desktop bundle (no updater .sig without private key)
         shell: bash
@@ -260,25 +294,36 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          bundle_root="apps/desktop/src-tauri/target/release/bundle"
+          RUST_TARGET="${{ matrix.rust_target }}"
+          PLATFORM="${{ matrix.platform }}"
+          bundle_roots=(
+            "apps/desktop/src-tauri/target/${RUST_TARGET}/release/bundle"
+            "apps/desktop/src-tauri/target/release/bundle"
+          )
           has_platform_bundle() {
-            case "${{ matrix.os }}" in
-              windows-latest)
-                find "${bundle_root}" -type f \( -name '*-setup.exe' -o -name '*.msi' \) 2>/dev/null | grep -q .
-                ;;
-              macos-latest)
-                find "${bundle_root}" -type f -name '*.dmg' 2>/dev/null | grep -q .
-                ;;
-              ubuntu-latest)
-                find "${bundle_root}" -type f \( -name '*.AppImage' -o -name '*.deb' \) 2>/dev/null | grep -q .
-                ;;
-              *)
-                return 1
-                ;;
-            esac
+            for root in "${bundle_roots[@]}"; do
+              case "${PLATFORM}" in
+                windows)
+                  if find "${root}" -type f \( -name '*-setup.exe' -o -name '*.msi' \) 2>/dev/null | grep -q .; then
+                    return 0
+                  fi
+                  ;;
+                macos)
+                  if find "${root}" -type f -name '*.dmg' 2>/dev/null | grep -q .; then
+                    return 0
+                  fi
+                  ;;
+                linux)
+                  if find "${root}" -type f \( -name '*.AppImage' -o -name '*.deb' \) 2>/dev/null | grep -q .; then
+                    return 0
+                  fi
+                  ;;
+              esac
+            done
+            return 1
           }
           for attempt in 1 2 3; do
-            if pnpm -C apps/desktop tauri build; then
+            if pnpm -C apps/desktop tauri build --target "${RUST_TARGET}"; then
               echo "tauri build succeeded on attempt ${attempt}"
               exit 0
             fi
@@ -296,65 +341,43 @@ jobs:
           done
           exit 1
 
-      - name: Collect bundle artifacts (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Collect bundle artifacts
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p ./bundle-artifacts
-          find apps/desktop/src-tauri/target/release/bundle -type f \( -name "*.msi" -o -name "*.exe" \) -exec cp {} ./bundle-artifacts/ \;
-          echo "Windows artifacts:"
+          PLATFORM="${{ matrix.platform }}"
+          RUST_TARGET="${{ matrix.rust_target }}"
+          search_roots=(
+            "apps/desktop/src-tauri/target/${RUST_TARGET}/release/bundle"
+            "apps/desktop/src-tauri/target/release/bundle"
+          )
+          for root in "${search_roots[@]}"; do
+            case "${PLATFORM}" in
+              windows)
+                find "${root}" -type f \( -name "*.msi" -o -name "*.exe" \) -exec cp {} ./bundle-artifacts/ \; 2>/dev/null || true
+                ;;
+              macos)
+                find "${root}" -type f -name "*.dmg" -exec cp {} ./bundle-artifacts/ \; 2>/dev/null || true
+                ;;
+              linux)
+                find "${root}" -type f \( -name "*.AppImage" -o -name "*.deb" \) -exec cp {} ./bundle-artifacts/ \; 2>/dev/null || true
+                ;;
+            esac
+          done
+          echo "Collected ${{ matrix.artifact_name }}:"
           ls -la ./bundle-artifacts/
+          test "$(find ./bundle-artifacts -type f | wc -l)" -gt 0
 
-      - name: Verify desktop bundle filenames (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Verify desktop bundle filenames
         run: node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts
 
-      - name: Upload Artifacts (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-windows
+          name: ${{ matrix.artifact_name }}
           path: ./bundle-artifacts/*
-
-      - name: Collect bundle artifacts (macOS)
-        if: matrix.os == 'macos-latest'
-        shell: bash
-        run: |
-          mkdir -p ./bundle-artifacts
-          find apps/desktop/src-tauri/target/release/bundle -type f -name "*.dmg" -exec cp {} ./bundle-artifacts/ \;
-          echo "macOS artifacts:"
-          ls -la ./bundle-artifacts/
-
-      - name: Verify desktop bundle filenames (macOS)
-        if: matrix.os == 'macos-latest'
-        run: node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts
-
-      - name: Upload Artifacts (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-macos
-          path: ./bundle-artifacts/*
-
-      - name: Collect bundle artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          mkdir -p ./bundle-artifacts
-          find apps/desktop/src-tauri/target/release/bundle -type f \( -name "*.AppImage" -o -name "*.deb" \) -exec cp {} ./bundle-artifacts/ \;
-          echo "Linux artifacts:"
-          ls -la ./bundle-artifacts/
-
-      - name: Verify desktop bundle filenames (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: node scripts/verify-desktop-bundle-filenames.mjs --dir ./bundle-artifacts
-
-      - name: Upload Artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-linux
-          path: ./bundle-artifacts/*
+          if-no-files-found: error
 
   build-web-pwa:
     name: Build Web/PWA (static export)
@@ -372,7 +395,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
+          node-version: "22"
           cache: pnpm
 
       - name: Install dependencies
@@ -481,7 +504,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
+          node-version: "22"
           cache: pnpm
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -702,7 +725,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22"
           cache: pnpm
 
       - name: Install Rust toolchain
@@ -752,7 +775,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
+          node-version: "22"
           cache: pnpm
 
       - name: Install dependencies
@@ -774,21 +797,24 @@ jobs:
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-windows
+          pattern: desktop-windows-*
           path: ./release-assets/windows
-      
+          merge-multiple: true
+
       - name: Download macOS Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-macos
+          pattern: desktop-macos-*
           path: ./release-assets/macos
-      
+          merge-multiple: true
+
       - name: Download Linux Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-linux
+          pattern: desktop-linux-*
           path: ./release-assets/linux
-          
+          merge-multiple: true
+
       - name: Download Android Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -813,7 +839,7 @@ jobs:
         with:
           name: mobile-ios
           path: ./release-assets/ios
-      
+
       - name: Build streaming update assets from downloaded artifacts
         shell: bash
         run: |
@@ -896,7 +922,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20.11.0"
+          node-version: "22"
           cache: pnpm
 
       - name: Install dependencies
@@ -917,20 +943,23 @@ jobs:
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-windows
+          pattern: desktop-windows-*
           path: ./release-assets/windows
+          merge-multiple: true
 
       - name: Download macOS Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-macos
+          pattern: desktop-macos-*
           path: ./release-assets/macos
+          merge-multiple: true
 
       - name: Download Linux Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: desktop-linux
+          pattern: desktop-linux-*
           path: ./release-assets/linux
+          merge-multiple: true
 
       - name: Download Android Artifacts
         uses: actions/download-artifact@v4

@@ -5,7 +5,7 @@ _Last reviewed: 2026-03-29 (baseline commit cad5779e)._
 This document is the canonical, version-agnostic operating contract for Obscur communities/groups.
 
 Historical version-by-version milestone details are maintained in:
-- `docs/encyclopedia/11-program-milestones-and-stability-history.md`
+- `docs/archive/encyclopedia-historical-2026-11/11-program-milestones-and-stability-history.md`
 - `docs/history/version-context.md`
 
 ## Current Health Snapshot

@@ -2,8 +2,8 @@
 
 **Date (UTC):** 2026-08-08  
 **Status:** Design **Ready** (await maintainer Accept of this ops design)  
-**Charter:** [tor-t5-onion-ops-charter-2026-08.md](./tor-t5-onion-ops-charter-2026-08.md) — **T5-3-A Accepted**  
-**Parents:** [self-hosted-relay-vps-operator-notes-2026-08.md](../../docs/program/self-hosted-relay-vps-operator-notes-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](./tor-t5-tor-viable-pool-design-2026-08.md) · `infra/docker-compose.nostr.yml` · `infra/nostr/nostr-rs-relay.toml`
+**Charter:** [tor-t5-onion-ops-charter-2026-08.md](../archive/backend-inactive-2026-11/tor-t5-onion-ops-charter-2026-08.md) — **T5-3-A Accepted**  
+**Parents:** [self-hosted-relay-vps-operator-notes-2026-08.md](../../docs/program/self-hosted-relay-vps-operator-notes-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](../archive/backend-inactive-2026-11/tor-t5-tor-viable-pool-design-2026-08.md) · `infra/docker-compose.nostr.yml` · `infra/nostr/nostr-rs-relay.toml`
 
 ```text
 HANDOFF ATOMIC STEP:  T5-3-A Accepted → T5-3.0 ops design

@@ -9,7 +9,9 @@ import {
 } from "./preferences";
 import { nostrAdapter } from "./nostr-adapter";
 import { matrixAdapter } from "./matrix-adapter";
+import { privateDcAdapter } from "./private-dc-adapter";
 import { hasMatrixSession } from "./matrix-session";
+import { hasPrivateDcSession } from "./private-dc-session";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import type {
   CanonicalConversation,
@@ -36,11 +38,15 @@ const resolveHonestTransportId = (profileId?: string): TransportId => {
 const registry = new Map<ProtocolId, ProtocolAdapter>([
   ["nostr", nostrAdapter],
   ["matrix", matrixAdapter],
+  ["private_dc", privateDcAdapter],
 ]);
 
-const getRichListAdapter = (protocolId: ProtocolId) => {
+  const getRichListAdapter = (protocolId: ProtocolId) => {
   if (protocolId === "matrix") {
     return matrixAdapter;
+  }
+  if (protocolId === "private_dc") {
+    return privateDcAdapter;
   }
   return nostrAdapter;
 };
@@ -62,6 +68,11 @@ export const ProtocolAdaptationLayer = {
         "ProtocolAdaptationLayer: Matrix requires a homeserver login (Settings → Protocols)",
       );
     }
+    if (protocolId === "private_dc" && !hasPrivateDcSession(profileId)) {
+      throw new Error(
+        "ProtocolAdaptationLayer: Private DC requires a configured server (Settings → Protocols)",
+      );
+    }
     writeActiveProtocolId(protocolId, profileId);
   },
 
@@ -77,7 +88,7 @@ export const ProtocolAdaptationLayer = {
     transportId: TransportId,
     profileId?: string,
   ): Promise<void> => {
-    await ProtocolAdaptationLayer.getActiveAdapter(profileId).connect(transportId);
+    await ProtocolAdaptationLayer.getActiveAdapter(profileId).connect(transportId, profileId);
   },
 
   getActiveAdapter: (profileId?: string): ProtocolAdapter => {
@@ -98,7 +109,7 @@ export const ProtocolAdaptationLayer = {
   connect: async (profileId?: string): Promise<void> => {
     const adapter = ProtocolAdaptationLayer.getActiveAdapter(profileId);
     const transport = readActiveTransportId(profileId);
-    await adapter.connect(transport);
+    await adapter.connect(transport, profileId);
   },
 
   disconnect: async (profileId?: string): Promise<void> => {
@@ -121,16 +132,15 @@ export const ProtocolAdaptationLayer = {
 
   /** Platform canonical — prefer for new shell code (see port-surfaces.ts). */
   sendMessage: async (
-    params: Readonly<{ conversationId: string; body: string }>,
-    profileId?: string,
+    params: Readonly<{ profileId: string; conversationId: string; body: string }>,
   ): Promise<CanonicalMessage> => (
-    ProtocolAdaptationLayer.getActiveAdapter(profileId).sendMessage(params)
+    ProtocolAdaptationLayer.getActiveAdapter(params.profileId).sendMessage(params)
   ),
 
   /**
    * Obscur-Nostr rich compatibility — MessagingProvider / dm-controller / thread hook.
    * Not the platform DTO. Routed by activeProtocolId (no dual-write).
-   * Nostr-only pipelines that must ignore Matrix selection use `nostrAdapter.sendDm`.
+   * Nostr-only pipelines that must ignore Matrix selection use `sendDmNostrOnly`.
    */
   listDmConversations: async (
     profileId: string,
@@ -147,21 +157,26 @@ export const ProtocolAdaptationLayer = {
 
   /**
    * Obscur-Nostr rich send (layer-routed). Matrix active → Matrix sendMessage shim.
-   * For always-Nostr send (delete/retry), call `nostrAdapter.sendDm` instead.
+   * Always-Nostr wire (delete commands / offline retry) → `sendDmNostrOnly`.
    */
   sendDm: (async (...args: Parameters<typeof nostrAdapter.sendDm>): Promise<SendResult> => {
     const params = args[0];
-    if (readActiveProtocolId() === "matrix") {
-      const roomId = params.recipientPublicKeyHex.trim();
+    const profileId = params.profileId ?? "";
+    const activeProtocol = readActiveProtocolId(profileId || undefined);
+    if (activeProtocol === "matrix" || activeProtocol === "private_dc") {
+      const conversationId = params.recipientPublicKeyHex.trim();
+      const adapter = activeProtocol === "matrix" ? matrixAdapter : privateDcAdapter;
       try {
-        const sent = await matrixAdapter.sendMessage({
-          conversationId: roomId,
+        const sent = await adapter.sendMessage({
+          profileId: profileId || "default",
+          conversationId,
           body: params.plaintext,
         });
         params.onConfirmed?.({
           success: true,
           deliveryStatus: "sent_quorum",
-          relayResults: [],
+          successCount: 1,
+          totalRelays: 1,
         });
         return {
           success: true,
@@ -185,9 +200,18 @@ export const ProtocolAdaptationLayer = {
     return nostrAdapter.sendDm(...args);
   }) as typeof nostrAdapter.sendDm,
 
+  /**
+   * K1 — always Nostr wire; ignores activeProtocolId.
+   * Messaging delete/retry must call this (or sendDm) — never import nostrAdapter.
+   */
+  sendDmNostrOnly: ((...args: Parameters<typeof nostrAdapter.sendDm>): ReturnType<typeof nostrAdapter.sendDm> => (
+    nostrAdapter.sendDm(...args)
+  )) as typeof nostrAdapter.sendDm,
+
   sendConnectionRequest: ((...args: Parameters<typeof nostrAdapter.sendConnectionRequest>) => {
-    if (readActiveProtocolId() === "matrix") {
-      throw new Error("MatrixAdapter: connection requests are Nostr-only");
+    const activeProtocol = readActiveProtocolId();
+    if (activeProtocol === "matrix" || activeProtocol === "private_dc") {
+      throw new Error(`${activeProtocol}: connection requests are Nostr-only`);
     }
     return nostrAdapter.sendConnectionRequest(...args);
   }) as typeof nostrAdapter.sendConnectionRequest,
@@ -202,4 +226,12 @@ export const sendMessage = ProtocolAdaptationLayer.sendMessage;
 export const listDmConversations = ProtocolAdaptationLayer.listDmConversations;
 export const listDmMessages = ProtocolAdaptationLayer.listDmMessages;
 export const sendDm = ProtocolAdaptationLayer.sendDm;
+export const sendDmNostrOnly = ProtocolAdaptationLayer.sendDmNostrOnly;
 export const sendConnectionRequest = ProtocolAdaptationLayer.sendConnectionRequest;
+
+export type {
+  CanonicalSendConfirmation,
+  CanonicalDeliveryStatus,
+  SendConfirmation,
+} from "./send-confirmation";
+export { toCanonicalSendConfirmation } from "./send-confirmation";

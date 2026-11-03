@@ -37,6 +37,11 @@ export const AUTH_KERNEL_LEGACY_BRIDGE_FILE = (
   "app/features/auth/services/auth-kernel-legacy-delegates.ts"
 ) as const;
 
+/** K3 removal criteria + allowlisted bridge importers. */
+export const AUTH_KERNEL_LEGACY_BRIDGE_REMOVAL_FILE = (
+  "app/features/auth/services/auth-kernel-legacy-bridge-removal.ts"
+) as const;
+
 /** All auth-kernel module files (implementation + manifest + barrel + provider). */
 export const AUTH_KERNEL_SOURCE_FILES = [
   ...AUTH_KERNEL_IMPLEMENTATION_FILES,

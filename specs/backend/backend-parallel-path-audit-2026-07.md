@@ -2,7 +2,7 @@
 
 **Status:** Investigation complete · Priority 1–2 slice Done · 2026-07-31  
 **Charter intent:** Product decentralization ≠ codebase decentralization. Unify backend; subtract redundant paths; UI is **functional reference only** (no UI feature churn).  
-**Related:** [obscur-backend-engine-roadmap](../../docs/program/obscur-backend-engine-roadmap.md) · [rust-module-refactor-queue](./rust-module-refactor-queue-2026-07.md) · [production-rewrite-and-devlab-tombstone](./production-rewrite-and-devlab-tombstone-2026-07.md) · [gif-inventory](../../docs/assets/demo/v2.0.0/gif-inventory.md) (objectives only) · [truth map](../../docs/encyclopedia/12-core-architecture-truth-map.md) · [design](./backend-truth-map-and-publish-inject-design-2026-07.md)
+**Related:** [obscur-backend-engine-roadmap](../../docs/program/obscur-backend-engine-roadmap.md) · [rust-module-refactor-queue](../archive/backend-inactive-2026-11/rust-module-refactor-queue-2026-07.md) · [production-rewrite-and-devlab-tombstone](./production-rewrite-and-devlab-tombstone-2026-07.md) · [gif-inventory](../../docs/assets/demo/v2.0.0/gif-inventory.md) (objectives only) · [truth map](../../docs/encyclopedia/12-core-architecture-truth-map.md) · [design](../archive/backend-inactive-2026-11/backend-truth-map-and-publish-inject-design-2026-07.md)
 
 ---
 
@@ -99,7 +99,7 @@ No product UI code in this slice.
 | **2** | **Transport inject audit** — prove release shell’s DM/group publish uses mesh/`engine_invoke_transport_*` only; quarantine `publishToUrlsStandalone` / browser pool from product inject | Fixes “edit invisible” for relays |
 | **3** | **Delete or quarantine Dev Lab tree** | **Product quarantine Done 2026-07-31** — bridges unmounted; tree deletion = Phase 3 later |
 | **4** | **Community un-pause integration study** *or* mark group objectives out-of-ship | **Study Done 2026-07-31** — [community-unpause-integration-study-2026-07.md](./community-unpause-integration-study-2026-07.md); **band remains PAUSED**; first charter candidates U1 invite→dm-engine or U3 Slice C |
-| **5** | Shrink DM hydrate interim assemblers (R1) toward dm-engine sole read | **Done 2026-07-31** — shrink + UI delete + Wave 2/3 · [Wave 3](./r1-wave3-helpers-deletion-design-2026-07.md) |
+| **5** | Shrink DM hydrate interim assemblers (R1) toward dm-engine sole read | **Done 2026-07-31** — shrink + UI delete + Wave 2/3 · [Wave 3](../archive/backend-inactive-2026-11/r1-wave3-helpers-deletion-design-2026-07.md) |
 
 **Do not:** GIF re-soak / UI polish as primary queue while 1–2 open.
 
@@ -117,7 +117,7 @@ No product UI code in this slice.
 
 ## Next atomic step
 
-**Done (2026-07-31):** Truth-map refresh + product publish inject L1 pin — [design](./backend-truth-map-and-publish-inject-design-2026-07.md).
+**Done (2026-07-31):** Truth-map refresh + product publish inject L1 pin — [design](../archive/backend-inactive-2026-11/backend-truth-map-and-publish-inject-design-2026-07.md).
 
 1. Optional: quarantine/delete Dev Lab tree residue (scripts already exit 1).  
 2. Community un-pause integration study *or* mark group objectives out-of-ship.  

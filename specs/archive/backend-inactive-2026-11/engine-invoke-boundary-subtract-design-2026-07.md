@@ -1,9 +1,9 @@
 # Design — `engine_invoke` boundary subtract (dm #4 · relay #5)
 
 **Status:** B1+B2+B3(backup) implemented · B2 L3 VERIFIED · 2026-07-30 · full B3 tombstone blocked (community)  
-**Charter:** [rust-module-refactor-queue-2026-07.md](./rust-module-refactor-queue-2026-07.md)  
-**Prior:** [r-rust-boundary-slice3-investigation-2026-07.md](./r-rust-boundary-slice3-investigation-2026-07.md) · [dm-persist #3](./dm-persist-dual-owner-slice3-design-2026-07.md) · [relay #1–3](./relay-publish-lab-shim-tombstone-design-2026-07.md)  
-**B3 slice:** [engine-invoke-b3-backup-evidence-migrate-design-2026-07.md](./engine-invoke-b3-backup-evidence-migrate-design-2026-07.md)  
+**Charter:** [rust-module-refactor-queue-2026-07.md](../archive/backend-inactive-2026-11/rust-module-refactor-queue-2026-07.md)  
+**Prior:** [r-rust-boundary-slice3-investigation-2026-07.md](../archive/backend-inactive-2026-11/r-rust-boundary-slice3-investigation-2026-07.md) · [dm-persist #3](../archive/backend-inactive-2026-11/dm-persist-dual-owner-slice3-design-2026-07.md) · [relay #1–3](../archive/backend-inactive-2026-11/relay-publish-lab-shim-tombstone-design-2026-07.md)  
+**B3 slice:** [engine-invoke-b3-backup-evidence-migrate-design-2026-07.md](../archive/backend-inactive-2026-11/engine-invoke-b3-backup-evidence-migrate-design-2026-07.md)  
 **L3 evidence:** [dual-owner-b2-l3-engine-invoke-2026-07-30.md](../../docs/handoffs/dual-owner-b2-l3-engine-invoke-2026-07-30.md) — insert→cold restart PASS; UI send deferred (relays unreachable).
 
 ---

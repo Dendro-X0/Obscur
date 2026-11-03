@@ -4,7 +4,7 @@
 **Status:** Charter **Accepted** (TI-B) · TI-0 Accepted · TI-1–TI-4 **Implemented (L1)** · next TI-5 / T5-3  
 
 
-**Parents:** [tor-enable-disconnect-investigation-2026-08.md](./tor-enable-disconnect-investigation-2026-08.md) · [tor-t5-stability-latency-charter-2026-08.md](./tor-t5-stability-latency-charter-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](./tor-t5-tor-viable-pool-design-2026-08.md) · [tor-r4-slice-4b-tunnel-design-2026-08.md](./tor-r4-slice-4b-tunnel-design-2026-08.md)
+**Parents:** [tor-enable-disconnect-investigation-2026-08.md](../archive/backend-inactive-2026-11/tor-enable-disconnect-investigation-2026-08.md) · [tor-t5-stability-latency-charter-2026-08.md](../archive/backend-inactive-2026-11/tor-t5-stability-latency-charter-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](../archive/backend-inactive-2026-11/tor-t5-tor-viable-pool-design-2026-08.md) · [tor-r4-slice-4b-tunnel-design-2026-08.md](../archive/backend-inactive-2026-11/tor-r4-slice-4b-tunnel-design-2026-08.md)
 
 ```text
 HANDOFF ATOMIC STEP:  Tor TI-B Accepted · TI-0 Design Ready

@@ -206,7 +206,14 @@ export default async function LimitationsPage() {
           <li>
             Public relays carry immutable ciphertext; private operator stacks unlock stronger removal
             semantics. Say <strong>hide on this device</strong> for local delete on public threads —
-            not &quot;deleted from the internet.&quot;
+            not &quot;deleted from the internet.&quot; A mistaken send may stay visible to the peer
+            even after you hide it locally — prefer honest permanence over fake erase.
+          </li>
+          <li>
+            Feedback cut non-claims: not Tor Verified · not Soft L3 Fixed · video calls not usable ·
+            Matrix and Private DC are <strong>lab optional</strong>, not multi-protocol Verified.
+            Managed workspaces can <strong>Remove from this workspace</strong> on sealed operator
+            relays — that is not open-network erase-everywhere.
           </li>
           <li>
             Desktop and Android installers ship with published SHA-256; verify before sideloading

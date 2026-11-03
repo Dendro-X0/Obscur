@@ -1,7 +1,7 @@
 # Design — Public Nostr relay pool module (honesty + dial membership)
 
 **Status:** E1 + E2 (+ E2b/E3-minimal) implemented · L1 Pass · public-only desktop L3 Pass · 2026-08-01  
-**Investigation:** [public-nostr-relay-pool-module-investigation-2026-07.md](./public-nostr-relay-pool-module-investigation-2026-07.md) · [unused-pool](./public-nostr-pool-unused-investigation-2026-07.md)  
+**Investigation:** [public-nostr-relay-pool-module-investigation-2026-07.md](../archive/backend-inactive-2026-11/public-nostr-relay-pool-module-investigation-2026-07.md) · [unused-pool](../archive/backend-inactive-2026-11/public-nostr-pool-unused-investigation-2026-07.md)  
 **Handoff:** Hold — B→C→E1→E2 closed · public-only L3 Pass
 
 ---

@@ -31,7 +31,7 @@ This lane verifies:
 
 Reference incidents and guardrails:
 
-1. `docs/encyclopedia/17-dm-delete-restore-divergence-incident.md`
+1. `docs/archive/encyclopedia-historical-2026-11/17-dm-delete-restore-divergence-incident.md`
 2. `docs/encyclopedia/18-account-scope-and-discovery-guardrails.md`
 
 ## Required Invariants

@@ -8,12 +8,20 @@ const adapterMocks = vi.hoisted(() => ({
   invokeNativeCommand: vi.fn(),
 }));
 
+const manualLockMocks = vi.hoisted(() => ({
+  isAuthKernelManualLockActive: vi.fn(() => false),
+}));
+
 vi.mock("@/app/features/runtime/runtime-capabilities", () => ({
   hasNativeRuntime: runtimeMocks.hasNativeRuntime,
 }));
 
 vi.mock("@/app/features/runtime/native-adapters", () => ({
   invokeNativeCommand: adapterMocks.invokeNativeCommand,
+}));
+
+vi.mock("@/app/features/auth-kernel/auth-kernel-manual-lock-state", () => ({
+  isAuthKernelManualLockActive: manualLockMocks.isAuthKernelManualLockActive,
 }));
 
 import { SessionApi } from "./session-api";
@@ -24,6 +32,7 @@ describe("SessionApi", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();
+    manualLockMocks.isAuthKernelManualLockActive.mockReturnValue(false);
   });
 
   it("returns inactive session status in unsupported runtimes", async () => {
@@ -166,6 +175,32 @@ describe("SessionApi", () => {
     expect(adapterMocks.invokeNativeCommand).toHaveBeenNthCalledWith(
       2,
       "get_native_npub",
+      undefined,
+      { timeoutMs: 3_000 },
+    );
+  });
+
+  it("skips get_native_npub fallback while auth-kernel manual lock is active (FM1 L3)", async () => {
+    runtimeMocks.hasNativeRuntime.mockReturnValue(true);
+    manualLockMocks.isAuthKernelManualLockActive.mockReturnValue(true);
+    adapterMocks.invokeNativeCommand.mockResolvedValueOnce({
+      ok: true,
+      value: {
+        is_active: false,
+        npub: null,
+        is_native: true,
+      },
+    });
+
+    await expect(SessionApi.getSessionStatus()).resolves.toEqual({
+      isActive: false,
+      npub: null,
+      isNative: false,
+    });
+
+    expect(adapterMocks.invokeNativeCommand).toHaveBeenCalledTimes(1);
+    expect(adapterMocks.invokeNativeCommand).toHaveBeenCalledWith(
+      "get_session_status",
       undefined,
       { timeoutMs: 3_000 },
     );

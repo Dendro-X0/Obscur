@@ -38,8 +38,9 @@ vi.mock("../../settings/services/privacy-settings-service", () => ({
   },
 }));
 
-vi.mock("@/app/features/vault/services/local-media-store", () => ({
-  downloadAttachmentToUserPath: vi.fn(async () => "saved" as const),
+vi.mock("@/app/features/storage/services/inbound-media-export", () => ({
+  exportInboundMediaToUserPath: vi.fn(async () => ({ status: "saved" as const })),
+  requiresInboundMediaExportConfirm: vi.fn(() => false),
 }));
 
 vi.mock("../hooks/use-attachment-export-gate", () => ({

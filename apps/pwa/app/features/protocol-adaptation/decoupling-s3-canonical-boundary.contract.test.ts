@@ -37,9 +37,10 @@ describe("decoupling S3 canonical boundary", () => {
     }
   });
 
-  it("keeps canonical send params to conversationId and body", () => {
+  it("keeps canonical send params to profileId, conversationId, and body", () => {
     const send = typesSource.slice(typesSource.indexOf("sendMessage:"));
     const params = send.slice(0, send.indexOf("}>"));
+    expect(params).toContain("profileId: string");
     expect(params).toContain("conversationId: string");
     expect(params).toContain("body: string");
     for (const field of forbidden) {

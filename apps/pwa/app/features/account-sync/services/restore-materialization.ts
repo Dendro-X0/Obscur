@@ -5,8 +5,8 @@ import { createTauriEngineHost } from "@obscur/engine-host/tauri";
 import type { HostEnginePort } from "@obscur/engine-contracts";
 import { messagingDB } from "@dweb/storage/indexed-db";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
-import { relayListInternals } from "@/app/features/relays/hooks/use-relay-list";
 import { logAppEvent } from "@/app/shared/log-app-event";
+import { persistHealedRelayList } from "./restore-relay-list-persist";
 import { accountSyncChatStatePort } from "./account-sync-chat-state-port";
 import { messagePersistenceService } from "@/app/features/messaging/services/message-persistence-service";
 import type { PersistedChatState } from "@/app/features/messaging/types";
@@ -141,7 +141,7 @@ export const applyNonV1RestoreMaterialization = async (params: Readonly<{
     });
     await params.applyRoomKeySnapshots(materializedPayload.roomKeys ?? []);
     PrivacySettingsService.saveSettings(materializedPayload.privacySettings);
-    relayListInternals.saveRelayListToStorage(params.publicKeyHex, materializedPayload.relayList, params.profileId);
+    persistHealedRelayList(params.publicKeyHex, materializedPayload.relayList, params.profileId);
     params.persistUiSettingsSnapshot(params.profileId, materializedPayload.uiSettings);
 
     const mergedPayloadChatDiagnostics = params.summarizeChatStateDiagnostics(

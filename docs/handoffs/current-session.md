@@ -1,59 +1,63 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-10-26T07:15:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.3 **Published** (Win/macOS/Linux) · Stay Tauri
+- Last Updated (UTC): 2026-11-03T14:40:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.3 **Published** · **REWRITE BAND SUPERSEDE 2026-11 confirmed** · Stay Tauri until design says otherwise
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
 
 ```text
-PROMOTION GOAL: Obscur as a service for building decentralized communication apps
-(businesses / communities) — Nostr supported today; modular foundation for bespoke work later.
-v2.0.0 PUBLIC FACE: attractive · reliable · trustworthy — Gift GIFs + prior client tests prove shipped features.
-Do NOT market Obscur as finished multi-protocol / “any adapter” today.
-Do NOT refactor sessions into a Nostr-client product identity.
-Do NOT treat the Nostr kernel as the permanent ceiling — but do NOT lie that it is already decoupled.
-Decoupling = strangler extraction behind ProtocolAdaptationLayer; behavior must stay identical.
-Greenfield restart is NOT the path. No mega-refactor / gateway-per-protocol UI without charter + budget.
-Module name for the Nostr protocol piece: Obscur-Nostr. Public name stays Obscur.
-MEDIA TRUTH: 1:1 voice shipped. Gap = video usability (M1-L3) + conferencing (M2–M3).
-CAMERA: Maintainer has no camera — do NOT claim video demoable; M1-L3 blocked.
-M1-A/B/C DONE L1 (structure · camera fallback · lab canvas). Lab canvas ≠ Gift demo. Do NOT claim video usable.
-If a task cannot proceed without centering Nostr-as-the-product, STOP and ask.
+SUPERSEDE (2026-11, maintainer-confirmed): Process docs yield to product design for REWRITE BAND.
+Suspended for the band: strangler-only · no-greenfield-as-absolute · no mega-refactor ·
+  obscur-session-gate / execution-checklist refusals that block the band ·
+  “Do NOT refactor” / “behavior must stay identical” lines that conflict with this charter.
+PROMOTION GOAL (unchanged intent): Obscur = platform for building decentralized / private-trust
+  communication apps — protocol is a communication layer, not the product identity.
+ACTIVE OBJECTIVE: implement planned platform design — auth · profiles · storage modular and
+  independent; adapters for Nostr + future carriers (Matrix, private DC / custom servers, later P2P/E2EE/Tor).
+SECURITY LAW: censorship/surveillance resistance (private-trust + optional hardened transport) ·
+  hard profiles (cross-profile technical isolation) · sandboxed inbound DM/group files (quarantine).
+  Spec: specs/backend/sandboxed-storage-security-design-2026-11.md
+REWRITE BAND: auth · protocol adaptation · naming · module/file layout · stack/language
+  as required to hit the design (prefer in-repo evolution; greenfield only if design charter says so).
+KEEP UNTIL DESIGN SAYS OTHERWISE: Tauri desktop shell usable · published beta not silently deleted.
+STILL FORBID: OAuth-as-root identity · marketing lie that multi-protocol / Tor Verified / “unbreachable” is done ·
+  Continuity / Soft L3 / Matrix *promote* without design+proof ·
+  deleting platform safety/system rules · mass-deleting global Cursor skills or all docs/ as first move.
+SKILLS/MD: do not delete globally; ignore project process gates that conflict with this charter.
+MEDIA: 1:1 voice shipped; do NOT claim video usable (no camera). Lab canvas ≠ production claim.
+Public name stays Obscur. Nostr module working name remains Obscur-Nostr until rename charter.
 ```
 
 ## Active Objective
 
-**Cut `v2.0.0-beta.3`** (package tree 2.0.0): Obscur Full Release for **Windows + macOS + Linux** (+ Android/web) so installers are not stale 1.9.16 carryovers. Soft L3 / Tor Verified / Spaces / Matrix remain PAUSED. Video **player UX** landed; do **not** claim video *calls* usable.
+**Platform rewrite band (design → first cut):** modular auth / profiles / storage; protocol adaptation layer that can host Nostr today and additional carriers later (Matrix lab, private DC servers, …). Process strangler constraints suspended for this band. Unlock-loop FM1 remains landed L1/L2 (L3 soak still valuable but does not block charter writing).
 
 ## Sequencing
 
 ```text
+DECISION 2026-11 — SUPERSEDE strangler-only / no-mega-refactor for REWRITE BAND (maintainer confirmed)
 TRACK A–C / B10 — DONE (L1).
-Matrix access-token login — DONE (L1) · lab only
+Matrix access-token login — DONE (L1) · lab only · promote still gated
 Relays Standard/Advanced + four paths — DONE (L1)
-DECISION 2026-10-18 — Matrix launch/promotion SCRAPPED until Olm
-DECISION 2026-10-18 — Launch face = private-trust / own infra (VPN, DC, private relays)
-DECISION 2026-10-18 — Decoupling via strangler (D0→D2); S6 gateway UI out of budget
-DECISION 2026-10-18 — Names: Obscur = platform · Obscur-Nostr = Nostr module
-DECISION 2026-10-18 — Media: voice shipped; gap = video + conference (M1–M3)
-DECISION 2026-10-18 — v2.0.0 public: GIFs enough for prior features; no camera → no video usability claim
-CHARTER 2026-10-18 — M1-A camera-less structure · DONE (L1)
-CHARTER 2026-10-18 — M1-B transceiver + camera fallback · DONE (L1)
-CHARTER 2026-10-18 — M1-C lab canvas · DONE (L1 · off in production)
-FOCUS — Public trust face · hitch / PB1-C · M1-L3 only with camera
+DECISION 2026-10-18 — Launch face = private-trust / own infra (VPN, DC, private relays) · still desired
+DECISION 2026-10-18 — Names: Obscur = platform · Obscur-Nostr = Nostr module · rename only via charter
+DECISION 2026-10-18 — Media: voice shipped; gap = video + conference (M1–M3) · camera still blocks M1-L3 claim
+HISTORICAL 2026-10-18 — Decoupling via strangler (D0→S5) · superseded for rewrite band; artifacts remain evidence
+FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ```
 
 ## Next Atomic Step
 
 ```text
-v2.0.0-beta.3 — PUBLISHED (Latest) — https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.3
-CI: https://github.com/Dendro-X0/Obscur/actions/runs/40281639059
-Assets: Obscur_2.0.0_x64-setup.exe · _aarch64.dmg · _amd64.AppImage · APK/AAB · pwa tar.gz
-version.json releaseTag 2.0.0-beta.3 · package tree 2.0.0
-NEXT: confirm website /download · optional smoke
-Do NOT claim video calls usable · Tor Verified · Soft L3 · Spaces · Matrix promote
-Do NOT greenfield · Do NOT market as a Nostr client
+PLATFORM REWRITE BAND — CI restore Pass · download sync Phase A+B workflow landed
+  Spec: specs/ci/2026-11-03-release-download-sync-design.md
+  Phase B: release.yml 5 desktop cells (win x64 · mac aarch64+x64 · linux x64+arm)
+           Win ARM deferred (no Tor sidecar) · proof = next Full Release artifacts
+NEXT: maintainer — commit (exclude .codectx) → push → gates → beta.4 Full Release (multi-arch)
+Do NOT run desktop:package / desktop:build:exe on this host until maintainer says OK
+Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
+LANDED: docs Wave 1–5 · local T0–T4 · download sync Phase A+B workflow
 ```
 
 
@@ -61,6 +65,55 @@ Do NOT greenfield · Do NOT market as a Nostr client
 
 | Unit | Result |
 |------|--------|
+| Auth continuity deliberation | three planes (Daily · Recovery · Continuity) · four-audience stance · single-door scoped Planes 1–2 · Continuity/BKP-2 sibling · specs only |
+| Continuity pioneering explore | living-graph reconstitution + SCU local residue + fungible carriers (file/relay/pair/DTN) + peer grants · design only · does not block A+B |
+| Single-door Slice A+B | Auth device_password_bind after key when PDK closed · AuthGateway isShellReady gate · passphrase primary · vitest Pass |
+| Single-door Slice C | keychain PDK restore after identity unlock · passphrase activate fallback to restore · Auth key path restore-first · vitest Pass |
+| Unlock-loop FM1 | L1/L2 Pass · **L3 Pass 2026-11-02** (hydrate latch — session inactive after Lock + password → shell) |
+| SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
+| Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
+| P1 boundary map | Auth/Profiles/Storage/PAL owners named · kill list K1=nostrAdapter bypass in dm-send/delete |
+| K1 PAL send | sendDmNostrOnly · dm-send/delete rerouted · D1/S4 contracts Pass |
+| K2 nostr-adapter boundary | contract forbids imports outside protocol-adaptation/ · dm-controller types via layer |
+| K3 auth mutation entry | legacy-bridge-removal criteria · allowlisted adapters only · shell on surface actions · Pass |
+| K4 profile trees fence | profile README (display) · profiles README (slots) · import ownership contract · Pass |
+| P3 PAL port freeze | layer-only adapters · sendDmNostrOnly messaging · port catalogs · Pass |
+| P4 private_dc L1 | second carrier = company DC (not Matrix promote) · adapter · Settings configure · Pass |
+| P4b private_dc HTTP | `/v1/conversations` client · adapter wire · fail-closed `private_dc_http_*` · L1 vitest Pass |
+| P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |
+| P6 plane README fences | auth-kernel · auth · storage · PAL owns/does-not-own · contract Pass · no mass rename |
+| K6 SendConfirmation PAL | layer exports via `send-confirmation.ts` · messaging not via nostr-adapter · contract Pass |
+| P4d private_dc CDP | adapter L2 live HTTP · CDP hooks list/send vs lab `/v1` · Pass |
+| P4e private_dc send scope | `sendMessage` requires `profileId` · wrong-profile fail-closed · Matrix aligned · Pass |
+| P4f private_dc connect/list | `connect(transport, profileId)` · listMessages soak · L1/L2 Pass |
+| P4g private_dc rich list | listDmConversations/Messages shim · getRichListAdapter → privateDc · Pass |
+| P4h private_dc caps/map | `PRIVATE_DC_CAPABILITIES` · rich-map leaf · adapter thin · Pass |
+| C3 Matrix caps/map (lab) | `MATRIX_LAB_CAPABILITIES` · rich/canonical maps · not promote · Pass |
+| Feedback readiness A1–A5 | **Pass 2026-11-03** · honesty surfaces landed · public ask optional · Soft L3/Tor/Matrix still PAUSED |
+| P7 Obscur-Nostr body leaf | `canonical-from-rich` in `@obscur/protocol-nostr` · adapter imports maps · Pass |
+| P7b Obscur-Nostr capabilities | `OBSCUR_NOSTR_CAPABILITIES` + refuse helper in package · adapter wired · Pass |
+| P7c Obscur-Nostr display/hints | display name + nostr migration/switch copy in package · Pass |
+| P5 naming L1 | glossary helper · Settings labels · README · `@obscur/protocol-nostr` name stable · no mass rename · Pass |
+| P2 auth daily-door L1 | passphrase primary · private key Advanced · no OAuth · Pass |
+| P2 auth daily-door L3 | CDP copy soak — passphrase primary · Advanced · no OAuth · password→shell · Pass |
+| P2-S S5 L2 | Alice CAS invisible to Bob · quarantine path cross-read null · Pass |
+| P2-S S5 L3 | dual-profile AppData quarantine FS — Alice read Pass · Bob cross-read null · Pass |
+| P2-S S1 inbound policy | evaluateInboundMediaPolicy · SVG/HTML/exe deny · size cap · 6 Pass |
+| P2-S S2 quarantine paths | planInboundMediaWrite · updateMediaBlob contentAvailabilityState · Pass |
+| P2-S S2 L3 | CDP plan+persist+read · allowSystemOpen false · no shell open · Pass |
+| P2-S S2b quarantine FS | persistInboundMediaQuarantineBytes · AppData adapter · updateMediaBlob schedule · Pass |
+| P2-S S5 L1 read deny | readInboundMediaQuarantineBytes fail-closed cross-profile · Pass · L3 Pass |
+| P2-S S3 preview gate | inbound-media-preview · getMessageMedia blob strip · display-url gated · Pass |
+| P2-S S3 L3 | CDP quarantined/exe block · PNG blob: · no shell open · Pass |
+| P2-S S4 export consent | inbound-media-export · context-menu + lightbox · confirm for quarantine/denied · Pass |
+| P2-S S4 L3 | CDP consent gate · no system-open · plan.allowSystemOpen false · Pass |
+| K7 CanonicalSendConfirmation | slim DTO + toCanonical mapper · rich SendConfirmation kept · contract Pass |
+| K8 onConfirmed Canonical | pipeline maps to Canonical · dm-controller/retry consume slim · contract Pass |
+| Rewrite-band milestone | closeout note — honest claim · PAUSED bands unchanged |
+| Auth wallet unlock L1/L2 | passphrase-primary when password row exists · Import Key Advanced · create step-3 backup ack + encrypted recovery JSON download · vitest auth-screen + download helper Pass |
+| Auth lock screen UI | identity hero · short unlock hints · compact manual-lock chip · Advanced + About details · auth-screen 31 Pass · desktop static shell rebuilt |
+| Unlock display sync | profile-store name wins over stale IdentityRecord.username · soft wrong-key · opt-in switch panel · 36 Pass |
+| Private-key vault gate | no Welcome Back until PDK/SQLite open · soft-lock LockScreen “Local data locked” · storage_only toast |
 | B10 remainder | native random + event verify |
 | L2 soak | A Skipped · B T0/T1 Fail |
 | Matrix access-token | L1 Pass · **non-promoted / lab** |

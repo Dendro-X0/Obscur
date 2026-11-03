@@ -28,6 +28,16 @@ const requiredSnippets = [
   "*.tar.gz",
   "output-metadata.json",
   "release:artifact-version-parity",
+  // Phase B multi-arch artifact names / download patterns
+  "desktop-windows-x86_64",
+  "desktop-macos-aarch64",
+  "desktop-macos-x86_64",
+  "desktop-linux-x86_64",
+  "desktop-linux-aarch64",
+  "desktop-windows-*",
+  "desktop-macos-*",
+  "desktop-linux-*",
+  "ubuntu-24.04-arm",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));

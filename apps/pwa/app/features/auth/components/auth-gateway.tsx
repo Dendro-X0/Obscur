@@ -8,6 +8,10 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import { getIdentitySnapshot, useIdentity } from "@/app/features/auth/hooks/use-identity";
 import {
+  isDevicePasswordBindPending,
+  subscribeDevicePasswordBindPending,
+} from "@/app/features/auth/services/device-password-bind-pending";
+import {
   isRememberMeEnabledForProfile,
   scanStoredSessionBootstrap,
 } from "@/app/features/auth/services/session-bootstrap-contracts";
@@ -90,11 +94,21 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const [reloadRestoreOverlayUntilUnixMs, setReloadRestoreOverlayUntilUnixMs] = useState<number>(0);
   const [bootRestoreSettleEpoch, setBootRestoreSettleEpoch] = useState(0);
   const [reloadRestoreHardCapped, setReloadRestoreHardCapped] = useState(false);
+  const [devicePasswordBindPending, setDevicePasswordBindPendingState] = useState(
+    () => isDevicePasswordBindPending(),
+  );
+  useEffect(() => (
+    subscribeDevicePasswordBindPending(() => {
+      setDevicePasswordBindPendingState(isDevicePasswordBindPending());
+    })
+  ), []);
   const isUnlocked = isProfileWindowUnlockedForAppShell({
     identityStatus: identity.state.status,
     publicKeyHex: identity.state.publicKeyHex,
     runtimePhase: runtime.snapshot.phase,
   });
+  /** Slice A: identity may be unlocked while Auth still collects device-password → PDK bind. */
+  const isShellReady = isUnlocked && !devicePasswordBindPending;
   // E20: match AppSessionShell — desktop shell build OR live bridge (bridge flicker remounts heavy UI).
   const isPublicProfileRoute = isAuthPublicProfileRoute(pathname)
     && (isDesktopShellProduct() || hasNativeRuntime());
@@ -305,7 +319,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     const redirectTarget = resolveLockedDesktopEntryRedirect({
       pathname,
       isDesktopNative: hasNativeRuntime(),
-      isUnlocked,
+      isUnlocked: isShellReady,
       isPageReload: isPageReloadNavigation(),
       showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
       registeredProfileCount,
@@ -322,7 +336,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     desktopProfileSnapshot.currentWindow.launchMode,
     desktopProfileSnapshot.currentWindow.windowLabel,
     registeredProfileCount,
-    isUnlocked,
+    isShellReady,
     pathname,
     router,
     identity.state.status,
@@ -335,7 +349,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     const redirectTarget = resolveLockedSingleProfilePublicRouteRedirect({
       pathname,
       isDesktopNative: hasNativeRuntime(),
-      isUnlocked,
+      isUnlocked: isShellReady,
       registeredProfileCount,
     });
     if (!redirectTarget) {
@@ -344,7 +358,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     router.replace(redirectTarget);
   }, [
     registeredProfileCount,
-    isUnlocked,
+    isShellReady,
     pathname,
     router,
     identity.state.status,
@@ -354,13 +368,13 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     const redirectTarget = resolveUnlockedDesktopRouteRedirect({
       pathname,
       isDesktopNative: hasNativeRuntime() || isDesktopShellProduct(),
-      isUnlocked,
+      isUnlocked: isShellReady,
     });
     if (!redirectTarget) {
       return;
     }
     router.replace(redirectTarget);
-  }, [isUnlocked, pathname, router]);
+  }, [isShellReady, pathname, router]);
 
   useEffect(() => {
     if (identity.state.status === "loading") {
@@ -369,7 +383,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     const redirectTarget = resolveUnlockedDesktopStartupPickerRedirect({
       pathname,
       isDesktopNative: hasNativeRuntime() || isDesktopShellProduct(),
-      isUnlocked,
+      isUnlocked: isShellReady,
       isPageReload: isPageReloadNavigation(),
       showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
       registeredProfileCount,
@@ -388,7 +402,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     desktopProfileSnapshot.currentWindow.windowLabel,
     registeredProfileCount,
     identity.state.status,
-    isUnlocked,
+    isShellReady,
     pathname,
     router,
   ]);
@@ -645,7 +659,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
   const deferMessagingForStartupPicker = shouldDeferUnlockedMessagingShellForStartupPicker({
     pathname,
     isDesktopNative: hasNativeRuntime() || isDesktopShellProduct(),
-    isUnlocked,
+    isUnlocked: isShellReady,
     isPageReload: isPageReloadNavigation(),
     showProfilePickerOnStartup: readShowProfilePickerOnStartup(),
     registeredProfileCount,
@@ -663,7 +677,7 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     );
   }
 
-  if (isUnlocked) {
+  if (isShellReady) {
     const resolveActivePrivateKeyHex = async (): Promise<PrivateKeyHex | null> => (
       resolvePortabilityPrivateKeyHex({
         publicKeyHex: (identity.state.publicKeyHex as PublicKeyHex | null) ?? null,

@@ -1,7 +1,7 @@
 # Soft L3 — Relay pool two-profile delivery (S1–S4)
 
 - Date (UTC): 2026-08-01
-- Parent: [relay-pool-delivery-strategy-design-2026-08.md](./relay-pool-delivery-strategy-design-2026-08.md)
+- Parent: [relay-pool-delivery-strategy-design-2026-08.md](../archive/backend-inactive-2026-11/relay-pool-delivery-strategy-design-2026-08.md)
 - Surface: desktop / live webpack · **not** Dev Lab validation · **not** COM-RUN
 
 ## Goal

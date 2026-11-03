@@ -1,7 +1,17 @@
 /**
- * AUTH-K1 legacy bridge — single allowed import surface from scatter into auth-kernel adapters.
+ * AUTH-K1 / rewrite-band K3 legacy bridge — single allowed import surface from scatter
+ * into auth-kernel adapters. Shell/UI must mutate via `useAuthKernelSurfaceActions`, not here.
+ *
+ * Removal: `AUTH_KERNEL_LEGACY_BRIDGE_REMOVAL_CRITERIA` in auth-kernel-legacy-bridge-removal.ts
  * @see docs/program/obscur-auth-kernel-charter-2026-06.md
+ * @see specs/backend/platform-boundary-map-2026-11.md (K3)
  */
+export {
+  AUTH_KERNEL_LEGACY_BRIDGE_REMOVAL_CRITERIA,
+  AUTH_KERNEL_LEGACY_BRIDGE_ALLOWED_IMPORTERS,
+  AUTH_KERNEL_CANONICAL_MUTATION_ENTRY,
+} from "./auth-kernel-legacy-bridge-removal";
+
 import type { IdentityRecord } from "@dweb/core/identity-record";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";

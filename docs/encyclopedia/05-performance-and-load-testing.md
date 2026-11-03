@@ -99,7 +99,7 @@ Startup now uses bounded fail-open gates:
 4. Keep backup publish, mutation signals, and projection replay convergent under startup relay churn.
 
 Historical milestone chronology for these priorities lives in:
-- `docs/encyclopedia/11-program-milestones-and-stability-history.md`
+- `docs/archive/encyclopedia-historical-2026-11/11-program-milestones-and-stability-history.md`
 
 ## Relay Foundation Phase 1 Baseline
 

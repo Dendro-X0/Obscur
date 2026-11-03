@@ -99,6 +99,11 @@ mod desktop {
             return Ok(keys);
         }
 
+        // FM1 L3: after Lock/clear, do not auto-hydrate — unlock / force restore must call set_keys.
+        if session.is_hydrate_suppressed(&profile_id).await {
+            return Err("Native session locked (hydrate suppressed until unlock)".to_string());
+        }
+
         match native_keychain::read_nsec_for_profile(&profile_id)? {
             Some(nsec) => {
                 let nsec_zero = Zeroizing::new(nsec);

@@ -25,9 +25,9 @@ describe("p4 bundle diet contract", () => {
     expect(eslint).toContain("native-dm-thread-hydrate");
   });
 
-  it("sidebar routes lazy-load in dev desktop and eager in production static", () => {
+  it("sidebar routes lazy-load in dev and eager in production static shells", () => {
     const routes = read("app/lib/navigation/create-sidebar-route-page.tsx");
-    expect(routes).toContain("shouldUseEagerDesktopSidebarRoute");
+    expect(routes).toContain("shouldUseEagerShellSidebarRoute");
     expect(routes).toContain('process.env.NODE_ENV === "production"');
     expect(routes).toContain("createLazySidebarRoutePage");
   });

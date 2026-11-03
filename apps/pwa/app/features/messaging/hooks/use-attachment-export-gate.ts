@@ -8,6 +8,7 @@ import {
 } from "@/app/features/dm-kernel/dm-kernel-trust-export-action-gate";
 import { extractAttachmentContentDigestFromUrl } from "@/app/features/dm-kernel/dm-kernel-trust-metadata-signals";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresInboundMediaExportConfirm } from "@/app/features/storage/services/inbound-media-export";
 import {
   type MediaPreviewTrustExportContext,
   useMediaPreviewScope,
@@ -76,7 +77,11 @@ export const useAttachmentExportGate = (): UseAttachmentExportGateResult => {
     runExport: () => Promise<void>,
   ): Promise<void> => {
     const input = buildExportGateInput(item, trustExportContext);
-    if (requiresAttachmentExportConfirm(input)) {
+    const sandboxNeedsConfirm = requiresInboundMediaExportConfirm({
+      mimeType: item.attachment.contentType,
+      fileName: item.attachment.fileName,
+    });
+    if (requiresAttachmentExportConfirm(input) || sandboxNeedsConfirm) {
       pendingExportRunnerRef.current = runExport;
       setPendingExportFileName(item.attachment.fileName ?? "attachment");
       return;

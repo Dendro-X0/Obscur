@@ -157,7 +157,7 @@ describe("decoupling D0 characterization (Nostr default path)", () => {
     expect(result).toMatchObject({ success: true, eventId: "evt-1", deliveryStatus: "sent_quorum" });
 
     await expect(
-      nostrAdapter.sendMessage({ conversationId: "conv-1", body: "x" }),
+      nostrAdapter.sendMessage({ profileId: "default", conversationId: "conv-1", body: "x" }),
     ).rejects.toThrow(/use ProtocolAdaptationLayer\.sendDm|nostrAdapter\.sendDm/);
   });
 

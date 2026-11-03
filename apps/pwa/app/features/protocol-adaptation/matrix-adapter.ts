@@ -1,5 +1,4 @@
 import type { DmConversation, Message } from "@/app/features/messaging/types";
-import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { LoadDmKernelThreadParams } from "@/app/features/dm-kernel/dm-kernel-thread-port";
 import {
   matrixListRoomMessages,
@@ -9,6 +8,12 @@ import {
   matrixWhoami,
   type MatrixClientSession,
 } from "./matrix-cs-client";
+import { MATRIX_LAB_CAPABILITIES } from "./matrix-capabilities";
+import {
+  mapMatrixRoomToRichConversation,
+  mapMatrixTimelineToCanonical,
+  mapMatrixTimelineToRichMessage,
+} from "./matrix-rich-map";
 import {
   clearMatrixSession,
   readMatrixSession,
@@ -32,60 +37,6 @@ const requireSession = (profileId?: string): MatrixClientSession => {
   }
   return session;
 };
-
-const roomToDmConversation = (room: Readonly<{
-  roomId: string;
-  title: string;
-  lastMessagePreview: string;
-  lastMessageAtUnixMs: number;
-}>): DmConversation => ({
-  kind: "dm",
-  id: room.roomId,
-  displayName: room.title,
-  // Room id in pubkey slot so composer peerPublicKeyInput routes Matrix send (starts with "!").
-  pubkey: room.roomId as PublicKeyHex,
-  lastMessage: room.lastMessagePreview,
-  unreadCount: 0,
-  lastMessageTime: new Date(room.lastMessageAtUnixMs || Date.now()),
-});
-
-const timelineToMessage = (
-  entry: Readonly<{
-    eventId: string;
-    roomId: string;
-    body: string;
-    sentAtUnixMs: number;
-    senderUserId: string;
-  }>,
-  myUserId: string,
-): Message => ({
-  id: entry.eventId,
-  kind: "user",
-  content: entry.body,
-  timestamp: new Date(entry.sentAtUnixMs || Date.now()),
-  isOutgoing: entry.senderUserId === myUserId,
-  status: "delivered",
-  conversationId: entry.roomId,
-  eventId: entry.eventId,
-});
-
-const timelineToCanonical = (
-  entry: Readonly<{
-    eventId: string;
-    roomId: string;
-    body: string;
-    sentAtUnixMs: number;
-    senderUserId: string;
-  }>,
-  myUserId: string,
-): CanonicalMessage => ({
-  id: entry.eventId,
-  conversationId: entry.roomId,
-  body: entry.body,
-  sentAtUnixMs: entry.sentAtUnixMs || Date.now(),
-  direction: entry.senderUserId === myUserId ? "out" : "in",
-  status: "delivered",
-});
 
 export const matrixLogin = async (params: Readonly<{
   homeserverUrl: string;
@@ -144,7 +95,8 @@ export const matrixLogout = (profileId?: string): void => {
 };
 
 /**
- * C2 Matrix adapter — HS REST only; never dual-writes to Nostr.
+ * C2/C3 Matrix adapter — HS REST only; never dual-writes to Nostr.
+ * Lab only — not Matrix promote.
  */
 export const matrixAdapter: ProtocolAdapter & {
   listDmConversations: (profileId: string) => Promise<ReadonlyArray<DmConversation>>;
@@ -155,17 +107,12 @@ export const matrixAdapter: ProtocolAdapter & {
 } = {
   id: "matrix",
 
-  capabilities: (): ProtocolCapabilities => ({
-    dms: true,
-    groups: true,
-    reactions: false,
-    media: false,
-  }),
+  capabilities: (): ProtocolCapabilities => MATRIX_LAB_CAPABILITIES,
 
-  connect: async (transport: TransportId): Promise<void> => {
+  connect: async (transport: TransportId, profileId?: string): Promise<void> => {
     // Transport plane is orthogonal (C1 Tor/clearnet). Matrix uses HTTPS; SOCKS is OS/gateway.
     connectedTransport = transport;
-    requireSession();
+    requireSession(profileId);
   },
 
   disconnect: async (): Promise<void> => {
@@ -183,11 +130,11 @@ export const matrixAdapter: ProtocolAdapter & {
     const rows = await matrixListRoomMessages(session, params.conversationId, {
       limit: params.limit,
     });
-    return rows.map((row) => timelineToCanonical(row, session.userId));
+    return rows.map((row) => mapMatrixTimelineToCanonical(row, session.userId));
   },
 
   sendMessage: async (params): Promise<CanonicalMessage> => {
-    const session = requireSession();
+    const session = requireSession(params.profileId);
     const sent = await matrixSendRoomText(session, {
       roomId: params.conversationId,
       body: params.body,
@@ -205,7 +152,7 @@ export const matrixAdapter: ProtocolAdapter & {
   listDmConversations: async (profileId: string): Promise<ReadonlyArray<DmConversation>> => {
     const session = requireSession(profileId);
     const rooms = await matrixSyncRooms(session);
-    return rooms.map(roomToDmConversation);
+    return rooms.map(mapMatrixRoomToRichConversation);
   },
 
   listDmMessages: async (params: LoadDmKernelThreadParams): Promise<ReadonlyArray<Message>> => {
@@ -213,7 +160,7 @@ export const matrixAdapter: ProtocolAdapter & {
     const rows = await matrixListRoomMessages(session, params.conversationId, {
       limit: params.limit,
     });
-    return rows.map((row) => timelineToMessage(row, session.userId));
+    return rows.map((row) => mapMatrixTimelineToRichMessage(row, session.userId));
   },
 
   login: matrixLogin,

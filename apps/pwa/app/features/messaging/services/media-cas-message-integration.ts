@@ -21,6 +21,9 @@ import {
   type MediaCASStore,
   type MediaItem,
 } from "@/app/features/vault/services/media-cas-store";
+import { planInboundMediaWrite } from "@/app/features/storage/services/inbound-media-quarantine";
+import { persistInboundMediaQuarantineBytes } from "@/app/features/storage/services/inbound-media-quarantine-persist";
+import { shouldAllowInboundMediaPreview } from "@/app/features/storage/services/inbound-media-preview";
 
 /** Media attachment found in message */
 export interface MessageMediaAttachment {
@@ -201,7 +204,8 @@ export const processIncomingMessageMedia = (
 export const updateMediaBlob = (
   profileId: string,
   sha256Hash: string,
-  blob: Blob
+  blob: Blob,
+  options?: Readonly<{ fileName?: string | null }>,
 ): void => {
   const store = getMediaStoreForProfile(profileId);
 
@@ -213,11 +217,81 @@ export const updateMediaBlob = (
     return;
   }
 
+  // P2-S S2: policy + quarantine path — never system-open; deny preview when policy fails.
+  const plan = planInboundMediaWrite({
+    profileId,
+    sha256: sha256Hash,
+    mimeType: blob.type || undefined,
+    fileName: options?.fileName,
+    byteLength: blob.size,
+  });
+  const descriptor = {
+    ...existing.descriptor,
+    contentAvailabilityState: plan.contentAvailabilityState,
+    localCacheState: "cached" as const,
+  };
+  if (!plan.allowPreview) {
+    logAppEvent({
+      name: "vault.inbound_media_quarantined",
+      level: "info",
+      scope: { feature: "vault", action: "inbound_media_quarantined" },
+      context: {
+        profileId,
+        sha256Prefix: sha256Hash.slice(0, 16),
+        quarantineRelativePath: plan.quarantineRelativePath,
+        policyReason: plan.policy.ok ? null : plan.policy.reason,
+      },
+    });
+  }
+
+  // P2-S S2b: durable AppData write under quarantine path (no shell open).
+  const readBlobBytes = async (): Promise<Uint8Array> => {
+    if (typeof blob.arrayBuffer === "function") {
+      return new Uint8Array(await blob.arrayBuffer());
+    }
+    // jsdom / older runtimes — Response stream fallback.
+    return new Uint8Array(await new Response(blob).arrayBuffer());
+  };
+  void readBlobBytes()
+    .then((bytes) => persistInboundMediaQuarantineBytes({
+      profileId,
+      plan,
+      bytes,
+    }))
+    .then((result) => {
+      if (result.status === "written" || result.status === "skipped_non_native") {
+        return;
+      }
+      logAppEvent({
+        name: "vault.inbound_media_quarantine_persist_failed",
+        level: "warn",
+        scope: { feature: "vault", action: "inbound_media_quarantine_persist" },
+        context: {
+          profileId,
+          sha256Prefix: sha256Hash.slice(0, 16),
+          status: result.status,
+          reason: "reason" in result ? result.reason : null,
+        },
+      });
+    })
+    .catch((error: unknown) => {
+      logAppEvent({
+        name: "vault.inbound_media_quarantine_persist_failed",
+        level: "warn",
+        scope: { feature: "vault", action: "inbound_media_quarantine_persist" },
+        context: {
+          profileId,
+          sha256Prefix: sha256Hash.slice(0, 16),
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    });
+
   const updatedStore = addMediaBlob(
     store,
     sha256Hash,
     blob,
-    existing.descriptor,
+    descriptor,
     "local" // Local source
   );
 
@@ -233,7 +307,21 @@ export const getMessageMedia = (
   messageId: string
 ): MediaItem[] => {
   const store = getMediaStoreForProfile(profileId);
-  return getMediaForMessage(store, messageId);
+  // P2-S S3: never hand previewable blobs for quarantined / policy-denied items.
+  return getMediaForMessage(store, messageId).map((item) => {
+    if (!item.blob) {
+      return item;
+    }
+    const allow = shouldAllowInboundMediaPreview({
+      contentAvailabilityState: item.descriptor.contentAvailabilityState,
+      mimeType: item.blob.type || undefined,
+      byteLength: item.blob.size,
+    });
+    if (allow) {
+      return item;
+    }
+    return { ...item, blob: null };
+  });
 };
 
 /**

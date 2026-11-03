@@ -1,7 +1,7 @@
 # Design — Voice invite provisional wire + card honesty
 
 **Date (UTC):** 2026-08-04  
-**Investigation:** [voice-call-invite-ack-residual-investigation-2026-08.md](./voice-call-invite-ack-residual-investigation-2026-08.md)
+**Investigation:** [voice-call-invite-ack-residual-investigation-2026-08.md](../archive/backend-inactive-2026-11/voice-call-invite-ack-residual-investigation-2026-08.md)
 
 ---
 

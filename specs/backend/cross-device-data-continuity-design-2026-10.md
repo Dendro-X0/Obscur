@@ -103,7 +103,7 @@ Both paths share **one payload owner**: `encrypted-account-backup-service` (`Enc
 
 **P0 Continuity gate:**
 
-1. Detect: unlocked + peer/messaging hydrated + `acceptedPeers.length === 0` + no local connections + not session-dismissed.  
+1. Detect: unlocked + peer/messaging hydrated + `acceptedPeers.length === 0` + no local connections + not **durably** dismissed (`localStorage`, not session-only — relaunch must not re-nag after Continue empty / successful restore).  
 2. `EmptyDeviceContinuityGate` sticky dialog: Restore from relays / Import backup file → Settings / Continue empty.  
 3. Restore → existing `runManualAccountSyncRestore` (Settings + Network empty CTA + gate).  
 4. L1: `empty-device-continuity-policy.test.ts`. L2: empty preview → restore → Network non-empty (if backup on relays).

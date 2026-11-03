@@ -1,7 +1,7 @@
 # Design — U2: Group persist → workspace-engine (charter)
 
 **Status:** Chartered · Wave A–C Done · **Wave D Done (L3)** · 2026-07-31  
-**Parents:** [community-unpause-integration-study-2026-07.md](./community-unpause-integration-study-2026-07.md) §6 U2 · [obscur-native-sqlite-policy.md](../../docs/program/obscur-native-sqlite-policy.md) P3d · [engine-invoke-b3-backup-evidence-migrate-design-2026-07.md](./engine-invoke-b3-backup-evidence-migrate-design-2026-07.md) (DM pattern)  
+**Parents:** [community-unpause-integration-study-2026-07.md](./community-unpause-integration-study-2026-07.md) §6 U2 · [obscur-native-sqlite-policy.md](../../docs/program/obscur-native-sqlite-policy.md) P3d · [engine-invoke-b3-backup-evidence-migrate-design-2026-07.md](../archive/backend-inactive-2026-11/engine-invoke-b3-backup-evidence-migrate-design-2026-07.md) (DM pattern)  
 **Charter:** Maintainer selected **U2** after U6 Wave B Done (2026-07-31).
 
 ---
@@ -46,7 +46,7 @@ Chat-state / workspace metadata cache remains a **UI merge input**; SQLite remai
 | Product list store | **Wave A Done** — `community-group-sqlite-store` → `workspace-group-persist-port` → `@obscur/workspace-engine` |
 | Product message path | **Wave B Done** — append / sqlite / suppress → `workspace-group-message-persist-port` |
 | Backup + account evidence | **Wave C Done** — workspace-engine only; `@dweb/db` group helpers removed |
-| Warm Tauri `db_*` group commands | **Tombstoned 2026-07-31** — [community-group-db-ipc-tombstone-design-2026-07.md](./community-group-db-ipc-tombstone-design-2026-07.md) |
+| Warm Tauri `db_*` group commands | **Tombstoned 2026-07-31** — [community-group-db-ipc-tombstone-design-2026-07.md](../archive/backend-inactive-2026-11/community-group-db-ipc-tombstone-design-2026-07.md) |
 
 ### Product call sites (subtract)
 
@@ -172,4 +172,4 @@ pnpm verify:u2-l3
 |-------|--------|
 | Done | **U2 Wave D** — L3 restart soak Pass (`webview_reload` + engine_invoke proof) |
 | Next | Maintainer: pick next U-slice or leave community PAUSED |
-| Optional | Group `db_*` IPC tombstone — **Done 2026-07-31** ([design](./community-group-db-ipc-tombstone-design-2026-07.md)) |
+| Optional | Group `db_*` IPC tombstone — **Done 2026-07-31** (../archive/backend-inactive-2026-11/community-group-db-ipc-tombstone-design-2026-07.md)) |

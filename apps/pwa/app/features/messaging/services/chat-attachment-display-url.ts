@@ -17,6 +17,7 @@ import {
   listLesObjects,
   readLesObjectDecrypted,
 } from "@/app/features/les/sdk/les-native-sdk";
+import { createInboundMediaPreviewObjectUrl } from "@/app/features/storage/services/inbound-media-preview";
 
 export const isPersistedBlobAttachmentUrl = (url: string): boolean =>
   url.trim().toLowerCase().startsWith("blob:");
@@ -38,11 +39,37 @@ const isRemoteHttpUrl = (url: string): boolean => {
   return trimmed.startsWith("https:") || trimmed.startsWith("http:");
 };
 
+const inferPreviewMimeFromUrl = (remoteUrl: string): string | undefined => {
+  const leaf = (remoteUrl.split(/[/?#]/).pop() ?? "").toLowerCase();
+  if (leaf.endsWith(".png")) return "image/png";
+  if (leaf.endsWith(".jpg") || leaf.endsWith(".jpeg")) return "image/jpeg";
+  if (leaf.endsWith(".gif")) return "image/gif";
+  if (leaf.endsWith(".webp")) return "image/webp";
+  if (leaf.endsWith(".mp4")) return "video/mp4";
+  if (leaf.endsWith(".webm")) return "video/webm";
+  if (leaf.endsWith(".mp3")) return "audio/mpeg";
+  if (leaf.endsWith(".pdf")) return "application/pdf";
+  return undefined;
+};
+
 const bytesToRegisteredBlobUrl = (remoteUrl: string, bytes: Uint8Array, contentType?: string): string => {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
-  const blob = new Blob([copy.buffer], { type: contentType?.trim() || "application/octet-stream" });
-  return registerVaultMediaBlobUrl(remoteUrl, URL.createObjectURL(blob));
+  const trimmedType = contentType?.trim() || "";
+  const fileName = remoteUrl.split(/[/?#]/).pop() ?? undefined;
+  const mime = trimmedType && trimmedType.toLowerCase() !== "application/octet-stream"
+    ? trimmedType
+    : (inferPreviewMimeFromUrl(remoteUrl) || trimmedType || "application/octet-stream");
+  const blob = new Blob([copy.buffer], { type: mime });
+  // P2-S S3: deny-by-default MIME must not become a renderable blob: URL.
+  const previewUrl = createInboundMediaPreviewObjectUrl(blob, {
+    mimeType: mime,
+    fileName,
+  });
+  if (!previewUrl) {
+    return remoteUrl;
+  }
+  return registerVaultMediaBlobUrl(remoteUrl, previewUrl);
 };
 
 export const resolveLesDisplayUrlForSourceAttachment = async (

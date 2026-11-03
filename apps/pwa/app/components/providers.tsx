@@ -29,6 +29,8 @@ import { ExperimentShellIndicator } from "@/app/features/runtime/components/expe
 import { DevShellStampMismatchBanner } from "@/app/features/runtime/components/dev-shell-stamp-mismatch-banner";
 import { ClientSurfaceRevisionBadge } from "@/app/components/client-surface-revision-badge";
 import { DataRootUnavailableGate } from "@/app/features/profiles/components/data-root-unavailable-recovery";
+import { installPalSoakHooks } from "@/app/features/protocol-adaptation/pal-soak-hooks";
+import { installStorageSoakHooks } from "@/app/features/storage/storage-soak-hooks";
 
 const BOOT_WATCHDOG_LAST_EVENT_STORAGE_KEY = "obscur.boot.watchdog.auto_recovery_last_event.v1";
 
@@ -46,6 +48,9 @@ export const AppProviders = ({ children }: { children: React.ReactNode }) => {
         installM8CommunityReplayBridge();
         installM10TrustControlsBridge();
         installCodactrlAgentBridge();
+        // CDP soaks (P2-S / PAL) — mount before MessagingProvider so cold sign-in shell still exposes hooks.
+        installPalSoakHooks();
+        installStorageSoakHooks();
     }, []);
 
     useEffect(() => {

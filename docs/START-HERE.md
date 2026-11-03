@@ -1,32 +1,32 @@
 # Obscur — start here
 
-**One front door.** Do not search all of `/docs`.
+**One front door.** Do not search all of `/docs` or `/specs`.
 
-_Last updated: 2026-10-13 · **v1.9.16** · native perf N1 lock
+_Last updated: 2026-11-03 · **v2.0.0-beta.3** · rewrite band_
 
 ---
 
 ## Read in this order
 
-1. **[CURRENT.md](./CURRENT.md)** — **v1.9.16** · dialect research **PAUSED** (~5 minutes)
-2. **[handoffs/current-session.md](./handoffs/current-session.md)** — next atomic step for this repo
-3. **[program/obscur-v2-known-limitations.md](./program/obscur-v2-known-limitations.md)** — honest demo limits (when presenting or supporting)
-4. **[program/modular-iteration-contract.md](./program/modular-iteration-contract.md)** — if you are an agent (execution order + goal preservation)
-5. **Shell / IPC / profiles work:** [program/obscur-native-performance-standards.md](./program/obscur-native-performance-standards.md) (§11 N1 lock) · then `pnpm verify:native-perf-n1`
+1. **[CURRENT.md](./CURRENT.md)** — version, band, PAUSED claims (~3 minutes)
+2. **[handoffs/current-session.md](./handoffs/current-session.md)** — next atomic step
+3. **[program/obscur-v2-known-limitations.md](./program/obscur-v2-known-limitations.md)** — honest demo / feedback limits
+4. **[program/modular-iteration-contract.md](./program/modular-iteration-contract.md)** — agents: explore → spec → implement
+5. **UI / shell work:** specs under [../specs/frontend/](../specs/frontend/) (not `docs/` root)
 
 That is enough for most sessions.
 
 ---
 
-## Shelves (on demand only)
+## Shelves (on demand)
 
 | Shelf | When to open |
 |-------|----------------|
-| [program/README.md](./program/README.md) | Active specs (**~39 files**) |
-| [encyclopedia/08-maintainer-playbook.md](./encyclopedia/08-maintainer-playbook.md) | Commands, triage, local dev |
-| [encyclopedia/12-core-architecture-truth-map.md](./encyclopedia/12-core-architecture-truth-map.md) | Owner boundaries |
-| [README.md](./README.md) | Full shelf index for humans |
-| `business/` (local-only) | Productization · hitch growth · commercial strategy |
+| [program/README.md](./program/README.md) | Active policy / product (~50 files) |
+| [../specs/README.md](../specs/README.md) | Investigation / design specs |
+| [encyclopedia/08-maintainer-playbook.md](./encyclopedia/08-maintainer-playbook.md) | Commands, triage |
+| [assets/demo/v2.0.0/](./assets/demo/v2.0.0/) | Feedback demo recording kit |
+| `business/` (local-only) | Commercial strategy |
 
 ---
 
@@ -34,10 +34,8 @@ That is enough for most sessions.
 
 | Path | Why |
 |------|-----|
-| [archive/](./archive/README.md) | Superseded plans — not current truth |
-| [archive/program/inactive-2026-08/](./archive/program/inactive-2026-08/README.md) | Landed W*/C* charters, closed trackers (2026-08) |
-| [archive/program/inactive-2026-06/](./archive/program/inactive-2026-06/README.md) | Older scope files and duplicate specs |
-| [future/](./future/README.md) | Non-gating sketches |
-| [exploration/](./exploration/README.md) | As-built audit — research only |
+| [archive/](./archive/README.md) | Superseded — including [archive/demo/](./archive/demo/) pre-v2 demos |
+| [future/](./future/README.md) · [exploration/](./exploration/README.md) | Sketches / as-built research |
+| Old `v1.*` demo shelves | Archived under `archive/demo/` |
 
-Run `pnpm docs:check` after moving or renaming markdown outside `archive/`.
+Run `pnpm docs:check` after moving markdown outside `archive/`.

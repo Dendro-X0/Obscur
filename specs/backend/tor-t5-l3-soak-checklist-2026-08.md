@@ -2,7 +2,7 @@
 
 **Date (UTC):** 2026-08-09  
 **Status:** Ready for maintainer / external runtime on **Tor-capable** network  
-**Parents:** [tor-verified-soak-charter-2026-08.md](./tor-verified-soak-charter-2026-08.md) · [tor-ti-land-silo-charter-2026-08.md](./tor-ti-land-silo-charter-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](./tor-t5-tor-viable-pool-design-2026-08.md)
+**Parents:** [tor-verified-soak-charter-2026-08.md](./tor-verified-soak-charter-2026-08.md) · [tor-ti-land-silo-charter-2026-08.md](./tor-ti-land-silo-charter-2026-08.md) · [tor-t5-tor-viable-pool-design-2026-08.md](../archive/backend-inactive-2026-11/tor-t5-tor-viable-pool-design-2026-08.md)
 
 ```text
 HANDOFF ATOMIC STEP:  Tor Verified soak (option C) — A + B + C

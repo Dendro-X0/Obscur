@@ -2,7 +2,7 @@
 
 **Status:** Archive shelf — **not** daily execution queue.
 
-Active program: [`docs/program/README.md`](../../program/README.md) · cleanup charter [`docs-shelf-cleanup-charter-2026-08.md`](../../program/docs-shelf-cleanup-charter-2026-08.md)
+Active program: [`docs/program/README.md`](../../program/README.md) · cleanup charter [`docs-shelf-cleanup-charter-2026-11.md`](../../program/docs-shelf-cleanup-charter-2026-11.md)
 
 | Wave | Path |
 |------|------|

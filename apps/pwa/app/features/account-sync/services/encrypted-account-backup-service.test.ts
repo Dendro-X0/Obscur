@@ -2153,6 +2153,17 @@ describe("encryptedAccountBackupService", () => {
     expect(merged.mutedPeers).toEqual([publicKeyHex]);
   });
 
+  it("merges relay lists without letting disabled backup rows undo local enables", () => {
+    const merged = encryptedAccountBackupServiceInternals.mergeRelayList(
+      [{ url: "wss://nos.lol", enabled: true }],
+      [{ url: "wss://nos.lol", enabled: false }, { url: "wss://relay.damus.io", enabled: false }],
+    );
+    expect(merged).toEqual([
+      { url: "wss://nos.lol", enabled: true },
+      { url: "wss://relay.damus.io", enabled: false },
+    ]);
+  });
+
   it("preserves chat history when merging chat state payloads", () => {
     const merged = encryptedAccountBackupServiceInternals.mergeChatState({
       version: 2,

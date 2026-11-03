@@ -1,7 +1,7 @@
 # Design — R2 password-protected identity materialization at unlock
 
 **Status:** Approved for implementation (2026-07-04)  
-**Investigation:** [auth-keychain-restore-failed-r2-investigation-2026-07.md](./auth-keychain-restore-failed-r2-investigation-2026-07.md)  
+**Investigation:** [auth-keychain-restore-failed-r2-investigation-2026-07.md](../archive/backend-inactive-2026-11/auth-keychain-restore-failed-r2-investigation-2026-07.md)  
 **Chain:** `chain-r2-auth-cold-unlock-2026-07-04`
 
 ---

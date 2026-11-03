@@ -1,0 +1,49 @@
+{
+  "capturedAt": "2026-11-02T11:35:00.732Z",
+  "surface": "tauri-desktop-cdp",
+  "cdp": "http://127.0.0.1:9230",
+  "band": "p2s-S5-L3-dual-profile-quarantine-fs",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Tor Verified",
+    "Matrix promote",
+    "OS ACL multi-user isolation"
+  ],
+  "result": {
+    "alicePath": "profiles/profile-alice/quarantine/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "aliceWrite": true,
+    "aliceReadOk": true,
+    "bobCrossNull": true,
+    "bobRawFsPresent": true,
+    "aliceRead": {
+      "ok": true,
+      "gated": false,
+      "bytes": [
+        83,
+        53,
+        76,
+        51,
+        65,
+        108,
+        105,
+        99,
+        101
+      ]
+    },
+    "bobCross": {
+      "ok": false,
+      "gated": true,
+      "bytes": null
+    },
+    "bobRawFs": {
+      "present": true
+    }
+  },
+  "matrix": {
+    "aliceWrite": true,
+    "aliceRead": true,
+    "bobCrossRead": true,
+    "bobRawFsStillPresent": true
+  },
+  "verdict": "Pass"
+}

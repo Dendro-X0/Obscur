@@ -22,7 +22,7 @@ type Props = Readonly<{
 
 const accountPrefix = (publicKeyHex: PublicKeyHex): string => `${publicKeyHex.slice(0, 8)}…`;
 
-/** Inline account-slot conflict UI for auth — avoids modal overlay trapping the login surface. */
+/** Intentional account-switch panel — full card width, short copy, wipe actions demoted. */
 export function ProfileSlotAccountConflictInline(props: Props): React.JSX.Element {
   const { t } = useTranslation();
   const occupantLabel = props.occupantUsername?.trim()
@@ -30,15 +30,16 @@ export function ProfileSlotAccountConflictInline(props: Props): React.JSX.Elemen
 
   return (
     <div
-      className="mt-4 w-full rounded-[24px] border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-left shadow-lg"
+      className="mt-4 w-full min-w-0 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-left sm:px-5"
       role="region"
       aria-label={t("auth.slotConflict.regionAria")}
+      data-testid="auth-account-switch-panel"
     >
       <div className="space-y-3">
         <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {t("auth.slotConflict.title")}
         </p>
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="space-y-1.5 text-sm leading-snug text-zinc-600 dark:text-zinc-300">
           <p>
             {t("auth.slotConflict.bodyOccupant", {
               profileLabel: props.profileLabel,
@@ -53,15 +54,16 @@ export function ProfileSlotAccountConflictInline(props: Props): React.JSX.Elemen
               })}
           </p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            {t("auth.slotConflict.hint")}
+            {t("auth.slotConflict.hint", { occupantLabel })}
           </p>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {props.canOpenAnotherWindow ? (
             <Button
               type="button"
               disabled={props.isBusy}
               onClick={props.onOpenAnotherWindow}
+              className="sm:flex-1"
             >
               <ExternalLink className="h-4 w-4" />
               {t("auth.slotConflict.openWindow")}
@@ -72,6 +74,7 @@ export function ProfileSlotAccountConflictInline(props: Props): React.JSX.Elemen
             variant="secondary"
             disabled={props.isBusy}
             onClick={props.onClearWindow}
+            className="sm:flex-1"
           >
             <Trash2 className="h-4 w-4" />
             {t("auth.slotConflict.clearWindow")}
@@ -81,11 +84,12 @@ export function ProfileSlotAccountConflictInline(props: Props): React.JSX.Elemen
             variant="outline"
             disabled={props.isBusy}
             onClick={props.onExportAndClear}
+            className="w-full"
           >
             <FolderOutput className="h-4 w-4" />
             {t("auth.slotConflict.exportThenSwitch")}
           </Button>
-          <Button type="button" variant="ghost" disabled={props.isBusy} onClick={props.onClose}>
+          <Button type="button" variant="ghost" disabled={props.isBusy} onClick={props.onClose} className="w-full">
             {t("auth.slotConflict.cancel")}
           </Button>
         </div>

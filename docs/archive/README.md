@@ -19,12 +19,17 @@ Superseded plans, discontinued designs, and version-stamped copies live here. Ag
 | [`program/inactive-2026-06/`](./program/inactive-2026-06/) | **2026-06-17** — ~115 superseded `docs/program/` files |
 | [`rewrite-shelf/`](./rewrite-shelf/) | Legacy rewrite notes |
 | [`versioned/`](./versioned/) | Version-stamped doc copies |
+| [`program/inactive-2026-11/`](./program/inactive-2026-11/) | **2026-11** — rewrite-band docs/specs declutter Wave 1 |
+| [`demo/`](./demo/) | Pre-v2.0.0 presenter/GIF version shelves |
+| [`releases-pre-v1.9/`](./releases-pre-v1.9/) | **2026-11 Wave 3** — release notes ≤ v1.8 |
+| [`encyclopedia-historical-2026-11/`](./encyclopedia-historical-2026-11/) | **2026-11 Wave 3** — encyclopedia 11 / 16 / 17 |
 
 ---
 
 ## Active docs live outside archive
 
-Start at [../START-HERE.md](../START-HERE.md) → [../handoffs/current-session.md](../handoffs/current-session.md).
+Start at [../START-HERE.md](../START-HERE.md) → [../handoffs/current-session.md](../handoffs/current-session.md).  
+Current demo kit: [../assets/demo/v2.0.0/](../assets/demo/v2.0.0/). Specs index: [../../specs/README.md](../../specs/README.md).
 
 `pnpm docs:check` **skips** `docs/archive/` when validating links — broken links inside archive are acceptable.
 

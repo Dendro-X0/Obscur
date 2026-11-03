@@ -1,15 +1,16 @@
 # Documentation maintenance
 
-_Last updated: 2026-06-26_
+_Last updated: 2026-11-03_
 
 ---
 
 ## Principles
 
 1. **One front door:** [CURRENT.md](./CURRENT.md) — then [handoffs/current-session.md](./handoffs/current-session.md).
-2. **Small active shelf:** `docs/program/` holds **~28** active files ([program/README.md](./program/README.md)). Superseded docs go to `archive/` — do not duplicate.
+2. **Small active shelves:** `docs/program/` for policy/product; `specs/{backend,frontend,ui,ci}/` for investigation/design.
 3. **Handoff is live state** — not chat history.
-4. **Archive is not deleted history** — move with `git mv`; add index README in archive subfolder.
+4. **Archive is not deleted history** — move with `git mv`; never hard-delete markdown.
+5. **No mass-delete of `docs/`** — platform safety / limitations sheets stay findable.
 
 ---
 
@@ -17,37 +18,33 @@ _Last updated: 2026-06-26_
 
 | Step | Action |
 |------|--------|
-| 1 | Prefer updating [CURRENT.md](./CURRENT.md) or handoff before adding files |
-| 2 | If new spec needed → `program/` + link from [program/README.md](./program/README.md) |
-| 2b | Commercial / productization / hitch strategy → `business/` + link from [business/README.md](./business/README.md) — **do not** stuff into `program/` (shelf cap) |
-| 3 | Supersede old doc → move to `archive/program/inactive-YYYY-MM/` |
+| 1 | Prefer updating CURRENT / handoff before adding files |
+| 2 | Product / policy → `docs/program/` + link from [program/README.md](./program/README.md) |
+| 2b | Investigation / design → `specs/backend/` or `specs/frontend/` — **not** `docs/` root |
+| 2c | Commercial → `business/` (local) — not `program/` |
+| 3 | Supersede → `docs/archive/program/inactive-<YYYY-MM>/` (or `docs/archive/demo/`) |
 | 4 | Run `pnpm docs:check` |
-
-**Transport verify (w0–w68):** all `verify:transport-engine-w*` aliases resolve to `scripts/verify-transport-engine.mjs` (flat gate). Canonical: `pnpm verify:transport-engine-w68`.
 
 Do **not** add loose `.md` at `docs/` root except `README.md`, `START-HERE.md`, `CURRENT.md`, `DOC-MAINTENANCE.md`.
 
-## Feature demos (GIFs + guides)
-
-Agents: [program/agent-docs-gif-standard.md](./program/agent-docs-gif-standard.md).
-
-| Shelf | Role |
-|-------|------|
-| `docs/assets/gifs/` | Silent feature GIFs · **20–30 FPS** · replace in place |
-| `docs/assets/demo/<version>/` | Usage MD · `gif-inventory.md` · segment scripts |
-
-Do **not** publish aimless short recordings or simulated stub demos as the shelf.
+UI specs live under **`specs/frontend/`** (moved from root `frontend-spec-*.md` in 2026-11).
 
 ---
 
-## Consolidation (2026-06-17)
+## Feature demos
 
-~115 redundant `program/` files moved to [archive/program/inactive-2026-06/](./archive/program/inactive-2026-06/README.md). Goal: **readable in minutes**, not weeks.
+| Shelf | Role |
+|-------|------|
+| `docs/assets/demo/v2.0.0/` | Current feedback / presenter kit |
+| `docs/archive/demo/` | Pre-v2.0.0 version shelves |
+| `docs/assets/gifs/` | Silent feature GIFs |
+
+Agents: [program/agent-docs-gif-standard.md](./program/agent-docs-gif-standard.md).
 
 ---
 
 ## Session end
 
 1. Update handoff (`Last Updated`, next atomic step).
-2. If architecture meaning changed → [CHANGELOG.md](../CHANGELOG.md) + [CURRENT.md](./CURRENT.md) if user-facing truth shifted.
+2. If user-facing truth shifted → CURRENT + CHANGELOG as needed.
 3. `pnpm docs:check`

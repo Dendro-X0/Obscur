@@ -30,13 +30,22 @@ import {
   matrixLoginAccessToken,
   matrixLogout,
 } from "@/app/features/protocol-adaptation/matrix-adapter";
+import {
+  clearPrivateDcSession,
+  hasPrivateDcSession,
+  readPrivateDcSession,
+  writePrivateDcSession,
+} from "@/app/features/protocol-adaptation/private-dc-session";
 import { ProtocolCapabilityChips } from "@/app/features/protocol-adaptation/components/protocol-capability-chips";
 import { ProtocolMigrationHints } from "@/app/features/protocol-adaptation/components/protocol-migration-hints";
+import { protocolDisplayName } from "@/app/features/protocol-adaptation/module-display-names";
 
 const PROTOCOL_LABEL_KEY: Record<ProtocolId, string> = {
   nostr: "settings.protocols.protocol.nostr",
   matrix: "settings.protocols.protocol.matrix",
+  private_dc: "settings.protocols.protocol.privateDc",
 };
+
 
 const TRANSPORT_LABEL_KEY: Record<TransportId, string> = {
   clearnet: "settings.protocols.transport.clearnet",
@@ -63,6 +72,12 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
   const [matrixBusy, setMatrixBusy] = useState(false);
   const [matrixMessage, setMatrixMessage] = useState<string | null>(null);
   const [protocolMessage, setProtocolMessage] = useState<string | null>(null);
+  const [privateDcConfigured, setPrivateDcConfigured] = useState(() => hasPrivateDcSession());
+  const [privateDcBaseUrl, setPrivateDcBaseUrl] = useState(
+    () => readPrivateDcSession()?.baseUrl ?? "https://dc.example.invalid",
+  );
+  const [privateDcToken, setPrivateDcToken] = useState("");
+  const [privateDcMessage, setPrivateDcMessage] = useState<string | null>(null);
 
   const selectProtocol = useCallback((next: ProtocolId): void => {
     setProtocolMessage(null);
@@ -75,6 +90,15 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
       }));
       window.requestAnimationFrame(() => {
         document.getElementById("matrix-login")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      return;
+    }
+    if (next === "private_dc" && !hasPrivateDcSession()) {
+      setProtocolMessage(t("settings.protocols.privateDc.configRequired", {
+        defaultValue: "Configure a Private DC base URL below before switching.",
+      }));
+      window.requestAnimationFrame(() => {
+        document.getElementById("private-dc-config")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
       return;
     }
@@ -172,11 +196,41 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
     }));
   }, [t]);
 
+  const handlePrivateDcSave = useCallback((): void => {
+    setPrivateDcMessage(null);
+    try {
+      writePrivateDcSession({
+        baseUrl: privateDcBaseUrl,
+        bearerToken: privateDcToken.trim() || undefined,
+      });
+      setPrivateDcConfigured(true);
+      setPrivateDcToken("");
+      setPrivateDcMessage(t("settings.protocols.privateDc.saved", {
+        defaultValue: "Private DC endpoint saved — you can switch Protocol to Private DC (HTTP /v1 wire).",
+      }));
+    } catch (error) {
+      setPrivateDcMessage(error instanceof Error ? error.message : String(error));
+    }
+  }, [privateDcBaseUrl, privateDcToken, t]);
+
+  const handlePrivateDcClear = useCallback((): void => {
+    clearPrivateDcSession();
+    setPrivateDcConfigured(false);
+    if (ProtocolAdaptationLayer.getActiveProtocolId() === "private_dc") {
+      ProtocolAdaptationLayer.setActiveProtocolId("nostr");
+      setProtocolId("nostr");
+    }
+    setPrivateDcMessage(t("settings.protocols.privateDc.cleared", {
+      defaultValue: "Private DC configuration cleared.",
+    }));
+  }, [t]);
+
   return (
     <SettingsCompactCard
       title={t("settings.protocols.title", { defaultValue: "Protocols & network" })}
       description={t("settings.protocols.desc", {
-        defaultValue: "Messaging protocol, network path, then Matrix homeserver login when you need it.",
+        defaultValue:
+          "Obscur-Nostr is the production messaging path. Matrix and Private DC are lab/optional — not multi-protocol Verified. Tor is optional routing, not Tor Verified.",
       })}
       className="w-full"
     >
@@ -184,7 +238,7 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
         <SettingsCompactSection
           title={t("settings.protocols.protocolSection", { defaultValue: "Protocol" })}
           hint={t("settings.protocols.protocolHint", {
-            defaultValue: "One active messaging stack — no dual-write. Matrix needs a homeserver session first.",
+            defaultValue: "One active messaging stack — no dual-write. Matrix and Private DC need a session first.",
           })}
         >
           <div className={cn(compact ? "grid grid-cols-2 gap-1.5" : "flex flex-wrap gap-2")}>
@@ -192,6 +246,7 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
               const selectable = SELECTABLE_PROTOCOL_IDS.includes(id);
               const active = protocolId === id;
               const matrixNeedsLogin = id === "matrix" && !hasMatrixSession();
+              const privateDcNeedsConfig = id === "private_dc" && !hasPrivateDcSession();
               return (
                 <Button
                   key={id}
@@ -208,11 +263,16 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
                   onClick={() => selectProtocol(id)}
                 >
                   {t(PROTOCOL_LABEL_KEY[id], {
-                    defaultValue: id === "nostr" ? "Nostr" : "Matrix",
+                    defaultValue: protocolDisplayName(id),
                   })}
                   {matrixNeedsLogin ? (
                     <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
                       {t("settings.protocols.matrix.needsLogin", { defaultValue: "Login" })}
+                    </span>
+                  ) : null}
+                  {privateDcNeedsConfig ? (
+                    <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                      {t("settings.protocols.privateDc.needsConfig", { defaultValue: "Setup" })}
                     </span>
                   ) : null}
                 </Button>
@@ -231,7 +291,7 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
         <SettingsCompactSection
           title={t("settings.protocols.transportSection", { defaultValue: "Network path" })}
           hint={t("settings.protocols.transportHint", {
-            defaultValue: "How traffic leaves this device (Clearnet, Tor gateway, or Quiet dial caps).",
+            defaultValue: "Clearnet, Tor gateway, or Quiet — Tor optional, not Tor Verified.",
           })}
         >
           <div className={cn(compact ? "grid grid-cols-3 gap-1.5" : "flex flex-wrap gap-2")}>
@@ -273,7 +333,7 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
         <SettingsCompactSection
           title={t("settings.protocols.matrix.section", { defaultValue: "Matrix homeserver" })}
           hint={t("settings.protocols.matrix.hint", {
-            defaultValue: "Password or access token (SSO/Element). Token stored on this profile. Cleartext rooms only in this MVP.",
+            defaultValue: "Lab login only — not Matrix production / E2EE. Cleartext rooms in this MVP.",
           })}
         >
           <div id="matrix-login" data-testid="matrix-login" className="space-y-3">
@@ -388,6 +448,81 @@ export default function ProtocolsSettingsTabPanel(): React.JSX.Element {
             {matrixMessage ? (
               <p data-testid="matrix-login-message" className="text-xs text-zinc-500 dark:text-zinc-400">
                 {matrixMessage}
+              </p>
+            ) : null}
+          </div>
+        </SettingsCompactSection>
+
+        <SettingsCompactSection
+          title={t("settings.protocols.privateDc.section", { defaultValue: "Private DC / company server" })}
+          hint={t("settings.protocols.privateDc.hint", {
+            defaultValue: "Lab company-server /v1 wire — not multi-protocol Verified; still E2EE.",
+          })}
+        >
+          <div id="private-dc-config" data-testid="private-dc-config" className="space-y-3">
+            {privateDcConfigured ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-zinc-700 dark:text-zinc-200">
+                  {t("settings.protocols.privateDc.configuredAs", {
+                    defaultValue: "Configured: {{url}}",
+                    url: readPrivateDcSession()?.baseUrl ?? privateDcBaseUrl,
+                  })}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-testid="private-dc-clear"
+                  onClick={handlePrivateDcClear}
+                >
+                  {t("settings.protocols.privateDc.clear", { defaultValue: "Clear" })}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <Label htmlFor="private-dc-base-url">
+                    {t("settings.protocols.privateDc.baseUrl", { defaultValue: "Base URL" })}
+                  </Label>
+                  <Input
+                    id="private-dc-base-url"
+                    data-testid="private-dc-base-url"
+                    value={privateDcBaseUrl}
+                    onChange={(event) => setPrivateDcBaseUrl(event.target.value)}
+                    autoComplete="url"
+                    spellCheck={false}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="private-dc-token">
+                    {t("settings.protocols.privateDc.bearerToken", {
+                      defaultValue: "Bearer token (optional)",
+                    })}
+                  </Label>
+                  <Input
+                    id="private-dc-token"
+                    data-testid="private-dc-token"
+                    type="password"
+                    value={privateDcToken}
+                    onChange={(event) => setPrivateDcToken(event.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  data-testid="private-dc-save"
+                  disabled={!privateDcBaseUrl.trim()}
+                  onClick={handlePrivateDcSave}
+                >
+                  {t("settings.protocols.privateDc.save", { defaultValue: "Save Private DC endpoint" })}
+                </Button>
+              </>
+            )}
+            {privateDcMessage ? (
+              <p data-testid="private-dc-message" className="text-xs text-zinc-500 dark:text-zinc-400">
+                {privateDcMessage}
               </p>
             ) : null}
           </div>
