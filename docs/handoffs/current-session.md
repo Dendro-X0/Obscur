@@ -50,11 +50,11 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — beta.4 AppImage restored · demo / feedback ready
-  AppImage attached to v2.0.0-beta.4 (run 41800530990 · libevent + CLI 2.12.4)
-  Spec: specs/ci/2026-11-04-linux-appimage-restore-design.md
-NEXT: cold-run published NSIS · record demo · or resume rewrite-band work
-  · Android CLI 2.12 assemble regression = separate class (existing APK/AAB stay)
+PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
+  Tag: v2.0.0-beta.4 published (Win/mac multi-arch · Linux AppImage+.deb)
+  Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
+NEXT: cold-run published Obscur_2.0.0_x64-setup.exe (Tor OFF) → mark OK to record → film
+  · park ARM / AppImage polish / rewrite until video is on the site
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
