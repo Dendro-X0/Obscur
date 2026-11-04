@@ -96,4 +96,38 @@ describe("release-download-targets", () => {
     expect(variants[0]?.assetName).toBe("Obscur_2.0.0_amd64.AppImage");
     expect(variants).toHaveLength(2);
   });
+
+  it("falls back to linux .deb when no AppImage is published (beta.4 CI shape)", () => {
+    const debOnly: readonly ReleaseAsset[] = [
+      {
+        name: "Obscur_2.0.0_amd64.deb",
+        browser_download_url: "https://example.com/Obscur_2.0.0_amd64.deb",
+        size: 11_000_000,
+      },
+    ];
+    expect(pickPreferredDesktopAsset(debOnly, "linux")?.name).toBe("Obscur_2.0.0_amd64.deb");
+    expect(listDesktopDownloadVariants(debOnly, "linux").map((v) => v.label)).toEqual([
+      "Linux (x64)",
+    ]);
+  });
+
+  it("lists macOS aarch64 + x64 variants with Apple Silicon preferred", () => {
+    const dualMac: readonly ReleaseAsset[] = [
+      {
+        name: "Obscur_2.0.0_x64.dmg",
+        browser_download_url: "https://example.com/Obscur_2.0.0_x64.dmg",
+        size: 11_000_000,
+      },
+      {
+        name: "Obscur_2.0.0_aarch64.dmg",
+        browser_download_url: "https://example.com/Obscur_2.0.0_aarch64.dmg",
+        size: 10_000_000,
+      },
+    ];
+    expect(pickPreferredDesktopAsset(dualMac, "macos")?.name).toBe("Obscur_2.0.0_aarch64.dmg");
+    expect(listDesktopDownloadVariants(dualMac, "macos").map((v) => v.assetName)).toEqual([
+      "Obscur_2.0.0_aarch64.dmg",
+      "Obscur_2.0.0_x64.dmg",
+    ]);
+  });
 });

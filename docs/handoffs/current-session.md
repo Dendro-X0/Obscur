@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-04T05:40:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.4 **Published** · **REWRITE BAND SUPERSEDE 2026-11** · Stay Tauri until design says otherwise
+- Last Updated (UTC): 2026-11-04T06:20:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.4 **Published** · download sync Pass · **REWRITE BAND SUPERSEDE 2026-11** · Stay Tauri until design says otherwise
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,10 +50,11 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — wait Full Release beta.4 green
-  AppImage still fails on 24.04 image 20261025 · deb fallback 57ad45b4 · run 41777991910
+PLATFORM REWRITE BAND — beta.4 download sync closed · rewrite / feedback polish
+  GH smoke Pass · manifest.json → 2.0.0-beta.4 · website linux hint + PWA .deb fallback
   Spec: specs/ci/2026-11-03-full-release-beta4-investigation.md
-NEXT: wait green · confirm GH Release (linux may be .deb) · download page sync · ARM deferred
+NEXT: demo smoke against published NSIS · or resume rewrite-band product work
+  · optional restore AppImage (CLI/linuxdeploy) later
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 

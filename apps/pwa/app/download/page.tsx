@@ -15,47 +15,57 @@ import {
 type Asset = RepoChannelDownloadAsset;
 type Release = RepoChannelDownloadRelease;
 
-const ESSENTIAL_EXTENSIONS = ['.exe', '.dmg', '.AppImage'];
-
-export default function DownloadPage() {
-  const { t } = useTranslation();
-  const [release, setRelease] = useState<Release | null>(null);
-  const [os] = useState<"win" | "mac" | "linux" | "unknown">(() => {
-    if (typeof window === "undefined") return "unknown";
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    if (userAgent.includes("win")) return "win";
-    if (userAgent.includes("mac")) return "mac";
-    if (userAgent.includes("linux")) return "linux";
-    return "unknown";
-  });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    void fetchRepoChannelDownloadRelease()
-      .then((data) => {
-        setRelease(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, []);
-
-  const getBestAsset = () => {
-    if (!release) return null;
-    if (os === "win") return release.assets.find(a => a.name.toLowerCase().endsWith("_x64-setup.exe"));
-    if (os === "mac") return release.assets.find(a => a.name.toLowerCase().endsWith(".dmg"));
-    if (os === "linux") return release.assets.find(a => a.name.toLowerCase().endsWith(".appimage"));
-    return null;
-  };
-
-  const getEssentialAssets = () => {
-    if (!release) return [];
-    return release.assets.filter(a =>
-      ESSENTIAL_EXTENSIONS.some(ext => a.name.toLowerCase().endsWith(ext))
-    );
-  };
+	const ESSENTIAL_EXTENSIONS = [".exe", ".dmg", ".appimage", ".deb"];
+	
+	export default function DownloadPage() {
+	  const { t } = useTranslation();
+	  const [release, setRelease] = useState<Release | null>(null);
+	  const [os] = useState<"win" | "mac" | "linux" | "unknown">(() => {
+	    if (typeof window === "undefined") return "unknown";
+	    const userAgent = window.navigator.userAgent.toLowerCase();
+	    if (userAgent.includes("win")) return "win";
+	    if (userAgent.includes("mac")) return "mac";
+	    if (userAgent.includes("linux")) return "linux";
+	    return "unknown";
+	  });
+	  const [loading, setLoading] = useState(true);
+	
+	  useEffect(() => {
+	    void fetchRepoChannelDownloadRelease()
+	      .then((data) => {
+	        setRelease(data);
+	        setLoading(false);
+	      })
+	      .catch((err) => {
+	        console.error(err);
+	        setLoading(false);
+	      });
+	  }, []);
+	
+	  const getBestAsset = () => {
+	    if (!release) return null;
+	    if (os === "win") return release.assets.find((a) => a.name.toLowerCase().endsWith("_x64-setup.exe"));
+	    if (os === "mac") {
+	      return (
+	        release.assets.find((a) => a.name.toLowerCase().includes("aarch64.dmg"))
+	        ?? release.assets.find((a) => a.name.toLowerCase().endsWith(".dmg"))
+	      );
+	    }
+	    if (os === "linux") {
+	      return (
+	        release.assets.find((a) => a.name.toLowerCase().endsWith(".appimage"))
+	        ?? release.assets.find((a) => a.name.toLowerCase().endsWith(".deb"))
+	      );
+	    }
+	    return null;
+	  };
+	
+	  const getEssentialAssets = () => {
+	    if (!release) return [];
+	    return release.assets.filter((a) =>
+	      ESSENTIAL_EXTENSIONS.some((ext) => a.name.toLowerCase().endsWith(ext)),
+	    );
+	  };
 
   const bestAsset = getBestAsset();
   const essentialAssets = getEssentialAssets();
