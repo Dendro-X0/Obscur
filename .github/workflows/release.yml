@@ -224,14 +224,18 @@ jobs:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
         run: |
           set -euo pipefail
-          FETCH_ARGS=()
-          if [ "${{ matrix.use_host_target }}" != "true" ]; then
-            FETCH_ARGS=(--target "${{ matrix.rust_target }}")
-          fi
+          # Avoid empty-array expansion under bash 3.2 + set -u (macOS runners).
           for attempt in 1 2 3 4; do
-            if cargo fetch "${FETCH_ARGS[@]}"; then
-              echo "cargo fetch succeeded on attempt ${attempt}"
-              exit 0
+            if [ "${{ matrix.use_host_target }}" = "true" ]; then
+              if cargo fetch; then
+                echo "cargo fetch succeeded on attempt ${attempt}"
+                exit 0
+              fi
+            else
+              if cargo fetch --target "${{ matrix.rust_target }}"; then
+                echo "cargo fetch succeeded on attempt ${attempt}"
+                exit 0
+              fi
             fi
             echo "cargo fetch failed on attempt ${attempt}; retrying in 25s..."
             sleep 25
@@ -298,8 +302,9 @@ jobs:
           CARGO_NET_RETRY: 10
           CARGO_HTTP_TIMEOUT: 300
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-          # AppImage tooling on Ubuntu 24.04 without FUSE mount
+          # AppImage on Ubuntu 24.04: extract-and-run (no FUSE) + skip linuxdeploy's old bundled strip (.relr.dyn)
           APPIMAGE_EXTRACT_AND_RUN: "1"
+          NO_STRIP: "true"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
