@@ -43,7 +43,7 @@ const PLATFORM_INSTALL_HINTS = {
   macos:
     "Gatekeeper may block the first open. Right-click (or Control-click) the app → Open, or allow it under System Settings → Privacy & Security.",
   linux:
-    "Install the `.deb` with your package manager (e.g. `sudo apt install ./Obscur_*.deb`), or open it from the file manager. AppImage is deferred on current CI runners.",
+    "Prefer the AppImage (`chmod +x` then run), or install the `.deb` with your package manager (e.g. `sudo apt install ./Obscur_*.deb`).",
   android:
     "Enable install from this source when prompted. The APK is self-signed sideload — not Play Store verified.",
   ios: "No App Store or TestFlight build is published here.",

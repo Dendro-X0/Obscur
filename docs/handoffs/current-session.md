@@ -50,10 +50,11 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — restore Linux AppImage on beta.4 (CLI 2.12.4)
+PLATFORM REWRITE BAND — beta.4 AppImage restored · demo / feedback ready
+  AppImage attached to v2.0.0-beta.4 (run 41800530990 · libevent + CLI 2.12.4)
   Spec: specs/ci/2026-11-04-linux-appimage-restore-design.md
-NEXT: push CLI bump · dispatch Full Release publish v2.0.0-beta.4
-  · confirm Obscur_*_amd64.AppImage on GH Release (keep .deb)
+NEXT: cold-run published NSIS · record demo · or resume rewrite-band work
+  · Android CLI 2.12 assemble regression = separate class (existing APK/AAB stay)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 

@@ -1,13 +1,13 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-11-04T05:55:09.436Z",
-  "gitCommit": "57ad45b4",
+  "generatedAt": "2026-11-04T08:42:35.867Z",
+  "gitCommit": "a39fd53b",
   "version": "2.0.0",
   "releaseTag": "2.0.0-beta.4",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "Obscur Full Release CI (workflow_dispatch publish v2.0.0-beta.4 · run 41777991910)",
+  "sourceRun": "Obscur Full Release CI (AppImage restore · run 41800530990; publish attach to v2.0.0-beta.4)",
   "clientBuildStamp": "shell-from-ci-v2.0.0-beta.4",
   "artifacts": [
     {
@@ -42,6 +42,17 @@
       "sha256": "dfb3e08d9092c0521ba830ab9755312a3d04efc706e2081895a59a0380b70c65",
       "builtAt": "2026-11-04T05:36:12Z",
       "notes": "v2.0.0-beta.4 macOS Intel DMG from Full Release CI."
+    },
+    {
+      "platform": "linux",
+      "kind": "appimage",
+      "buildCommand": "Obscur Full Release CI (desktop-linux)",
+      "path": "release-assets/linux/Obscur_2.0.0_amd64.AppImage",
+      "fileName": "Obscur_2.0.0_amd64.AppImage",
+      "sizeBytes": 89782776,
+      "sha256": "1e3409876005b56b2763dcb5776de85d83511348c720a953e0d3691ee746ba8b",
+      "builtAt": "2026-11-04T08:41:00Z",
+      "notes": "v2.0.0-beta.4 Linux AppImage restored (CLI 2.12.4 + libevent; run 41800530990)."
     },
     {
       "platform": "linux",
@@ -96,8 +107,8 @@
   "notes": [
     "Public GitHub release tag: v2.0.0-beta.4 (package tree 2.0.0)",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
-    "Windows + macOS (aarch64+x64) + Linux .deb + Android + web from Full Release CI 2026-11-04",
-    "Linux AppImage deferred (linuxdeploy failed on GH ubuntu-24.04 image 20261025); .deb ships instead",
+    "Windows + macOS (aarch64+x64) + Linux AppImage+.deb + Android + web",
+    "AppImage restored 2026-11-04 via @tauri-apps/cli 2.12.4 + libevent-2.1 for Tor sidecar",
     "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected",
     "Installer filenames embed package semver 2.0.0 (not the marketing beta tag)"
   ]

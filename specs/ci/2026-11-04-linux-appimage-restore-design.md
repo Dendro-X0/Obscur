@@ -43,3 +43,10 @@ Android failure on same run is a **separate** class (CLI 2.12 gradle assemble). 
 ## Claim
 
 AppImage **restored** only when a published release asset named `Obscur_*_amd64.AppImage` exists for the marketing tag.
+
+## Outcome 2026-11-04
+
+- [x] CLI 2.12.4 + libevent dep
+- [x] Linux job built `Obscur_2.0.0_amd64.AppImage` (run 41800530990)
+- [x] Uploaded to GitHub Release `v2.0.0-beta.4` (alongside `.deb`)
+- SHA-256: `1e3409876005b56b2763dcb5776de85d83511348c720a953e0d3691ee746ba8b`
