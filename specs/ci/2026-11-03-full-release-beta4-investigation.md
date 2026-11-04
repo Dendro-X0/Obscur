@@ -77,8 +77,9 @@ Root cause vs beta.3 (40281639059): that run used **ubuntu-24.04**; this run’s
 ### Additional fix (publish unblock)
 
 - [x] On Linux AppImage failure: fall back to `tauri build --bundles deb` (verify/download already accept `.deb`)
-- [ ] Re-dispatch Full Release `v2.0.0-beta.4`
-- Follow-up (not this iteration): restore AppImage via newer `@tauri-apps/cli` / patched linuxdeploy once publish lands
+- [x] Re-dispatch Full Release `v2.0.0-beta.4` → run https://github.com/Dendro-X0/Obscur/actions/runs/41777991910 **success** (commit `57ad45b4`)
+- [x] GitHub Release `v2.0.0-beta.4` published with `Obscur_2.0.0_amd64.deb` (+ win/mac multi-arch)
+- Follow-up (not this iteration): restore AppImage via newer `@tauri-apps/cli` / patched linuxdeploy
 
 ## Secondary (do not fix this iteration)
 
