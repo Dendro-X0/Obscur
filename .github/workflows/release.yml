@@ -344,8 +344,15 @@ jobs:
             return 1
           }
           # Host-native cells omit --target (beta.3 AppImage path). Cross cells keep --target.
+          # Linux: --verbose so tauri-bundler uses output_ok() and surfaces linuxdeploy stderr.
           build_desktop() {
-            if [ "${USE_HOST}" = "true" ]; then
+            if [ "${PLATFORM}" = "linux" ]; then
+              if [ "${USE_HOST}" = "true" ]; then
+                pnpm -C apps/desktop tauri build --verbose "$@"
+              else
+                pnpm -C apps/desktop tauri build --target "${RUST_TARGET}" --verbose "$@"
+              fi
+            elif [ "${USE_HOST}" = "true" ]; then
               pnpm -C apps/desktop tauri build "$@"
             else
               pnpm -C apps/desktop tauri build --target "${RUST_TARGET}" "$@"
@@ -361,12 +368,10 @@ jobs:
               echo "tauri build exited non-zero but platform installer exists (unsigned Full Release tolerance). Continuing."
               exit 0
             fi
-            # AppImage/linuxdeploy still fails on current GH ubuntu-24.04 images even with NO_STRIP
-            # (beta.3 worked on older image 20261012). Ship .deb so Verify/Publish can run;
-            # download + streaming-update already accept .deb.
+            # Deb safety net if AppImage/linuxdeploy still fails after CLI 2.12.x linuxdeploy pin.
             if [ "${PLATFORM}" = "linux" ]; then
               echo "AppImage path failed; falling back to --bundles deb" >&2
-              if build_desktop --bundles deb --verbose; then
+              if build_desktop --bundles deb; then
                 echo "deb fallback succeeded on attempt ${attempt}"
                 exit 0
               fi

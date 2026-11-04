@@ -50,11 +50,10 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — beta.4 download sync closed · rewrite / feedback polish
-  GH smoke Pass · manifest.json → 2.0.0-beta.4 · website linux hint + PWA .deb fallback
-  Spec: specs/ci/2026-11-03-full-release-beta4-investigation.md
-NEXT: demo smoke against published NSIS · or resume rewrite-band product work
-  · optional restore AppImage (CLI/linuxdeploy) later
+PLATFORM REWRITE BAND — restore Linux AppImage on beta.4 (CLI 2.12.4)
+  Spec: specs/ci/2026-11-04-linux-appimage-restore-design.md
+NEXT: push CLI bump · dispatch Full Release publish v2.0.0-beta.4
+  · confirm Obscur_*_amd64.AppImage on GH Release (keep .deb)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
