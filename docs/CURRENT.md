@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents.
 
-_Last updated: 2026-11-03 · **v2.0.0-beta.3** published · rewrite band SUPERSEDE · feedback A1–A5 Pass · beta.4 package **PAUSED** (host overload)_
+_Last updated: 2026-11-04 · **v2.0.0-beta.4** published · rewrite band SUPERSEDE · feedback A1–A5 Pass_
 
 ---
 
@@ -10,8 +10,8 @@ _Last updated: 2026-11-03 · **v2.0.0-beta.3** published · rewrite band SUPERSE
 
 | Track | Status |
 |-------|--------|
-| **Version / tag** | Package tree **2.0.0** · marketing **v2.0.0-beta.3** — [release notes](./releases/v2.0.0-beta.3-release.md) · draft [beta.4](./releases/v2.0.0-beta.4-release.md) |
-| **Download** | Website `/download` → GitHub `releaseTag` in [version.json](../version.json) (currently **2.0.0-beta.4** pin pending publish) |
+| **Version / tag** | Package tree **2.0.0** · marketing **v2.0.0-beta.4** — [release notes](./releases/v2.0.0-beta.4-release.md) · prior [beta.3](./releases/v2.0.0-beta.3-release.md) |
+| **Download** | Website `/download` → GitHub `releaseTag` **2.0.0-beta.4** in [version.json](../version.json) · Linux ships **`.deb`** (AppImage linuxdeploy deferred on GH runner image) · mac has aarch64 + x64 DMGs |
 | **Band** | **REWRITE** — modular auth / profiles / storage / PAL (Nostr + Matrix lab + Private DC lab) |
 | **Feedback gates** | A1–A5 **Pass** — [platform-public-feedback-release-readiness-2026-11.md](../specs/backend/platform-public-feedback-release-readiness-2026-11.md) |
 | **Demo** | Validate then record — [pre-demo-validation-2026-11.md](./assets/demo/v2.0.0/pre-demo-validation-2026-11.md) · kit [assets/demo/v2.0.0/](./assets/demo/v2.0.0/) |

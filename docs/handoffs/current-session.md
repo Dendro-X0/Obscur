@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-03T15:25:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.3 **Published** · beta.4 Full Release **re-dispatch pending** · **REWRITE BAND SUPERSEDE 2026-11** · Stay Tauri until design says otherwise
+- Last Updated (UTC): 2026-11-04T05:40:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.4 **Published** · **REWRITE BAND SUPERSEDE 2026-11** · Stay Tauri until design says otherwise
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,12 +50,10 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — fix Full Release linux · re-dispatch beta.4
-  Failed run 41658387338: win+mac OK · linux-x64 linuxdeploy · linux-arm Tor 404
+PLATFORM REWRITE BAND — wait Full Release beta.4 green
+  AppImage still fails on 24.04 image 20261025 · deb fallback 57ad45b4 · run 41777991910
   Spec: specs/ci/2026-11-03-full-release-beta4-investigation.md
-  Fix: drop linux-aarch64 · host tauri build + libfuse2/APPIMAGE_EXTRACT_AND_RUN for linux x64
-NEXT: push fix · dispatch Full Release publish_release=true release_tag=v2.0.0-beta.4
-  · confirm GH Release + download page (mac Intel + linux x64; ARM deferred)
+NEXT: wait green · confirm GH Release (linux may be .deb) · download page sync · ARM deferred
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
