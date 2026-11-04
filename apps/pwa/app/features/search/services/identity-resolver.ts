@@ -222,16 +222,37 @@ export const resolveIdentity = async (params: ResolveIdentityParams): Promise<Re
       }
     }
     const cached = resolvedIdentityCache.getByPubkey(parsedPubkey.publicKeyHex);
-    if (cached) {
+    if (cached?.display) {
       return ok({
         ...cached,
         source: parsedPubkey.format === "npub" ? "npub" : "hex",
         confidence: "direct",
       });
     }
+    let display = cached?.display;
+    let inviteCode = cached?.inviteCode;
+    try {
+      const relayRecords = await withAbort(queryRelayProfiles({
+        pool: params.pool,
+        mode: "author",
+        query: parsedPubkey.publicKeyHex,
+        timeoutMs: 3_500,
+        maxResults: 1,
+        relayUrls: params.relayUrls,
+      }), params.signal);
+      const matched = relayRecords[0];
+      if (matched) {
+        display = matched.displayName || matched.name || display;
+        inviteCode = matched.inviteCode || inviteCode;
+      }
+    } catch {
+      // Best-effort metadata enrich — pubkey resolve still succeeds.
+    }
     const identity: ResolvedIdentity = {
       pubkey: parsedPubkey.publicKeyHex,
-      relays: parsedPubkey.relays,
+      display,
+      inviteCode,
+      relays: parsedPubkey.relays ?? cached?.relays,
       source: parsedPubkey.format === "npub" ? "npub" : "hex",
       confidence: "direct",
     };

@@ -55,8 +55,9 @@ PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
   Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
   Download hang: CTA used target=_blank on GH attachment URLs → blank Loading tab;
     truncated CDN pulls looked “corrupt.” Fix: no _blank on installer links + sync NSIS sha.
-NEXT: cold-run verified NSIS (sha a4eb9278… · Downloads or release-assets) Tor OFF
-  → mark OK to record → film
+NEXT: retry Discovery friend codes (relay data restored 2026-11-04) → cold-run → film
+  · Friend-code P0: kind 0+31950 missing on discovery relays; republished Tester1/2/DemoUser;
+    publisher now emits 31950 alias (was dead code). Specs under specs/backend/2026-11-04-friend-code-*
   · park ARM / AppImage polish / rewrite until video is on the site
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```

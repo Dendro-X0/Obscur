@@ -356,7 +356,10 @@ describe("useProfilePublisher", () => {
     };
     expect(unsignedEvent.tags).toContainEqual(["code", "OBSCUR-A1B2C"]);
     expect(unsignedEvent.tags).toContainEqual(["i", "OBSCUR-A1B2C"]);
-    expect(JSON.parse(unsignedEvent.content).about).toContain("OBSCUR-A1B2C");
+    const content = JSON.parse(unsignedEvent.content) as Record<string, unknown>;
+    expect(content.about).toContain("OBSCUR-A1B2C");
+    expect(content.inviteCode).toBe("OBSCUR-A1B2C");
+    expect(content.code).toBe("OBSCUR-A1B2C");
     expect(mocks.discoveryCacheUpsertProfile).toHaveBeenCalledWith(expect.objectContaining({
       inviteCode: "OBSCUR-A1B2C",
     }));

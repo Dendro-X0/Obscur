@@ -25,6 +25,7 @@ import {
 import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { discoveryCache } from "@/app/features/search/services/discovery-cache";
 import { upsertDevicePeerDisplay } from "@/app/features/search/services/device-peer-display-cache";
+import { buildFriendCodeAliasUnsignedEvent } from "@/app/features/search/services/friend-code-alias";
 import { seedProfileMetadataCache } from "./use-profile-metadata";
 import { encryptedAccountBackupService } from "@/app/features/account-sync/services/encrypted-account-backup-service";
 import { accountSyncStatusStore } from "@/app/features/account-sync/services/account-sync-status-store";
@@ -179,6 +180,38 @@ const mirrorProfileToGlobalDiscoveryRelays = (
     });
 };
 
+const publishFriendCodeAliasBestEffort = async (params: Readonly<{
+    pool: ReturnType<typeof useRelay>["relayPool"];
+    pubkey: string;
+    privkey: string;
+    inviteCode: string;
+    primaryRelayUrls: ReadonlyArray<string>;
+}>): Promise<void> => {
+    const unsigned = buildFriendCodeAliasUnsignedEvent({
+        pubkey: params.pubkey,
+        inviteCode: params.inviteCode,
+    });
+    if (!unsigned) {
+        return;
+    }
+    try {
+        const signed = await cryptoService.signEvent(unsigned as any, params.privkey as PrivateKeyHex);
+        const payload = JSON.stringify(["EVENT", signed]);
+        const scopedRelayUrls = mergeRelaySets(params.primaryRelayUrls, GLOBAL_DISCOVERY_RELAY_URLS);
+        for (const relayUrl of GLOBAL_DISCOVERY_RELAY_URLS) {
+            params.pool.addTransientRelay?.(relayUrl);
+        }
+        await publishViaRelayCore({
+            pool: params.pool,
+            payload,
+            scopedRelayUrls,
+            waitForConnectionMs: 3_500,
+        });
+    } catch {
+        // Alias publish is best-effort; kind 0 tags remain the compatibility path.
+    }
+};
+
 export const profilePublisherInternals = {
     withTimeout,
     isDegradedFailure,
@@ -282,6 +315,9 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                 picture: params.avatarUrl || "",
                 nip05: params.nip05 || "",
                 lud16: params.lud16 || "",
+                ...(normalizedInviteCode
+                    ? { inviteCode: normalizedInviteCode, code: normalizedInviteCode }
+                    : {}),
             });
 
             const tags: string[][] = [];
@@ -383,6 +419,15 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                     payload,
                                     primaryRelayUrls: enabledRelayUrls,
                                 });
+                                if (normalizedInviteCode) {
+                                    void publishFriendCodeAliasBestEffort({
+                                        pool: relayPool,
+                                        pubkey,
+                                        privkey,
+                                        inviteCode: normalizedInviteCode,
+                                        primaryRelayUrls: enabledRelayUrls,
+                                    });
+                                }
                                 await refreshEncryptedAccountBackup(pubkey, privkey, relayPool, publishRelayUrls).catch(() => {
                                     // Local profile save already succeeded; backup refresh is best-effort here.
                                 });
@@ -441,6 +486,15 @@ export const useProfilePublisher = (): UseProfilePublisherResult => {
                                 payload,
                                 primaryRelayUrls: publishRelayUrls,
                             });
+                            if (normalizedInviteCode) {
+                                void publishFriendCodeAliasBestEffort({
+                                    pool: relayPool,
+                                    pubkey,
+                                    privkey,
+                                    inviteCode: normalizedInviteCode,
+                                    primaryRelayUrls: publishRelayUrls,
+                                });
+                            }
                             await refreshEncryptedAccountBackup(pubkey, privkey, relayPool, publishRelayUrls).catch(() => {
                                 // Local profile save already succeeded; backup refresh is best-effort here.
                             });

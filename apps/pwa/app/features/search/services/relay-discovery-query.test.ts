@@ -51,9 +51,7 @@ describe("relayDiscoveryQueryInternals", () => {
     it("merges scoped relay urls ahead of global discovery relays", () => {
         expect(mergeRelaySets(["ws://localhost:7000"], GLOBAL_DISCOVERY_RELAY_URLS)).toEqual([
             "ws://localhost:7000",
-            "wss://relay.damus.io",
-            "wss://nos.lol",
-            "wss://relay.primal.net",
+            ...GLOBAL_DISCOVERY_RELAY_URLS,
         ]);
     });
 });
