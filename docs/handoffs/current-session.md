@@ -53,7 +53,10 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
   Tag: v2.0.0-beta.4 published (Win/mac multi-arch · Linux AppImage+.deb)
   Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
-NEXT: cold-run published Obscur_2.0.0_x64-setup.exe (Tor OFF) → mark OK to record → film
+  Download hang: CTA used target=_blank on GH attachment URLs → blank Loading tab;
+    truncated CDN pulls looked “corrupt.” Fix: no _blank on installer links + sync NSIS sha.
+NEXT: cold-run verified NSIS (sha a4eb9278… · Downloads or release-assets) Tor OFF
+  → mark OK to record → film
   · park ARM / AppImage polish / rewrite until video is on the site
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```

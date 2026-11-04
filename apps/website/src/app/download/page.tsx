@@ -150,8 +150,7 @@ export default async function DownloadPage() {
               <a
                 className="button button-primary button-download-lg"
                 href={primaryDownload.href}
-                target="_blank"
-                rel="noreferrer"
+                download={primaryDownload.assetName}
               >
                 Download for {primaryDownload.label}
               </a>
@@ -302,8 +301,7 @@ export default async function DownloadPage() {
                     <a
                       className="button button-primary"
                       href={primary.href}
-                      target="_blank"
-                      rel="noreferrer"
+                      download={primary.assetName}
                     >
                       Download{primary.arch && primary.arch !== "unknown" ? ` (${primary.arch === "arm64" ? "ARM64" : primary.arch === "x64" ? "x64" : "Universal"})` : ""}
                     </a>
@@ -311,7 +309,7 @@ export default async function DownloadPage() {
                       <ul className="download-pick-variants">
                         {secondary.map((variant) => (
                           <li key={variant.assetName}>
-                            <a href={variant.href} target="_blank" rel="noreferrer">
+                            <a href={variant.href} download={variant.assetName}>
                               {variant.label}
                               {" · "}
                               {formatSize(variant.sizeBytes)}
@@ -355,8 +353,7 @@ export default async function DownloadPage() {
                 <a
                   className="button button-primary"
                   href={androidArtifact.href}
-                  target="_blank"
-                  rel="noreferrer"
+                  download={androidArtifact.fileName}
                 >
                   Download APK
                 </a>
@@ -418,8 +415,7 @@ export default async function DownloadPage() {
                       <a
                         className="button button-secondary button-compact"
                         href={artifact.href}
-                        target="_blank"
-                        rel="noreferrer"
+                        download={artifact.fileName}
                       >
                         Download
                       </a>

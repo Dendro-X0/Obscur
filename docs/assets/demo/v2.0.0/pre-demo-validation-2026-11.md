@@ -29,16 +29,18 @@ SURFACE: obscur_desktop_app.exe (or Obscur_2.0.0_x64-setup.exe after smoke)
 |---|-------|------------------|--------|
 | A | Demo L1 preflight | `pnpm desktop:demo-preflight` | **Pass 2026-11-03** — mesh Quiet tests realigned to `RELAY_WARMUP_PUBLIC_DIAL_CAP=2` |
 | B | Feedback gates A1–A5 | Readiness checklist Pass | **Pass 2026-11-03** |
-| C | Installer present | `release-assets/windows/Obscur_2.0.0_x64-setup.exe` | **Pass** (Oct 25 artifact — rebuild after cold run if shipping new cut) |
-| D | SHA-256 recorded | `sha256sum` → paste below | **Pass** |
+| C | Installer present | `release-assets/windows/Obscur_2.0.0_x64-setup.exe` (= GH `v2.0.0-beta.4`) | **Pass 2026-11-04** — synced from release asset |
+| D | SHA-256 recorded | `sha256sum` → paste below | **Pass 2026-11-04** |
 | E | Release exe smoke surface | `pnpm desktop:build:exe` | **Pass 2026-11-03** — `target/release/obscur_desktop_app.exe` |
 | F | Honesty surfaces | `/download` hero · Settings Privacy/Protocols · `/limitations` | **Landed** (A5) — in fresh exe shell |
 | G | Tor preference | Confirm Tor **OFF** for takes | _Operator_ |
 
-**Installer SHA-256:** `002ac23ec6adf5a7148e14e8a5f62c49bed3aa578b1df3873735fa7fb444ae02`  
-**Shell / build stamp:** `shell-2026-11-03T07:27:19Z`  
-**Release exe:** `apps/desktop/src-tauri/target/release/obscur_desktop_app.exe`  
-**Commit (short):** `03183f4c`
+**Installer SHA-256:** `a4eb927840aa3d7873477777cb9fd4349b364be82d28b9f49b552d43229365a7`  
+**Installer source:** GitHub `v2.0.0-beta.4` / `Obscur_2.0.0_x64-setup.exe` (9 292 670 B)  
+**Shell / build stamp:** `shell-2026-11-03T07:27:19Z` (rebuild stamp optional if NSIS cold-run Pass)  
+**Release exe:** prefer cold-run of published NSIS; fallback `apps/desktop/src-tauri/target/release/obscur_desktop_app.exe`  
+**Commit (short):** _pending website download-CTA fix_  
+**Download hang note:** `/download` must **not** use `target="_blank"` on installer URLs (blank **Loading…** tab + truncated files on slow CDN). Spec: `specs/ci/2026-11-04-download-hang-investigation.md`.
 
 ## 2. Operator cold run (Tor OFF) — demo path
 
