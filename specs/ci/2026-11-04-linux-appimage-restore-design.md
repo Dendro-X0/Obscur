@@ -10,11 +10,22 @@
 
 ## Fix (one class)
 
-1. Bump `@tauri-apps/cli` → **2.12.4** (bundler pins linuxdeploy **07333c6** + inlined GTK plugin — upstream fix for “failed to run linuxdeploy” on modern Ubuntu).
+1. Bump `@tauri-apps/cli` → **2.12.4** (bundler pins linuxdeploy **07333c6** + inlined GTK plugin).
 2. Keep `NO_STRIP=true` + `APPIMAGE_EXTRACT_AND_RUN=1` + ubuntu-24.04 pin.
-3. Keep `.deb` fallback if AppImage still fails.
-4. Prefer `--verbose` on Linux so linuxdeploy stderr is not swallowed.
-5. Re-dispatch Full Release publish; attach AppImage to release (retain `.deb`).
+3. Install **`libevent-2.1-7(t64)`** — Tor sidecar needs `libevent-2.1.so.7` (run 41798235410 verbose proof).
+4. Keep `.deb` fallback if AppImage still fails.
+5. Prefer `--verbose` on Linux so linuxdeploy stderr is not swallowed.
+6. Re-dispatch Full Release publish; attach AppImage to release (retain `.deb`).
+
+## Evidence (41798235410)
+
+```text
+Downloading …/linuxdeploy-07333c6/linuxdeploy-x86_64.AppImage
+ERROR: Could not find dependency: libevent-2.1.so.7
+AppImage path failed; falling back to --bundles deb
+```
+
+Android failure on same run is a **separate** class (CLI 2.12 gradle assemble). Do **not** block AppImage restore: download `desktop-linux-x86_64` artifact and `gh release upload` onto `v2.0.0-beta.4` when AppImage is present.
 
 ## Non-goals
 
