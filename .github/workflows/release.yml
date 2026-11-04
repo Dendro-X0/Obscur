@@ -164,7 +164,9 @@ jobs:
             tor_triple: x86_64-apple-darwin
             artifact_name: desktop-macos-x86_64
             use_host_target: false
-          - os: ubuntu-latest
+          # Pin 24.04: ubuntu-latest moved to 26.04/resolute and breaks AppImage/linuxdeploy
+          # (beta.3 AppImage succeeded on ubuntu-24.04).
+          - os: ubuntu-24.04
             platform: linux
             rust_target: x86_64-unknown-linux-gnu
             tor_triple: x86_64-unknown-linux-gnu

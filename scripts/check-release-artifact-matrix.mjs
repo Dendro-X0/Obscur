@@ -38,6 +38,7 @@ const requiredSnippets = [
   "desktop-macos-*",
   "desktop-linux-*",
   "use_host_target",
+  "ubuntu-24.04",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));

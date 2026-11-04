@@ -48,7 +48,7 @@ Phase B: **expand Full Release matrix** to produce missing arches (costly CI tim
 | Windows x64 | `windows-latest` | host (`use_host_target`) | `desktop-windows-x86_64` |
 | macOS Apple Silicon | `macos-latest` | host (`use_host_target`) | `desktop-macos-aarch64` |
 | macOS Intel | `macos-latest` | `x86_64-apple-darwin` (cross) | `desktop-macos-x86_64` |
-| Linux x64 | `ubuntu-latest` | host (`use_host_target`) + `libfuse2` / `APPIMAGE_EXTRACT_AND_RUN` | `desktop-linux-x86_64` |
+| Linux x64 | `ubuntu-24.04` (not `ubuntu-latest` — 26.04 breaks AppImage) | host + `NO_STRIP` / fuse fallbacks | `desktop-linux-x86_64` |
 
 **Deferred (no Tor Expert Bundle on archive.torproject.org):** Windows ARM64; Linux ARM64 (`desktop-linux-aarch64` — 404 for `tor-expert-bundle-linux-aarch64-*`).
 

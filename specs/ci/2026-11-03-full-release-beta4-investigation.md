@@ -47,8 +47,24 @@ Branch push gates (docs / version / reliability-gates / Vercel) are **not** Full
 
 - [x] Prefetch: branch host vs `--target` without empty-array expansion
 - [x] `NO_STRIP=true` for AppImage (linuxdeploy bundled strip vs `.relr.dyn` on Ubuntu 24.04)
+- [x] Re-dispatch Full Release `v2.0.0-beta.4` → run https://github.com/Dendro-X0/Obscur/actions/runs/41768900710 (commit `2ebbe4dd`)
+
+## Follow-up run 41768900710 (still failure)
+
+| Job | Result |
+|-----|--------|
+| win + both mac | success |
+| desktop-linux-x86_64 | **failure** — linuxdeploy dies in &lt;1s on **Ubuntu 26.04 / resolute** (`ubuntu-latest` migrated) |
+| Verify / Publish | skipped |
+
+Root cause vs beta.3 (40281639059): that run used **ubuntu-24.04**; this run’s apt mirrors are `resolute` / `ubuntu/26.04`.
+
+### Additional fix
+
+- [x] Pin Linux desktop matrix to `ubuntu-24.04` (restore known-good AppImage host)
 - [ ] Re-dispatch Full Release `v2.0.0-beta.4`
 
 ## Secondary (do not fix this iteration)
 
 - Actions Node 20 deprecation warning on action runtimes
+- Broader CI pin of `ubuntu-latest` → 24.04 outside Full Release desktop
