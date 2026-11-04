@@ -39,8 +39,9 @@ SURFACE: obscur_desktop_app.exe (or Obscur_2.0.0_x64-setup.exe after smoke)
 **Installer source:** GitHub `v2.0.0-beta.4` / `Obscur_2.0.0_x64-setup.exe` (9 292 670 B)  
 **Shell / build stamp:** `shell-2026-11-03T07:27:19Z` (rebuild stamp optional if NSIS cold-run Pass)  
 **Release exe:** prefer cold-run of published NSIS; fallback `apps/desktop/src-tauri/target/release/obscur_desktop_app.exe`  
-**Commit (short):** _pending website download-CTA fix_  
-**Download hang note:** `/download` must **not** use `target="_blank"` on installer URLs (blank **Loading…** tab + truncated files on slow CDN). Spec: `specs/ci/2026-11-04-download-hang-investigation.md`.
+**Commit (short):** `45a01de5`  
+**Download site:** `https://obscur-website.vercel.app/download` (not `obscur.app` — that host is a different product)  
+**Download hang note:** `/download` must **not** use `target="_blank"` on installer URLs (blank **Loading…** tab + truncated files on slow CDN). Spec: `specs/ci/2026-11-04-download-hang-investigation.md`. Live CTA verified 2026-11-04 (Windows UA → setup.exe + `download=` · no `_blank`).
 
 ## 2. Operator cold run (Tor OFF) — demo path
 
