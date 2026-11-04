@@ -62,9 +62,26 @@ Root cause vs beta.3 (40281639059): that run used **ubuntu-24.04**; this run’s
 ### Additional fix
 
 - [x] Pin Linux desktop matrix to `ubuntu-24.04` (restore known-good AppImage host)
+- [x] Re-dispatch Full Release `v2.0.0-beta.4` → run https://github.com/Dendro-X0/Obscur/actions/runs/41771170958 (commit `5b1da9b6`)
+
+## Follow-up run 41771170958 (still failure)
+
+| Job | Result |
+|-----|--------|
+| win + both mac | success |
+| desktop-linux-x86_64 | **failure** — still `failed to run linuxdeploy` on **ubuntu-24.04** image `20261025.353` (~12s after Bundling; beta.3 used `20261012.334`) |
+| Verify / Publish | skipped |
+
+`NO_STRIP` + fuse + 24.04 pin insufficient on the newer runner image. Tauri swallows linuxdeploy stderr.
+
+### Additional fix (publish unblock)
+
+- [x] On Linux AppImage failure: fall back to `tauri build --bundles deb` (verify/download already accept `.deb`)
 - [ ] Re-dispatch Full Release `v2.0.0-beta.4`
+- Follow-up (not this iteration): restore AppImage via newer `@tauri-apps/cli` / patched linuxdeploy once publish lands
 
 ## Secondary (do not fix this iteration)
 
 - Actions Node 20 deprecation warning on action runtimes
 - Broader CI pin of `ubuntu-latest` → 24.04 outside Full Release desktop
+- Linux in-app updater AppImage target (deferred if only `.deb` ships)
