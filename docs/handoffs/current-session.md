@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-03T14:40:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.3 **Published** · **REWRITE BAND SUPERSEDE 2026-11 confirmed** · Stay Tauri until design says otherwise
+- Last Updated (UTC): 2026-11-03T15:25:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.3 **Published** · beta.4 Full Release **re-dispatch pending** · **REWRITE BAND SUPERSEDE 2026-11** · Stay Tauri until design says otherwise
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,14 +50,13 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — CI restore Pass · download sync Phase A+B workflow landed
-  Spec: specs/ci/2026-11-03-release-download-sync-design.md
-  Phase B: release.yml 5 desktop cells (win x64 · mac aarch64+x64 · linux x64+arm)
-           Win ARM deferred (no Tor sidecar) · proof = next Full Release artifacts
-NEXT: maintainer — commit (exclude .codectx) → push → gates → beta.4 Full Release (multi-arch)
-Do NOT run desktop:package / desktop:build:exe on this host until maintainer says OK
+PLATFORM REWRITE BAND — fix Full Release linux · re-dispatch beta.4
+  Failed run 41658387338: win+mac OK · linux-x64 linuxdeploy · linux-arm Tor 404
+  Spec: specs/ci/2026-11-03-full-release-beta4-investigation.md
+  Fix: drop linux-aarch64 · host tauri build + libfuse2/APPIMAGE_EXTRACT_AND_RUN for linux x64
+NEXT: push fix · dispatch Full Release publish_release=true release_tag=v2.0.0-beta.4
+  · confirm GH Release + download page (mac Intel + linux x64; ARM deferred)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
-LANDED: docs Wave 1–5 · local T0–T4 · download sync Phase A+B workflow
 ```
 
 

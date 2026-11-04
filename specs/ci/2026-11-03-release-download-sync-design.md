@@ -41,22 +41,22 @@ Phase B: **expand Full Release matrix** to produce missing arches (costly CI tim
 3. **Download page** — per OS card: primary CTA = preferred; secondary links for other arches when present. Checksums stay from manifest.
 4. **Tests** — unit tests for variant listing (x64 + arm coexist).
 
-## Phase B (Full Release matrix — in progress)
+## Phase B (Full Release matrix)
 
 | Matrix cell | Runner | Rust target | Artifact name |
 |-------------|--------|-------------|---------------|
-| Windows x64 | `windows-latest` | host default (`x86_64-pc-windows-msvc`) | `desktop-windows-x86_64` |
-| macOS Apple Silicon | `macos-latest` | `aarch64-apple-darwin` | `desktop-macos-aarch64` |
-| macOS Intel | `macos-latest` | `x86_64-apple-darwin` | `desktop-macos-x86_64` |
-| Linux x64 | `ubuntu-latest` | host default | `desktop-linux-x86_64` |
-| Linux ARM64 | `ubuntu-24.04-arm` | host default | `desktop-linux-aarch64` |
+| Windows x64 | `windows-latest` | host (`use_host_target`) | `desktop-windows-x86_64` |
+| macOS Apple Silicon | `macos-latest` | host (`use_host_target`) | `desktop-macos-aarch64` |
+| macOS Intel | `macos-latest` | `x86_64-apple-darwin` (cross) | `desktop-macos-x86_64` |
+| Linux x64 | `ubuntu-latest` | host (`use_host_target`) + `libfuse2` / `APPIMAGE_EXTRACT_AND_RUN` | `desktop-linux-x86_64` |
 
-**Deferred (no Tor Expert Bundle / sidecar in `setup-tor.mjs`):** Windows ARM64 (`aarch64-pc-windows-msvc`).
+**Deferred (no Tor Expert Bundle on archive.torproject.org):** Windows ARM64; Linux ARM64 (`desktop-linux-aarch64` — 404 for `tor-expert-bundle-linux-aarch64-*`).
 
 **Supporting changes:**
 - `scripts/setup-tor.mjs` accepts `--triple=<tauri-triple>` for cross-builds (mac Intel on Apple Silicon runners).
 - verify/publish download `desktop-{windows,macos,linux}-*` with `merge-multiple: true`.
 - streaming-update manifest picks preferred per key; adds `darwin-x86_64` / `linux-aarch64` when files exist.
+- Investigation: `specs/ci/2026-11-03-full-release-beta4-investigation.md` (run 41658387338).
 
 ## Non-goals
 
@@ -76,14 +76,15 @@ Phase B: **expand Full Release matrix** to produce missing arches (costly CI tim
 ## Claim language
 
 - Phase A **implemented** when variant API + download UI ship and tests Pass.
-- Phase B workflow **implemented** when `release.yml` matrix publishes macOS Intel + Linux ARM64 (+ existing x64/aarch64 cells).
+- Phase B workflow **implemented** when `release.yml` matrix publishes macOS Intel + Win/mac/linux x64 (Linux ARM deferred).
 - Sync **verified** when a published tag’s asset names match the download page after revalidate.
 - Multi-arch **product-complete** only after the next Full Release run uploads those artifacts to GitHub Releases.
 
 ## Phase B landed files
 
-- `.github/workflows/release.yml` — 5 desktop matrix cells; patterned artifact download
+- `.github/workflows/release.yml` — 4 desktop matrix cells (Linux/Win ARM deferred); host vs cross `use_host_target`; patterned artifact download
 - `scripts/setup-tor.mjs` — `--triple=` for cross-builds
 - `scripts/build-streaming-update-manifest.mjs` — optional `darwin-x86_64` / `linux-aarch64`
 - `scripts/check-release-artifact-matrix.mjs` — Phase B snippet asserts
 - `packages/dweb-core/src/release-download-targets.ts` — Linux preferred = amd64 when both exist
+- `specs/ci/2026-11-03-full-release-beta4-investigation.md` — linuxdeploy + Tor aarch64 404

@@ -29,15 +29,15 @@ const requiredSnippets = [
   "output-metadata.json",
   "release:artifact-version-parity",
   // Phase B multi-arch artifact names / download patterns
+  // Linux/Windows ARM deferred until Tor Expert Bundle ships those triples.
   "desktop-windows-x86_64",
   "desktop-macos-aarch64",
   "desktop-macos-x86_64",
   "desktop-linux-x86_64",
-  "desktop-linux-aarch64",
   "desktop-windows-*",
   "desktop-macos-*",
   "desktop-linux-*",
-  "ubuntu-24.04-arm",
+  "use_host_target",
 ];
 
 const missing = requiredSnippets.filter((snippet) => !content.toLowerCase().includes(snippet.toLowerCase()));
