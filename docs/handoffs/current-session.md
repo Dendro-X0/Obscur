@@ -55,13 +55,12 @@ PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
   Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
   Download hang: CTA used target=_blank on GH attachment URLs → blank Loading tab;
     truncated CDN pulls looked “corrupt.” Fix: no _blank on installer links + sync NSIS sha.
-NEXT: refresh installable for demo → film → optional beta.5 publish
-  · Evidence: OBSCUR-8GC5XJ Exact Match Tester1 (legacy path Pass on camera-ready shell)
-  · Gap: published beta.4 NSIS lacks dual-channel Share UI (still uncommitted on main working tree)
-  · Now: `pnpm desktop:build:exe` (Tor OFF) → cold-run dual-channel Share + Add Friend → film
-  · Demo prefer: QR / OB2 / link; vanity OK as secondary (honesty chip)
-  · After film OK: commit dual-channel + friend-code fixes → Full Release **v2.0.0-beta.5**
-    for public `/download` (do not retag beta.4)
+NEXT: wait Full Release beta.5 publish → sync /download → film
+  · Commit: dae14a6e dual-channel Add Friend · tag v2.0.0-beta.5 pushed
+  · CI: Obscur Full Release publish run https://github.com/Dendro-X0/Obscur/actions/runs/42003472823
+  · Local: `pnpm desktop:build:exe` still running for interim demo smoke
+  · After green: sync release-assets + website releaseTag · cold-run Share QR/OB2 · film
+  · Evidence so far: OBSCUR-8GC5XJ → Tester1 Exact Match Pass
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
