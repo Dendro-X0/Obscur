@@ -273,13 +273,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Marketing tags (v2.0.0-beta.N) embed package/tauri semver 2.0.0 — same rule as resolve-release-version.
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PKG_VERSION="$(node -p "require('./package.json').version")"
           TAURI_VERSION="$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
-          if [ "${TAG_VERSION}" != "${PKG_VERSION}" ] || [ "${TAG_VERSION}" != "${TAURI_VERSION}" ]; then
-            echo "Version mismatch: tag=${TAG_VERSION} package.json=${PKG_VERSION} tauri.conf=${TAURI_VERSION}" >&2
+          if [ "${PKG_VERSION}" != "${TAURI_VERSION}" ]; then
+            echo "Version mismatch: package.json=${PKG_VERSION} tauri.conf=${TAURI_VERSION}" >&2
             exit 1
           fi
+          if [ "${TAG_VERSION}" = "${PKG_VERSION}" ] || [[ "${TAG_VERSION}" == "${PKG_VERSION}-"* ]]; then
+            echo "Tag ${TAG_VERSION} matches package/tauri semver ${PKG_VERSION}"
+            exit 0
+          fi
+          echo "Version mismatch: tag=${TAG_VERSION} package.json=${PKG_VERSION} tauri.conf=${TAURI_VERSION}" >&2
+          exit 1
 
       - name: Clear stale desktop bundle output
         shell: bash
@@ -577,6 +584,9 @@ jobs:
 
           echo "tauri.settings.gradle missing in clean checkout; attempting tauri android init..."
           pnpm -C apps/desktop tauri android init || true
+          # init may rewrite buildSrc to a newer BuildTask schema (e.g. required projectDir)
+          # that does not match our committed RustPlugin — restore tracked sources.
+          git checkout -- apps/desktop/src-tauri/gen/android/buildSrc 2>/dev/null || true
 
           if [ -f "apps/desktop/src-tauri/gen/android/tauri.settings.gradle" ]; then
             echo "tauri.settings.gradle generated successfully."

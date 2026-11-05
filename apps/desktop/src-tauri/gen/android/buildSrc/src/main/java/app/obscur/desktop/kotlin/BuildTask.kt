@@ -4,14 +4,19 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.logging.LogLevel
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 
 open class BuildTask : DefaultTask() {
+    // Nullable @Input must be Optional for Gradle 8.14+ configuration validation.
     @Input
+    @Optional
     var rootDirRel: String? = null
     @Input
+    @Optional
     var target: String? = null
     @Input
+    @Optional
     var release: Boolean? = null
 
     @TaskAction
