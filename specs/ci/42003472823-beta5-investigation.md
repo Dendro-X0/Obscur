@@ -20,8 +20,9 @@
 **Error:** Gradle `:app:rustBuildArm64Release` / BuildTask configuration (`value not set`)  
 May reproduce on main dispatch; triage after desktop path green if needed.
 
-## Fix plan (one class → then Android)
+## Fix plan (iterate one class)
 
 1. Align desktop assert with resolve job (allow `${PKG}-*` marketing tags).  
 2. After `tauri android init`, `git checkout -- …/buildSrc` so init cannot leave a half-new BuildTask (`projectDir` required). Mark BuildTask `@Optional` for Gradle 8.14.  
-3. Re-dispatch Full Release from **`main`** with `release_tag=v2.0.0-beta.5` + `publish_release=true` (same pattern as successful beta.4).
+3. **Retry 42030064706 failed Preflight:** `docs:check` stale-path-ref to local `obscur_desktop_app.exe` — ignore `target/release` in docs-check; keep handoff free of CI-absent paths.  
+4. Re-dispatch Full Release from **`main`** with `release_tag=v2.0.0-beta.5` + `publish_release=true`.

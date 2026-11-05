@@ -29,6 +29,9 @@ const isCiAbsentPath = (absPath) => {
     || rel.startsWith("docs/business/")
     || rel === "apps/pwa/out"
     || rel.startsWith("apps/pwa/out/")
+    // Native build outputs — present locally after desktop:build:exe, never in CI checkout.
+    || rel.includes("/target/release/")
+    || rel.endsWith("/target/release")
   );
 };
 

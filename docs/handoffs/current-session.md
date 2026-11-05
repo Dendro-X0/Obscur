@@ -55,11 +55,11 @@ PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
   Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
   Download hang: CTA used target=_blank on GH attachment URLs → blank Loading tab;
     truncated CDN pulls looked “corrupt.” Fix: no _blank on installer links + sync NSIS sha.
-NEXT: wait Full Release beta.5 publish (retry) → sync /download → film
-  · Failed 42003472823: dispatch from tag rejected 2.0.0-beta.5 vs package 2.0.0 (+ Android buildSrc)
-  · Fix 449b1f79: marketing-tag assert + restore Android buildSrc after init
-  · Retry from main: https://github.com/Dendro-X0/Obscur/actions/runs/42030064706
-  · Local exe Ready for interim film: apps/desktop/.../obscur_desktop_app.exe
+NEXT: wait Full Release beta.5 publish → sync /download → film
+  · Failed 42003472823: tag-ref assert (marketing vs package 2.0.0)
+  · Failed 42030064706: docs:check stale handoff path to local release exe
+  · Fix: marketing-tag assert + Android buildSrc restore + docs-check ignores target/release
+  · Re-dispatch from main with publish_release=true release_tag=v2.0.0-beta.5
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
