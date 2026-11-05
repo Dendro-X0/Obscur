@@ -271,6 +271,8 @@ export default function SearchPage() {
     const [requestSecretCode, setRequestSecretCode] = useState<string>("");
     const [previewProfile, setPreviewProfile] = useState<PublicDiscoveryProfile | null>(null);
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
+    const [shareShowPairingCode, setShareShowPairingCode] = useState(false);
+    const [shareShowAdvanced, setShareShowAdvanced] = useState(false);
     const [friendSuggestionsReady, setFriendSuggestionsReady] = useState(false);
     const [diagnosticsTick, setDiagnosticsTick] = useState(0);
     const unknownContactLabel = t("search.discovery.identity.unknownContact");
@@ -1467,7 +1469,11 @@ export default function SearchPage() {
             note: requestNoteText,
             secretCode: requestSecretCode,
         }} onClose={() => setInvitationDialogTarget(null)} onSubmit={handleInvitationDialogSubmit}/>
-      {shareDialogOpen && (<div className="fixed inset-0 z-[130] bg-black/60 p-4 backdrop-blur-sm" onClick={() => setShareDialogOpen(false)}>
+      {shareDialogOpen && (<div className="fixed inset-0 z-[130] bg-black/60 p-4 backdrop-blur-sm" onClick={() => {
+          setShareDialogOpen(false);
+          setShareShowPairingCode(false);
+          setShareShowAdvanced(false);
+        }}>
           <div className="mx-auto mt-10 w-full max-w-4xl rounded-3xl border border-border/70 bg-background/95 p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
@@ -1475,65 +1481,67 @@ export default function SearchPage() {
                 <h3 className="mt-1 text-xl font-black">{t("search.discovery.share.title")}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{t("search.discovery.share.desc")}</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setShareDialogOpen(false)} className="h-8 w-8">
+              <Button variant="ghost" size="icon" onClick={() => {
+                setShareDialogOpen(false);
+                setShareShowPairingCode(false);
+                setShareShowAdvanced(false);
+              }} className="h-8 w-8">
                 <X className="h-4 w-4"/>
               </Button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-3 rounded-2xl border border-border/60 bg-card/70 p-4">
-                {deterministicDiscoveryEnabled ? (<>
-                    <div className="rounded-2xl border border-border/50 bg-muted/40 p-3 font-mono text-xs break-all">
-                      {friendCodeV3 || t("search.discovery.share.shortCodeUnavailable")}
-                    </div>
-                    <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 text-[11px] text-muted-foreground">
-                      {t("search.discovery.share.expires")}: {friendCodeV3ExpiryUnixMs ? new Date(friendCodeV3ExpiryUnixMs).toLocaleTimeString() : t("search.discovery.na")}
-                    </div>
-                    <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
-                      {t("search.discovery.share.compatibilityCode")}: {friendCodeV2 || t("search.discovery.none")}
-                    </div>
-                    <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
-                      {t("search.discovery.share.legacyAlias")}: {profile.state.profile.inviteCode || t("search.discovery.none")}
-                    </div>
-                  </>) : (<>
-                    <div className="rounded-2xl border border-border/50 bg-muted/30 p-3 font-mono text-xs break-all">
-                      {profile.state.profile.inviteCode || t("search.discovery.share.inviteCodeUnavailable")}
-                    </div>
-                    <div className="rounded-2xl border border-border/50 bg-muted/40 p-3 font-mono text-xs break-all">
-                      {myNpub || t("search.discovery.share.npubUnavailable")}
-                    </div>
-                    <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
-                      {publicKeyHex || t("search.discovery.share.pubkeyUnavailable")}
-                    </div>
-                  </>)}
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t("search.discovery.share.inPerson")}</p>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex items-center gap-2 self-start">
+                    <QrCode className="h-4 w-4 text-primary"/>
+                    <h3 className="text-sm font-black uppercase tracking-[0.16em]">{t("search.discovery.share.qrTitle")}</h3>
+                  </div>
+                  {shareQrDataUrl ? (
+                    <Image
+                      src={shareQrDataUrl}
+                      alt="Contact QR"
+                      width={208}
+                      height={208}
+                      unoptimized
+                      className="h-52 w-52 rounded-2xl border border-border/50 bg-white p-3"
+                    />
+                  ) : (<div className="flex h-52 w-52 items-center justify-center rounded-2xl border border-dashed border-border/70 text-xs text-muted-foreground">
+                      {t("search.discovery.share.qrUnavailable")}
+                    </div>)}
+                  <p className="text-center text-xs text-muted-foreground">{t("search.discovery.share.qrHint")}</p>
+                </div>
+                {deterministicDiscoveryEnabled ? (
+                  <div className="space-y-2 border-t border-border/40 pt-3">
+                    <Button variant="ghost" size="sm" className="h-8 px-0 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShareShowPairingCode((open) => !open)}>
+                      {shareShowPairingCode ? t("search.discovery.share.hidePairing") : t("search.discovery.share.showPairing")}
+                    </Button>
+                    {shareShowPairingCode ? (
+                      <div className="space-y-2">
+                        <div className="rounded-2xl border border-border/50 bg-muted/40 p-3 font-mono text-xs break-all">
+                          {friendCodeV3 || t("search.discovery.share.shortCodeUnavailable")}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t("search.discovery.share.expires")}: {friendCodeV3ExpiryUnixMs ? new Date(friendCodeV3ExpiryUnixMs).toLocaleTimeString() : t("search.discovery.na")}
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV3, t("search.discovery.copy.shortCode"))}>
+                          <Copy className="mr-1 h-3 w-3"/>
+                          {t("search.discovery.action.copyShortCode")}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-border/60 bg-card/70 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{t("search.discovery.share.remote")}</p>
+                <p className="text-xs text-muted-foreground">{t("search.discovery.share.ob2Hint")}</p>
+                <div className="rounded-2xl border border-border/50 bg-muted/40 p-3 font-mono text-xs break-all">
+                  {friendCodeV2 || myNpub || t("search.discovery.share.compatibilityCodeUnavailable")}
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {deterministicDiscoveryEnabled ? (<>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV2, t("search.discovery.copy.friendCode"))}>
-                        <Copy className="mr-1 h-3 w-3"/>
-                        {t("search.discovery.action.copyCompatibilityCode")}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV3, t("search.discovery.copy.shortCode"))}>
-                        <Copy className="mr-1 h-3 w-3"/>
-                        {t("search.discovery.action.copyShortCode")}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", t("search.discovery.copy.legacyAlias"))}>
-                        <Copy className="mr-1 h-3 w-3"/>
-                        {t("search.discovery.action.copyLegacyAlias")}
-                      </Button>
-                    </>) : (<>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", t("search.discovery.copy.inviteCode"))}>
-                        <Copy className="mr-1 h-3 w-3"/>
-                        {t("search.discovery.action.copyInviteCode")}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(myNpub, t("search.discovery.copy.npub"))}>
-                        <Copy className="mr-1 h-3 w-3"/>
-                        {t("search.discovery.action.copyNpub")}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => void copyText(publicKeyHex ?? "", t("search.discovery.copy.pubkey"))}>
-                        <Copy className="mr-1 h-3 w-3"/>
-                        {t("search.discovery.action.copyPubkey")}
-                      </Button>
-                    </>)}
                   <Button variant="outline" size="sm" onClick={() => void copyText(shareLink, t("search.discovery.copy.contactLink"))}>
                     <Copy className="mr-1 h-3 w-3"/>
                     {t("search.discovery.action.copyLink")}
@@ -1542,26 +1550,52 @@ export default function SearchPage() {
                     <Copy className="mr-1 h-3 w-3"/>
                     {t("search.discovery.action.copyCard")}
                   </Button>
+                  {friendCodeV2 ? (
+                    <Button variant="outline" size="sm" onClick={() => void copyText(friendCodeV2, t("search.discovery.copy.friendCode"))}>
+                      <Copy className="mr-1 h-3 w-3"/>
+                      {t("search.discovery.action.copyCompatibilityCode")}
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => void copyText(myNpub, t("search.discovery.copy.npub"))}>
+                      <Copy className="mr-1 h-3 w-3"/>
+                      {t("search.discovery.action.copyNpub")}
+                    </Button>
+                  )}
                 </div>
-              </div>
 
-              <div className="rounded-2xl border border-border/60 bg-card/70 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <QrCode className="h-4 w-4 text-primary"/>
-                  <h3 className="text-sm font-black uppercase tracking-[0.16em]">{t("search.discovery.share.qrTitle")}</h3>
+                <div className="space-y-2 border-t border-border/40 pt-3">
+                  <Button variant="ghost" size="sm" className="h-8 px-0 text-xs text-muted-foreground hover:text-foreground" onClick={() => setShareShowAdvanced((open) => !open)}>
+                    {shareShowAdvanced ? t("search.discovery.share.hideAdvanced") : t("search.discovery.share.showAdvanced")}
+                  </Button>
+                  {shareShowAdvanced ? (
+                    <div className="space-y-2">
+                      <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
+                        {myNpub || t("search.discovery.share.npubUnavailable")}
+                      </div>
+                      <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
+                        {publicKeyHex || t("search.discovery.share.pubkeyUnavailable")}
+                      </div>
+                      <div className="rounded-2xl border border-border/50 bg-muted/20 p-3 font-mono text-xs break-all text-muted-foreground">
+                        {t("search.discovery.share.legacyAlias")}: {profile.state.profile.inviteCode || t("search.discovery.none")}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{t("search.discovery.share.vanityHint")}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={() => void copyText(myNpub, t("search.discovery.copy.npub"))}>
+                          <Copy className="mr-1 h-3 w-3"/>
+                          {t("search.discovery.action.copyNpub")}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => void copyText(publicKeyHex ?? "", t("search.discovery.copy.pubkey"))}>
+                          <Copy className="mr-1 h-3 w-3"/>
+                          {t("search.discovery.action.copyPubkey")}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => void copyText(profile.state.profile.inviteCode ?? "", t("search.discovery.copy.legacyAlias"))}>
+                          <Copy className="mr-1 h-3 w-3"/>
+                          {t("search.discovery.action.copyLegacyAlias")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-                {shareQrDataUrl ? (
-                  <Image
-                    src={shareQrDataUrl}
-                    alt="Contact QR"
-                    width={208}
-                    height={208}
-                    unoptimized
-                    className="h-52 w-52 rounded-2xl border border-border/50 bg-white p-3"
-                  />
-                ) : (<div className="flex h-52 w-52 items-center justify-center rounded-2xl border border-dashed border-border/70 text-xs text-muted-foreground">
-                    {t("search.discovery.share.qrUnavailable")}
-                  </div>)}
               </div>
             </div>
           </div>

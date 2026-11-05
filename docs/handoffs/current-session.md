@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-04T06:20:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.4 **Published** · download sync Pass · **REWRITE BAND SUPERSEDE 2026-11** · Stay Tauri until design says otherwise
+- Last Updated (UTC): 2026-11-05T09:30:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.4 **Published** · dual-channel UI local · **demo film + refresh installable** · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -55,10 +55,13 @@ PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
   Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
   Download hang: CTA used target=_blank on GH attachment URLs → blank Loading tab;
     truncated CDN pulls looked “corrupt.” Fix: no _blank on installer links + sync NSIS sha.
-NEXT: retry Discovery friend codes (relay data restored 2026-11-04) → cold-run → film
-  · Friend-code P0: kind 0+31950 missing on discovery relays; republished Tester1/2/DemoUser;
-    publisher now emits 31950 alias (was dead code). Specs under specs/backend/2026-11-04-friend-code-*
-  · park ARM / AppImage polish / rewrite until video is on the site
+NEXT: refresh installable for demo → film → optional beta.5 publish
+  · Evidence: OBSCUR-8GC5XJ Exact Match Tester1 (legacy path Pass on camera-ready shell)
+  · Gap: published beta.4 NSIS lacks dual-channel Share UI (still uncommitted on main working tree)
+  · Now: `pnpm desktop:build:exe` (Tor OFF) → cold-run dual-channel Share + Add Friend → film
+  · Demo prefer: QR / OB2 / link; vanity OK as secondary (honesty chip)
+  · After film OK: commit dual-channel + friend-code fixes → Full Release **v2.0.0-beta.5**
+    for public `/download` (do not retag beta.4)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
@@ -157,6 +160,7 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete doc
 | CU-UX-5 relay freedom | T1 public Quiet honesty-gated · trust `public_relay_honest` · catalog selectable · L1 Pass |
 | CU-UX-6 mode/hosting convert | Manage T0↔T1 + host toggle · steward seed · honesty ack · L1 Pass |
 | v2.0.0-beta cut plan | Anti-perfectionism B1–B5 · tag pending · CU-UX L3 not a blocker |
+| Dual-channel Add Friend UI | Discovery Share In person QR + Send online link/OB2 · ShareInviteCard durable card · L1 resolver Pass · demo film open |
 
 ## PAUSED / CANCELLED
 
@@ -172,6 +176,10 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete doc
 ## Checkpoints
 
 <!-- CONTEXT_CHECKPOINTS_START -->
+### 2026-11-04T07:55:00Z checkpoint
+- Summary: Dual-channel durable Add Friend UI — Share dialog lanes (QR card / remote OB2+link; OB3+vanity collapsed); ShareInviteCard off vanity `/invite/OBSCUR-*`; Exact Match placeholders + legacy honesty copy
+- Evidence: specs/frontend/frontend-spec-discovery-dual-channel-add-friend-2026-11.md · search-page-client · share-invite-card · en.json · vitest contact-card/friend-code-v2/identity-resolver Pass
+- Next: cold-run Tester1↔Tester2 via QR or OB2/link → film · no Soft L3/Tor/Matrix
 ### 2026-10-21T03:44:00Z checkpoint
 - Summary: CU-UX-6 Manage convert L1 — `assessCommunityModeHostingConvert` · General Mode & hosting · Save updates descriptor + `updateGroup` relay/mode/hostingTier · steward seed on T0→T1
 - Next: optional L3 convert soak · no history-migration claim · no SF-B Spaces

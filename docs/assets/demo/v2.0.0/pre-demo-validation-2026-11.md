@@ -73,18 +73,23 @@ Mark Pass / Fail / Skip. Fail = fix before record (or cut segment).
 
 | Field | Value |
 |-------|--------|
-| **Validation verdict** | _Pending_ |
-| **OK to record demo video** | ☐ Yes · ☐ No |
-| **Blockers** | |
-| **Segments to skip on camera** | |
+| **Validation verdict** | _In progress_ — legacy Add Friend Pass (`OBSCUR-8GC5XJ` → Tester1); dual-channel Share needs **fresh release exe** (not beta.4 NSIS) |
+| **OK to record demo video** | ☐ Yes · ☐ No — rebuild `desktop:build:exe` / beta.5 first if dual-lane Share is on camera |
+| **Blockers** | Published beta.4 installable predates dual-channel Share UI |
+| **Segments to skip on camera** | Soft L3 · Tor · Matrix · video usable |
 | **Maintainer sign-off** | |
-| **Date (UTC)** | |
+| **Date (UTC)** | 2026-11-05 |
+
+### Add Friend note (2026-11-05)
+
+- Legacy vanity resolve **Pass** (`OBSCUR-8GC5XJ` → Exact Match Tester1 · fingerprint panel).  
+- Prefer filming **Share contact** dual-lane (QR + OB2/link) from rebuild; vanity is honesty-labeled secondary.
 
 ## 5. After Pass → record
 
 1. Use [phase-1-recording-script.md](./phase-1-recording-script.md) + segment briefs.  
 2. Opening VO must include feedback non-claims (§0).  
 3. File evidence under `docs/assets/demo/v2.0.0/evidence/` as `P5-<nn>-predemo-2026-11-<topic>.png` if useful.  
-4. Do **not** git-tag for feedback cut until explicit ask.
+4. Public download refresh = **v2.0.0-beta.5** Full Release after film OK — do **not** retag beta.4.
 
-_Last updated: 2026-11-03T08:15:00Z_
+_Last updated: 2026-11-05T09:30:00Z_
