@@ -35,7 +35,6 @@ type QueryRelayProfilesParams = Readonly<{
 
 const QUERY_TIMEOUT_MS = 5_500;
 const INVITE_ALIAS_HOLD_MS = 800;
-const INVITE_PROFILE_WINDOW_SECONDS = 60 * 60 * 24 * 180;
 const TEXT_PROFILE_WINDOW_SECONDS = 60 * 60 * 24 * 120;
 const LEGACY_INVITE_CODE_PREFIX = "OBSCUR";
 const INVITE_CODE_PREFIXES = Array.from(new Set([INVITE_CODE_PREFIX, LEGACY_INVITE_CODE_PREFIX]));
@@ -140,12 +139,12 @@ const buildFilters = (mode: RelayDiscoveryMode, query: string): ReadonlyArray<No
     const nowSeconds = Math.floor(Date.now() / 1000);
     if (mode === "invite") {
         const inviteCode = query.trim().toUpperCase();
+        // Tag-indexed filters only. Public relays (nos.lol / primal / damus) return
+        // EOSE with zero events when this REQ also includes NIP-50 `search`, a wide
+        // `since` scrape, or `#code` alongside `#i` — even when `#d` / `#i` hits exist.
         return [
             { kinds: [FRIEND_CODE_ALIAS_KIND], "#d": [inviteCode], limit: 8 },
             { kinds: [0], "#i": [inviteCode], limit: 16 },
-            { kinds: [0], "#code": [inviteCode], limit: 16 },
-            { kinds: [0], search: inviteCode, limit: 48 },
-            { kinds: [0], since: nowSeconds - INVITE_PROFILE_WINDOW_SECONDS, limit: 320 },
         ];
     }
     if (mode === "author") {

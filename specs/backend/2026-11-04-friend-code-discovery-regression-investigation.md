@@ -46,4 +46,13 @@ SURFACE: Tauri desktop
 | Demo republish | **Pass** — kind 0 + 31950 for Tester1/2/DemoUser on nos.lol / primal / damus |
 | Code fix | Publisher now emits 31950 + `inviteCode` in kind 0 JSON; hex/npub enrich via author query |
 
-Operator: retry Discovery with `OBSCUR-WRLKPD` / hex (clearnet relays on). Desktop was restarted via `pnpm cache:clear && pnpm dev:desktop`.
+## Follow-up (same day) — still unresolvable in UI
+
+| Check | Result |
+|-------|--------|
+| Codes “outdated”? | **No** — `OBSCUR-*` has no TTL; OB3 short codes expire, these do not |
+| Relay data after republish | **Present** — alias-only / `#i`-only REQ returns events |
+| App invite REQ | **Broken** — one REQ with `#d`/`#i`/`#code` **plus** NIP-50 `search` (+ broad `since`) → relays EOSE with **0** events |
+| Lookups: 0 in Safe Mode | Diagnostics only count `useGlobalSearch`; invite path uses `resolveSafeInput` / inviteResolver |
+
+**Fix:** invite-mode `buildFilters` must not mix tag lookups with `search` / wide `since` in the same REQ. Tag filters first; optional fallback REQ only if empty.
