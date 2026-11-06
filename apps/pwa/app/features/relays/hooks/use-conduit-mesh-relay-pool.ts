@@ -345,7 +345,15 @@ export const useConduitMeshRelayPool = (
     getRelayHealth: (url) => relayHealthMonitor.getMetrics(url),
     getRelayCircuitState: () => "healthy",
     canConnectToRelay: (url) => relayHealthMonitor.canConnect(url),
-    addTransientRelay: () => {},
+    addTransientRelay: (url) => {
+      const target = url.trim();
+      if (!target) {
+        return;
+      }
+      // Invite / discovery lookup primes GLOBAL_DISCOVERY_RELAY_URLS here.
+      // A noop left friend-code Exact Match empty when only private relays were open.
+      nostrClient.setRelayUrls(Array.from(new Set([...poolUrls, target])));
+    },
     removeTransientRelay: () => {},
     reconnectRelay: (url) => {
       const target = url.trim();

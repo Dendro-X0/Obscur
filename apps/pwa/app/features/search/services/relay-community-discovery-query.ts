@@ -131,7 +131,8 @@ export const queryRelayCommunities = async (
       }
     });
 
-    void params.pool.broadcastEvent(JSON.stringify(["REQ", subId, ...filters]));
+    // Same contract as invite discovery — REQ via sendToOpen, not publish.
+    params.pool.sendToOpen(JSON.stringify(["REQ", subId, ...filters]));
     setTimeout(finalize, timeoutMs);
   });
 };

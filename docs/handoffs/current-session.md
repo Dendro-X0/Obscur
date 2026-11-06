@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-05T09:30:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.4 **Published** · dual-channel UI local · **demo film + refresh installable** · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-06T05:15:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.6 **cutting** (friend-code conduit hotfix) · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,16 +50,13 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — RECORD DEMO FIRST (maintainer priority)
-  Tag: v2.0.0-beta.4 published (Win/mac multi-arch · Linux AppImage+.deb)
-  Checklist: docs/assets/demo/v2.0.0/pre-demo-validation-2026-11.md
-  Download hang: CTA used target=_blank on GH attachment URLs → blank Loading tab;
-    truncated CDN pulls looked “corrupt.” Fix: no _blank on installer links + sync NSIS sha.
-NEXT: wait Full Release beta.5 publish → sync /download → film
-  · Failed 42003472823: tag-ref assert (marketing vs package 2.0.0)
-  · Failed 42030064706: docs:check stale handoff path to local release exe
-  · Fix: marketing-tag assert + Android buildSrc restore + docs-check ignores target/release
-  · Re-dispatch from main with publish_release=true release_tag=v2.0.0-beta.5
+PLATFORM REWRITE BAND — PUBLISH v2.0.0-beta.6 (friend-code discovery hotfix)
+  Package tree: 2.0.0 · marketing tag: v2.0.0-beta.6
+  Fix: invite REQ via sendToOpen + conduit addTransientRelay (specs/backend/2026-11-05-…)
+  Cut: docs/releases/v2.0.0-beta.6-cut-plan.md
+NEXT: push main → Full Release workflow_dispatch from main
+  release_tag=v2.0.0-beta.6 · publish_release=true
+  → sync release-assets/ + pre-demo SHA · then cold-run NSIS Add Friend vanity
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 

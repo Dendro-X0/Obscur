@@ -295,7 +295,11 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
             }
         });
 
-        void params.pool.broadcastEvent(JSON.stringify(["REQ", subId, ...filters]));
+        // REQ must go as raw Nostr frames on open sockets (`sendToOpen`).
+        // Conduit mesh `broadcastEvent` is publish/mesh-envelope — it does not
+        // subscribe, so invite lookup returned empty Exact Match while aliases
+        // still existed on nos.lol / primal (2026-11-05).
+        params.pool.sendToOpen(JSON.stringify(["REQ", subId, ...filters]));
         setTimeout(finalize, timeoutMs);
     });
 };
