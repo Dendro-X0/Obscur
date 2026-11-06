@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-06T15:56:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.8 **cutting** · contact handshake honesty · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-06T18:00:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.8 **download face synced** · contact handshake honesty · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,10 +50,13 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — beta.8 contact handshake honesty cut
-  Include: invite residue ≠ TRUSTED · decline unaccepts · remove clears acceptSeen · UI chrome
+PLATFORM REWRITE BAND — beta.8 published (handshake honesty)
+  Landed: invite residue ≠ TRUSTED · decline unaccepts · remove clears acceptSeen · UI chrome
   Carry: friend-code ephemeral discovery (beta.7)
-NEXT: Full Release v2.0.0-beta.8 · sync download · reinstall NSIS · cold-run handshake
+  Published: Full Release 42247860139 · tag v2.0.0-beta.8 · releaseTag 2.0.0-beta.8
+L2: NSIS b6321e09… · E:\\Obscur obscur_desktop_app.exe 12898304 sha 56e08268… matches payload · app launched
+Synced: release-assets + manifest releaseTag 2.0.0-beta.8 (run 42247860139)
+NEXT: operator cold-run Exact Match + Decline/reconnect handshake on packaged face
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 

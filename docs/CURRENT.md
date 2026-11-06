@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents.
 
-_Last updated: 2026-11-06 · **v2.0.0-beta.8** cutting · contact handshake honesty · rewrite band SUPERSEDE · feedback A1–A5 Pass_
+_Last updated: 2026-11-06 · **v2.0.0-beta.8** published · contact handshake honesty · rewrite band SUPERSEDE · feedback A1–A5 Pass_
 
 ---
 
@@ -10,8 +10,8 @@ _Last updated: 2026-11-06 · **v2.0.0-beta.8** cutting · contact handshake hone
 
 | Track | Status |
 |-------|--------|
-| **Version / tag** | Package tree **2.0.0** · marketing **v2.0.0-beta.8** cutting — [cut plan](./releases/v2.0.0-beta.8-cut-plan.md) · prior [beta.7](./releases/v2.0.0-beta.7-release.md) |
-| **Download** | Website `/download` still **2.0.0-beta.7** until beta.8 publish · then pin `releaseTag` **2.0.0-beta.8** |
+| **Version / tag** | Package tree **2.0.0** · marketing **v2.0.0-beta.8** published — [release](./releases/v2.0.0-beta.8-release.md) · prior [beta.7](./releases/v2.0.0-beta.7-release.md) |
+| **Download** | Website `/download` pinned `releaseTag` **2.0.0-beta.8** · [manifest](../release-assets/manifest.json) |
 | **Band** | **REWRITE** — modular auth / profiles / storage / PAL (Nostr + Matrix lab + Private DC lab) |
 | **Feedback gates** | A1–A5 **Pass** — [platform-public-feedback-release-readiness-2026-11.md](../specs/backend/platform-public-feedback-release-readiness-2026-11.md) |
 | **Demo** | Validate then record — [pre-demo-validation-2026-11.md](./assets/demo/v2.0.0/pre-demo-validation-2026-11.md) · kit [assets/demo/v2.0.0/](./assets/demo/v2.0.0/) |
