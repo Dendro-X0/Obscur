@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { messagingChatStateReadPort } from "@/app/features/messaging/services/messaging-chat-state-read-port";
 import type { PersistedChatState } from "@/app/features/messaging/types";
-import { derivePeerPubkeyFromDmConversationId } from "@/app/features/messaging/utils/dm-conversation-list-merge";
 import { normalizePublicKeyHex, normalizePublicKeyHexList } from "@/app/features/profile/utils/normalize-public-key-hex";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { useOptionalProfileMessageBus } from "@/app/features/profiles/providers/profile-runtime-provider";
@@ -21,7 +20,10 @@ import {
   getLegacyPeerTrustStorageKey,
   getPeerTrustStorageKey,
 } from "@/app/features/network/services/peer-trust-storage-key";
-import { requestFlowEvidenceStoreInternals } from "@/app/features/messaging/services/request-flow-evidence-store";
+import {
+  requestFlowEvidenceStore,
+  requestFlowEvidenceStoreInternals,
+} from "@/app/features/messaging/services/request-flow-evidence-store";
 import { logAppEvent } from "@/app/shared/log-app-event";
 
 type PeerTrustState = Readonly<{
@@ -182,62 +184,22 @@ const saveToStorage = (
 
 const extractAcceptedPeersFromPersistedChatState = (
   persisted: PersistedChatState | null | undefined,
-  accountPublicKeyHex?: PublicKeyHex | string | null,
+  _accountPublicKeyHex?: PublicKeyHex | string | null,
 ): ReadonlyArray<PublicKeyHex> => {
   if (!persisted) {
     return [];
   }
 
-  // Trust comes from explicit accept events — not bare address-book rows.
-  // createdConnections alone are NOT a trust signal (handshake may still be pending).
+  // Trust comes from explicit accept events — not bare address-book rows,
+  // invite DMs, or sandbox QnA. Message/preview residue must not mint TRUSTED
+  // (2026-11-06): connection-request traffic is itself a DM and was promoting
+  // peers into All People before Accept.
   const acceptedFromRequests: ReadonlyArray<PublicKeyHex> = (persisted.connectionRequests ?? [])
     .filter((request) => request.status === "accepted")
     .map((request) => normalizePublicKeyHex(request.id))
     .filter((peer): peer is PublicKeyHex => peer !== null);
 
-  const pendingRequestPeers = new Set(
-    (persisted.connectionRequests ?? [])
-      .filter((request) => request.status === "pending")
-      .map((request) => normalizePublicKeyHex(request.id))
-      .filter((peer): peer is PublicKeyHex => peer !== null),
-  );
-
-  // After peerTrust wipe, recover peers that already have DM message residue.
-  // Outbound-delivered thread residue implies sandbox allowed a prior accept.
-  const acceptedFromMessageThreads: PublicKeyHex[] = [];
-  const account = normalizePublicKeyHex(accountPublicKeyHex ?? "");
-  if (account) {
-    Object.entries(persisted.messagesByConversationId ?? {}).forEach(([conversationId, messages]) => {
-      if (!messages || messages.length === 0) {
-        return;
-      }
-      const peer = derivePeerPubkeyFromDmConversationId(conversationId, account);
-      if (!peer || pendingRequestPeers.has(peer)) {
-        return;
-      }
-      acceptedFromMessageThreads.push(peer);
-    });
-  }
-
-  // Native mirrors often strip message bodies. A createdConnections preview with
-  // non-empty lastMessage and no pending request is thread residue (ASE keeps
-  // true strangers out of the Chats sidebar until accept).
-  const acceptedFromThreadPreviews: PublicKeyHex[] = [];
-  for (const connection of persisted.createdConnections ?? []) {
-    const peer = normalizePublicKeyHex(connection.pubkey);
-    if (!peer || pendingRequestPeers.has(peer)) {
-      continue;
-    }
-    if ((connection.lastMessage?.trim().length ?? 0) > 0) {
-      acceptedFromThreadPreviews.push(peer);
-    }
-  }
-
-  return Array.from(new Set([
-    ...acceptedFromRequests,
-    ...acceptedFromMessageThreads,
-    ...acceptedFromThreadPreviews,
-  ]));
+  return Array.from(new Set(acceptedFromRequests));
 };
 
 const extractAcceptedPeersFromRequestEvidence = (
@@ -532,14 +494,20 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   const unacceptPeer = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): void => {
     const normalized = normalizePublicKeyHex(p.publicKeyHex);
     if (!normalized) return;
+    // Clear acceptSeen so remove/decline cannot leave Connect stuck on "accepted"
+    // (2026-11-06: re-add after decline treated as permanent reject).
+    requestFlowEvidenceStore.clear(normalized, profileIdRef.current);
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
-      if (!prev.acceptedPeers.includes(normalized)) {
-        return prev;
-      }
       const nextAcceptedPeers: ReadonlyArray<PublicKeyHex> = prev.acceptedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
       const nextRemovedPeers: ReadonlyArray<PublicKeyHex> = prev.removedPeers.includes(normalized)
         ? prev.removedPeers
         : [...prev.removedPeers, normalized];
+      if (
+        nextAcceptedPeers.length === prev.acceptedPeers.length
+        && nextRemovedPeers.length === prev.removedPeers.length
+      ) {
+        return prev;
+      }
       const next: StoredPeerTrust = { ...prev, acceptedPeers: nextAcceptedPeers, removedPeers: nextRemovedPeers };
       const pk = publicKeyHexRef.current;
       if (pk) {

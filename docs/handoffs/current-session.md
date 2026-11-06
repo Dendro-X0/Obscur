@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-06T10:40:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.7 **Published** · friend-code ephemeral discovery · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-06T15:56:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.8 **cutting** · contact handshake honesty · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,11 +50,10 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — beta.7 PUBLIC FACE LIVE
-  Tag: v2.0.0-beta.7 Published · Full Release 42199631251
-  Download: version.json releaseTag 2.0.0-beta.7 · NSIS sha 6951da59…dea8a
-  Fix: invite ephemeral GLOBAL_DISCOVERY sockets (dial-cap bypass)
-NEXT: cold-run published NSIS (Tor OFF) · Exact Match OBSCUR-Z8V4YD / RU8ZL8
+PLATFORM REWRITE BAND — beta.8 contact handshake honesty cut
+  Include: invite residue ≠ TRUSTED · decline unaccepts · remove clears acceptSeen · UI chrome
+  Carry: friend-code ephemeral discovery (beta.7)
+NEXT: Full Release v2.0.0-beta.8 · sync download · reinstall NSIS · cold-run handshake
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 

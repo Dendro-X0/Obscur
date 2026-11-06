@@ -459,11 +459,11 @@ export default function ConnectionProfileView() {
                             <div className="pointer-events-none absolute -bottom-[16%] -right-[8%] h-[36%] w-[36%] rounded-full bg-cyan-500/10 blur-[120px]"/>
                         </>) : null}
 
-                    <Card className={cn("relative overflow-hidden border border-zinc-200/70 bg-white/88 backdrop-blur-2xl dark:border-white/10 dark:bg-[#07101f]/88", compact
+                    <Card className={cn("relative overflow-hidden border border-zinc-300/90 bg-white/92 backdrop-blur-xl dark:border-white/15 dark:bg-[#07101f]", compact
             ? "rounded-2xl p-5 shadow-sm"
-            : "rounded-[40px] p-8 shadow-[0_30px_100px_rgba(15,23,42,0.12)] sm:p-10")}>
-                        {!compact ? (<div className="absolute inset-0 z-0 scale-110 overflow-hidden opacity-[0.08] pointer-events-none">
-                                {metadata?.avatarUrl ? (<Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-3xl" unoptimized/>) : (<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 blur-3xl"/>)}
+            : "rounded-[32px] p-8 shadow-[0_12px_40px_rgba(15,23,42,0.18)] sm:p-10")}>
+                        {!compact ? (<div className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-[0.05]">
+                                {metadata?.avatarUrl ? (<Image src={metadata.avatarUrl} alt="" fill className="object-cover blur-2xl" unoptimized/>) : (<div className="absolute inset-0 bg-gradient-to-br from-indigo-500/15 to-cyan-500/10"/>)}
                             </div>) : null}
 
                         <div className={cn("relative z-10 flex flex-col items-center", compact ? "gap-4" : "gap-8")}>
@@ -526,7 +526,7 @@ export default function ConnectionProfileView() {
                             </div>
 
                             <div className={cn("flex w-full items-center justify-center pt-2", compact ? "flex-col gap-2" : "flex-wrap gap-4 pt-4")}>
-                                <Button onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect} disabled={!isDeletedContact && !isTrusted && (isBlocked || requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")} className={cn("gap-2 rounded-xl bg-indigo-600 font-black text-white shadow-[0_18px_40px_rgba(79,70,229,0.26)] transition-all hover:bg-indigo-500 active:scale-95", compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base hover:scale-[1.02]")}>
+                                <Button onClick={(isTrusted || isDeletedContact) ? handleMessage : handleConnect} disabled={!isDeletedContact && !isTrusted && (isBlocked || requestProjection.state === "accepted" || requestProjection.state === "incoming_pending")} className={cn("gap-2 rounded-xl border border-indigo-500/30 bg-indigo-600 font-black text-white shadow-sm transition-all hover:bg-indigo-500 hover:shadow-md active:scale-95", compact ? "h-11 w-full px-4 text-sm" : "h-14 gap-3 rounded-2xl px-8 text-base")}>
                                     {compact ? null : primaryActionIcon}
                                     {primaryActionLabel}
                                 </Button>
@@ -556,7 +556,7 @@ export default function ConnectionProfileView() {
                 </div>
 
                 <div className={cn("flex flex-col", compact ? "gap-4" : "gap-6")}>
-                    <Card className={cn("flex flex-col border border-zinc-200/70 bg-white/88 backdrop-blur-xl transition-all duration-500 group/key dark:border-white/10 dark:bg-[#07101f]/88", compact ? "gap-3 rounded-2xl p-4" : "gap-6 rounded-[32px] p-8")}>
+                    <Card className={cn("group/key flex flex-col border border-zinc-300/90 bg-white/92 backdrop-blur-xl transition-all duration-500 dark:border-white/15 dark:bg-[#07101f]", compact ? "gap-3 rounded-2xl p-4" : "gap-6 rounded-[28px] p-8")}>
                         <div className="flex items-center justify-between gap-3">
                             {!compact ? (<div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10">
                                     <Shield className="h-7 w-7 text-indigo-500 dark:text-indigo-300"/>
@@ -591,7 +591,7 @@ export default function ConnectionProfileView() {
                         </div>
                     </Card>
 
-                    <Card className={cn("border border-zinc-200/70 bg-white/88 backdrop-blur-xl dark:border-white/10 dark:bg-[#07101f]/88", compact ? "rounded-2xl p-4" : "rounded-[32px] p-6 sm:p-8")}>
+                    <Card className={cn("border border-zinc-300/90 bg-white/92 backdrop-blur-xl dark:border-white/15 dark:bg-[#07101f]", compact ? "rounded-2xl p-4" : "rounded-[28px] p-6 sm:p-8")}>
                         <div className={cn("flex gap-4", compact ? "flex-col" : "flex-row items-start sm:items-center sm:gap-6")}>
                             {!compact ? (<div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-zinc-200/70 bg-zinc-100 dark:border-white/10 dark:bg-white/[0.04]">
                                     <Radio className={cn("h-7 w-7", isPeerOnline ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500 dark:text-zinc-400")}/>

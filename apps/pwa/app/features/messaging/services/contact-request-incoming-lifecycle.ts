@@ -9,6 +9,7 @@ type IncomingLifecycleDeps = Readonly<{
   profileId?: string;
   peerTrust?: Readonly<{
     acceptPeer: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => void;
+    unacceptPeer?: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => void;
   }>;
   requestsInbox?: Readonly<{
     getRequestStatus: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => Readonly<{
@@ -74,6 +75,7 @@ export const applyIncomingContactLifecycle = async (
   }
 
   if (params.lifecycleTag === "connection-decline") {
+    deps.peerTrust?.unacceptPeer?.({ publicKeyHex: params.peerPublicKeyHex });
     deps.requestsInbox?.setStatus({
       peerPublicKeyHex: params.peerPublicKeyHex,
       status: "declined",

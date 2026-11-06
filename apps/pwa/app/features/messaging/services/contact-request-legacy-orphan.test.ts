@@ -65,6 +65,15 @@ describe("contact-request-legacy-orphan", () => {
     })).toEqual({ status: "accepted", isOutgoing: false });
   });
 
+  it("lets explicit decline win over stale trust so reconnect is not blocked", () => {
+    expect(resolveEffectiveContactRequestStatus({
+      peerPublicKeyHex: PEER_A,
+      isPeerAcceptedByTrust: true,
+      requestStatus: { status: "declined", isOutgoing: false },
+      hasDmThreadRow: true,
+    })).toEqual({ status: "declined", isOutgoing: false });
+  });
+
   it("does not merge plain DM threads without request event evidence", () => {
     const merged = mergeLegacyOrphanRequestsInboxItems({
       inboxItems: [],

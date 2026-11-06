@@ -47,8 +47,16 @@ export const resolveEffectiveContactRequestStatus = (params: Readonly<{
   requestStatus: DmPeerRequestStatusSnapshot;
   hasDmThreadRow: boolean;
 }>): DmPeerRequestStatusSnapshot => {
-  // Explicit Accept is sticky. Stale pending/declined inbox rows must not undo it
-  // after restart when peer trust (or accept evidence) still says accepted.
+  // Explicit decline/cancel wins over stale trust (decline must have cleared trust;
+  // if it did not, do not resurrect "accepted" and block reconnect).
+  if (
+    params.requestStatus?.status === "declined"
+    || params.requestStatus?.status === "canceled"
+  ) {
+    return params.requestStatus;
+  }
+  // Explicit Accept is sticky. Stale pending inbox rows must not undo it after
+  // restart when peer trust (or accept evidence) still says accepted.
   if (params.isPeerAcceptedByTrust) {
     return {
       status: "accepted",

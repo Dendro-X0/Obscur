@@ -192,7 +192,7 @@ describe("use-peer-trust internals", () => {
     expect(result).toEqual([]);
   });
 
-  it("recovers trust from DM message-thread residue after peerTrust wipe", () => {
+  it("does not mint TRUSTED from invite/DM message residue alone", () => {
     const account = "a".repeat(64);
     const peer = "b".repeat(64);
     const conversationId = [account, peer].sort().join(":");
@@ -201,7 +201,7 @@ describe("use-peer-trust internals", () => {
         [conversationId]: [
           {
             id: "m1",
-            content: "Dm-test",
+            content: "Connection request",
             timestampMs: 1,
             isOutgoing: true,
             status: "delivered",
@@ -212,10 +212,10 @@ describe("use-peer-trust internals", () => {
 
     expect(
       peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted, account),
-    ).toEqual([peer]);
+    ).toEqual([]);
   });
 
-  it("recovers trust from non-empty connection preview when message bodies were stripped", () => {
+  it("does not mint TRUSTED from non-empty connection preview without accept", () => {
     const peer = "b".repeat(64);
     const persisted = createPersistedChatState({
       createdConnections: [
@@ -223,17 +223,17 @@ describe("use-peer-trust internals", () => {
           id: "dm-1",
           displayName: "Tester2",
           pubkey: peer,
-          lastMessage: "Dm-test",
+          lastMessage: "Connection request",
           unreadCount: 0,
           lastMessageTimeMs: 1,
         },
       ],
     });
 
-    expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted)).toEqual([peer]);
+    expect(peerTrustInternals.extractAcceptedPeersFromPersistedChatState(persisted)).toEqual([]);
   });
 
-  it("does not recover preview peers that still have a pending request", () => {
+  it("keeps pending invite peers out of TRUSTED even with preview traffic", () => {
     const peer = "b".repeat(64);
     const persisted = createPersistedChatState({
       connectionRequests: [

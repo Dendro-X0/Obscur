@@ -2213,7 +2213,7 @@ function MainContentSection({ activeTab }: {
                   <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
                     <span>Use this friend code for quick account discovery.</span>
                     <span>Prefix is fixed by app identity; edit only the 6-character suffix.</span>
-                    {userInviteCode.nprofile ? (<Button type="button" variant="ghost" className="h-auto px-0 py-0 text-xs font-semibold" onClick={async () => {
+                    {userInviteCode.nprofile ? (<Button type="button" variant="outline" size="sm" className="h-8 rounded-lg border-border/80 bg-background/80 px-3 text-xs font-semibold text-foreground shadow-none hover:bg-muted/60" onClick={async () => {
                     await navigator.clipboard.writeText(userInviteCode.nprofile!);
                     toast.success("Copied shareable identity link.");
                 }}>

@@ -242,6 +242,7 @@ describe("request-transport-service internals", () => {
   it("commits declined state only when decline publish has relay evidence", async () => {
     const setStatus = vi.fn();
     const reset = vi.fn();
+    const unacceptPeer = vi.fn();
     const service = createRequestTransportService({
       sendConnectionRequest: vi.fn(),
       sendDm: async () => ({
@@ -250,6 +251,7 @@ describe("request-transport-service internals", () => {
         messageId: "decline-1",
         relayResults: [{ relayUrl: "wss://relay.test", success: true }],
       }) as any,
+      peerTrust: { acceptPeer: vi.fn(), unacceptPeer },
       requestsInbox: {
         getRequestStatus: () => ({ status: "pending", isOutgoing: false }),
         setStatus,
@@ -271,6 +273,7 @@ describe("request-transport-service internals", () => {
 
     expect(outcome.status).toBe("partial");
     expect(outcome.convergenceState).toBe("rejected");
+    expect(unacceptPeer).toHaveBeenCalledWith({ publicKeyHex: "b".repeat(64) });
     expect(setStatus).toHaveBeenCalledWith({
       peerPublicKeyHex: "b".repeat(64),
       status: "declined",

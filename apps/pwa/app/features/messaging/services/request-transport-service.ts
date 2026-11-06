@@ -67,6 +67,7 @@ type RequestTransportDependencies = Readonly<{
   };
   peerTrust?: {
     acceptPeer: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => void;
+    unacceptPeer?: (params: Readonly<{ publicKeyHex: PublicKeyHex }>) => void;
   };
   evidenceStore?: RequestEvidenceStore;
 }>;
@@ -417,6 +418,9 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
         inboxStatus: resolveInboxStatus(deps.requestsInbox, params.peerPublicKeyHex),
       });
     }
+    // Fresh invite after decline/remove: drop sticky acceptSeen so projection
+    // cannot keep Connect disabled as "accepted".
+    evidenceStore.reset?.(params.peerPublicKeyHex, evidenceProfileId);
     const result = await sendConnectionRequestRaw(params);
     if (deps.accountPublicKeyHex && hasRelayDeliveryEvidence(result)) {
       await appendCanonicalContactEvent({
@@ -607,6 +611,9 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     const shouldCommitDeclinedState = canCommitTerminalRequestState(status, result);
 
     if (shouldCommitDeclinedState) {
+      // Decline must revoke local trust — invite/sandbox DMs must not leave the peer
+      // in acceptedPeers (2026-11-06 operator: declined yet still messaging).
+      deps.peerTrust?.unacceptPeer?.({ publicKeyHex: params.peerPublicKeyHex });
       deps.requestsInbox?.setStatus({
         peerPublicKeyHex: params.peerPublicKeyHex,
         status: "declined",
