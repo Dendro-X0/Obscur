@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { GLOBAL_DISCOVERY_RELAY_URLS, mergeRelaySets } from "@/app/features/relays/services/discovery-relay-set";
 import { queryRelayProfiles, relayDiscoveryQueryInternals } from "./relay-discovery-query";
 import { FRIEND_CODE_ALIAS_KIND } from "./friend-code-alias";
@@ -57,7 +57,62 @@ describe("relayDiscoveryQueryInternals", () => {
     });
 });
 
+type FakeWsListener = (event: { data?: string }) => void;
+
+class FakeWebSocket {
+    static OPEN = 1;
+    static instances: FakeWebSocket[] = [];
+    readyState = 0;
+    sent: string[] = [];
+    private openListeners: Array<() => void> = [];
+    private messageListeners: FakeWsListener[] = [];
+
+    constructor(public readonly url: string) {
+        FakeWebSocket.instances.push(this);
+        queueMicrotask(() => {
+            this.readyState = FakeWebSocket.OPEN;
+            for (const listener of this.openListeners) listener();
+        });
+    }
+
+    addEventListener(type: string, listener: (() => void) | FakeWsListener): void {
+        if (type === "open") {
+            this.openListeners.push(listener as () => void);
+            return;
+        }
+        if (type === "message") {
+            this.messageListeners.push(listener as FakeWsListener);
+        }
+    }
+
+    send(payload: string): void {
+        this.sent.push(payload);
+    }
+
+    close(): void {
+        this.readyState = 3;
+    }
+
+    emitMessage(data: string): void {
+        for (const listener of this.messageListeners) {
+            listener({ data });
+        }
+    }
+}
+
 describe("queryRelayProfiles invite path", () => {
+    const originalWebSocket = globalThis.WebSocket;
+
+    beforeEach(() => {
+        FakeWebSocket.instances = [];
+        // @ts-expect-error test double
+        globalThis.WebSocket = FakeWebSocket;
+    });
+
+    afterEach(() => {
+        globalThis.WebSocket = originalWebSocket;
+    });
+
     it("sends invite REQ via sendToOpen (not broadcastEvent/publish)", async () => {
         const sendToOpen = vi.fn();
         const broadcastEvent = vi.fn(async () => ({ success: false }));
@@ -123,6 +178,61 @@ describe("queryRelayProfiles invite path", () => {
         expect(reqPayload).toContain(String(FRIEND_CODE_ALIAS_KIND));
         expect(reqPayload).toContain(inviteCode);
         expect(addedTransient).toEqual(expect.arrayContaining([...GLOBAL_DISCOVERY_RELAY_URLS]));
+        expect(FakeWebSocket.instances.length).toBeGreaterThan(0);
+        expect(records.some((record) => record.pubkey === aliasPubkey && record.inviteCode === inviteCode)).toBe(true);
+    });
+
+    it("resolves invite from ephemeral discovery sockets when pool returns nothing", async () => {
+        const aliasPubkey = "f".repeat(64);
+        const inviteCode = "OBSCUR-RU8ZL8";
+        const sendToOpen = vi.fn();
+
+        const pool = {
+            broadcastEvent: vi.fn(async () => ({ success: false })),
+            sendToOpen,
+            subscribeToMessages: () => () => {},
+            waitForConnection: async () => true,
+            waitForScopedConnection: async () => true,
+            addTransientRelay: () => {},
+        };
+
+        const pending = queryRelayProfiles({
+            pool,
+            mode: "invite",
+            query: inviteCode,
+            timeoutMs: 1_500,
+            maxResults: 5,
+        });
+
+        await vi.waitFor(() => {
+            expect(FakeWebSocket.instances.length).toBeGreaterThan(0);
+            expect(FakeWebSocket.instances.some((ws) => ws.sent.some((payload) => payload.includes("REQ")))).toBe(true);
+        });
+
+        const socket = FakeWebSocket.instances.find((ws) => ws.sent.some((payload) => payload.includes("REQ")));
+        expect(socket).toBeTruthy();
+        const req = JSON.parse(socket!.sent.find((payload) => payload.includes("REQ"))!) as unknown[];
+        const subId = typeof req[1] === "string" ? req[1] : "discover-ephemeral";
+        socket!.emitMessage(JSON.stringify([
+            "EVENT",
+            subId,
+            {
+                kind: FRIEND_CODE_ALIAS_KIND,
+                pubkey: aliasPubkey,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ["d", inviteCode],
+                    ["p", aliasPubkey],
+                    ["l", "obscur-friend-code"],
+                ],
+                content: JSON.stringify({ v: 1, code: inviteCode, pubkey: aliasPubkey }),
+                id: "c".repeat(64),
+                sig: "d".repeat(128),
+            },
+        ]));
+
+        const records = await pending;
+        expect(sendToOpen).toHaveBeenCalled();
         expect(records.some((record) => record.pubkey === aliasPubkey && record.inviteCode === inviteCode)).toBe(true);
     });
 });

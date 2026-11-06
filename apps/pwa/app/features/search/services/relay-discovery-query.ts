@@ -173,12 +173,95 @@ const primeInviteLookupRelays = async (
     await pool.waitForConnection(2_500);
 };
 
+type InviteEventSink = (event: Readonly<{
+    kind?: unknown;
+    pubkey?: unknown;
+    content?: unknown;
+    tags?: unknown;
+    created_at?: unknown;
+}>) => void;
+
+/**
+ * Pool-independent invite lookup. Quiet dial cap can leave GLOBAL_DISCOVERY
+ * hosts undialed even after addTransientRelay — friend codes still live there.
+ */
+const openEphemeralDiscoveryInviteSockets = (params: Readonly<{
+    subId: string;
+    filters: ReadonlyArray<NostrFilter>;
+    onEvent: InviteEventSink;
+    relayUrls?: ReadonlyArray<string>;
+}>): (() => void) => {
+    if (typeof WebSocket === "undefined") {
+        return () => {};
+    }
+    const urls = (params.relayUrls && params.relayUrls.length > 0)
+        ? params.relayUrls
+        : GLOBAL_DISCOVERY_RELAY_URLS;
+    const sockets: WebSocket[] = [];
+    const reqPayload = JSON.stringify(["REQ", params.subId, ...params.filters]);
+    for (const url of urls) {
+        try {
+            const ws = new WebSocket(url);
+            sockets.push(ws);
+            ws.addEventListener("open", () => {
+                try {
+                    ws.send(reqPayload);
+                } catch {
+                    // Ignore send failures on a single host.
+                }
+            });
+            ws.addEventListener("message", (messageEvent) => {
+                try {
+                    const raw = typeof messageEvent.data === "string"
+                        ? messageEvent.data
+                        : String(messageEvent.data);
+                    const parsed = JSON.parse(raw) as unknown;
+                    if (!Array.isArray(parsed) || parsed[0] !== "EVENT" || parsed[1] !== params.subId) {
+                        return;
+                    }
+                    const event = parsed[2];
+                    if (event && typeof event === "object") {
+                        params.onEvent(event as {
+                            kind?: unknown;
+                            pubkey?: unknown;
+                            content?: unknown;
+                            tags?: unknown;
+                            created_at?: unknown;
+                        });
+                    }
+                } catch {
+                    // Ignore malformed frames.
+                }
+            });
+        } catch {
+            // Ignore constructor failures (invalid URL / env).
+        }
+    }
+    return () => {
+        for (const ws of sockets) {
+            try {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(["CLOSE", params.subId]));
+                }
+            } catch {
+                // ignore
+            }
+            try {
+                ws.close();
+            } catch {
+                // ignore
+            }
+        }
+    };
+};
+
 export const relayDiscoveryQueryInternals = {
     profileFromEvent,
     recordMatchesTextQuery,
     recordMatchesInviteQuery,
     buildFilters,
     primeInviteLookupRelays,
+    openEphemeralDiscoveryInviteSockets,
 };
 
 export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Promise<ReadonlyArray<DiscoveryProfileRecord>> => {
@@ -202,6 +285,7 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
     return new Promise((resolve) => {
         let settled = false;
         let unsubscribe: (() => void) | null = null;
+        let closeEphemeralSockets: (() => void) | null = null;
 
         let aliasHoldTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -216,6 +300,10 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
                 params.pool.sendToOpen(JSON.stringify(["CLOSE", subId]));
             } catch {
                 // Ignore cleanup errors.
+            }
+            if (closeEphemeralSockets) {
+                closeEphemeralSockets();
+                closeEphemeralSockets = null;
             }
             if (unsubscribe) {
                 unsubscribe();
@@ -235,6 +323,64 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
             }
         };
 
+        const ingestEvent = (event: Readonly<{
+            kind?: unknown;
+            pubkey?: unknown;
+            content?: unknown;
+            tags?: unknown;
+            created_at?: unknown;
+        }>): void => {
+            if (settled) return;
+            if (typeof event.pubkey !== "string") {
+                return;
+            }
+
+            if (params.mode === "invite" && event.kind === FRIEND_CODE_ALIAS_KIND) {
+                const alias = parseFriendCodeAliasEvent(event);
+                if (!alias) return;
+                if (alias.inviteCode.toUpperCase() !== query.trim().toUpperCase()) return;
+                const existing = resultsMap.get(alias.pubkey);
+                const record: DiscoveryProfileRecord = existing
+                    ? { ...existing, inviteCode: alias.inviteCode, pubkey: alias.pubkey }
+                    : profileRecordFromFriendCodeAlias(alias);
+                resultsMap.set(record.pubkey, record);
+                discoveryCache.upsertProfile(record);
+                maybeFinalizeInvite(record);
+                return;
+            }
+
+            if (event.kind !== 0) {
+                return;
+            }
+            const record = profileFromEvent({
+                pubkey: event.pubkey,
+                content: typeof event.content === "string" ? event.content : "{}",
+                tags: event.tags,
+            });
+            if (!record) return;
+
+            const matches = params.mode === "invite"
+                ? recordMatchesInviteQuery(record, query)
+                : params.mode === "author"
+                    ? record.pubkey === query
+                    : recordMatchesTextQuery(record, query);
+            if (!matches) return;
+
+            const existing = resultsMap.get(record.pubkey);
+            const merged: DiscoveryProfileRecord = existing
+                ? { ...existing, ...record, inviteCode: record.inviteCode ?? existing.inviteCode }
+                : record;
+            resultsMap.set(merged.pubkey, merged);
+            discoveryCache.upsertProfile(merged);
+            if ((params.mode === "invite" || params.mode === "author") && resultsMap.size >= 1) {
+                finalize();
+                return;
+            }
+            if (resultsMap.size >= maxResults) {
+                finalize();
+            }
+        };
+
         unsubscribe = params.pool.subscribeToMessages(({ message }) => {
             if (settled) return;
             try {
@@ -242,54 +388,10 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
                 if (!Array.isArray(parsed)) return;
                 if (parsed[0] !== "EVENT" || parsed[1] !== subId) return;
                 const event = parsed[2];
-                if (!event || typeof event !== "object" || typeof event.pubkey !== "string") {
+                if (!event || typeof event !== "object") {
                     return;
                 }
-
-                if (params.mode === "invite" && event.kind === FRIEND_CODE_ALIAS_KIND) {
-                    const alias = parseFriendCodeAliasEvent(event);
-                    if (!alias) return;
-                    if (alias.inviteCode.toUpperCase() !== query.trim().toUpperCase()) return;
-                    const existing = resultsMap.get(alias.pubkey);
-                    const record: DiscoveryProfileRecord = existing
-                        ? { ...existing, inviteCode: alias.inviteCode, pubkey: alias.pubkey }
-                        : profileRecordFromFriendCodeAlias(alias);
-                    resultsMap.set(record.pubkey, record);
-                    discoveryCache.upsertProfile(record);
-                    maybeFinalizeInvite(record);
-                    return;
-                }
-
-                if (event.kind !== 0) {
-                    return;
-                }
-                const record = profileFromEvent({
-                    pubkey: event.pubkey,
-                    content: typeof event.content === "string" ? event.content : "{}",
-                    tags: event.tags,
-                });
-                if (!record) return;
-
-                const matches = params.mode === "invite"
-                    ? recordMatchesInviteQuery(record, query)
-                    : params.mode === "author"
-                        ? record.pubkey === query
-                        : recordMatchesTextQuery(record, query);
-                if (!matches) return;
-
-                const existing = resultsMap.get(record.pubkey);
-                const merged: DiscoveryProfileRecord = existing
-                    ? { ...existing, ...record, inviteCode: record.inviteCode ?? existing.inviteCode }
-                    : record;
-                resultsMap.set(merged.pubkey, merged);
-                discoveryCache.upsertProfile(merged);
-                if ((params.mode === "invite" || params.mode === "author") && resultsMap.size >= 1) {
-                    finalize();
-                    return;
-                }
-                if (resultsMap.size >= maxResults) {
-                    finalize();
-                }
+                ingestEvent(event);
             } catch {
                 // Ignore malformed relay messages.
             }
@@ -300,6 +402,16 @@ export const queryRelayProfiles = async (params: QueryRelayProfilesParams): Prom
         // subscribe, so invite lookup returned empty Exact Match while aliases
         // still existed on nos.lol / primal (2026-11-05).
         params.pool.sendToOpen(JSON.stringify(["REQ", subId, ...filters]));
+
+        if (params.mode === "invite") {
+            // Bypass Quiet dial-cap / undialed discovery hosts (2026-11-06).
+            closeEphemeralSockets = openEphemeralDiscoveryInviteSockets({
+                subId,
+                filters,
+                onEvent: ingestEvent,
+            });
+        }
+
         setTimeout(finalize, timeoutMs);
     });
 };

@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-06T09:35:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.6 **Published** · download sync · reliability-gates vitest mock fix · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-06T10:05:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.7 **cutting** · friend-code ephemeral discovery · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,11 +50,11 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — beta.6 PUBLIC FACE LIVE
-  Tag: v2.0.0-beta.6 Published · Full Release 42167073426
-  Download: version.json releaseTag 2.0.0-beta.6 · NSIS sha dfc98130…861db
-  Gates: push reliability-gates had identity-resolver mock drift (sendToOpen) — fix landed
-NEXT: cold-run published NSIS (Tor OFF) · Add Friend vanity + QR/OB2 smoke
+PLATFORM REWRITE BAND — beta.7 friend-code ephemeral cut
+  Evidence: operator Exact Match empty on OBSCUR-Z8V4YD / RU8ZL8; relays hold aliases;
+  Quiet dial-cap can starve pool sendToOpen of discovery hosts.
+  Fix: invite-mode ephemeral WS to GLOBAL_DISCOVERY_RELAY_URLS (L1 Pass).
+NEXT: Full Release v2.0.0-beta.7 · reinstall NSIS · Exact Match cold-run
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
