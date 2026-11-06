@@ -29,19 +29,19 @@ SURFACE: obscur_desktop_app.exe (or Obscur_2.0.0_x64-setup.exe after smoke)
 |---|-------|------------------|--------|
 | A | Demo L1 preflight | `pnpm desktop:demo-preflight` | **Pass 2026-11-03** — mesh Quiet tests realigned to `RELAY_WARMUP_PUBLIC_DIAL_CAP=2` |
 | B | Feedback gates A1–A5 | Readiness checklist Pass | **Pass 2026-11-03** |
-| C | Installer present | `release-assets/windows/Obscur_2.0.0_x64-setup.exe` (= GH `v2.0.0-beta.4`) | **Pass 2026-11-04** — synced from release asset |
-| D | SHA-256 recorded | `sha256sum` → paste below | **Pass 2026-11-04** |
-| E | Release exe smoke surface | `pnpm desktop:build:exe` | **Pass 2026-11-03** — `target/release/obscur_desktop_app.exe` |
-| F | Honesty surfaces | `/download` hero · Settings Privacy/Protocols · `/limitations` | **Landed** (A5) — in fresh exe shell |
+| C | Installer present | `release-assets/windows/Obscur_2.0.0_x64-setup.exe` (= GH `v2.0.0-beta.6`) | **Pass 2026-11-06** — synced from release asset |
+| D | SHA-256 recorded | `sha256sum` → paste below | **Pass 2026-11-06** |
+| E | Release exe smoke surface | `pnpm desktop:build:exe` | Prefer published NSIS for film |
+| F | Honesty surfaces | `/download` hero · Settings Privacy/Protocols · `/limitations` | **Landed** (A5) — in beta.6 shell |
 | G | Tor preference | Confirm Tor **OFF** for takes | _Operator_ |
 
-**Installer SHA-256:** `a4eb927840aa3d7873477777cb9fd4349b364be82d28b9f49b552d43229365a7`  
-**Installer source:** GitHub `v2.0.0-beta.4` / `Obscur_2.0.0_x64-setup.exe` (9 292 670 B)  
-**Shell / build stamp:** `shell-2026-11-03T07:27:19Z` (rebuild stamp optional if NSIS cold-run Pass)  
-**Release exe:** prefer cold-run of published NSIS; fallback `apps/desktop/src-tauri/target/release/obscur_desktop_app.exe`  
-**Commit (short):** `45a01de5`  
+**Installer SHA-256:** `dfc981309794e835a2101a3c67774c0771b9e6239717eb4c3c34d51fd53861db`  
+**Installer source:** GitHub `v2.0.0-beta.6` / `Obscur_2.0.0_x64-setup.exe` (9 277 471 B)  
+**Shell / build stamp:** `shell-from-ci-v2.0.0-beta.6`  
+**Release exe:** prefer cold-run of published NSIS  
+**Commit (short):** `41194f7b` (+ download sync)  
 **Download site:** `https://obscur-website.vercel.app/download` (not `obscur.app` — that host is a different product)  
-**Download hang note:** `/download` must **not** use `target="_blank"` on installer URLs (blank **Loading…** tab + truncated files on slow CDN). Spec: `specs/ci/2026-11-04-download-hang-investigation.md`. Live CTA verified 2026-11-04 (Windows UA → setup.exe + `download=` · no `_blank`).
+**Download hang note:** `/download` must **not** use `target="_blank"` on installer URLs. Spec: `specs/ci/2026-11-04-download-hang-investigation.md`.
 
 ## 2. Operator cold run (Tor OFF) — demo path
 
@@ -73,12 +73,12 @@ Mark Pass / Fail / Skip. Fail = fix before record (or cut segment).
 
 | Field | Value |
 |-------|--------|
-| **Validation verdict** | _In progress_ — legacy Add Friend Pass (`OBSCUR-8GC5XJ` → Tester1); dual-channel Share needs **fresh release exe** (not beta.4 NSIS) |
-| **OK to record demo video** | ☐ Yes · ☐ No — rebuild `desktop:build:exe` / beta.5 first if dual-lane Share is on camera |
-| **Blockers** | Published beta.4 installable predates dual-channel Share UI |
+| **Validation verdict** | _Installer synced_ — use `v2.0.0-beta.6` NSIS; operator cold-run still open |
+| **OK to record demo video** | ☐ Yes · ☐ No — after Tor-OFF cold-run on beta.6 NSIS |
+| **Blockers** | none for installable fetch |
 | **Segments to skip on camera** | Soft L3 · Tor · Matrix · video usable |
 | **Maintainer sign-off** | |
-| **Date (UTC)** | 2026-11-05 |
+| **Date (UTC)** | 2026-11-06 |
 
 ### Add Friend note (2026-11-05)
 
@@ -90,6 +90,6 @@ Mark Pass / Fail / Skip. Fail = fix before record (or cut segment).
 1. Use [phase-1-recording-script.md](./phase-1-recording-script.md) + segment briefs.  
 2. Opening VO must include feedback non-claims (§0).  
 3. File evidence under `docs/assets/demo/v2.0.0/evidence/` as `P5-<nn>-predemo-2026-11-<topic>.png` if useful.  
-4. Public download refresh = **v2.0.0-beta.5** Full Release after film OK — do **not** retag beta.4.
+4. Public download refresh = **v2.0.0-beta.6** Full Release — do **not** retag beta.5.
 
-_Last updated: 2026-11-05T09:30:00Z_
+_Last updated: 2026-11-06T09:35:00Z_

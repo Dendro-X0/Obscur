@@ -104,35 +104,41 @@ describe("identity-resolver", () => {
     const derivedPublicKeyHex = derivePublicKeyHex(privateKeyHex);
 
     let messageHandler: ((params: Readonly<{ url: string; message: string }>) => void) | null = null;
+    const deliverAuthorEventIfRequested = (payload: string): void => {
+      const parsed = JSON.parse(payload) as ReadonlyArray<unknown>;
+      if (!Array.isArray(parsed) || parsed[0] !== "REQ" || typeof parsed[1] !== "string") {
+        return;
+      }
+      const subId = parsed[1];
+      const filters = parsed.slice(2) as ReadonlyArray<{ authors?: ReadonlyArray<string> }>;
+      const author = filters[0]?.authors?.[0];
+      if (author === derivedPublicKeyHex && messageHandler) {
+        setTimeout(() => {
+          messageHandler?.({
+            url: "wss://relay.example",
+            message: JSON.stringify([
+              "EVENT",
+              subId,
+              {
+                kind: 0,
+                pubkey: derivedPublicKeyHex,
+                content: JSON.stringify({ name: "DemoUser", about: "Find me on Obscur" }),
+                tags: [],
+              },
+            ]),
+          });
+        }, 5);
+      }
+    };
     const pool: RelayQueryPool = {
+      // Legacy alias — discovery REQ now uses sendToOpen (conduit mesh publish ≠ subscribe).
       broadcastEvent: async (payload: string) => {
-        const parsed = JSON.parse(payload) as ReadonlyArray<unknown>;
-        if (!Array.isArray(parsed) || parsed[0] !== "REQ" || typeof parsed[1] !== "string") {
-          return { success: false };
-        }
-        const subId = parsed[1];
-        const filters = parsed.slice(2) as ReadonlyArray<{ authors?: ReadonlyArray<string> }>;
-        const author = filters[0]?.authors?.[0];
-        if (author === derivedPublicKeyHex && messageHandler) {
-          setTimeout(() => {
-            messageHandler?.({
-              url: "wss://relay.example",
-              message: JSON.stringify([
-                "EVENT",
-                subId,
-                {
-                  kind: 0,
-                  pubkey: derivedPublicKeyHex,
-                  content: JSON.stringify({ name: "DemoUser", about: "Find me on Obscur" }),
-                  tags: [],
-                },
-              ]),
-            });
-          }, 5);
-        }
+        deliverAuthorEventIfRequested(payload);
         return { success: true };
       },
-      sendToOpen: () => {},
+      sendToOpen: (payload: string) => {
+        deliverAuthorEventIfRequested(payload);
+      },
       subscribeToMessages: (handler) => {
         messageHandler = handler;
         return () => {

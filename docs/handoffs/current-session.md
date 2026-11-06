@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-06T05:15:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.6 **cutting** (friend-code conduit hotfix) · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-06T09:35:00Z
+- Session Status: **ACTIVE** · v2.0.0-beta.6 **Published** · download sync · reliability-gates vitest mock fix · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,13 +50,11 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — PUBLISH v2.0.0-beta.6 (friend-code discovery hotfix)
-  Package tree: 2.0.0 · marketing tag: v2.0.0-beta.6
-  Fix: invite REQ via sendToOpen + conduit addTransientRelay (specs/backend/2026-11-05-…)
-  Cut: docs/releases/v2.0.0-beta.6-cut-plan.md
-NEXT: push main → Full Release workflow_dispatch from main
-  release_tag=v2.0.0-beta.6 · publish_release=true
-  → sync release-assets/ + pre-demo SHA · then cold-run NSIS Add Friend vanity
+PLATFORM REWRITE BAND — beta.6 PUBLIC FACE LIVE
+  Tag: v2.0.0-beta.6 Published · Full Release 42167073426
+  Download: version.json releaseTag 2.0.0-beta.6 · NSIS sha dfc98130…861db
+  Gates: push reliability-gates had identity-resolver mock drift (sendToOpen) — fix landed
+NEXT: cold-run published NSIS (Tor OFF) · Add Friend vanity + QR/OB2 smoke
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
 ```
 
