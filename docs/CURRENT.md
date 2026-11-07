@@ -2,7 +2,7 @@
 
 **Read this first.** Snapshot for maintainers and agents.
 
-_Last updated: 2026-11-07 · **v2.0.0-beta.8** published · **beta.9 cut committed** (Full Release A4) · rewrite band SUPERSEDE · feedback A1–A5 Pass_
+_Last updated: 2026-11-07 · **v2.0.0-beta.9** published · rewrite band SUPERSEDE · social lifecycle Slices 1–3 L1 on main_
 
 ---
 
@@ -10,9 +10,10 @@ _Last updated: 2026-11-07 · **v2.0.0-beta.8** published · **beta.9 cut committ
 
 | Track | Status |
 |-------|--------|
-| **Version / tag** | Package tree **2.0.0** · marketing **v2.0.0-beta.8** published — [release](./releases/v2.0.0-beta.8-release.md) · [beta.9](./releases/v2.0.0-beta.9-release.md) committed, Full Release A4 |
-| **Download** | Website `/download` pinned `releaseTag` **2.0.0-beta.8** until beta.9 Full Release · [manifest](../release-assets/manifest.json) |
+| **Version / tag** | Package tree **2.0.0** · marketing **v2.0.0-beta.9** published — [release](./releases/v2.0.0-beta.9-release.md) |
+| **Download** | Website `/download` pinned `releaseTag` **2.0.0-beta.9** · [manifest](../release-assets/manifest.json) |
 | **Band** | **REWRITE** — modular auth / profiles / storage / PAL (Nostr + Matrix lab + Private DC lab) |
+| **Social lifecycle** | Slices 1–3 L1 on `main` (`bea87116`) — block wire · leave peer sticky · invite Fail classified; **not** in beta.9 NSIS (built @ `1884f09f`) |
 | **Feedback gates** | A1–A5 **Pass** — [platform-public-feedback-release-readiness-2026-11.md](../specs/backend/platform-public-feedback-release-readiness-2026-11.md) |
 | **Demo** | Validate then record — [pre-demo-validation-2026-11.md](./assets/demo/v2.0.0/pre-demo-validation-2026-11.md) · kit [assets/demo/v2.0.0/](./assets/demo/v2.0.0/) |
 | **Tor / Soft L3 / Matrix promote / video usable** | **PAUSED / not claimed** |
