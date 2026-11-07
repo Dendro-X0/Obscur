@@ -283,20 +283,22 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       if (recovered.length === 0) {
         return prev;
       }
-      const merged = Array.from(new Set([...prev.acceptedPeers, ...recovered]));
-      // Re-accept / evidence recover must lift the local remove mask, or Connections
-      // stays empty while handshake evidence says accepted (L2 2026-11-07).
-      const nextRemovedPeers = prev.removedPeers.filter((peer) => !merged.includes(peer));
+      // Stale chat/evidence must not undo Remove. Only acceptPeer / wire accept
+      // lifts removedPeers (2026-11-07 contact-remove-e2e).
+      const recoverable = recovered.filter((peer) => !prev.removedPeers.includes(peer));
+      if (recoverable.length === 0) {
+        return prev;
+      }
+      const merged = Array.from(new Set([...prev.acceptedPeers, ...recoverable]));
       if (
         merged.length === prev.acceptedPeers.length
         && merged.every((peer) => prev.acceptedPeers.includes(peer))
-        && nextRemovedPeers.length === prev.removedPeers.length
       ) {
         return prev;
       }
       const next: StoredPeerTrust = removeSelfFromTrustState(
         currentPublicKeyHex,
-        { acceptedPeers: merged, mutedPeers: prev.mutedPeers, removedPeers: nextRemovedPeers }
+        { acceptedPeers: merged, mutedPeers: prev.mutedPeers, removedPeers: prev.removedPeers }
       );
       saveToStorage(currentPublicKeyHex, next, profileIdRef.current);
       return next;

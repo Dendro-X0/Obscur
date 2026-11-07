@@ -385,7 +385,7 @@ describe("use-peer-trust internals", () => {
     expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]);
   });
 
-  it("hydrate from acceptSeen evidence lifts removedPeers mask so Connections can show the peer", async () => {
+  it("hydrate from stale acceptSeen / accepted chat does not undo Remove", async () => {
     const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
     const peerPublicKeyHex = "c".repeat(64) as PublicKeyHex;
     peerTrustInternals.saveToStorage(myPublicKeyHex, {
@@ -394,17 +394,74 @@ describe("use-peer-trust internals", () => {
       removedPeers: [peerPublicKeyHex],
     });
     requestFlowEvidenceStore.markAccept({ peerPublicKeyHex });
-    chatStateReadMocks.load.mockReturnValue(null);
+    chatStateReadMocks.load.mockReturnValue(createPersistedChatState({
+      connectionRequests: [{
+        id: peerPublicKeyHex,
+        status: "accepted",
+        isOutgoing: false,
+        timestampMs: 1_000,
+      }],
+    }));
 
     const { result } = renderHook(() => usePeerTrust({ publicKeyHex: myPublicKeyHex }));
     await waitFor(() => expect(result.current.hasHydrated).toBe(true));
-    await waitFor(() => {
-      expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]);
+    await act(async () => {
+      await Promise.resolve();
     });
-    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(true);
-    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([]);
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(false);
+    expect(result.current.state.acceptedPeers).toEqual([]);
+    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([peerPublicKeyHex]);
 
     requestFlowEvidenceStoreInternals.writeState({ byPeer: {} });
+  });
+
+  it("unaccept stays sticky against later chat-state hydrate, then acceptPeer restores", async () => {
+    const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
+    const peerPublicKeyHex = "b".repeat(64) as PublicKeyHex;
+    peerTrustInternals.saveToStorage(myPublicKeyHex, {
+      acceptedPeers: [peerPublicKeyHex],
+      mutedPeers: [],
+      removedPeers: [],
+    });
+    chatStateReadMocks.load.mockReturnValue(createPersistedChatState({
+      connectionRequests: [{
+        id: peerPublicKeyHex,
+        status: "accepted",
+        isOutgoing: true,
+        timestampMs: 1_000,
+      }],
+    }));
+
+    const { result } = renderHook(() => usePeerTrust({ publicKeyHex: myPublicKeyHex }));
+    await waitFor(() => expect(result.current.hasHydrated).toBe(true));
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(true);
+
+    act(() => {
+      result.current.unacceptPeer({ publicKeyHex: peerPublicKeyHex });
+    });
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(false);
+    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([peerPublicKeyHex]);
+
+    act(() => {
+      peerTrustTestBus.publish({
+        type: "chat-state-replaced",
+        profileId: "default",
+        publicKeyHex: myPublicKeyHex,
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(false);
+    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([peerPublicKeyHex]);
+
+    act(() => {
+      result.current.acceptPeer({ publicKeyHex: peerPublicKeyHex });
+    });
+    await waitFor(() => {
+      expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(true);
+    });
+    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([]);
   });
 
   it("accumulates multiple accepted peers in storage when legacy contact writes are disabled", async () => {

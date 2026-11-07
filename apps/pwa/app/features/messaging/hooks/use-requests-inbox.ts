@@ -588,26 +588,30 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
         source: "legacy_bridge",
       });
     }
-    if (!shouldWriteLegacyContacts) {
-      emitAccountSyncMutation("requests_inbox_status_changed");
-      // Still clear any legacy local mirror so hydrate cannot resurrect the row.
-      setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-        if (!prev.items.some((i) => i.peerPublicKeyHex === normalizedPeer)) {
-          return prev;
-        }
-        const next = { items: prev.items.filter((i) => i.peerPublicKeyHex !== normalizedPeer) };
-        return next;
+    // Scrub peer from persisted connectionRequests without replacing the whole
+    // list from a possibly-empty local mirror (legacy-writes-off).
+    if (pk) {
+      const persisted = messagingChatStateMessagePort.load(pk);
+      const existingRequests = persisted?.connectionRequests ?? [];
+      const scrubbed = existingRequests.filter((request) => {
+        const requestPeer = normalizePublicKeyHex(request.id);
+        return requestPeer !== normalizedPeer;
       });
-      return;
+      if (scrubbed.length !== existingRequests.length) {
+        messagingChatStateMessagePort.updateConnectionRequests(pk, scrubbed);
+      }
     }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
-      const existing = prev.items.find((i: RequestsInboxItem): boolean => i.peerPublicKeyHex === normalizedPeer);
-      if (!existing) {
+      if (!prev.items.some((i) => i.peerPublicKeyHex === normalizedPeer)) {
         emitAccountSyncMutation("requests_inbox_status_changed");
         return prev;
       }
-      const next = { items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== normalizedPeer) };
-      persistChange(next);
+      const next = {
+        items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== normalizedPeer),
+      };
+      if (shouldWriteLegacyContacts) {
+        persistChange(next);
+      }
       emitAccountSyncMutation("requests_inbox_status_changed");
       return next;
     });

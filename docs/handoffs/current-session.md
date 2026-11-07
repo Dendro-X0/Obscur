@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-07T12:55:00Z
-- Session Status: **ACTIVE** · trust-directory heal L1+L2 Pass · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-07T15:25:00Z
+- Session Status: **ACTIVE** · social lifecycle charter · contact-remove sticky L1 · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,12 +50,15 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — key unlock no second password (2026-11-07) landed L1
-  Specs: specs/backend/2026-11-07-key-unlock-no-second-password-{investigation,design}.md
-  L1: auth-screen 36 Pass — Advanced key → Welcome Back even if PDK reopen fails
-NEXT: commit auth fix · optional desktop smoke key→shell without password bind
-  OR finish beta.9 Full Release asset sync if run green
-Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote
+PLATFORM REWRITE BAND — social relationship lifecycle charter (2026-11-07)
+  Inventory: remove / leave / block / join are not one unilateral class —
+    DM uses connection-* tags; leave has outbox+ledger; block is local-only
+  Charter: specs/backend/2026-11-07-social-relationship-lifecycle-unified-{investigation,design}.md
+  Contract: local sticky → wire notify → peer apply → outbox honesty · domain owners kept
+  Contact-remove sticky L1 landed (uncommitted) · Slice 1 = Block lifecycle
+NEXT: commit remove sticky + lifecycle charter · then Block notify/apply (subtract dual blocklist)
+  then Leave peer visibility · then invite Fail — one slice each
+Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
 ```
 
 
@@ -73,6 +76,8 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote
 | v2.0.0-beta.9 cut | Cut plan + draft release notes Ready · product uncommitted · Full Release awaits explicit ask (A4) |
 | Social core flows verify | **L1 Pass 101** · **L2 Partial** — add/DM/group Pass · invite Fail · leave Partial · remove Blocked |
 | Trust directory heal | **L1 Pass 21** · **L2 Pass** Connections/Trusted/Remove (static-dev rebuild) · leave deselect L1 audit · leave L2 optional |
+| Contact remove E2E sticky | **L1 Pass** — hydrate no longer undoes Remove; inbox scrubs connectionRequests · peer notify path unchanged · L2 dual CDP optional |
+| Social relationship lifecycle charter | Specs only — unified contract + inventory · Slice 1 Block · Slice 2 Leave peer · Slice 3 Invite |
 | SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
 | Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
 | P1 boundary map | Auth/Profiles/Storage/PAL owners named · kill list K1=nostrAdapter bypass in dm-send/delete |
