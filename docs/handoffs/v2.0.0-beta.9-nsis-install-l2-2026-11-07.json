@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-07T18:18:00Z",
+  "releaseTag": "2.0.0-beta.9",
+  "sourceRun": "42377708144",
+  "gitCommitPackaged": "1884f09f",
+  "installDir": "E:\\Obscur",
+  "setup": {
+    "path": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
+    "sha256": "ff4b1331d795b3658970c2272d205b031d26d1d9104dc945f203742b777e7c9c",
+    "sizeBytes": 9277227
+  },
+  "installedExe": {
+    "path": "E:\\Obscur\\obscur_desktop_app.exe",
+    "sha256": "085b9abb0d7f223cbf284d907f54544aad12954c49876553c7b74e9598b13384",
+    "sizeBytes": 12898304
+  },
+  "extractedExeSha256": "085b9abb0d7f223cbf284d907f54544aad12954c49876553c7b74e9598b13384",
+  "payloadMatch": true,
+  "coldLaunch": {
+    "processStarted": true,
+    "cdpPort9230": false,
+    "listenConnCount": 0
+  },
+  "cdpNote": "Release NSIS builds do not enable WebView2 remote-debugging (debug_assertions-only in profiles.rs). WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS did not open :9230.",
+  "requestsConnectionsDualSoak": "owed — cannot CDP-attach packaged release; prior static-dev L2 remains the Requests/Connections proof",
+  "verdict": "Partial — install+payload Pass · dual Requests/Connections L2 still owed"
+}

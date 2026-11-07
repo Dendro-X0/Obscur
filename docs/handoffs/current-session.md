@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-07T18:06:48Z
+- Last Updated (UTC): 2026-11-07T18:18:08Z
 - Session Status: **ACTIVE** · Social lifecycle Slices 1–3 L1 · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
@@ -55,7 +55,7 @@ PLATFORM REWRITE BAND — Social lifecycle Slices 1–3 L1 (2026-11-07)
   Slice 2 Leave peer: gossip markMembersLeft + terminal sticky + ingress binder · L1 8 Pass
   Slice 3 Invite Fail: classified — empty Connections picker; superseded by trust-directory heal L2;
     invite candidate helper regression · optional L2 send/accept soak before Fixed
-NEXT: optional NSIS reinstall L2 (Requests+Connections) · optional leave/invite L2
+NEXT: optional leave/invite L2 · manual packaged Requests/Connections soak (no release CDP)
   · next cut if operators need block/leave sticky in packaged face (bea87116 not in beta.9 NSIS)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
 ```
@@ -72,7 +72,7 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 | Unlock-loop FM1 | L1/L2 Pass · **L3 Pass 2026-11-02** (hydrate latch — session inactive after Lock + password → shell) |
 | Contact delete/reconnect + Clear history | L1 Pass · **L2 Pass 2026-11-07** (Tester1↔Tester2 static-dev; Requests card Partial) |
 | Requests-tab reconnect residue | **L1 Pass** · **L2 Pass 2026-11-07** (Requests (1) pending card after post-remove invite) · beta.9 cut Ready |
-| v2.0.0-beta.9 cut | **Published** run 42377708144 · download face synced releaseTag **2.0.0-beta.9** · NSIS L2 owed |
+| v2.0.0-beta.9 cut | **Published** run 42377708144 · download face synced · NSIS install L2 **Partial** (payload Pass; dual CDP soak owed) |
 | Social core flows verify | **L1 Pass 101** · **L2 Partial→healed** — invite/remove Fail/Blocked superseded by trust-directory heal · leave residue Slice 2 L1 |
 | Trust directory heal | **L1 Pass 21** · **L2 Pass** Connections/Trusted/Remove (static-dev rebuild) · leave deselect L1 audit · leave L2 optional |
 | Contact remove E2E sticky | **L1 Pass** — hydrate no longer undoes Remove; inbox scrubs connectionRequests · peer notify path unchanged · L2 dual CDP optional |
