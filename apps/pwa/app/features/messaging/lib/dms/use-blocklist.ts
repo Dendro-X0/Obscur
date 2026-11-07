@@ -18,7 +18,9 @@ type BlocklistPersistedV1 = Readonly<{
   blockedPublicKeys: ReadonlyArray<PublicKeyHex>;
 }>;
 
-const STORAGE_PREFIX: string = "dweb.nostr.pwa.blocklist";
+/** Canonical key shared with network `use-blocklist` (lifecycle Slice 1). */
+const STORAGE_PREFIX: string = "obscur.blocklist.v1";
+const LEGACY_STORAGE_PREFIX: string = "dweb.nostr.pwa.blocklist";
 
 const defaultStateSnapshot: BlocklistState = { blockedPublicKeys: [] };
 
@@ -29,21 +31,29 @@ const isString = (value: unknown): value is string => typeof value === "string";
 const isPublicKeyHex = (value: unknown): value is PublicKeyHex => isString(value) && value.length === 64;
 
 const getStorageKey = (publicKeyHex: PublicKeyHex): string => `${STORAGE_PREFIX}.${publicKeyHex}`;
+const getLegacyStorageKey = (publicKeyHex: PublicKeyHex): string => `${LEGACY_STORAGE_PREFIX}.${publicKeyHex}`;
 
 const parsePersisted = (value: unknown): BlocklistPersistedV1 | null => {
   if (!isRecord(value)) {
     return null;
   }
-  const version: unknown = value.version;
   const blockedPublicKeys: unknown = value.blockedPublicKeys;
-  if (version !== 1 || !Array.isArray(blockedPublicKeys)) {
+  if (!Array.isArray(blockedPublicKeys)) {
+    return null;
+  }
+  // Accept network shape (no version) and legacy messaging shape (version: 1).
+  if (value.version !== undefined && value.version !== 1) {
     return null;
   }
   const parsed: PublicKeyHex[] = blockedPublicKeys.filter((v: unknown): v is PublicKeyHex => isPublicKeyHex(v));
   return { version: 1, blockedPublicKeys: parsed };
 };
 
-const toPersisted = (state: BlocklistState): BlocklistPersistedV1 => ({ version: 1, blockedPublicKeys: state.blockedPublicKeys });
+const toPersisted = (state: BlocklistState): StoredCanonical => ({ blockedPublicKeys: state.blockedPublicKeys });
+
+type StoredCanonical = Readonly<{
+  blockedPublicKeys: ReadonlyArray<PublicKeyHex>;
+}>;
 
 let currentKey: string | null = null;
 let currentState: BlocklistState = defaultStateSnapshot;
@@ -64,15 +74,31 @@ const loadFromStorage = (storageKey: string): BlocklistState => {
   }
   try {
     const raw: string | null = window.localStorage.getItem(storageKey);
-    if (!raw) {
+    if (raw) {
+      const persisted: BlocklistPersistedV1 | null = parsePersisted(JSON.parse(raw));
+      if (persisted) {
+        return { blockedPublicKeys: persisted.blockedPublicKeys };
+      }
+    }
+    // Migrate legacy messaging key into canonical network key once.
+    const ownerPubkey = storageKey.startsWith(`${STORAGE_PREFIX}.`)
+      ? storageKey.slice(`${STORAGE_PREFIX}.`.length)
+      : null;
+    if (!ownerPubkey || ownerPubkey.length !== 64) {
       return defaultStateSnapshot;
     }
-    const parsed: unknown = JSON.parse(raw);
-    const persisted: BlocklistPersistedV1 | null = parsePersisted(parsed);
-    if (!persisted) {
+    const legacyRaw = window.localStorage.getItem(getLegacyStorageKey(ownerPubkey as PublicKeyHex));
+    if (!legacyRaw) {
       return defaultStateSnapshot;
     }
-    return { blockedPublicKeys: persisted.blockedPublicKeys };
+    const legacyPersisted = parsePersisted(JSON.parse(legacyRaw));
+    if (!legacyPersisted) {
+      return defaultStateSnapshot;
+    }
+    const migrated: BlocklistState = { blockedPublicKeys: legacyPersisted.blockedPublicKeys };
+    saveToStorage(storageKey, migrated);
+    window.localStorage.removeItem(getLegacyStorageKey(ownerPubkey as PublicKeyHex));
+    return migrated;
   } catch {
     return defaultStateSnapshot;
   }
@@ -142,6 +168,7 @@ export const clearBlocklistStorage = (publicKeyHex: PublicKeyHex): void => {
   }
   const storageKey = getStorageKey(publicKeyHex);
   window.localStorage.removeItem(storageKey);
+  window.localStorage.removeItem(getLegacyStorageKey(publicKeyHex));
   if (currentKey === storageKey) {
     currentKey = null;
     currentState = defaultStateSnapshot;

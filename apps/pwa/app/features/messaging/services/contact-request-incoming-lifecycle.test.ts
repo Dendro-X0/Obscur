@@ -34,6 +34,59 @@ describe("applyIncomingContactLifecycle", () => {
     expect(acceptPeer).not.toHaveBeenCalled();
   });
 
+  it("demotes trust on connection-block like cancel", async () => {
+    const unacceptPeer = vi.fn();
+    const remove = vi.fn();
+
+    await applyIncomingContactLifecycle(
+      {
+        accountPublicKeyHex: null,
+        peerTrust: { acceptPeer: vi.fn(), unacceptPeer },
+        requestsInbox: {
+          getRequestStatus: () => ({ status: "accepted", isOutgoing: false }),
+          setStatus: vi.fn(),
+          remove,
+        },
+      },
+      {
+        lifecycleTag: "connection-block",
+        peerPublicKeyHex: PEER as any,
+        requestEventId: "req-block",
+        isSelfAuthored: false,
+      },
+    );
+
+    expect(unacceptPeer).toHaveBeenCalledWith({ publicKeyHex: PEER });
+    expect(remove).toHaveBeenCalledWith({ peerPublicKeyHex: PEER });
+  });
+
+  it("connection-unblock does not restore trust", async () => {
+    const unacceptPeer = vi.fn();
+    const acceptPeer = vi.fn();
+    const remove = vi.fn();
+
+    await applyIncomingContactLifecycle(
+      {
+        accountPublicKeyHex: null,
+        peerTrust: { acceptPeer, unacceptPeer },
+        requestsInbox: {
+          getRequestStatus: () => ({ status: "accepted", isOutgoing: false }),
+          setStatus: vi.fn(),
+          remove,
+        },
+      },
+      {
+        lifecycleTag: "connection-unblock",
+        peerPublicKeyHex: PEER as any,
+        isSelfAuthored: false,
+      },
+    );
+
+    expect(acceptPeer).not.toHaveBeenCalled();
+    expect(unacceptPeer).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it("falls back to setStatus canceled when remove is unavailable", async () => {
     const unacceptPeer = vi.fn();
     const setStatus = vi.fn();

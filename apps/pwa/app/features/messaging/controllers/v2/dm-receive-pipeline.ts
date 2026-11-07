@@ -231,7 +231,7 @@ export type IncomingDmResult =
   | { action: "message"; message: Message }
   | { action: "self_echo"; message: Message }
   | { action: "contact_sandbox"; lifecycleTag: "connection-request" | "connection-qna"; message: Message; isSelfAuthored: boolean }
-  | { action: "contact_lifecycle"; lifecycleTag: Extract<ConnectionReceiveLifecycleTag, "connection-accept" | "connection-decline" | "connection-cancel">; peerPublicKeyHex: string; requestEventId?: string; isSelfAuthored: boolean }
+  | { action: "contact_lifecycle"; lifecycleTag: Extract<ConnectionReceiveLifecycleTag, "connection-accept" | "connection-decline" | "connection-cancel" | "connection-block" | "connection-unblock">; peerPublicKeyHex: string; requestEventId?: string; isSelfAuthored: boolean }
   | { action: "contact_wire_evidence"; lifecycleTag: Extract<ConnectionReceiveLifecycleTag, "connection-received" | "connection-receipt">; peerPublicKeyHex: string; requestEventId?: string }
   | { action: "delete"; targetMessageIds: ReadonlyArray<string>; senderPubkey: string; conversationId: string; plaintext: string }
   | { action: "skipped"; reason: string };

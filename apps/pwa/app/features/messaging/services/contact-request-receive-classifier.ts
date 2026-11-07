@@ -7,6 +7,8 @@ export type ConnectionReceiveLifecycleTag =
   | "connection-accept"
   | "connection-decline"
   | "connection-cancel"
+  | "connection-block"
+  | "connection-unblock"
   | "connection-received"
   | "connection-receipt";
 
@@ -16,6 +18,8 @@ const CONNECTION_RECEIVE_LIFECYCLE_TAGS = new Set<string>([
   "connection-accept",
   "connection-decline",
   "connection-cancel",
+  "connection-block",
+  "connection-unblock",
   "connection-received",
   "connection-receipt",
 ]);
@@ -32,7 +36,15 @@ export const resolveConnectionReceiveLifecycleTag = (
 
 export type ContactRequestReceiveRoute =
   | Readonly<{ kind: "sandbox_message"; lifecycleTag: "connection-request" | "connection-qna" }>
-  | Readonly<{ kind: "lifecycle"; lifecycleTag: "connection-accept" | "connection-decline" | "connection-cancel" }>
+  | Readonly<{
+    kind: "lifecycle";
+    lifecycleTag:
+      | "connection-accept"
+      | "connection-decline"
+      | "connection-cancel"
+      | "connection-block"
+      | "connection-unblock";
+  }>
   | Readonly<{ kind: "wire_evidence"; lifecycleTag: "connection-received" | "connection-receipt" }>
   | Readonly<{ kind: "none" }>;
 
@@ -50,6 +62,8 @@ export const resolveContactRequestReceiveRoute = (params: Readonly<{
     lifecycleTag === "connection-accept"
     || lifecycleTag === "connection-decline"
     || lifecycleTag === "connection-cancel"
+    || lifecycleTag === "connection-block"
+    || lifecycleTag === "connection-unblock"
   ) {
     return { kind: "lifecycle", lifecycleTag };
   }

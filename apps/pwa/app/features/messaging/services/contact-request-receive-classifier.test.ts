@@ -25,6 +25,14 @@ describe("contact-request-receive-classifier", () => {
       kind: "lifecycle",
       lifecycleTag: "connection-decline",
     });
+    expect(resolveContactRequestReceiveRoute({ tags: [["t", "connection-block"]] })).toEqual({
+      kind: "lifecycle",
+      lifecycleTag: "connection-block",
+    });
+    expect(resolveContactRequestReceiveRoute({ tags: [["t", "connection-unblock"]] })).toEqual({
+      kind: "lifecycle",
+      lifecycleTag: "connection-unblock",
+    });
   });
 
   it("blocks untagged stranger DMs offline", () => {

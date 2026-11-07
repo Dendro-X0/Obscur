@@ -668,6 +668,38 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     });
   };
 
+  /** Best-effort notify peer they were blocked — peer demotes trust; does not mutate local blocklist. */
+  const notifyPeerBlocked = async (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext?: string;
+    requestEventId?: string;
+  }>): Promise<SendResult> => {
+    return deps.sendDm({
+      peerPublicKeyInput: params.peerPublicKeyHex,
+      plaintext: params.plaintext || "Connection blocked",
+      customTags: params.requestEventId
+        ? [["t", "connection-block"], ["e", params.requestEventId]]
+        : [["t", "connection-block"]],
+      suppressPublishFeedbackToast: true,
+    });
+  };
+
+  /** Best-effort notify peer they were unblocked — does not auto-restore trust. */
+  const notifyPeerUnblocked = async (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext?: string;
+    requestEventId?: string;
+  }>): Promise<SendResult> => {
+    return deps.sendDm({
+      peerPublicKeyInput: params.peerPublicKeyHex,
+      plaintext: params.plaintext || "Connection unblocked",
+      customTags: params.requestEventId
+        ? [["t", "connection-unblock"], ["e", params.requestEventId]]
+        : [["t", "connection-unblock"]],
+      suppressPublishFeedbackToast: true,
+    });
+  };
+
   const cancelOutgoingRequest = async (params: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
     plaintext?: string;
@@ -758,6 +790,8 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     declineIncomingRequest,
     cancelOutgoingRequest,
     notifyPeerConnectionEnded,
+    notifyPeerBlocked,
+    notifyPeerUnblocked,
     recordIncomingWireEvidence,
     getFlowEvidence,
   };

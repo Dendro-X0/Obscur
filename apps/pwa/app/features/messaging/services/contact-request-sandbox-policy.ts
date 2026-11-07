@@ -34,6 +34,8 @@ const CONNECTION_LIFECYCLE_TAGS = new Set([
   "connection-accept",
   "connection-decline",
   "connection-cancel",
+  "connection-block",
+  "connection-unblock",
   "connection-received",
   "connection-receipt",
 ]);
@@ -179,6 +181,8 @@ export const assertDmOutboundAllowed = (params: Readonly<{
       lifecycleTag === "connection-accept"
       || lifecycleTag === "connection-decline"
       || lifecycleTag === "connection-cancel"
+      || lifecycleTag === "connection-block"
+      || lifecycleTag === "connection-unblock"
     ) {
       return { ok: true };
     }
@@ -193,6 +197,8 @@ export const assertDmOutboundAllowed = (params: Readonly<{
     lifecycleTag === "connection-accept"
     || lifecycleTag === "connection-decline"
     || lifecycleTag === "connection-cancel"
+    || lifecycleTag === "connection-block"
+    || lifecycleTag === "connection-unblock"
   ) {
     return { ok: true };
   }

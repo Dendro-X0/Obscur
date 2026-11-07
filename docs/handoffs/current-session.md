@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-07T15:25:00Z
-- Session Status: **ACTIVE** · social lifecycle charter · contact-remove sticky L1 · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-07T15:31:00Z
+- Session Status: **ACTIVE** · Block lifecycle Slice 1 L1 · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,14 +50,14 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — social relationship lifecycle charter (2026-11-07)
-  Inventory: remove / leave / block / join are not one unilateral class —
-    DM uses connection-* tags; leave has outbox+ledger; block is local-only
-  Charter: specs/backend/2026-11-07-social-relationship-lifecycle-unified-{investigation,design}.md
-  Contract: local sticky → wire notify → peer apply → outbox honesty · domain owners kept
-  Contact-remove sticky L1 landed (uncommitted) · Slice 1 = Block lifecycle
-NEXT: commit remove sticky + lifecycle charter · then Block notify/apply (subtract dual blocklist)
-  then Leave peer visibility · then invite Fail — one slice each
+PLATFORM REWRITE BAND — Block lifecycle Slice 1 (2026-11-07) landed L1
+  Spec: specs/backend/2026-11-07-block-lifecycle-design.md
+  Wire: connection-block / connection-unblock · peer demotes on block (not auto-blocklist)
+  Actor block: local blocklist + unaccept + inbox remove + notify
+  Dual blocklist: messaging migrates to obscur.blocklist.v1
+  L1: classifier + lifecycle + sandbox 20 Pass
+  Prior: contact-remove sticky + lifecycle charter committed a99d0899
+NEXT: commit Block slice · optional L2 A block→B demote · then Leave peer visibility (Slice 2)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
 ```
 
@@ -78,6 +78,7 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 | Trust directory heal | **L1 Pass 21** · **L2 Pass** Connections/Trusted/Remove (static-dev rebuild) · leave deselect L1 audit · leave L2 optional |
 | Contact remove E2E sticky | **L1 Pass** — hydrate no longer undoes Remove; inbox scrubs connectionRequests · peer notify path unchanged · L2 dual CDP optional |
 | Social relationship lifecycle charter | Specs only — unified contract + inventory · Slice 1 Block · Slice 2 Leave peer · Slice 3 Invite |
+| Block lifecycle Slice 1 | **L1 Pass 20** — connection-block/unblock wire + peer demote · dual blocklist migrate-on-read · L2 optional |
 | SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
 | Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
 | P1 boundary map | Auth/Profiles/Storage/PAL owners named · kill list K1=nostrAdapter bypass in dm-send/delete |

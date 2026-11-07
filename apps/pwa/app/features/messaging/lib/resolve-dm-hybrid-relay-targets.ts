@@ -15,7 +15,9 @@ const getConnectionLifecycleTag = (customTags?: ReadonlyArray<ReadonlyArray<stri
     lifecycleTag === "connection-request"
     || lifecycleTag === "connection-accept"
     || lifecycleTag === "connection-decline"
-    || lifecycleTag === "connection-cancel"
+    ||     lifecycleTag === "connection-cancel"
+    || lifecycleTag === "connection-block"
+    || lifecycleTag === "connection-unblock"
     || lifecycleTag === "connection-received"
     || lifecycleTag === "connection-receipt"
   ) {

@@ -319,7 +319,13 @@ export default function ConnectionProfileView() {
     };
     const handleToggleBlock = () => {
         if (isBlocked) {
-            blocklist.removeBlocked({ publicKeyHex: pk as PublicKeyHex });
+            const peer = pk as PublicKeyHex;
+            const inboxItem = requestsInbox.state.items.find((item) => item.peerPublicKeyHex === peer);
+            blocklist.removeBlocked({ publicKeyHex: peer });
+            void requestTransport.notifyPeerUnblocked?.({
+                peerPublicKeyHex: peer,
+                requestEventId: inboxItem?.eventId,
+            });
             toast.success(t("network.notifications.unblocked"));
         }
         else {
@@ -327,9 +333,23 @@ export default function ConnectionProfileView() {
         }
     };
     const confirmBlock = () => {
-        blocklist.addBlocked({ publicKeyInput: pk });
+        const peer = pk as PublicKeyHex;
+        const inboxItem = requestsInbox.state.items.find((item) => item.peerPublicKeyHex === peer);
+        const conversation = findDmConnectionByPubkey(createdConnections, peer);
+        // Local sticky first; wire notify is best-effort (lifecycle charter Slice 1).
+        blocklist.addBlocked({ publicKeyInput: peer });
+        peerTrust.unacceptPeer({ publicKeyHex: peer });
+        requestsInbox.remove({ peerPublicKeyHex: peer });
+        if (conversation?.id) {
+            deleteConversation(conversation.id);
+        }
+        void requestTransport.notifyPeerBlocked?.({
+            peerPublicKeyHex: peer,
+            requestEventId: inboxItem?.eventId,
+        });
         setIsBlockDialogOpen(false);
         toast.success(t("network.notifications.blocked"));
+        router.push("/network");
     };
     const handleRemoveConnection = () => {
         setIsRemoveDialogOpen(true);
