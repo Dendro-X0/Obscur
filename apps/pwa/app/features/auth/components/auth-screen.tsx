@@ -645,7 +645,18 @@ export function AuthScreen() {
         }
     };
     const handleSkipDevicePasswordSetup = async (): Promise<void> => {
-        if (devicePasswordBindRequired) {
+        // Key already unlocked identity: never trap on required bind — clear and enter shell.
+        if (devicePasswordBindRequired || isDevicePasswordBindPending()) {
+            const snapshot = getIdentitySnapshot();
+            if (snapshot.status === "unlocked") {
+                setDevicePasswordBindRequired(false);
+                setDevicePasswordBindPending(false);
+                setImportKeyGuideStep("enter_key");
+                setPassword("");
+                setConfirmPassword("");
+                toast.success(t("auth.welcomeBackToast"));
+                return;
+            }
             return;
         }
         setAuthError(null);
@@ -1125,29 +1136,21 @@ export function AuthScreen() {
                     } = await import(
                         "@/app/features/storage/services/native-storage-at-rest-service"
                     );
-                    // Slice C: keychain PDK restore first — no second UI when prior bind saved PDK.
+                    // Best-effort PDK open after key unlock (Slice C restore / sqlite reopen).
+                    // Do not force a second password door in the same session — private key
+                    // login alone unlocks the profile (2026-11-07 product rule).
                     const restored = await restoreNativeVaultEncryptionSessionIfNeeded({
                         profileId: boundProfileId,
                     });
-                    const storageOpen = restored
-                        || await ensureNativeSqliteOpenForWrites({
+                    if (!restored) {
+                        await ensureNativeSqliteOpenForWrites({
                             profileId: boundProfileId,
                         });
-                    if (!storageOpen) {
-                        // Slice A: stay on Auth for device-password → PDK bind (not soft-lock).
-                        setDevicePasswordBindPending(true);
-                        setDevicePasswordBindRequired(true);
-                        setImportKeyGuideStep("set_device_password");
-                        setLoginTab("key");
-                        setShowAdvancedKeyUnlock(true);
-                        setPassword("");
-                        setConfirmPassword("");
-                        setIsLoading(false);
-                        return;
                     }
                 }
                 setDevicePasswordBindPending(false);
                 setDevicePasswordBindRequired(false);
+                setImportKeyGuideStep("enter_key");
                 toast.success(t("auth.welcomeBackToast"));
                 return;
             }
@@ -1638,13 +1641,11 @@ export function AuthScreen() {
                                                                 ? t("auth.login.devicePasswordBindSubmit")
                                                                 : t("auth.login.setPasswordAndUnlock")}
                                                         </Button>
-                                                        {!devicePasswordBindRequired ? (
                                                         <Button type="button" variant="outline" disabled={isLoading} onClick={() => {
                         void handleSkipDevicePasswordSetup();
                     }} className="w-full h-12 rounded-2xl">
                                                             {t("auth.login.skipDevicePassword")}
                                                         </Button>
-                                                        ) : null}
                                                         {!devicePasswordBindRequired ? (
                                                         <button type="button" className="w-full text-center text-xs text-zinc-500 underline underline-offset-2" onClick={() => {
                         setImportKeyGuideStep("enter_key");

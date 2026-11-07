@@ -986,8 +986,11 @@ describe("AuthScreen mismatch recovery UX", () => {
     );
   });
 
-  it("stays on Auth for device-password bind when Advanced key unlock leaves native storage closed", async () => {
+  it("Welcome Back after Advanced key even when native storage reopen fails (no second password door)", async () => {
     const { toast } = await import("@dweb/ui-kit/toast");
+    const { isDevicePasswordBindPending } = await import(
+      "@/app/features/auth/services/device-password-bind-pending"
+    );
     const privateKeyHex = "a".repeat(64) as PrivateKeyHex;
     const publicKeyHex = derivePublicKeyHex(privateKeyHex);
     authScreenMocks.isNativeRuntime = true;
@@ -1016,11 +1019,12 @@ describe("AuthScreen mismatch recovery UX", () => {
     });
     await invokeReactClick(screen.getByRole("button", { name: "Unlock" }));
 
-    expect(await screen.findByTestId("auth-device-password-bind")).toBeInTheDocument();
-    expect(screen.getByText(/Device password for this computer/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Open chat on this device/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Skip — unlock with key only/i)).not.toBeInTheDocument();
-    expect(toast.success).not.toHaveBeenCalledWith("Welcome Back!");
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Welcome Back!");
+    });
+    expect(isDevicePasswordBindPending()).toBe(false);
+    expect(screen.queryByTestId("auth-device-password-bind")).not.toBeInTheDocument();
+    expect(storageAtRestMocks.ensureNativeSqliteOpenForWrites).toHaveBeenCalled();
   });
 
   it("restores device-password bind UI from module pending after remount (unlock-loop FM1)", async () => {

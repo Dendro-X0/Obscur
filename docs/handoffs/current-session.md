@@ -50,12 +50,12 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — social-core trust-directory heal landed (2026-11-07) · then beta.9 ship
-  Evidence: docs/handoffs/social-core-trust-directory-heal-l2-2026-11-07.{md,json}
-  Prior Partial: docs/handoffs/social-core-flows-l2-soak-2026-11-07.{md,json}
-  Heal: Connections 1 TRUSTED · Remove unblocked · L1 21 Pass · leave deselect L1 audit
-NEXT: optional leave L2 re-drive OR commit beta.9 product+docs → Full Release (A4 explicit tag ask)
-Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT claim all-six Pass / Soft L3
+PLATFORM REWRITE BAND — key unlock no second password (2026-11-07) landed L1
+  Specs: specs/backend/2026-11-07-key-unlock-no-second-password-{investigation,design}.md
+  L1: auth-screen 36 Pass — Advanced key → Welcome Back even if PDK reopen fails
+NEXT: commit auth fix · optional desktop smoke key→shell without password bind
+  OR finish beta.9 Full Release asset sync if run green
+Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote
 ```
 
 
