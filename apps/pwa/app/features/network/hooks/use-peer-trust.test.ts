@@ -361,6 +361,52 @@ describe("use-peer-trust internals", () => {
     await waitFor(() => expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]));
   });
 
+  it("acceptPeer clears stale removedPeers even when peer is already in acceptedPeers", async () => {
+    const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
+    const peerPublicKeyHex = "d".repeat(64) as PublicKeyHex;
+    peerTrustInternals.saveToStorage(myPublicKeyHex, {
+      acceptedPeers: [peerPublicKeyHex],
+      mutedPeers: [],
+      removedPeers: [peerPublicKeyHex],
+    });
+
+    const { result } = renderHook(() => usePeerTrust({ publicKeyHex: myPublicKeyHex }));
+    await waitFor(() => expect(result.current.hasHydrated).toBe(true));
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(true);
+
+    act(() => {
+      result.current.acceptPeer({ publicKeyHex: peerPublicKeyHex });
+    });
+
+    await waitFor(() => {
+      expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([]);
+    });
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(true);
+    expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]);
+  });
+
+  it("hydrate from acceptSeen evidence lifts removedPeers mask so Connections can show the peer", async () => {
+    const myPublicKeyHex = "f".repeat(64) as PublicKeyHex;
+    const peerPublicKeyHex = "c".repeat(64) as PublicKeyHex;
+    peerTrustInternals.saveToStorage(myPublicKeyHex, {
+      acceptedPeers: [],
+      mutedPeers: [],
+      removedPeers: [peerPublicKeyHex],
+    });
+    requestFlowEvidenceStore.markAccept({ peerPublicKeyHex });
+    chatStateReadMocks.load.mockReturnValue(null);
+
+    const { result } = renderHook(() => usePeerTrust({ publicKeyHex: myPublicKeyHex }));
+    await waitFor(() => expect(result.current.hasHydrated).toBe(true));
+    await waitFor(() => {
+      expect(result.current.state.acceptedPeers).toEqual([peerPublicKeyHex]);
+    });
+    expect(result.current.isAccepted({ publicKeyHex: peerPublicKeyHex })).toBe(true);
+    expect(peerTrustInternals.loadFromStorage(myPublicKeyHex).removedPeers).toEqual([]);
+
+    requestFlowEvidenceStoreInternals.writeState({ byPeer: {} });
+  });
+
   it("accumulates multiple accepted peers in storage when legacy contact writes are disabled", async () => {
     const migrationPolicy = await import("@/app/features/account-sync/services/account-sync-migration-policy");
     vi.spyOn(migrationPolicy, "shouldWriteLegacyContactsDm").mockReturnValue(false);

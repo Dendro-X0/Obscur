@@ -42,7 +42,9 @@ export const transitionHandshake = (
             break;
 
         case "accepted":
-            // Usually terminal, but allow reset for manual override/cleanup
+            // Remote remove notify arrives as CANCEL — demote so reconnect can reopen.
+            if (event.type === "CANCEL") return { status: "canceled", isOutgoing };
+            // Manual override/cleanup
             if (event.type === "RESET") return { status: "none", isOutgoing: false };
             break;
 

@@ -118,6 +118,91 @@ describe("useRequestsInbox internals", () => {
     ).toBe(true);
   });
 
+  it("allows a distinct connection-request to reopen handshake against accepted", () => {
+    const existingAccepted = {
+      peerPublicKeyHex: "c".repeat(64),
+      status: "accepted",
+      isOutgoing: false,
+      lastMessagePreview: "old",
+      lastReceivedAtUnixSeconds: 100,
+      unreadCount: 0,
+      eventId: "accepted-event",
+    } as const;
+
+    expect(
+      requestsInboxInternals.shouldIgnoreIncomingForExistingRequest(
+        existingAccepted,
+        200,
+        "fresh-request-event"
+      )
+    ).toBe(false);
+    expect(
+      requestsInboxInternals.shouldIgnoreIncomingForExistingRequest(
+        existingAccepted,
+        200,
+        "accepted-event"
+      )
+    ).toBe(true);
+  });
+
+  it("prefers projection incoming pending over sticky legacy accepted after reconnect", () => {
+    const peer = "d".repeat(64);
+    const merged = requestsInboxInternals.mergeProjectionAndLegacyRequestsInboxItems(
+      [{
+        peerPublicKeyHex: peer,
+        status: "pending",
+        isOutgoing: false,
+        lastMessagePreview: "Hello reconnect",
+        lastReceivedAtUnixSeconds: 300,
+        unreadCount: 1,
+        eventId: "req-new",
+        isRequest: true,
+      }],
+      [{
+        peerPublicKeyHex: peer,
+        status: "accepted",
+        isOutgoing: false,
+        lastMessagePreview: "old",
+        lastReceivedAtUnixSeconds: 100,
+        unreadCount: 0,
+        eventId: "accepted-event",
+      }],
+    );
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.status).toBe("pending");
+    expect(merged[0]?.isOutgoing).toBe(false);
+    expect(merged[0]?.eventId).toBe("req-new");
+  });
+
+  it("prefers projection incoming pending over legacy outgoing canceled stub", () => {
+    const peer = "e".repeat(64);
+    const merged = requestsInboxInternals.mergeProjectionAndLegacyRequestsInboxItems(
+      [{
+        peerPublicKeyHex: peer,
+        status: "pending",
+        isOutgoing: false,
+        lastMessagePreview: "Hello reconnect",
+        lastReceivedAtUnixSeconds: 300,
+        unreadCount: 1,
+        eventId: "req-new",
+        isRequest: true,
+      }],
+      [{
+        peerPublicKeyHex: peer,
+        status: "canceled",
+        isOutgoing: true,
+        lastMessagePreview: "",
+        lastReceivedAtUnixSeconds: 200,
+        unreadCount: 0,
+        eventId: "canceled-event",
+      }],
+    );
+
+    expect(merged[0]?.status).toBe("pending");
+    expect(merged[0]?.isOutgoing).toBe(false);
+  });
+
   it("normalizes refreshed pending-request timestamps to observed time when wire timestamp is stale", () => {
     const existingPending = {
       peerPublicKeyHex: "f".repeat(64),

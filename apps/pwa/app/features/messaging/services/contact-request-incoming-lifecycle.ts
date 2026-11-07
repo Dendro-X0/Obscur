@@ -4,7 +4,7 @@ import type { ConnectionReceiveLifecycleTag } from "./contact-request-receive-cl
 import { requestFlowEvidenceStore } from "./request-flow-evidence-store";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 
-type IncomingLifecycleDeps = Readonly<{
+  type IncomingLifecycleDeps = Readonly<{
   accountPublicKeyHex?: PublicKeyHex | null;
   profileId?: string;
   peerTrust?: Readonly<{
@@ -21,6 +21,8 @@ type IncomingLifecycleDeps = Readonly<{
       status: "accepted" | "declined" | "canceled";
       isOutgoing?: boolean;
     }>) => void;
+    /** Preferred on cancel/remove notify — clears legacy mirror + CONTACT_REMOVED. */
+    remove?: (params: Readonly<{ peerPublicKeyHex: PublicKeyHex }>) => void;
   }>;
 }>;
 
@@ -96,18 +98,28 @@ export const applyIncomingContactLifecycle = async (
     return;
   }
 
+  // Cancel/remove notify must demote trust — otherwise the other side stays
+  // TRUSTED and ignores subsequent connection-requests (2026-11-06 reconnect).
+  deps.peerTrust?.unacceptPeer?.({ publicKeyHex: params.peerPublicKeyHex });
+  requestFlowEvidenceStore.reset(params.peerPublicKeyHex, profileId);
+  // Prefer remove(): clears sticky legacy accepted (accepted→CANCEL used to no-op)
+  // and emits CONTACT_REMOVED. Avoid setStatus(canceled) stubs that merge-block
+  // a later CONTACT_REQUEST_RECEIVED pending card (2026-11-07 Requests Partial).
+  if (deps.requestsInbox?.remove) {
+    deps.requestsInbox.remove({ peerPublicKeyHex: params.peerPublicKeyHex });
+    return;
+  }
   deps.requestsInbox?.setStatus({
     peerPublicKeyHex: params.peerPublicKeyHex,
     status: "canceled",
     isOutgoing: true,
   });
-  requestFlowEvidenceStore.reset(params.peerPublicKeyHex, profileId);
   if (deps.accountPublicKeyHex) {
     await appendCanonicalContactEvent({
       accountPublicKeyHex: deps.accountPublicKeyHex,
       peerPublicKeyHex: params.peerPublicKeyHex,
-      type: "CONTACT_CANCELED",
-      direction: "outgoing",
+      type: "CONTACT_REMOVED",
+      direction: "unknown",
       requestEventId: params.requestEventId,
       idempotencySuffix: params.requestEventId || params.peerPublicKeyHex,
       source: "legacy_bridge",

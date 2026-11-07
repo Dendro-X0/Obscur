@@ -1,0 +1,52 @@
+{
+  "schema": "obscur.l2.soak@1",
+  "id": "social-core-flows-2026-11-07",
+  "capturedAt": "2026-11-07T12:15:00Z",
+  "subject": {
+    "shell": "pnpm dev:desktop -- --rebuild",
+    "clientBuildStamp": "shell-2026-11-07T11:31:56Z",
+    "cdp": { "main": 9230, "profile2": 9231 },
+    "sessions": {
+      "actor1": "csess-3cc275fd0267",
+      "actor2": "csess-2b0864a7dcc1"
+    }
+  },
+  "actors": {
+    "tester1": "Tester1 (e07f67dc…c191ea56) on default / :9230",
+    "tester2": "Tester2 (3db055b4…d946830f) on profile-2 / :9231"
+  },
+  "l1": {
+    "result": "Pass",
+    "files": 19,
+    "tests": 101
+  },
+  "matrix": {
+    "addContact": "Pass",
+    "dm": "Pass",
+    "groupChat": "Pass",
+    "inviteToGroup": "Fail — Invite Connections empty / Network Connections 0",
+    "leaveGroup": "Partial — leave published; open thread 0-members residue",
+    "removeContact": "Blocked — profile Stranger + Connect disabled; no Remove"
+  },
+  "captures": {
+    "dmSender": "cap-05a5510ded10",
+    "dmReceiver": "cap-fd69f7506c95",
+    "groupCreated": "cap-85682a45d31c",
+    "groupMessage": "cap-3a58b8a63c02",
+    "inviteEmpty": "cap-f0bfb79c831c",
+    "leaveWorking": "cap-f248b45e42f0",
+    "profileStranger": "cap-d681117c0af6"
+  },
+  "verdict": "L2 Partial",
+  "claimLanguage": {
+    "maySay": [
+      "L1 Pass 101",
+      "L2 Partial: add/accept + DM + group create/send Pass; invite Fail; leave Partial; remove Blocked"
+    ],
+    "mustNotSay": [
+      "Soft L3 / Tor Verified",
+      "all six social flows Pass",
+      "packaged beta NSIS verified"
+    ]
+  }
+}

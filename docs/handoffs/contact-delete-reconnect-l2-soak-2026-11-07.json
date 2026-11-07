@@ -1,0 +1,72 @@
+{
+  "schema": "obscur.l2.soak@1",
+  "id": "contact-delete-reconnect-clear-history-2026-11-07",
+  "capturedAt": "2026-11-07T08:13:00Z",
+  "subject": {
+    "shell": "pnpm dev:desktop -- --rebuild",
+    "clientBuildStamp": "shell-2026-11-07T04:28:28Z",
+    "cdp": { "main": 9230, "profile2": 9231 },
+    "sessions": {
+      "actor1": "csess-c3131690cdf8",
+      "actor2": "csess-8fa8d331e7f9"
+    }
+  },
+  "actors": {
+    "note": "Device had Tester1 only; DemoUser fixture absent. Used Tester1 (remover) ↔ Tester2 (peer) for same remove→reconnect handshake claim.",
+    "remover": "Tester1 (e07f67dc…c191ea56) on default / :9230",
+    "peer": "Tester2 (3db055b4…d946830f) on profile-2 / :9231"
+  },
+  "matrix": {
+    "l1Unit": "Pass (prior 28)",
+    "clearHistoryEmptiesRecent": "Pass",
+    "removeTrustedConnection": "Pass",
+    "cancelNotifyPeerSeesRemoved": "Pass",
+    "peerNetworkClearedAfterCancel": "Pass",
+    "reconnectInvitationDelivered": "Pass",
+    "reconnectNotSilentIgnore": "Pass",
+    "peerRequestsInboxPendingCard": "Partial — reconnect Hello landed in existing DM thread; Requests/Invitations tabs stayed empty"
+  },
+  "asserts": [
+    {
+      "sessionId": "csess-c3131690cdf8",
+      "claim": "Invitation delivered after reconnect send",
+      "assertKind": "textVisible",
+      "text": "Invitation delivered",
+      "pass": true
+    },
+    {
+      "sessionId": "csess-8fa8d331e7f9",
+      "claim": "Cancel notify visible as Connection removed",
+      "assertKind": "textVisible",
+      "text": "Connection removed",
+      "pass": true
+    }
+  ],
+  "clearHistoryEvidence": {
+    "before": ["OBSCUR-8GC5XJ", "OBSCUR-PS2S5E", "OBSCUR-5KMPFN", "OBSCUR-GBKMBC"],
+    "afterClearCapture": "cap-442b544cd8df",
+    "after": "Recent Searches row gone; idle Start with a global search surface"
+  },
+  "reconnectTimelinePeerThread": [
+    "Hello! I'd like to connect on Obscur. (initial)",
+    "Accepted",
+    "Connection removed",
+    "Hello! I'd like to connect on Obscur. (reconnect Just now)"
+  ],
+  "verdict": "L2 Pass with honesty note on Requests-tab pending card",
+  "claimLanguage": {
+    "maySay": [
+      "reconnect invitation delivers after Remove on rebuilt static shell",
+      "cancel notify unaccepts peer (Network 0 + Connection removed)",
+      "Discovery Clear history empties recent searches",
+      "clientSatisfied ladder for this soak session"
+    ],
+    "mustNotSay": [
+      "DemoUser↔Tester1 specifically (ran Tester1↔Tester2)",
+      "packaged beta.8 L2 (used rebuilt static-dev shell)",
+      "Soft L3 / Tor Verified",
+      "Requests inbox always shows reconnect as pending card"
+    ]
+  },
+  "clientCdpYamlFix": "stackProfile: obscur-full + devServerPorts: [1430] — empty list flipped subject to Playwright and blocked attach"
+}

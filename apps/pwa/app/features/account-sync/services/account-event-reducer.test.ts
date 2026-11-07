@@ -505,4 +505,70 @@ describe("account-event-reducer", () => {
     expect(projection?.contactsByPeer[PEER]?.status).toBe("pending");
     expect(projection?.contactsByPeer[PEER]?.lastEventId).toBe("request-new-2");
   });
+
+  it("deletes contact on CONTACT_REMOVED and ignores canceled after remove", () => {
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_ACCEPTED",
+        eventId: "accepted-3",
+        idempotencyKey: "accepted-3",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        direction: "outgoing",
+        requestEventId: "req-accepted-3",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_REMOVED",
+        eventId: "removed-3",
+        idempotencyKey: "removed-3",
+        observedAtUnixMs: 2_000,
+        peerPublicKeyHex: PEER,
+        direction: "unknown",
+      }, 2),
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_CANCELED",
+        eventId: "canceled-after-remove",
+        idempotencyKey: "canceled-after-remove",
+        observedAtUnixMs: 3_000,
+        peerPublicKeyHex: PEER,
+        direction: "outgoing",
+        requestEventId: "req-accepted-3",
+      }, 3),
+    ]);
+
+    expect(projection).not.toBeNull();
+    expect(projection?.contactsByPeer[PEER]).toBeUndefined();
+  });
+
+  it("allows a distinct CONTACT_REQUEST_RECEIVED to demote sticky accepted", () => {
+    const projection = replayAccountEvents([
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_ACCEPTED",
+        eventId: "accepted-4",
+        idempotencyKey: "accepted-4",
+        observedAtUnixMs: 1_000,
+        peerPublicKeyHex: PEER,
+        direction: "incoming",
+        requestEventId: "req-old",
+      }, 1),
+      createEvent({
+        ...baseMeta,
+        type: "CONTACT_REQUEST_RECEIVED",
+        eventId: "request-reinvite",
+        idempotencyKey: "request-reinvite",
+        observedAtUnixMs: 2_000,
+        peerPublicKeyHex: PEER,
+        direction: "incoming",
+        requestEventId: "req-new",
+      }, 2),
+    ]);
+
+    expect(projection).not.toBeNull();
+    expect(projection?.contactsByPeer[PEER]?.status).toBe("pending");
+    expect(projection?.contactsByPeer[PEER]?.lastRequestEventId).toBe("req-new");
+  });
 });

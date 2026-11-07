@@ -40,6 +40,20 @@ describe("REL-004 leave path audit", () => {
     expect(source).toContain("Relay rejected leave. You remain a member of this community.");
   });
 
+  it("leave page clears selected conversation after local leave/purge so open thread cannot residue", () => {
+    const source = readSource("app/groups/leave/page.tsx");
+    expect(source).toContain("clearSelectedIfLeavingGroup");
+    expect(source).toContain("setSelectedConversation(null)");
+    const applyLocalLeaveBlock = source.slice(source.indexOf("const applyLocalLeave"));
+    expect(applyLocalLeaveBlock).toContain("clearSelectedIfLeavingGroup()");
+  });
+
+  it("main shell deselects group threads removed from createdGroups", () => {
+    const source = readSource("app/features/main-shell/main-shell.tsx");
+    expect(source).toContain("setSelectedConversation(null)");
+    expect(source).toMatch(/createdGroups\.some[\s\S]*setSelectedConversation\(null\)/);
+  });
+
   it("settings bulk-leave enqueues outbox before ledger leave", () => {
     const source = readSource("app/settings/settings-tab-panel-models/use-settings-destructive-actions-model.ts");
     const block = source.slice(source.indexOf("for (const entry of joinedEntries)"));

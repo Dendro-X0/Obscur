@@ -1,20 +1,20 @@
-# Frontend spec — Identity link chip + connection profile chrome (2026-11-06)
+# Frontend spec — Discovery clear history + reconnect honesty (2026-11-06)
 
 ## Surfaces
 
-1. Settings → Profile → **Copy identity link** (ghost text control)
-2. Network → Connection profile hero card + **Connect** CTA + Public Identity card
+1. Discovery (`/search`) idle → **Recent Searches** header + **Clear history**
+2. Network → Connection profile → Remove (behavior; chrome unchanged)
 
 ## Goals
 
-- Clear control boundary: bordered chip, no soft “floating text pill.”
-- Connect CTA: solid indigo fill, tight shadow (no wide purple bloom).
-- Cards: readable `border` + restrained elevation vs pure glow blobs.
+- Clear recent searches in one control; wipe scoped + legacy `localStorage` keys.
+- After Remove, peer is notified (`connection-cancel`) and local DM stub is deleted so Connect is a true stranger re-invite.
 
 ## Non-goals
 
-New layout, light theme redesign, changing Connect lifecycle copy.
+- Redesigning Discovery layout
+- Merging dual blocklist stores this cut
 
-## Tokens
+## Copy
 
-Reuse existing zinc/indigo borders; avoid new purple glow utilities.
+- `search.clearRecent` → “Clear history”

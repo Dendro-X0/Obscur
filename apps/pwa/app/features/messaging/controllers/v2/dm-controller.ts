@@ -472,6 +472,14 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
         }
         const peerPublicKeyHex = (result.isSelfAuthored ? msg.recipientPubkey : msg.senderPubkey) as PublicKeyHex | undefined;
         if (!result.isSelfAuthored && peerPublicKeyHex) {
+          // Re-invite after the peer removed locally: demote sticky trust so Accept
+          // is required again and projection can move accepted → pending.
+          if (
+            result.lifecycleTag === "connection-request"
+            && peerTrustRef.current?.isAccepted?.({ publicKeyHex: peerPublicKeyHex })
+          ) {
+            peerTrustRef.current.unacceptPeer?.({ publicKeyHex: peerPublicKeyHex });
+          }
           requestsInboxRef.current?.upsertIncoming({
             peerPublicKeyHex,
             plaintext: typeof msg.content === "string" ? msg.content : "",

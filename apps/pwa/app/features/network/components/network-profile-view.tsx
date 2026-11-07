@@ -60,7 +60,7 @@ export default function ConnectionProfileView() {
     const { t } = useTranslation();
     const compact = useMobileCompactLayout();
     const { peerTrust, requestsInbox, blocklist, presence } = useNetwork();
-    const { createdConnections, setSelectedConversation, setCreatedConnections } = useMessaging();
+    const { createdConnections, setSelectedConversation, setCreatedConnections, deleteConversation } = useMessaging();
     const { relayPool, enabledRelayUrls } = useRelay();
     const identity = useIdentity();
     const [isRemoveDialogOpen, setIsRemoveDialogOpen] = React.useState(false);
@@ -335,8 +335,19 @@ export default function ConnectionProfileView() {
         setIsRemoveDialogOpen(true);
     };
     const confirmRemove = () => {
-        peerTrust.unacceptPeer({ publicKeyHex: pk as PublicKeyHex });
-        requestsInbox.remove({ peerPublicKeyHex: pk as PublicKeyHex });
+        const peer = pk as PublicKeyHex;
+        const inboxItem = requestsInbox.state.items.find((item) => item.peerPublicKeyHex === peer);
+        const conversation = findDmConnectionByPubkey(createdConnections, peer);
+        // Notify peer so they demote trust; local commit does not depend on delivery.
+        void requestTransport.notifyPeerConnectionEnded?.({
+            peerPublicKeyHex: peer,
+            requestEventId: inboxItem?.eventId,
+        });
+        peerTrust.unacceptPeer({ publicKeyHex: peer });
+        requestsInbox.remove({ peerPublicKeyHex: peer });
+        if (conversation?.id) {
+            deleteConversation(conversation.id);
+        }
         setIsRemoveDialogOpen(false);
         toast.success(t("network.notifications.removed"));
         router.push("/network");

@@ -603,6 +603,16 @@ export default function SearchPage() {
         setRecentSearches(next);
         localStorage.setItem(getRecentSearchesStorageKey(), JSON.stringify(next));
     };
+    const clearRecentSearches = (): void => {
+        setRecentSearches([]);
+        try {
+            localStorage.removeItem(getRecentSearchesStorageKey());
+            localStorage.removeItem(LEGACY_RECENT_SEARCHES_STORAGE_KEY);
+        }
+        catch {
+            // ignore quota / private-mode failures
+        }
+    };
     const clearSearch = (): void => {
         setQuery("");
         clearResults();
@@ -1271,9 +1281,19 @@ export default function SearchPage() {
             </div>)}
 
           {surface !== "add_friend" && !query && recentSearches.length > 0 && (<div className="space-y-3">
-              <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                <History className="h-4 w-4"/>
-                Recent Searches
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                  <History className="h-4 w-4"/>
+                  {t("search.recent")}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 rounded-lg px-3 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+                  onClick={clearRecentSearches}
+                >
+                  {t("search.clearRecent")}
+                </Button>
               </div>
               <div className="grid gap-2 md:grid-cols-2">
                 {recentSearches.map((entry) => (<button key={entry} onClick={() => {

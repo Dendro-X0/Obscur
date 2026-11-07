@@ -253,6 +253,23 @@ function NostrMessengerContent() {
     const accountSyncSnapshot = useAccountSyncSnapshot();
     const accountProjectionSnapshot = useAccountProjectionSnapshot();
     const { createdGroups, isNewGroupOpen, setIsNewGroupOpen, communityKnownParticipantDirectoryByConversationId, communityRosterByConversationId, } = useGroups();
+    // Leave / purge removes the group from the sidebar list; clear the open thread so
+    // the chat pane does not keep a ghost group with 0 members (L2 2026-11-07).
+    useEffect(() => {
+        if (!selectedConversation || selectedConversation.kind !== "group") {
+            return;
+        }
+        const stillPresent = createdGroups.some((group) => (
+            group.id === selectedConversation.id
+            || (
+                group.groupId === selectedConversation.groupId
+                && group.relayUrl === selectedConversation.relayUrl
+            )
+        ));
+        if (!stillPresent) {
+            setSelectedConversation(null);
+        }
+    }, [createdGroups, selectedConversation, setSelectedConversation]);
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [showWelcome] = useState(false);
     /** Soft-lock slice 2: identity unlocked but DbState cannot accept writes. */

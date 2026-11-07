@@ -8,8 +8,10 @@ probePorts: [9230, 9231, 9229, 9333]
 profileCdpPorts: [9230, 9231, 9229]
 
 # Dev stack listeners used by client_stack_preflight.
-# Release exe: no dev server needed (assets embedded); use empty list for release runs.
-devServerPorts: []
+# Static / Tauri asset shell (:1430). Keep stackProfile + a primary shell port —
+# empty devServerPorts + inferred HMR ports can flip attach to Playwright.
+stackProfile: obscur-full
+devServerPorts: [1430]
 
 # Studio Vite — never attach as subject app.
 excludeProbePorts: [9222]

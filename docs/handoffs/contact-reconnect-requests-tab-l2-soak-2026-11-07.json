@@ -1,0 +1,42 @@
+{
+  "schema": "obscur.l2.soak@1",
+  "id": "contact-reconnect-requests-tab-2026-11-07",
+  "capturedAt": "2026-11-07T11:48:00Z",
+  "subject": {
+    "shell": "pnpm dev:desktop -- --rebuild",
+    "clientBuildStamp": "shell-2026-11-07T11:29:25Z",
+    "cdp": { "main": 9230, "profile2": 9231 },
+    "sessions": {
+      "actor1": "csess-a0d09c84ec09",
+      "actor2": "csess-2b0864a7dcc1"
+    }
+  },
+  "actors": {
+    "removerSender": "Tester1 (e07f67dc…c191ea56) on default / :9230",
+    "peer": "Tester2 (3db055b4…d946830f) on profile-2 / :9231"
+  },
+  "precondition": "Prior L2 remove left strangers + DM thread with Connection removed; fresh invite on fixed shell",
+  "matrix": {
+    "l1Unit": "Pass (20 — handshake/merge/lifecycle)",
+    "invitationDelivered": "Pass",
+    "peerRequestsInboxPendingCard": "Pass — Requests (1) Tester 1 New Just now",
+    "peerAcceptDeclineChrome": "Pass",
+    "notEmptyWhileHelloInThread": "Pass"
+  },
+  "captures": {
+    "invitationDelivered": "cap-eb3e48fb9cd6",
+    "requestsPendingCard": "cap-ffa9a0d34cb3"
+  },
+  "verdict": "L2 Pass — Requests-tab reconnect residue closed",
+  "claimLanguage": {
+    "maySay": [
+      "reconnect invitation surfaces Requests pending card after remove residue",
+      "L1+L2 Pass for Requests-tab reconnect fix on static-dev rebuild"
+    ],
+    "mustNotSay": [
+      "Soft L3 / Tor Verified",
+      "packaged beta NSIS L2",
+      "DemoUser↔Tester1 specifically"
+    ]
+  }
+}

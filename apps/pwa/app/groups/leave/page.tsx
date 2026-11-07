@@ -16,6 +16,7 @@ import { cn } from "@/app/lib/utils";
 import { useMobileCompactLayout } from "@/app/features/runtime/use-mobile-compact-layout";
 import { useGroups } from "@/app/features/groups/providers/group-provider-port";
 import { useIdentity } from "@/app/features/auth/hooks/use-identity";
+import { useMessaging } from "@/app/features/messaging/providers/messaging-provider";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { toScopedRelayUrl } from "@/app/features/groups/hooks/use-sealed-community-types";
 import { useLegacySealedCommunity } from "@/app/features/groups/hooks/sealed-community-port";
@@ -49,6 +50,7 @@ export default function LeaveCommunityPage() {
         leaveGroup,
         forcePurgeCommunity,
     } = useGroups();
+    const { selectedConversation, setSelectedConversation } = useMessaging();
     const { state: identityState } = useIdentity();
     const { relayPool } = useRelay();
     const [isLeaving, setIsLeaving] = useState(false);
@@ -188,6 +190,23 @@ export default function LeaveCommunityPage() {
         deleteActionsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, [isDeleteFlow, isLeaving, isPurgingLocal]);
 
+    const clearSelectedIfLeavingGroup = (): void => {
+        if (!selectedConversation || selectedConversation.kind !== "group") {
+            return;
+        }
+        const leavingConversationId = group?.id;
+        const matchesSelected = (
+            (leavingConversationId && selectedConversation.id === leavingConversationId)
+            || (
+                selectedConversation.groupId === resolvedGroupId
+                && selectedConversation.relayUrl === effectiveRelay
+            )
+        );
+        if (matchesSelected) {
+            setSelectedConversation(null);
+        }
+    };
+
     const applyLocalLeave = (relayConfirmed = false): void => {
         if (group) {
             leaveGroup({
@@ -203,6 +222,7 @@ export default function LeaveCommunityPage() {
                 relayConfirmed,
             });
         }
+        clearSelectedIfLeavingGroup();
     };
 
     const handleLeave = async () => {
@@ -329,6 +349,7 @@ export default function LeaveCommunityPage() {
                 relayUrl: effectiveRelay,
                 conversationId: group?.id,
             });
+            clearSelectedIfLeavingGroup();
             setLeaveWaitComplete(true);
             toast.success("Community removed from this device");
             await new Promise((resolve) => setTimeout(resolve, 450));

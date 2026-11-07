@@ -58,9 +58,28 @@ const toContactStatus = (
 
 const shouldBlockContactTransition = (
   current: ContactProjection | undefined,
-  incomingStatus: ContactProjection["status"]
+  incomingStatus: ContactProjection["status"],
+  params?: Readonly<{
+    eventType?: AccountEvent["type"];
+    requestEventId?: string;
+    observedAtUnixMs?: number;
+  }>,
 ): boolean => {
   if (!current) {
+    return false;
+  }
+  // After the peer removes locally, they may re-send a *newer* distinct request.
+  // Older request replays must not demote sticky accepted (bootstrap safety).
+  if (
+    current.status === "accepted"
+    && incomingStatus === "pending"
+    && params?.eventType === "CONTACT_REQUEST_RECEIVED"
+    && typeof params.requestEventId === "string"
+    && params.requestEventId.length > 0
+    && params.requestEventId !== current.lastRequestEventId
+    && typeof params.observedAtUnixMs === "number"
+    && params.observedAtUnixMs > current.lastEvidenceAtUnixMs
+  ) {
     return false;
   }
   // Accepted is sticky until explicit removal. This prevents stale request replay
@@ -204,7 +223,26 @@ export const reduceAccountEvent = (
         break;
       }
       const currentContact = next.contactsByPeer[accountEvent.peerPublicKeyHex];
-      if (shouldBlockContactTransition(currentContact, incomingStatus)) {
+      // Canceled/declined after an explicit remove must not recreate inbox placeholders.
+      if (
+        (incomingStatus === "canceled" || incomingStatus === "declined")
+        && (!currentContact || currentContact.status === "none")
+      ) {
+        break;
+      }
+      if (shouldBlockContactTransition(currentContact, incomingStatus, {
+        eventType: accountEvent.type,
+        requestEventId: "requestEventId" in accountEvent ? accountEvent.requestEventId : undefined,
+        observedAtUnixMs: accountEvent.observedAtUnixMs,
+      })) {
+        break;
+      }
+      if (incomingStatus === "none") {
+        const { [accountEvent.peerPublicKeyHex]: _removed, ...remainingContacts } = next.contactsByPeer;
+        next = {
+          ...next,
+          contactsByPeer: remainingContacts,
+        };
         break;
       }
       next = applyContactProjection(next, {

@@ -649,6 +649,25 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     });
   };
 
+  /**
+   * Best-effort wire notify that the local relationship ended.
+   * Does not mutate local inbox/trust — callers commit Remove separately.
+   */
+  const notifyPeerConnectionEnded = async (params: Readonly<{
+    peerPublicKeyHex: PublicKeyHex;
+    plaintext?: string;
+    requestEventId?: string;
+  }>): Promise<SendResult> => {
+    return deps.sendDm({
+      peerPublicKeyInput: params.peerPublicKeyHex,
+      plaintext: params.plaintext || "Connection removed",
+      customTags: params.requestEventId
+        ? [["t", "connection-cancel"], ["e", params.requestEventId]]
+        : [["t", "connection-cancel"]],
+      suppressPublishFeedbackToast: true,
+    });
+  };
+
   const cancelOutgoingRequest = async (params: Readonly<{
     peerPublicKeyHex: PublicKeyHex;
     plaintext?: string;
@@ -738,6 +757,7 @@ export const createRequestTransportService = (deps: RequestTransportDependencies
     acceptIncomingRequest,
     declineIncomingRequest,
     cancelOutgoingRequest,
+    notifyPeerConnectionEnded,
     recordIncomingWireEvidence,
     getFlowEvidence,
   };

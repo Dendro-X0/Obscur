@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-06T18:00:00Z
-- Session Status: **ACTIVE** · v2.0.0-beta.8 **download face synced** · contact handshake honesty · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-07T12:55:00Z
+- Session Status: **ACTIVE** · trust-directory heal L1+L2 Pass · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,14 +50,12 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — beta.8 published (handshake honesty)
-  Landed: invite residue ≠ TRUSTED · decline unaccepts · remove clears acceptSeen · UI chrome
-  Carry: friend-code ephemeral discovery (beta.7)
-  Published: Full Release 42247860139 · tag v2.0.0-beta.8 · releaseTag 2.0.0-beta.8
-L2: NSIS b6321e09… · E:\\Obscur obscur_desktop_app.exe 12898304 sha 56e08268… matches payload · app launched
-Synced: release-assets + manifest releaseTag 2.0.0-beta.8 (run 42247860139)
-NEXT: operator cold-run Exact Match + Decline/reconnect handshake on packaged face
-Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete docs/
+PLATFORM REWRITE BAND — social-core trust-directory heal landed (2026-11-07) · then beta.9 ship
+  Evidence: docs/handoffs/social-core-trust-directory-heal-l2-2026-11-07.{md,json}
+  Prior Partial: docs/handoffs/social-core-flows-l2-soak-2026-11-07.{md,json}
+  Heal: Connections 1 TRUSTED · Remove unblocked · L1 21 Pass · leave deselect L1 audit
+NEXT: optional leave L2 re-drive OR commit beta.9 product+docs → Full Release (A4 explicit tag ask)
+Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT claim all-six Pass / Soft L3
 ```
 
 
@@ -70,6 +68,11 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · do NOT mass-delete doc
 | Single-door Slice A+B | Auth device_password_bind after key when PDK closed · AuthGateway isShellReady gate · passphrase primary · vitest Pass |
 | Single-door Slice C | keychain PDK restore after identity unlock · passphrase activate fallback to restore · Auth key path restore-first · vitest Pass |
 | Unlock-loop FM1 | L1/L2 Pass · **L3 Pass 2026-11-02** (hydrate latch — session inactive after Lock + password → shell) |
+| Contact delete/reconnect + Clear history | L1 Pass · **L2 Pass 2026-11-07** (Tester1↔Tester2 static-dev; Requests card Partial) |
+| Requests-tab reconnect residue | **L1 Pass** · **L2 Pass 2026-11-07** (Requests (1) pending card after post-remove invite) · beta.9 cut Ready |
+| v2.0.0-beta.9 cut | Cut plan + draft release notes Ready · product uncommitted · Full Release awaits explicit ask (A4) |
+| Social core flows verify | **L1 Pass 101** · **L2 Partial** — add/DM/group Pass · invite Fail · leave Partial · remove Blocked |
+| Trust directory heal | **L1 Pass 21** · **L2 Pass** Connections/Trusted/Remove (static-dev rebuild) · leave deselect L1 audit · leave L2 optional |
 | SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
 | Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
 | P1 boundary map | Auth/Profiles/Storage/PAL owners named · kill list K1=nostrAdapter bypass in dm-send/delete |

@@ -1,0 +1,46 @@
+{
+  "schema": "obscur.l2-soak@1",
+  "id": "social-core-trust-directory-heal-2026-11-07",
+  "atUnixMs": 1794055200000,
+  "verdict": "Pass",
+  "shell": {
+    "stamp": "shell-2026-11-07T12:35:45Z",
+    "mode": "static-dev",
+    "cdp": { "main": 9230 }
+  },
+  "actors": {
+    "tester1": "Tester1 (e07f67dc…c191ea56) on default / :9230",
+    "peer": "Tester2 (3db055b4…d946830f)"
+  },
+  "l1": {
+    "files": [
+      "apps/pwa/app/features/network/hooks/use-peer-trust.test.ts",
+      "apps/pwa/app/features/groups/services/community-leave-path-audit.test.ts"
+    ],
+    "result": "21 Pass"
+  },
+  "results": {
+    "connectionsDirectory": "Pass — CONNECTIONS 1 · Tester2 TRUSTED · acceptedPeers=1 removedPeers=0",
+    "removeContactUi": "Pass — Trusted Connection · Message · Remove on /network/profile?pubkey=",
+    "inviteConnectionsSource": "Pass — InviteConnectionsDialog uses peerTrust.state.acceptedPeers (same healed list)",
+    "leaveThreadResidue": "Implemented + L1 audit Pass · runtime leave re-drive deferred"
+  },
+  "fixes": [
+    "hydrateAcceptedPeersFromChatState clears recovered peers from removedPeers",
+    "acceptPeer clears removedPeers even when already in acceptedPeers",
+    "acceptedPeersForRead does not mask peers present in stored.acceptedPeers",
+    "leave page clearSelectedIfLeavingGroup + main-shell deselect missing groups"
+  ],
+  "claims": {
+    "maySay": [
+      "trust-directory heal L1 Pass",
+      "L2 Pass Connections/Trusted/Remove on static-dev after rebuild"
+    ],
+    "mustNotSay": [
+      "Soft L3",
+      "all six social-core flows Pass",
+      "leave residue L2 re-proven",
+      "packaged NSIS verified"
+    ]
+  }
+}

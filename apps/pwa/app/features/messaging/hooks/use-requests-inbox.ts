@@ -157,6 +157,11 @@ const shouldIgnoreIncomingForExistingRequest = (
   if (shouldProcessAsNewRequest(existing.status)) {
     return false;
   }
+  // Peer may still show accepted after the other side removed locally without a
+  // successful cancel notify. A distinct connection-request must reopen handshake.
+  if (existing.status === "accepted") {
+    return !(incomingEventId && incomingEventId !== existing.eventId);
+  }
   if (existing.status !== "pending") {
     return true;
   }
@@ -246,7 +251,7 @@ const resolveNextHandshakeState = (params: Readonly<{
   return transitionHandshake(params.currentState, toHandshakeEvent(params.status, params.isOutgoing));
 };
 
-const shouldApplyStatusUpdate = (params: Readonly<{
+  const shouldApplyStatusUpdate = (params: Readonly<{
   item: RequestsInboxItem;
   nextState: HandshakeState;
 }>): boolean => {
@@ -258,6 +263,114 @@ const shouldApplyStatusUpdate = (params: Readonly<{
   return params.item.status !== nextStatus
     || params.item.unreadCount !== nextUnread
     || currentIsOutgoing !== params.nextState.isOutgoing;
+};
+
+/**
+ * Merge projection + legacy inbox rows. Projection incoming pending wins over
+ * sticky legacy accepted/canceled stubs left after remote remove notify
+ * (upsertIncoming is a no-op under projection-write authority).
+ */
+const mergeProjectionAndLegacyRequestsInboxItems = (
+  projectionItems: ReadonlyArray<RequestsInboxItem>,
+  legacyItems: ReadonlyArray<RequestsInboxItem>,
+): RequestsInboxItem[] => {
+  const byPeer = new Map<string, RequestsInboxItem>();
+  projectionItems.forEach((item) => {
+    byPeer.set(item.peerPublicKeyHex, item);
+  });
+  legacyItems.forEach((item) => {
+    const projected = byPeer.get(item.peerPublicKeyHex);
+    if (!projected) {
+      byPeer.set(item.peerPublicKeyHex, item);
+      return;
+    }
+    const projectedIncomingPending = !projected.isOutgoing && (
+      !projected.status || projected.status === "pending"
+    );
+    if (projectedIncomingPending) {
+      byPeer.set(item.peerPublicKeyHex, {
+        ...item,
+        ...projected,
+        unreadCount: Math.max(projected.unreadCount, item.unreadCount),
+        lastReceivedAtUnixSeconds: Math.max(
+          projected.lastReceivedAtUnixSeconds,
+          item.lastReceivedAtUnixSeconds,
+        ),
+        eventId: projected.eventId ?? item.eventId,
+      });
+      return;
+    }
+    // Accepted is sticky — never let a stale pending projection row undo a
+    // local accept that survived in legacy chat-state.
+    if (item.status === "accepted" && projected.status !== "accepted") {
+      byPeer.set(item.peerPublicKeyHex, {
+        ...projected,
+        ...item,
+        status: "accepted",
+        unreadCount: 0,
+        lastReceivedAtUnixSeconds: Math.max(
+          projected.lastReceivedAtUnixSeconds,
+          item.lastReceivedAtUnixSeconds,
+        ),
+        eventId: item.eventId ?? projected.eventId,
+      });
+      return;
+    }
+    if (projected.status === "accepted" && item.status !== "accepted") {
+      byPeer.set(item.peerPublicKeyHex, {
+        ...item,
+        ...projected,
+        status: "accepted",
+        unreadCount: 0,
+        lastReceivedAtUnixSeconds: Math.max(
+          projected.lastReceivedAtUnixSeconds,
+          item.lastReceivedAtUnixSeconds,
+        ),
+        eventId: projected.eventId ?? item.eventId,
+      });
+      return;
+    }
+    const legacyIsOutgoingOpen = item.isOutgoing && (
+      !item.status
+      || item.status === "pending"
+      || item.status === "declined"
+      || item.status === "canceled"
+    );
+    if (legacyIsOutgoingOpen) {
+      byPeer.set(item.peerPublicKeyHex, {
+        ...projected,
+        ...item,
+        unreadCount: Math.max(projected.unreadCount, item.unreadCount),
+        lastReceivedAtUnixSeconds: Math.max(
+          projected.lastReceivedAtUnixSeconds,
+          item.lastReceivedAtUnixSeconds,
+        ),
+        eventId: item.eventId ?? projected.eventId,
+      });
+      return;
+    }
+    const legacyIsIncomingOpen = !item.isOutgoing && (
+      !item.status
+      || item.status === "pending"
+    );
+    if (legacyIsIncomingOpen) {
+      byPeer.set(item.peerPublicKeyHex, {
+        ...projected,
+        ...item,
+        unreadCount: Math.max(projected.unreadCount, item.unreadCount),
+        lastReceivedAtUnixSeconds: Math.max(
+          projected.lastReceivedAtUnixSeconds,
+          item.lastReceivedAtUnixSeconds,
+        ),
+        eventId: item.eventId ?? projected.eventId,
+      });
+      return;
+    }
+    if (!byPeer.has(item.peerPublicKeyHex)) {
+      byPeer.set(item.peerPublicKeyHex, item);
+    }
+  });
+  return Array.from(byPeer.values());
 };
 
 export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInboxResult => {
@@ -455,33 +568,44 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
     if (!normalizedPeer) return;
     const currentItems = shouldUseProjectionReads ? projectionItems : stored.items;
     const current = currentItems.find((item) => item.peerPublicKeyHex === normalizedPeer);
+    if (current?.eventId) {
+      requestEventTombstoneStore.suppress(current.eventId);
+    }
+    // Always drop request-flow evidence on remove — projection-write path used to
+    // early-return and leave acceptSeen sticky (2026-11-06 reconnect residue).
+    requestFlowEvidenceStore.reset(normalizedPeer, getResolvedProfileId());
+    const pk = publicKeyHexRef.current;
+    if (pk) {
+      // Prefer CONTACT_REMOVED so projection ends with no placeholder row.
+      // Do not emit CANCELED/DECLINED after remove — those recreate inbox stubs.
+      void appendCanonicalContactEvent({
+        accountPublicKeyHex: pk,
+        peerPublicKeyHex: normalizedPeer,
+        type: "CONTACT_REMOVED",
+        direction: "unknown",
+        requestEventId: current?.eventId,
+        idempotencySuffix: `remove:${current?.eventId ?? normalizedPeer}`,
+        source: "legacy_bridge",
+      });
+    }
     if (!shouldWriteLegacyContacts) {
-      const pk = publicKeyHexRef.current;
-      if (pk && current) {
-        void appendCanonicalContactEvent({
-          accountPublicKeyHex: pk,
-          peerPublicKeyHex: normalizedPeer,
-          type: current.isOutgoing ? "CONTACT_CANCELED" : "CONTACT_DECLINED",
-          direction: current.isOutgoing ? "outgoing" : "incoming",
-          requestEventId: current.eventId,
-          idempotencySuffix: `remove:${current.eventId ?? normalizedPeer}`,
-          source: "legacy_bridge",
-        });
-      }
       emitAccountSyncMutation("requests_inbox_status_changed");
+      // Still clear any legacy local mirror so hydrate cannot resurrect the row.
+      setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
+        if (!prev.items.some((i) => i.peerPublicKeyHex === normalizedPeer)) {
+          return prev;
+        }
+        const next = { items: prev.items.filter((i) => i.peerPublicKeyHex !== normalizedPeer) };
+        return next;
+      });
       return;
     }
     setStored((prev: StoredRequestsInbox): StoredRequestsInbox => {
       const existing = prev.items.find((i: RequestsInboxItem): boolean => i.peerPublicKeyHex === normalizedPeer);
       if (!existing) {
+        emitAccountSyncMutation("requests_inbox_status_changed");
         return prev;
       }
-      if (existing?.eventId) {
-        requestEventTombstoneStore.suppress(existing.eventId);
-      }
-      // Removing a request/contact entry must also drop request-flow evidence.
-      // Otherwise stale receipt/accept evidence can misroute future DMs as pending.
-      requestFlowEvidenceStore.reset(normalizedPeer, getResolvedProfileId());
       const next = { items: prev.items.filter((i: RequestsInboxItem): boolean => i.peerPublicKeyHex !== normalizedPeer) };
       persistChange(next);
       emitAccountSyncMutation("requests_inbox_status_changed");
@@ -643,92 +767,9 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
 
   const state: RequestsInboxState = useMemo((): RequestsInboxState => {
     const legacyItems = stored.items;
-    const rawItems = (() => {
-      if (!shouldUseProjectionReads) {
-        return legacyItems;
-      }
-      const byPeer = new Map<string, RequestsInboxItem>();
-      projectionItems.forEach((item) => {
-        byPeer.set(item.peerPublicKeyHex, item);
-      });
-      legacyItems.forEach((item) => {
-        const projected = byPeer.get(item.peerPublicKeyHex);
-        if (!projected) {
-          byPeer.set(item.peerPublicKeyHex, item);
-          return;
-        }
-        // Accepted is sticky — never let a stale pending projection row undo a
-        // local accept that survived in legacy chat-state.
-        if (item.status === "accepted" && projected.status !== "accepted") {
-          byPeer.set(item.peerPublicKeyHex, {
-            ...projected,
-            ...item,
-            status: "accepted",
-            unreadCount: 0,
-            lastReceivedAtUnixSeconds: Math.max(
-              projected.lastReceivedAtUnixSeconds,
-              item.lastReceivedAtUnixSeconds,
-            ),
-            eventId: item.eventId ?? projected.eventId,
-          });
-          return;
-        }
-        if (projected.status === "accepted" && item.status !== "accepted") {
-          byPeer.set(item.peerPublicKeyHex, {
-            ...item,
-            ...projected,
-            status: "accepted",
-            unreadCount: 0,
-            lastReceivedAtUnixSeconds: Math.max(
-              projected.lastReceivedAtUnixSeconds,
-              item.lastReceivedAtUnixSeconds,
-            ),
-            eventId: projected.eventId ?? item.eventId,
-          });
-          return;
-        }
-        const legacyIsOutgoingOpen = item.isOutgoing && (
-          !item.status
-          || item.status === "pending"
-          || item.status === "declined"
-          || item.status === "canceled"
-        );
-        if (legacyIsOutgoingOpen) {
-          byPeer.set(item.peerPublicKeyHex, {
-            ...projected,
-            ...item,
-            unreadCount: Math.max(projected.unreadCount, item.unreadCount),
-            lastReceivedAtUnixSeconds: Math.max(
-              projected.lastReceivedAtUnixSeconds,
-              item.lastReceivedAtUnixSeconds,
-            ),
-            eventId: item.eventId ?? projected.eventId,
-          });
-          return;
-        }
-        const legacyIsIncomingOpen = !item.isOutgoing && (
-          !item.status
-          || item.status === "pending"
-        );
-        if (legacyIsIncomingOpen) {
-          byPeer.set(item.peerPublicKeyHex, {
-            ...projected,
-            ...item,
-            unreadCount: Math.max(projected.unreadCount, item.unreadCount),
-            lastReceivedAtUnixSeconds: Math.max(
-              projected.lastReceivedAtUnixSeconds,
-              item.lastReceivedAtUnixSeconds,
-            ),
-            eventId: item.eventId ?? projected.eventId,
-          });
-          return;
-        }
-        if (!byPeer.has(item.peerPublicKeyHex)) {
-          byPeer.set(item.peerPublicKeyHex, item);
-        }
-      });
-      return Array.from(byPeer.values());
-    })();
+    const rawItems = shouldUseProjectionReads
+      ? mergeProjectionAndLegacyRequestsInboxItems(projectionItems, legacyItems)
+      : legacyItems;
     return {
       items: filterCanonicalContactRequestInboxItems(rawItems),
     };
@@ -751,6 +792,7 @@ export const useRequestsInbox = (params: UseRequestsInboxParams): UseRequestsInb
 export const requestsInboxInternals = {
   createPreview,
   mergeHydratedRequestsInboxItems,
+  mergeProjectionAndLegacyRequestsInboxItems,
   toHandshakeEvent,
   resolveNextHandshakeState,
   shouldApplyStatusUpdate,

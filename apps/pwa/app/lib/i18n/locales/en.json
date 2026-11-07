@@ -858,6 +858,7 @@
     "search.discoverTitle": "Global Discovery",
     "search.discoverDesc": "Find anyone and anything on the Nostr network.",
     "search.recent": "Recent Searches",
+    "search.clearRecent": "Clear history",
     "search.searching": "Scanning Network...",
     "search.resultsCount": "Found {{count}} results",
     "search.trending": "Trending Communities",

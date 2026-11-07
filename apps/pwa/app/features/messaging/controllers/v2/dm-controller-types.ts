@@ -190,6 +190,7 @@ export type IdentityParams = Readonly<{
 export type PeerTrustContract = Readonly<{
   isAccepted: (params: Readonly<{ publicKeyHex: string }>) => boolean;
   acceptPeer: (params: Readonly<{ publicKeyHex: string }>) => void;
+  unacceptPeer?: (params: Readonly<{ publicKeyHex: string }>) => void;
 }>;
 
 export type RequestsInboxContract = Readonly<{

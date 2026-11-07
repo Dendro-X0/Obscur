@@ -284,15 +284,19 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
         return prev;
       }
       const merged = Array.from(new Set([...prev.acceptedPeers, ...recovered]));
+      // Re-accept / evidence recover must lift the local remove mask, or Connections
+      // stays empty while handshake evidence says accepted (L2 2026-11-07).
+      const nextRemovedPeers = prev.removedPeers.filter((peer) => !merged.includes(peer));
       if (
         merged.length === prev.acceptedPeers.length
         && merged.every((peer) => prev.acceptedPeers.includes(peer))
+        && nextRemovedPeers.length === prev.removedPeers.length
       ) {
         return prev;
       }
       const next: StoredPeerTrust = removeSelfFromTrustState(
         currentPublicKeyHex,
-        { acceptedPeers: merged, mutedPeers: prev.mutedPeers, removedPeers: prev.removedPeers }
+        { acceptedPeers: merged, mutedPeers: prev.mutedPeers, removedPeers: nextRemovedPeers }
       );
       saveToStorage(currentPublicKeyHex, next, profileIdRef.current);
       return next;
@@ -408,8 +412,13 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   ]);
 
   const acceptedPeersForRead = useMemo(() => (
-    peerTrustReadAuthority.acceptedPeers.filter((peer) => !stored.removedPeers.includes(peer))
-  ), [peerTrustReadAuthority.acceptedPeers, stored.removedPeers]);
+    // removedPeers masks projection lag after unaccept. Never mask a peer that is
+    // already in local acceptedPeers (accept/hydrate heal) — inconsistent dual
+    // membership caused Connections 0 + Stranger after re-accept (2026-11-07).
+    peerTrustReadAuthority.acceptedPeers.filter((peer) => (
+      !stored.removedPeers.includes(peer) || stored.acceptedPeers.includes(peer)
+    ))
+  ), [peerTrustReadAuthority.acceptedPeers, stored.acceptedPeers, stored.removedPeers]);
 
   const isAccepted = useCallback((p: Readonly<{ publicKeyHex: PublicKeyHex }>): boolean => {
     const normalized = normalizePublicKeyHex(p.publicKeyHex);
@@ -462,13 +471,18 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     }
     setStored((prev: StoredPeerTrust): StoredPeerTrust => {
       const nextMuted: ReadonlyArray<PublicKeyHex> = prev.mutedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
-      if (prev.acceptedPeers.includes(normalized) && nextMuted.length === prev.mutedPeers.length) {
+      const nextRemoved: ReadonlyArray<PublicKeyHex> = prev.removedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
+      const alreadyAccepted = prev.acceptedPeers.includes(normalized);
+      if (
+        alreadyAccepted
+        && nextMuted.length === prev.mutedPeers.length
+        && nextRemoved.length === prev.removedPeers.length
+      ) {
         return prev;
       }
-      const nextAccepted: ReadonlyArray<PublicKeyHex> = prev.acceptedPeers.includes(normalized)
+      const nextAccepted: ReadonlyArray<PublicKeyHex> = alreadyAccepted
         ? prev.acceptedPeers
         : [...prev.acceptedPeers, normalized];
-      const nextRemoved: ReadonlyArray<PublicKeyHex> = prev.removedPeers.filter((v: PublicKeyHex): boolean => v !== normalized);
       const next: StoredPeerTrust = { acceptedPeers: nextAccepted, mutedPeers: nextMuted, removedPeers: nextRemoved };
       const pk = publicKeyHexRef.current;
       if (pk) {
