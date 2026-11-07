@@ -53,6 +53,7 @@ import { hydrateGroupSidebarPreviewsFromSqlite } from "@/app/features/groups/ser
 import { subscribeGroupThreadMessagesChanged } from "@/app/features/messaging/services/thread-history/group-thread-messages-changed";
 import { hasTerminalLedgerScopeEvidence, listManagedWorkspaceCommunityIdCandidates } from "@/app/features/workspace-kernel/workspace-kernel-membership-scope";
 import { useWorkspaceKernelRosterIndex } from "@/app/features/workspace-kernel/use-workspace-kernel-roster-index";
+import { bindCommunityMembershipIngressApply } from "@/app/features/groups/services/bind-community-membership-ingress-apply";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { GroupContextType } from "@/app/features/groups/providers/group-provider-types";
 
@@ -443,6 +444,66 @@ export const LegacyGroupProvider: React.FC<{ children: React.ReactNode }> = ({ c
     });
     removeGroupConversation(group.id);
   }, [publicKeyHex, removeGroupConversation, resolveGroupForScope, resolvedProfileId]);
+
+  const resolveGroupByCommunityId = useCallback((communityId: string): GroupConversation | undefined => {
+    const normalized = communityId.trim();
+    if (!normalized) {
+      return undefined;
+    }
+    return createdGroups.find((group) => {
+      const groupCommunityId = (group.communityId ?? "").trim();
+      if (groupCommunityId.length > 0 && groupCommunityId === normalized) {
+        return true;
+      }
+      return listManagedWorkspaceCommunityIdCandidates({
+        group,
+        publicKeyHex: publicKeyHex ?? "",
+        profileId: resolvedProfileId,
+      }).includes(normalized);
+    });
+  }, [createdGroups, publicKeyHex, resolvedProfileId]);
+
+  useEffect(() => {
+    if (!publicKeyHex || !optionalProfileRuntime?.bus) {
+      return;
+    }
+    return bindCommunityMembershipIngressApply({
+      profileBus: optionalProfileRuntime.bus,
+      localPublicKeyHex: publicKeyHex as PublicKeyHex,
+      profileId: resolvedProfileId,
+      resolveGroupByCommunityId,
+      updateGroupMembers: ({ group, memberPubkeys }) => {
+        updateGroup({
+          groupId: group.groupId,
+          relayUrl: group.relayUrl,
+          conversationId: group.id,
+          updates: {
+            memberPubkeys,
+            memberCount: memberPubkeys.length,
+          },
+        });
+      },
+      applyLocalJoinFromRelay: (group) => {
+        addGroup(group, { allowRevive: true, relayConfirmed: true });
+      },
+      applyLocalLeaveFromRelay: (group) => {
+        leaveGroup({
+          groupId: group.groupId,
+          relayUrl: group.relayUrl,
+          conversationId: group.id,
+          relayConfirmed: true,
+        });
+      },
+    });
+  }, [
+    addGroup,
+    leaveGroup,
+    optionalProfileRuntime?.bus,
+    publicKeyHex,
+    resolveGroupByCommunityId,
+    resolvedProfileId,
+    updateGroup,
+  ]);
 
   const forcePurgeCommunity = useCallback((params: Readonly<{
     groupId: string;

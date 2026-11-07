@@ -36,6 +36,7 @@ import {
   ensureRoomKeyHexForInviteDistribution,
   publishStewardCoordinationRoomKeyWrapsForInvitees,
 } from "../services/community-coordination-room-key-owner";
+import { resolveInviteConnectionCandidates } from "../services/resolve-invite-connection-candidates";
 import { cryptoService } from "@/app/features/crypto/crypto-service";
 
 interface InviteConnectionsDialogProps {
@@ -116,30 +117,27 @@ export function InviteConnectionsDialog({
     }, [isAlreadyMember]);
 
     const filteredConnections = React.useMemo(() => {
-        const normalizedQuery = searchQuery.trim().toLowerCase();
-        return peerTrust.state.acceptedPeers.flatMap((pk) => {
-            const connection = createdConnections.find(c => c.kind === 'dm' && c.pubkey === pk);
-            const cachedProfile = discoveryCache.getProfile(pk);
-            const metadataDisplayName = cachedProfile?.displayName || cachedProfile?.name;
-            const resolvedDisplayName = resolveInviteConnectionDisplayName({
-                pubkey: pk,
-                connectionDisplayName: connection?.displayName,
-                metadataDisplayName
-            });
-            const searchText = toInviteConnectionSearchText({
-                pubkey: pk,
-                resolvedDisplayName,
-                connectionDisplayName: connection?.displayName,
-                metadataDisplayName
-            });
-            if (normalizedQuery.length > 0 && !searchText.includes(normalizedQuery)) {
-                return [];
-            }
-            return [{
-                pubkey: pk,
-                connectionDisplayName: connection?.displayName,
-                cachedMetadataDisplayName: metadataDisplayName
-            }];
+        const connectionsByPubkey = new Map(
+            createdConnections
+                .filter((connection) => connection.kind === "dm" && typeof connection.pubkey === "string")
+                .map((connection) => [
+                    connection.pubkey.toLowerCase(),
+                    {
+                        pubkey: connection.pubkey,
+                        connectionDisplayName: connection.displayName,
+                    },
+                ] as const),
+        );
+        return resolveInviteConnectionCandidates({
+            acceptedPeers: peerTrust.state.acceptedPeers,
+            connectionsByPubkey,
+            searchQuery,
+            resolveMetadataDisplayName: (pubkey) => {
+                const cachedProfile = discoveryCache.getProfile(pubkey);
+                return cachedProfile?.displayName || cachedProfile?.name || null;
+            },
+            resolveDisplayName: resolveInviteConnectionDisplayName,
+            toSearchText: toInviteConnectionSearchText,
         });
     }, [peerTrust.state.acceptedPeers, createdConnections, searchQuery]);
 
@@ -355,9 +353,12 @@ export function InviteConnectionsDialog({
 
                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         {filteredConnections.length === 0 ? (
-                            <div className="py-12 flex flex-col items-center justify-center text-center opacity-30">
+                            <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
                                 <UserCheck className="h-10 w-10 text-zinc-700 mb-4" />
                                 <p className="text-zinc-500 font-black uppercase tracking-widest text-[10px]">No connections found</p>
+                                <p className="mt-2 max-w-[14rem] text-[11px] font-medium leading-snug text-zinc-500">
+                                    Accept a connection first — invites use your Trusted Connections list.
+                                </p>
                             </div>
                         ) : (
                             filteredConnections.map((connection) => {

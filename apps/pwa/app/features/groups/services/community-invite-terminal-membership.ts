@@ -9,6 +9,8 @@ import {
 
 export type TerminalInvitePeerResponseStatus = "declined" | "canceled";
 
+export type TerminalPeerLeftReason = TerminalInvitePeerResponseStatus | "left";
+
 export type PersistTerminalInvitePeerLeftEvidenceParams = Readonly<{
   groupId: string;
   relayUrl: string;
@@ -17,17 +19,25 @@ export type PersistTerminalInvitePeerLeftEvidenceParams = Readonly<{
   profileId?: string;
 }>;
 
+export type PersistTerminalPeerLeftEvidenceParams = Readonly<{
+  groupId: string;
+  relayUrl: string;
+  peerPublicKeyHexes: ReadonlyArray<PublicKeyHex | string>;
+  reason: TerminalPeerLeftReason;
+  profileId?: string;
+}>;
+
 /**
- * MEM-005: record terminal invite outcome for a peer so relay-joined roster
- * evidence cannot keep them visible after decline/cancel.
+ * Sticky terminal left evidence so roster hydrate / seed cannot keep a peer
+ * visible after leave, invite decline/cancel, or gossip remove.
  */
-export function persistTerminalInvitePeerLeftEvidence(
-  params: PersistTerminalInvitePeerLeftEvidenceParams,
+export function persistTerminalPeerLeftEvidence(
+  params: PersistTerminalPeerLeftEvidenceParams,
 ): void {
   const groupId = params.groupId.trim();
   const relayUrl = params.relayUrl.trim();
-  const peerPublicKeyHex = params.peerPublicKeyHex.trim() as PublicKeyHex;
-  if (!groupId || !relayUrl || peerPublicKeyHex.length === 0) {
+  const peerPublicKeyHexes = mergeTerminalMemberPubkeys(params.peerPublicKeyHexes);
+  if (!groupId || !relayUrl || peerPublicKeyHexes.length === 0) {
     return;
   }
 
@@ -43,7 +53,7 @@ export function persistTerminalInvitePeerLeftEvidence(
     relayUrl,
     leftMemberPubkeys: mergeTerminalMemberPubkeys(
       existing?.leftMemberPubkeys ?? [],
-      [peerPublicKeyHex],
+      peerPublicKeyHexes,
     ),
     expelledMemberPubkeys: existing?.expelledMemberPubkeys ?? [],
     disbandedAtUnixMs: existing?.disbandedAtUnixMs ?? null,
@@ -51,16 +61,38 @@ export function persistTerminalInvitePeerLeftEvidence(
   });
 
   logAppEvent({
-    name: "groups.invite_terminal_peer_recorded",
+    name: params.reason === "left"
+      ? "groups.leave_terminal_peer_recorded"
+      : "groups.invite_terminal_peer_recorded",
     level: "info",
-    scope: { feature: "groups", action: "invite_terminal" },
+    scope: {
+      feature: "groups",
+      action: params.reason === "left" ? "leave_terminal" : "invite_terminal",
+    },
     context: {
       groupId,
       relayUrl,
-      peerPubkeySuffix: peerPublicKeyHex.slice(-8),
-      responseStatus: params.responseStatus,
+      peerCount: peerPublicKeyHexes.length,
+      peerPubkeySuffix: peerPublicKeyHexes[0]?.slice(-8) ?? null,
+      reason: params.reason,
       profileId,
     },
+  });
+}
+
+/**
+ * MEM-005: record terminal invite outcome for a peer so relay-joined roster
+ * evidence cannot keep them visible after decline/cancel.
+ */
+export function persistTerminalInvitePeerLeftEvidence(
+  params: PersistTerminalInvitePeerLeftEvidenceParams,
+): void {
+  persistTerminalPeerLeftEvidence({
+    groupId: params.groupId,
+    relayUrl: params.relayUrl,
+    peerPublicKeyHexes: [params.peerPublicKeyHex],
+    reason: params.responseStatus,
+    profileId: params.profileId,
   });
 }
 

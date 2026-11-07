@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-07T15:31:00Z
-- Session Status: **ACTIVE** · Block lifecycle Slice 1 L1 · **REWRITE BAND SUPERSEDE 2026-11**
+- Last Updated (UTC): 2026-11-07T16:10:00Z
+- Session Status: **ACTIVE** · Social lifecycle Slices 1–3 L1 · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,14 +50,12 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — Block lifecycle Slice 1 (2026-11-07) landed L1
-  Spec: specs/backend/2026-11-07-block-lifecycle-design.md
-  Wire: connection-block / connection-unblock · peer demotes on block (not auto-blocklist)
-  Actor block: local blocklist + unaccept + inbox remove + notify
-  Dual blocklist: messaging migrates to obscur.blocklist.v1
-  L1: classifier + lifecycle + sandbox 20 Pass
-  Prior: contact-remove sticky + lifecycle charter committed a99d0899
-NEXT: commit Block slice · optional L2 A block→B demote · then Leave peer visibility (Slice 2)
+PLATFORM REWRITE BAND — Social lifecycle Slices 1–3 L1 (2026-11-07)
+  Slice 1 Block: connection-block/unblock · peer demote · dual blocklist · L1 20 Pass
+  Slice 2 Leave peer: gossip markMembersLeft + terminal sticky + ingress binder · L1 8 Pass
+  Slice 3 Invite Fail: classified — empty Connections picker; superseded by trust-directory heal L2;
+    invite candidate helper regression · optional L2 send/accept soak before Fixed
+NEXT: optional L2 leave roster / invite send soak · push if asked · beta.9 FR assets if asked
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
 ```
 
@@ -74,11 +72,13 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 | Contact delete/reconnect + Clear history | L1 Pass · **L2 Pass 2026-11-07** (Tester1↔Tester2 static-dev; Requests card Partial) |
 | Requests-tab reconnect residue | **L1 Pass** · **L2 Pass 2026-11-07** (Requests (1) pending card after post-remove invite) · beta.9 cut Ready |
 | v2.0.0-beta.9 cut | Cut plan + draft release notes Ready · product uncommitted · Full Release awaits explicit ask (A4) |
-| Social core flows verify | **L1 Pass 101** · **L2 Partial** — add/DM/group Pass · invite Fail · leave Partial · remove Blocked |
+| Social core flows verify | **L1 Pass 101** · **L2 Partial→healed** — invite/remove Fail/Blocked superseded by trust-directory heal · leave residue Slice 2 L1 |
 | Trust directory heal | **L1 Pass 21** · **L2 Pass** Connections/Trusted/Remove (static-dev rebuild) · leave deselect L1 audit · leave L2 optional |
 | Contact remove E2E sticky | **L1 Pass** — hydrate no longer undoes Remove; inbox scrubs connectionRequests · peer notify path unchanged · L2 dual CDP optional |
 | Social relationship lifecycle charter | Specs only — unified contract + inventory · Slice 1 Block · Slice 2 Leave peer · Slice 3 Invite |
 | Block lifecycle Slice 1 | **L1 Pass 20** — connection-block/unblock wire + peer demote · dual blocklist migrate-on-read · L2 optional |
+| Leave peer visibility Slice 2 | **L1 Pass 8** — gossip markMembersLeft + terminal sticky · ingress binder · coordination leave→terminal mirror · L2 optional |
+| Invite Fail Slice 3 | **L1 classified** — Fail = empty Connections (trust heal); candidate helper regression · L2 send/accept optional |
 | SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
 | Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
 | P1 boundary map | Auth/Profiles/Storage/PAL owners named · kill list K1=nostrAdapter bypass in dm-send/delete |

@@ -12,6 +12,15 @@ export type ApplyCommunityMembershipIngressParams = Readonly<{
     group: GroupConversation;
     memberPubkeys: ReadonlyArray<PublicKeyHex>;
   }>) => void;
+  /**
+   * Slice 2 — sticky peer leave: mark removes on terminal left + shrink roster.
+   * Called for every remove pubkey (including local); local leave still uses
+   * `applyLocalLeaveFromRelay` for actor ledger/sidebar.
+   */
+  markMembersLeft: (params: Readonly<{
+    group: GroupConversation;
+    memberPubkeys: ReadonlyArray<PublicKeyHex>;
+  }>) => void;
   applyLocalJoinFromRelay: (group: GroupConversation) => void;
   applyLocalLeaveFromRelay: (group: GroupConversation) => void;
 }>;
@@ -23,7 +32,8 @@ const normalizePubkeys = (values: ReadonlyArray<string>): ReadonlyArray<PublicKe
 );
 
 /**
- * Phase 3 M1/M2 — apply relay ingress at the coordinator boundary (roster + local join/leave only).
+ * Phase 3 M1/M2 + Slice 2 — apply relay gossip ingress at the coordinator boundary.
+ * Adds widen roster; removes mark sticky left (peer visibility) + local leave for self.
  */
 export const applyCommunityMembershipIngress = (params: ApplyCommunityMembershipIngressParams): void => {
   const { detail, localPublicKeyHex } = params;
@@ -90,13 +100,16 @@ export const applyCommunityMembershipIngress = (params: ApplyCommunityMembership
   if (addPubkeys.length > 0) {
     params.widenRoster({ group, memberPubkeys: addPubkeys });
   }
+  if (removePubkeys.length > 0) {
+    params.markMembersLeft({ group, memberPubkeys: removePubkeys });
+  }
 
   const localKey = localPublicKeyHex?.trim() ?? "";
   if (localKey.length > 0) {
-    if (addPubkeys.includes(localKey)) {
+    if (addPubkeys.includes(localKey as PublicKeyHex)) {
       params.applyLocalJoinFromRelay(group);
     }
-    if (removePubkeys.includes(localKey)) {
+    if (removePubkeys.includes(localKey as PublicKeyHex)) {
       params.applyLocalLeaveFromRelay(group);
     }
   }
@@ -111,8 +124,8 @@ export const applyCommunityMembershipIngress = (params: ApplyCommunityMembership
       eventIdHint: detail.eventId.slice(0, 16),
       addCount: addPubkeys.length,
       removeCount: removePubkeys.length,
-      localJoined: localKey.length > 0 && addPubkeys.includes(localKey),
-      localRemoved: localKey.length > 0 && removePubkeys.includes(localKey),
+      localJoined: localKey.length > 0 && addPubkeys.includes(localKey as PublicKeyHex),
+      localRemoved: localKey.length > 0 && removePubkeys.includes(localKey as PublicKeyHex),
     },
   });
 };

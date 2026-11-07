@@ -220,6 +220,8 @@ export function subscribeToMembershipEvents(
         communityId,
         deltas: result.deltas,
         profileId: options.profileId,
+        groupId: options.groupId,
+        relayUrl: options.relayUrl,
       });
       saveCoordinationMembershipSeqCursor(communityId, lastSeq, options.profileId);
       lastSyncAt = Date.now();

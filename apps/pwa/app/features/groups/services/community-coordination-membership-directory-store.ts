@@ -18,6 +18,7 @@ import {
   materializeCoordinationMembershipFromDeltas,
   type CoordinationMembershipMaterialization,
 } from "./community-coordination-membership-materializer";
+import { persistTerminalPeerLeftEvidence } from "./community-invite-terminal-membership";
 import { loadCommunityMembershipLedger } from "./community-membership-ledger";
 import { isCoordinationConfigured } from "./community-membership-sync-mode";
 
@@ -378,6 +379,9 @@ export const applyCoordinationMembershipDeltasToDirectoryStore = (params: Readon
   communityId: string;
   deltas: ReadonlyArray<import("./community-coordination-membership-client").CoordinationMembershipDeltaRecord>;
   profileId?: string;
+  /** When set, leave deltas also sticky-write terminal membership cache (Slice 2). */
+  groupId?: string;
+  relayUrl?: string;
   roomKeyMaterialization?: CoordinationDirectoryRoomKeyMaterializationContext;
 }>): CoordinationMembershipMaterialization | null => {
   const communityId = params.communityId.trim();
@@ -392,6 +396,22 @@ export const applyCoordinationMembershipDeltasToDirectoryStore = (params: Readon
     materialization,
     profileId: params.profileId,
   });
+  const groupId = params.groupId?.trim() ?? "";
+  const relayUrl = params.relayUrl?.trim() ?? "";
+  if (groupId && relayUrl) {
+    const leftPeerPubkeys = params.deltas
+      .filter((delta) => delta.action === "leave")
+      .map((delta) => delta.subjectPubkey);
+    if (leftPeerPubkeys.length > 0) {
+      persistTerminalPeerLeftEvidence({
+        groupId,
+        relayUrl,
+        peerPublicKeyHexes: leftPeerPubkeys,
+        reason: "left",
+        profileId: params.profileId,
+      });
+    }
+  }
   if (params.roomKeyMaterialization) {
     void materializeCoordinationRoomKeysAfterDirectoryRefresh({
       communityId,

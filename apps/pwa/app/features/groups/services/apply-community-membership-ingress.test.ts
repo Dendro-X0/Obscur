@@ -33,6 +33,7 @@ const encodeGossipPayload = (params: Readonly<{
 describe("applyCommunityMembershipIngress", () => {
   it("widens roster and applies local join when gossip adds local pubkey", () => {
     const widenRoster = vi.fn();
+    const markMembersLeft = vi.fn();
     const applyLocalJoinFromRelay = vi.fn();
     const applyLocalLeaveFromRelay = vi.fn();
 
@@ -50,6 +51,7 @@ describe("applyCommunityMembershipIngress", () => {
       localPublicKeyHex: "local-pk",
       resolveGroup: () => GROUP,
       widenRoster,
+      markMembersLeft,
       applyLocalJoinFromRelay,
       applyLocalLeaveFromRelay,
     });
@@ -58,12 +60,14 @@ describe("applyCommunityMembershipIngress", () => {
       group: GROUP,
       memberPubkeys: ["local-pk", "peer-pk"],
     });
+    expect(markMembersLeft).not.toHaveBeenCalled();
     expect(applyLocalJoinFromRelay).toHaveBeenCalledWith(GROUP);
     expect(applyLocalLeaveFromRelay).not.toHaveBeenCalled();
   });
 
   it("applies local leave when gossip removes local pubkey", () => {
     const applyLocalLeaveFromRelay = vi.fn();
+    const markMembersLeft = vi.fn();
 
     applyCommunityMembershipIngress({
       detail: {
@@ -79,10 +83,45 @@ describe("applyCommunityMembershipIngress", () => {
       localPublicKeyHex: "local-pk",
       resolveGroup: () => GROUP,
       widenRoster: vi.fn(),
+      markMembersLeft,
       applyLocalJoinFromRelay: vi.fn(),
       applyLocalLeaveFromRelay,
     });
 
+    expect(markMembersLeft).toHaveBeenCalledWith({
+      group: GROUP,
+      memberPubkeys: ["local-pk"],
+    });
     expect(applyLocalLeaveFromRelay).toHaveBeenCalledWith(GROUP);
+  });
+
+  it("marks peer left on gossip removes without local leave", () => {
+    const markMembersLeft = vi.fn();
+    const applyLocalLeaveFromRelay = vi.fn();
+
+    applyCommunityMembershipIngress({
+      detail: {
+        profileId: "p1",
+        communityId: "comm-1",
+        channel: "gossip",
+        eventId: "evt-3",
+        senderPubkey: "sender",
+        senderDeviceId: "device-a",
+        receivedAtUnixMs: 3_000,
+        eventContent: encodeGossipPayload({ adds: [], removes: ["peer-pk"] }),
+      },
+      localPublicKeyHex: "local-pk",
+      resolveGroup: () => GROUP,
+      widenRoster: vi.fn(),
+      markMembersLeft,
+      applyLocalJoinFromRelay: vi.fn(),
+      applyLocalLeaveFromRelay,
+    });
+
+    expect(markMembersLeft).toHaveBeenCalledWith({
+      group: GROUP,
+      memberPubkeys: ["peer-pk"],
+    });
+    expect(applyLocalLeaveFromRelay).not.toHaveBeenCalled();
   });
 });

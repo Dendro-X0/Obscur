@@ -60,10 +60,14 @@ User intent
 3. Ensure peer apply of leave does not get undone by membership hydrate (mirror remove sticky lesson)
 4. L2 leave residue Pass required before Fixed claim
 
+**L1 landed 2026-11-07:** `specs/backend/2026-11-07-leave-peer-visibility-design.md` — gossip `markMembersLeft` + terminal sticky + GroupProvider ingress binder + coordination leave→terminal mirror. Fixed still needs L2.
+
 ### Slice 3 — Join / invite Fail
 
 1. Re-drive social-core invite Fail with evidence
 2. Stay inside membership mutation owner + invite DM publish — no new path
+
+**L1 landed 2026-11-07:** Fail classified as empty Connections picker (same trust-directory class) — superseded by heal L2 Pass. Specs `2026-11-07-invite-fail-slice3-*` · invite candidate helper regression. Optional L2 send/accept soak before Fixed.
 
 ## Explicit non-goals
 

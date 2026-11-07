@@ -7,6 +7,7 @@ import {
 } from "./community-terminal-membership-cache";
 import {
   persistTerminalInvitePeerLeftEvidence,
+  persistTerminalPeerLeftEvidence,
   removePubkeyFromMemberList,
 } from "./community-invite-terminal-membership";
 
@@ -60,5 +61,20 @@ describe("community-invite-terminal-membership (MEM-005)", () => {
 
   it("removePubkeyFromMemberList drops only the target peer", () => {
     expect(removePubkeyFromMemberList([OWNER, PEER], PEER)).toEqual([OWNER]);
+  });
+
+  it("persists sticky terminal left evidence for peer leave (Slice 2)", () => {
+    persistTerminalPeerLeftEvidence({
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+      peerPublicKeyHexes: [PEER],
+      reason: "left",
+    });
+
+    const cache = loadCommunityTerminalMembershipCache({
+      groupId: GROUP_ID,
+      relayUrl: RELAY_URL,
+    });
+    expect(cache?.leftMemberPubkeys).toEqual([PEER]);
   });
 });

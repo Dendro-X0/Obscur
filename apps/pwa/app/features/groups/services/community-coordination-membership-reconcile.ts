@@ -32,6 +32,8 @@ export type CoordinationMembershipReconcileResult = Readonly<{
 export const runCoordinationMembershipReconcile = async (params: Readonly<{
   communityId: string;
   profileId?: string;
+  groupId?: string;
+  relayUrl?: string;
   /** When true, replay from seq 0 (full directory resync). */
   forceFull?: boolean;
   onSemanticMemberEvent: (event: SemanticCommunityMemberEvent) => void;
@@ -102,6 +104,8 @@ export const runCoordinationMembershipReconcile = async (params: Readonly<{
     communityId,
     deltas: result.deltas,
     profileId: params.profileId,
+    groupId: params.groupId,
+    relayUrl: params.relayUrl,
   });
   if (params.forceFull) {
     await refreshCoordinationMembershipDirectory({
