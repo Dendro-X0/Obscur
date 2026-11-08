@@ -1,0 +1,29 @@
+{
+  "at": "2026-11-08T01:36:00Z",
+  "slice": "leave-peer-visibility-2",
+  "verdict": "Blocked",
+  "shellStamp": "shell-2026-11-07T16:07:24Z",
+  "cdpMain": "http://127.0.0.1:9230",
+  "tester1Unlocked": true,
+  "joinedGroupCount": 0,
+  "leftGroupResidue": [
+    {
+      "groupId": "df737fb35c2245fc87bc827e29ba7ddc",
+      "relayUrl": "wss://nos.lol",
+      "status": "left"
+    }
+  ],
+  "appActiveRelays": "0/3",
+  "browserWebSocketProbe": [
+    { "url": "wss://nos.lol", "ok": true },
+    { "url": "wss://relay.damus.io", "ok": true },
+    { "url": "wss://relay.primal.net", "ok": true }
+  ],
+  "dockerRelay": false,
+  "dualCdpLeaveAssert": "not_run",
+  "mustNotSay": [
+    "leave Fixed",
+    "Soft L3",
+    "packaged NSIS leave sticky verified"
+  ]
+}

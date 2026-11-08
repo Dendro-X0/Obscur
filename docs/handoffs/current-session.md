@@ -1,6 +1,6 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-07T18:18:08Z
+- Last Updated (UTC): 2026-11-08T01:36:53Z
 - Session Status: **ACTIVE** · Social lifecycle Slices 1–3 L1 · **REWRITE BAND SUPERSEDE 2026-11**
 - Active Owner: maintainer (sole) · ENGINE-LAB
 
@@ -55,7 +55,8 @@ PLATFORM REWRITE BAND — Social lifecycle Slices 1–3 L1 (2026-11-07)
   Slice 2 Leave peer: gossip markMembersLeft + terminal sticky + ingress binder · L1 8 Pass
   Slice 3 Invite Fail: classified — empty Connections picker; superseded by trust-directory heal L2;
     invite candidate helper regression · optional L2 send/accept soak before Fixed
-NEXT: optional leave/invite L2 · manual packaged Requests/Connections soak (no release CDP)
+NEXT: heal app relay pool (0/3 despite browser WSS Pass) or Docker :7000 · then leave L2 dual CDP
+  · optional invite send/accept L2 · manual packaged Requests/Connections soak
   · next cut if operators need block/leave sticky in packaged face (bea87116 not in beta.9 NSIS)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
 ```
@@ -78,7 +79,7 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 | Contact remove E2E sticky | **L1 Pass** — hydrate no longer undoes Remove; inbox scrubs connectionRequests · peer notify path unchanged · L2 dual CDP optional |
 | Social relationship lifecycle charter | Specs only — unified contract + inventory · Slice 1 Block · Slice 2 Leave peer · Slice 3 Invite |
 | Block lifecycle Slice 1 | **L1 Pass 20** — connection-block/unblock wire + peer demote · dual blocklist migrate-on-read · L2 optional |
-| Leave peer visibility Slice 2 | **L1 Pass 8** — gossip markMembersLeft + terminal sticky · ingress binder · coordination leave→terminal mirror · L2 optional |
+| Leave peer visibility Slice 2 | **L1 Pass 8** — gossip markMembersLeft + terminal sticky · ingress binder · coordination leave→terminal mirror · **L2 Blocked 2026-11-08** (pool 0/3 · no joined fixture) |
 | Invite Fail Slice 3 | **L1 classified** — Fail = empty Connections (trust heal); candidate helper regression · L2 send/accept optional |
 | SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
 | Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
