@@ -1,25 +1,19 @@
 {
-  "at": "2026-11-08T01:36:00Z",
+  "at": "2026-11-08T02:55:00Z",
   "slice": "leave-peer-visibility-2",
   "verdict": "Blocked",
   "shellStamp": "shell-2026-11-07T16:07:24Z",
-  "cdpMain": "http://127.0.0.1:9230",
-  "tester1Unlocked": true,
-  "joinedGroupCount": 0,
-  "leftGroupResidue": [
-    {
-      "groupId": "df737fb35c2245fc87bc827e29ba7ddc",
-      "relayUrl": "wss://nos.lol",
-      "status": "left"
-    }
-  ],
-  "appActiveRelays": "0/3",
-  "browserWebSocketProbe": [
-    { "url": "wss://nos.lol", "ok": true },
-    { "url": "wss://relay.damus.io", "ok": true },
-    { "url": "wss://relay.primal.net", "ok": true }
-  ],
-  "dockerRelay": false,
+  "dockerRelay": {
+    "container": "infra-nostr-relay-1",
+    "url": "ws://localhost:7000",
+    "hostListen": true,
+    "browserWebSocketOpen": true
+  },
+  "tester1ShellObserved": true,
+  "appActiveRelaysObserved": "0/1",
+  "localRelayListEnabled": true,
+  "nativeDialNote": "workspace stack NativeRelay logs still show quiet_dial_cap → public hosts; pool did not report stable active on localhost:7000",
+  "cdpAutomation": "wedged — Runtime.enable / Page.navigate / connectOverCDP timeouts after short probes",
   "dualCdpLeaveAssert": "not_run",
   "mustNotSay": [
     "leave Fixed",

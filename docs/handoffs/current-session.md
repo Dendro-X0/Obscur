@@ -55,8 +55,8 @@ PLATFORM REWRITE BAND — Social lifecycle Slices 1–3 L1 (2026-11-07)
   Slice 2 Leave peer: gossip markMembersLeft + terminal sticky + ingress binder · L1 8 Pass
   Slice 3 Invite Fail: classified — empty Connections picker; superseded by trust-directory heal L2;
     invite candidate helper regression · optional L2 send/accept soak before Fixed
-NEXT: heal app relay pool (0/3 despite browser WSS Pass) or Docker :7000 · then leave L2 dual CDP
-  · optional invite send/accept L2 · manual packaged Requests/Connections soak
+NEXT: native pool active on ws://localhost:7000 (Docker up; browser WSS Pass; app stays 0/1)
+  · then leave L2 dual CDP · optional invite send/accept L2 · manual packaged Requests/Connections soak
   · next cut if operators need block/leave sticky in packaged face (bea87116 not in beta.9 NSIS)
 Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
 ```
