@@ -1,14 +1,14 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-11-07T16:25:00.000Z",
-  "gitCommit": "1884f09f",
+  "generatedAt": "2026-11-11T09:42:34.000Z",
+  "gitCommit": "90e8b22b",
   "version": "2.0.0",
-  "releaseTag": "2.0.0-beta.9",
+  "releaseTag": "2.0.0-beta.10",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "Obscur Full Release CI publish · run 42377708144 · tag v2.0.0-beta.9",
-  "clientBuildStamp": "shell-from-ci-v2.0.0-beta.9",
+  "sourceRun": "Obscur Full Release CI publish · run 42993627086 · tag v2.0.0-beta.10",
+  "clientBuildStamp": "shell-from-ci-v2.0.0-beta.10",
   "artifacts": [
     {
       "platform": "windows",
@@ -16,10 +16,10 @@
       "buildCommand": "Obscur Full Release CI (desktop-windows)",
       "path": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
       "fileName": "Obscur_2.0.0_x64-setup.exe",
-      "sizeBytes": 9277227,
-      "sha256": "ff4b1331d795b3658970c2272d205b031d26d1d9104dc945f203742b777e7c9c",
-      "builtAt": "2026-11-07T14:03:22Z",
-      "notes": "v2.0.0-beta.9 windows from Full Release CI run 42377708144."
+      "sizeBytes": 7535773,
+      "sha256": "959a41bf6a1ce7266f16113f05e1246df7bc3410572c687cd7e62a061c7799bb",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 remaster Windows NSIS from Full Release CI run 42993627086 (Vite desktop-ui face)."
     },
     {
       "platform": "macos",
@@ -27,10 +27,10 @@
       "buildCommand": "Obscur Full Release CI (desktop-macos)",
       "path": "release-assets/macos/Obscur_2.0.0_aarch64.dmg",
       "fileName": "Obscur_2.0.0_aarch64.dmg",
-      "sizeBytes": 10904665,
-      "sha256": "db224e170fe35e2fe88c0ce698c0f08be109fb576dd2e20a5fb72919ab4a02be",
-      "builtAt": "2026-11-07T14:03:22Z",
-      "notes": "v2.0.0-beta.9 Apple Silicon DMG from Full Release CI run 42377708144."
+      "sizeBytes": 9102391,
+      "sha256": "be5e4c78540fd10eac24fd3f1df9577cc9674247601b883f939b5bf20664c841",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 Apple Silicon DMG from Full Release CI run 42993627086."
     },
     {
       "platform": "macos",
@@ -38,10 +38,10 @@
       "buildCommand": "Obscur Full Release CI (desktop-macos)",
       "path": "release-assets/macos/Obscur_2.0.0_x64.dmg",
       "fileName": "Obscur_2.0.0_x64.dmg",
-      "sizeBytes": 11345188,
-      "sha256": "775cfd07477a13f1d8f2bc836443851e1a8bbc7e7c6fcb0bcf414f7e601e3e1f",
-      "builtAt": "2026-11-07T14:03:22Z",
-      "notes": "v2.0.0-beta.9 macOS Intel DMG from Full Release CI run 42377708144."
+      "sizeBytes": 9554643,
+      "sha256": "bf579fede4e706eb893ca11581d9cbe54c0a088cea49dd10429704278156cc2f",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 macOS Intel DMG from Full Release CI run 42993627086."
     },
     {
       "platform": "linux",
@@ -49,10 +49,10 @@
       "buildCommand": "Obscur Full Release CI (desktop-linux)",
       "path": "release-assets/linux/Obscur_2.0.0_amd64.AppImage",
       "fileName": "Obscur_2.0.0_amd64.AppImage",
-      "sizeBytes": 89786872,
-      "sha256": "e3251d79a4cb574b3e7670f9665391c09e9eb5237d898305af0a789476232304",
-      "builtAt": "2026-11-07T14:03:24Z",
-      "notes": "v2.0.0-beta.9 Linux AppImage from Full Release CI run 42377708144."
+      "sizeBytes": 88001016,
+      "sha256": "2e6143bf0a83226875ed468a20c44714c9f7a4d62d3266444dd9d1b6df891030",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 Linux AppImage from Full Release CI run 42993627086."
     },
     {
       "platform": "web",
@@ -60,10 +60,10 @@
       "buildCommand": "Obscur Full Release CI (web-pwa)",
       "path": "release-assets/web/obscur-pwa-static.tar.gz",
       "fileName": "obscur-pwa-static.tar.gz",
-      "sizeBytes": 2594371,
-      "sha256": "bc382a0e2eac5b4cea96163fe52fe764551213c003875ec1e20f11e315cbb648",
-      "builtAt": "2026-11-07T14:03:22Z",
-      "notes": "v2.0.0-beta.9 web from Full Release CI run 42377708144."
+      "sizeBytes": 2596648,
+      "sha256": "2d04a8f4784e079f02984084004dfa3ed8e1ca5b76c19b64248053452003c5f6",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 web from Full Release CI run 42993627086."
     },
     {
       "platform": "android",
@@ -71,10 +71,10 @@
       "buildCommand": "Obscur Full Release CI (mobile-android)",
       "path": "release-assets/android/Obscur_2.0.0_app-universal-release-unsigned.apk",
       "fileName": "Obscur_2.0.0_app-universal-release-unsigned.apk",
-      "sizeBytes": 68251963,
-      "sha256": "516f3426623691fa8b5b17fb975eada26633b330a89b65e21603f03efa822c8f",
-      "builtAt": "2026-11-07T14:03:25Z",
-      "notes": "v2.0.0-beta.9 android from Full Release CI run 42377708144.",
+      "sizeBytes": 68420747,
+      "sha256": "fcc8c1bc6a2eb448ca132e1cf76bb82cfd7285aca5e52bddbe2e0ac6f56fd2b8",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 android from Full Release CI run 42993627086.",
       "abiFilter": "universal (CI release unsigned)",
       "installHint": "Allow install from this source, then open the APK. Optional: adb install -t -r <apk>",
       "note": "Unsigned; no Play Developer Program / Play Store listing"
@@ -85,22 +85,22 @@
       "buildCommand": "Obscur Full Release CI (mobile-android)",
       "path": "release-assets/android/Obscur_2.0.0_app-universal-release.aab",
       "fileName": "Obscur_2.0.0_app-universal-release.aab",
-      "sizeBytes": 38922193,
-      "sha256": "2baba1c950a0855093fe87d53dbd45648d16a23cf1b88018624884524f3dbb4f",
-      "builtAt": "2026-11-07T14:03:23Z",
-      "notes": "v2.0.0-beta.9 android AAB from Full Release CI run 42377708144.",
+      "sizeBytes": 39001263,
+      "sha256": "5e96c135870a015f835c4b350e227d26f95186e019ff9f79e3da8e2110b0d540",
+      "builtAt": "2026-11-11T09:41:08Z",
+      "notes": "v2.0.0-beta.10 android AAB from Full Release CI run 42993627086.",
       "abiFilter": "universal",
       "note": "Play Console AAB when keystore ready — not a sideload APK"
     }
   ],
   "notes": [
-    "Public GitHub release tag: v2.0.0-beta.9 (package tree 2.0.0)",
+    "Public GitHub release tag: v2.0.0-beta.10 (package tree 2.0.0)",
+    "Remaster face = Vite apps/desktop-ui private-trust · Continuity methods available · Soft L3 Fixed / Continuity Pass not claimed",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
     "Windows + macOS (aarch64+x64) + Linux AppImage + Android + web",
     "Linux .deb not attached on this cut (AppImage present)",
     "Unsigned / self-signed — SmartScreen / Gatekeeper / sideload warnings expected",
     "Installer filenames embed package semver 2.0.0 (not the marketing beta tag)",
-    "Requests reconnect after Remove + trust-directory heal (Connections/Trusted/Remove)",
-    "Built from main @ 1884f09f — block/leave sticky apply lands after this tag (bea87116)"
+    "Built from main @ 90e8b22b — Full Release run 42993627086"
   ]
 }

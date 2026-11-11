@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-11T09:00:00Z
-- Session Status: ACTIVE · R5 publishing v2.0.0-beta.10 · Remaster foundation Pass (R0–R4) · Soft L3 paused · Continuity Pass not claimed
+- Last Updated (UTC): 2026-11-11T09:45:00Z
+- Session Status: ACTIVE · R5 Published v2.0.0-beta.10 · Remaster foundation Pass · Soft L3 paused · Continuity Pass not claimed
 - Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,11 +50,11 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-R5 PUBLISH IN FLIGHT — v2.0.0-beta.10 (maintainer ask received)
-  Cut plan: docs/releases/v2.0.0-beta.10-cut-plan.md
-  Notes: docs/releases/v2.0.0-beta.10-release.md
-  Sequence: commit remaster → push main → Full Release publish_release=true
-  Soft L3 Fixed / Continuity Pass / Tor Verified / Matrix promote NOT claimed
+REMASTER BETA PUBLISHED — v2.0.0-beta.10
+  Release: https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.10
+  Full Release: https://github.com/Dendro-X0/Obscur/actions/runs/42993627086
+  Face: Vite apps/desktop-ui private-trust · Continuity methods available
+NEXT (optional): local NSIS smoke / operator soak · not Soft L3 Fixed · not Continuity Pass
 Do NOT invent Continuity Cut 16+ · Soft L3 Fixed · Continuity Pass claim · silent beta wipe
 ```
 
@@ -116,7 +116,7 @@ Do NOT invent Continuity Cut 16+ · Soft L3 Fixed · Continuity Pass claim · si
 | Cut 13 Continuity M6 backfill | **CLOSED 13.0–13.5** — private-home opaque envelope backfill · F-sync C4 NARROW · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
 | Cut 14 Vite Settings NARROW | **CLOSED 14.0–14.5** — SettingsDoor + T2 residue in Continuity M1 · Soft L3 paused · **≠ Continuity Pass** · **≠ live mesh** · **≠ peer grants** |
 | Cut 15 peer history grants | **CLOSED 15.0–15.5** — Ingredient 5 create/accept/list opaque grants · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
-| Remaster foundation R0–R5 | **R0–R4 Pass** · R2 `verify:remaster-r2` · R3 no-gap · R4 honesty + draft notes · **R5 cut plan ready** (publish on ask) · Continuity Cut 16+ stopped |
+| Remaster foundation R0–R5 | **R0–R4 Pass** · **R5 Published** `v2.0.0-beta.10` (run 42993627086) · Continuity Cut 16+ stopped · Soft L3 / Continuity Pass not claimed |
 | Cut 0 privateTrust glue | **L1+headless Pass** — prepareT3Outbound/completeT3HomeAck · CRM ports · soak 6–8 · Soft L3 **not** claimed |
 | Cut 0.10 lab checklist | **Documented** — cut0-lab-milestone-checklist-2026-11-09.md · ≠ Soft L3 |
 | P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |

@@ -46,7 +46,7 @@ Those stay **chartered later**. Remaster ships with honesty copy that they are n
 | **R2** | End-to-end remaster L1/L2 soak — create → unlock → private home → T3 send/accept · Continuity M1 export · Settings T2 rides export | Soak script + checklist · **CLOSED Pass** (`pnpm verify:remaster-r2`) |
 | **R3** | Gap patch — only subtract/fix what R1–R2 prove broken for planned foundation (no new Continuity method) | **CLOSED** no-gap ACK |
 | **R4** | Remaster honesty + download/release notes — private-trust remaster · Continuity methods available · Soft L3/Continuity Pass not claimed | Copy + contract · **CLOSED Pass** |
-| **R5** | Remaster beta cut plan + pack (maintainer publish ask) | Cut plan ready · **tag only on ask** |
+| **R5** | Remaster beta cut plan + pack (maintainer publish ask) | **CLOSED Published** · `v2.0.0-beta.10` · run 42993627086 |
 
 **Foundation Pass** = R0–R4 green. **Remaster published** = R5 after explicit maintainer publish ask.
 
@@ -70,7 +70,7 @@ Those stay **chartered later**. Remaster ships with honesty copy that they are n
 
 ## 7. Next atomic step
 
-**Foundation Pass (R0–R4) CLOSED.** **R5** cut plan ready — **publish remaster beta only on maintainer ask**. Do not invent Continuity Cut 16+.
+**Foundation Pass (R0–R4) CLOSED.** **R5 Published** as `v2.0.0-beta.10`. Do not invent Continuity Cut 16+. Soft L3 Fixed / Continuity Pass not claimed.
 
 ## 8. References
 

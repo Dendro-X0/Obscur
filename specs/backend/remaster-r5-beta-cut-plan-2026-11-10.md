@@ -1,7 +1,7 @@
 # Remaster R5 — beta cut plan (publish on ask)
 
 **Date:** 2026-11-10  
-**Status:** **ACTIVE** · maintainer ask received (“publish remaster beta”) · cut = **v2.0.0-beta.10**  
+**Status:** **CLOSED Published** · tag **v2.0.0-beta.10** · Full Release [42993627086](https://github.com/Dendro-X0/Obscur/actions/runs/42993627086)  
 **Parents:** [remaster-foundation-closeout-2026-11-10.md](./remaster-foundation-closeout-2026-11-10.md) · [remaster-r4-honesty-design-2026-11-10.md](./remaster-r4-honesty-design-2026-11-10.md) · draft notes `docs/releases/remaster-beta-release-notes-draft-2026-11-10.md`
 
 ```text
