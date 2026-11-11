@@ -46,7 +46,7 @@ A new operator can, without lab jargon:
 | **OB2** | First surface port — auth + home chrome on remaster ports (props only) | L1 vitest · no pwa feature imports · **CLOSED Pass** |
 | **OB3** | Conversation list + thread + composer visual bind to `PrivateTrustHomePorts` | L1 vitest · no pwa feature imports · **CLOSED Pass** |
 | **OB4** | Product chrome pass — window title · hide lab chips · Continuity/Settings as product doors | Contract + packaged CDP spot · **CLOSED Pass** |
-| **OB5** | Official Beta cut plan + publish ask (after OB0–OB4) | Ask received · publishing **v2.0.0-beta.11** |
+| **OB5** | Official Beta cut plan + publish ask (after OB0–OB4) | **CLOSED Published** · **v2.0.0-beta.11** |
 
 **Official Beta Pass** = OB0–OB4 green. **Published Official Beta** = OB5 after explicit ask.
 
@@ -59,5 +59,5 @@ A new operator can, without lab jargon:
 
 ## 6. Next atomic step
 
-**OB0–OB4 CLOSED.** **OB5 publishing** — tag **v2.0.0-beta.11** after Full Release + asset sync.  
-Plan: [official-beta-ob5-cut-plan-2026-11-11.md](./official-beta-ob5-cut-plan-2026-11-11.md) · notes: [v2.0.0-beta.11-release.md](../../docs/releases/v2.0.0-beta.11-release.md).
+**Official Beta Published** — [v2.0.0-beta.11](../../docs/releases/v2.0.0-beta.11-release.md).  
+NEXT: packaged CDP title spot (Obscur) · Linux CI apt heal (non-blocking for Win Official Beta) · Soft L3 Fixed / Continuity Pass still not claimed.

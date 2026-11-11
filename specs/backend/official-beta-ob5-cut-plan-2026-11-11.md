@@ -1,7 +1,7 @@
 # OB5 — Official Beta cut plan (publish on ask)
 
 **Date:** 2026-11-11  
-**Status:** **PUBLISHING** · maintainer ask `publish Official Beta` received · tag **v2.0.0-beta.11**  
+**Status:** **CLOSED Published** · tag **v2.0.0-beta.11** · https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.11  
 **Parents:** [official-beta-bar-2026-11-11.md](./official-beta-bar-2026-11-11.md) · [official-beta-ob4-product-chrome-2026-11-11.md](./official-beta-ob4-product-chrome-2026-11-11.md) · foundation [remaster-r5-beta-cut-plan-2026-11-10.md](./remaster-r5-beta-cut-plan-2026-11-10.md) (beta.10)  
 **Draft notes:** [docs/releases/official-beta-release-notes-draft-2026-11-11.md](../../docs/releases/official-beta-release-notes-draft-2026-11-11.md)
 

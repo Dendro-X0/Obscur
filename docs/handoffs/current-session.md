@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-11T14:40:00Z
-- Session Status: ACTIVE · Official Beta OB5 publishing v2.0.0-beta.11 · Soft L3 paused · Continuity Pass not claimed
+- Last Updated (UTC): 2026-11-11T17:20:00Z
+- Session Status: ACTIVE · Official Beta v2.0.0-beta.11 Published · Soft L3 paused · Continuity Pass not claimed
 - Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,14 +50,13 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-OFFICIAL BETA BAR — OB0–OB4 CLOSED (= Official Beta Pass) · OB5 cut plan READY
-  Spec: specs/backend/official-beta-bar-2026-11-11.md
-  OB5 plan: specs/backend/official-beta-ob5-cut-plan-2026-11-11.md
-  Draft notes: docs/releases/official-beta-release-notes-draft-2026-11-11.md
-  Suggested tag: v2.0.0-beta.11 · version.json still 2.0.0-beta.10 until ask
-ASK: reply "publish Official Beta" or "publish v2.0.0-beta.11" to cut/tag/package
+OFFICIAL BETA PUBLISHED — v2.0.0-beta.11
+  Release: https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.11
+  Notes: docs/releases/v2.0.0-beta.11-release.md
+  version.json releaseTag=2.0.0-beta.11
+NEXT (optional): packaged CDP title Obscur spot · Linux CI apt heal · Android asset re-sync
   Soft L3 Fixed / Continuity Pass / Tor Verified / Matrix promote NOT claimed
-STOP without that phrase · Do NOT tag from continue · Do NOT silent beta wipe
+Do NOT invent Continuity Cut 16+ · Do NOT silent beta wipe
 ```
 
 ## Landed
@@ -119,7 +118,7 @@ STOP without that phrase · Do NOT tag from continue · Do NOT silent beta wipe
 | Cut 14 Vite Settings NARROW | **CLOSED 14.0–14.5** — SettingsDoor + T2 residue in Continuity M1 · Soft L3 paused · **≠ Continuity Pass** · **≠ live mesh** · **≠ peer grants** |
 | Cut 15 peer history grants | **CLOSED 15.0–15.5** — Ingredient 5 create/accept/list opaque grants · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
 | Remaster foundation R0–R5 | **R0–R4 Pass** · **R5 Published** `v2.0.0-beta.10` · **NSIS L2 Pass** · foundation only ≠ Official Beta |
-| Official Beta bar | **OB0–OB4 Pass** · **OB5 cut plan READY** · suggested `v2.0.0-beta.11` · WAITING publish ask · Soft L3/Continuity not claimed |
+| Official Beta bar | **v2.0.0-beta.11 Published** · Win/macOS Official Beta · Linux CI Partial · Soft L3/Continuity not claimed |
 | Cut 0 privateTrust glue | **L1+headless Pass** — prepareT3Outbound/completeT3HomeAck · CRM ports · soak 6–8 · Soft L3 **not** claimed |
 | Cut 0.10 lab checklist | **Documented** — cut0-lab-milestone-checklist-2026-11-09.md · ≠ Soft L3 |
 | P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |

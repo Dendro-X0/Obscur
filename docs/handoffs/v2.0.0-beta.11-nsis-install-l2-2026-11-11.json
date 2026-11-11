@@ -1,0 +1,24 @@
+{
+  "dateUtc": "2026-11-11",
+  "verdict": "publish_pass_cdp_partial",
+  "releaseTag": "2.0.0-beta.11",
+  "githubRelease": "https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.11",
+  "ciRun": "43057355295",
+  "installer": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
+  "installerSha256": "fdcc5da4a92f4260928db46430bab82c829fc74ab32f946c3432d650c5f85707",
+  "installerSizeBytes": 7598139,
+  "cdp": {
+    "attempted": true,
+    "port9230": false,
+    "note": "WEBVIEW2 remote-debugging attach failed this session (Access denied / no listener). Source title Obscur Pass; packaged title spot owed."
+  },
+  "linuxCi": "Fail — Azure apt mirror Ign/timeout; AppImage carried from beta.10",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Continuity Pass",
+    "Tor Verified",
+    "Matrix promote",
+    "live multi-device sync",
+    "video usable"
+  ]
+}

@@ -14,8 +14,7 @@ describe("Official Beta OB5 cut plan", () => {
   it("locks OB5 cut plan honesty for Official Beta publish", () => {
     const plan = readText("specs/backend/official-beta-ob5-cut-plan-2026-11-11.md");
     expect(plan).toContain("v2.0.0-beta.11");
-    expect(plan).toContain("verify:ob4");
-    expect(plan).toContain("publish Official Beta");
+    expect(plan).toContain("CLOSED Published");
     expect(plan).toContain("≠ Continuity Pass");
     expect(plan).toContain("Soft L3 Fixed");
     expect(plan).not.toMatch(/Soft L3 Fixed\s*\*\*Pass\*\*/);
@@ -25,6 +24,7 @@ describe("Official Beta OB5 cut plan", () => {
   it("promotes Official Beta release notes for beta.11", () => {
     const notes = readText("docs/releases/v2.0.0-beta.11-release.md");
     expect(notes).toContain("Official Beta");
+    expect(notes).toContain("**Published**");
     expect(notes).toContain("v2.0.0-beta.11");
     expect(notes).toContain("Continuity Pass");
     expect(notes).toContain("Soft L3 Fixed");
