@@ -3,8 +3,8 @@ import type { ContinuityPorts } from "./ports";
 import { CONTINUITY_TIER_LABELS } from "./continuity-tiers";
 
 /**
- * Cut 7–15 — Continuity M1–M6 + peer history grants door.
- * Unlock ≠ Continuity. Soft L3 / Continuity Pass not claimed · grants ≠ invent CRM.
+ * Cut 7–15 / OB4 — Continuity product door (methods available ≠ Continuity Pass).
+ * Unlock ≠ Continuity. Soft L3 paused · grants ≠ invent CRM.
  */
 
 export type ContinuityDoorProps = Readonly<{
@@ -227,12 +227,12 @@ export function ContinuityDoor(props: ContinuityDoorProps) {
   };
 
   return (
-    <section className="continuity-door" data-testid="continuity-door">
+    <section className="continuity-door product-door" data-testid="continuity-door">
       <header className="continuity-door-header">
         <h2>Continuity</h2>
         <p className="continuity-door-sub">
-          Plane 3 · M1–M6 · peer history grants — unlock does not restore a wiped PC ·
-          registry ≠ live sync · grants ≠ invent CRM · ≠ Continuity Pass.
+          Restore and device continuity on remaster ports — unlock does not restore a wiped
+          PC · linked-device registry ≠ live sync · ≠ Continuity Pass.
         </p>
       </header>
       <p className="continuity-honesty" data-testid="continuity-honesty">

@@ -70,7 +70,9 @@ Those stay **chartered later**. Remaster ships with honesty copy that they are n
 
 ## 7. Next atomic step
 
-**Foundation Pass (R0–R4) CLOSED.** **R5 Published** as `v2.0.0-beta.10`. Do not invent Continuity Cut 16+. Soft L3 Fixed / Continuity Pass not claimed.
+**Foundation Pass (R0–R4) CLOSED.** **R5 Published** as `v2.0.0-beta.10` (foundation artifact only).  
+**Official Beta** = separate band — keep visual chrome · replace legacy integration — [official-beta-bar-2026-11-11.md](./official-beta-bar-2026-11-11.md).  
+Do not invent Continuity Cut 16+. Soft L3 Fixed / Continuity Pass not claimed.
 
 ## 8. References
 

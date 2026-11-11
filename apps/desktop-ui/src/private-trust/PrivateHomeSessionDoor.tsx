@@ -47,8 +47,8 @@ export function PrivateHomeSessionDoor(props: PrivateHomeSessionDoorProps) {
       <header>
         <h2>Private home</h2>
         <p className="lede">
-          Named home for H-dc envelopes and Continuity M2 publish — transport only,
-          not Continuity Pass.
+          Configure your private home for sealed send and Continuity publish — transport
+          only · ≠ Continuity Pass.
         </p>
       </header>
       <form className="auth-form" onSubmit={onSave}>

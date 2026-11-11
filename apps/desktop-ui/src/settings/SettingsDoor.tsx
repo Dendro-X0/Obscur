@@ -1,4 +1,7 @@
 import { useState, type FormEvent } from "react";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
 import {
   readViteSettingsResidue,
   removeViteSettingsRelay,
@@ -7,7 +10,7 @@ import {
 } from "./vite-settings-residue";
 
 /**
- * Cut 14.3 — thin Vite Settings door (T2 residue).
+ * Cut 14.3 / OB4 — Settings product door (T2 residue on remaster ports).
  * ≠ Continuity Pass · Soft L3 paused · ≠ apps/pwa Settings · ≠ live mesh.
  */
 
@@ -58,28 +61,28 @@ export function SettingsDoor(props: SettingsDoorProps) {
   };
 
   return (
-    <section className="settings-door" data-testid="settings-door">
+    <section className="settings-door product-door" data-testid="settings-door">
       <header>
         <h2>Settings</h2>
         <p className="lede">
-          Thin Vite face · Continuity T2 residue — Soft L3 paused · Continuity Pass not claimed ·
-          relays are local only (≠ live mesh).
+          Profile preferences and a local relay list for Continuity export.
+          Soft L3 paused · Continuity Pass not claimed · relays ≠ live mesh · ≠ Tor Verified.
         </p>
       </header>
 
       <form className="auth-form" onSubmit={persistIdentityPrivacy}>
         <h3>Identity</h3>
-        <label className="auth-label">
-          Display name
-          <input
-            className="auth-input"
+        <div className="auth-field">
+          <Label htmlFor="settings-display-name">Display name</Label>
+          <Input
+            id="settings-display-name"
             type="text"
             data-testid="settings-display-name"
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
             placeholder="Optional display name"
           />
-        </label>
+        </div>
 
         <h3>Privacy / UI</h3>
         <label className="settings-check">
@@ -100,30 +103,34 @@ export function SettingsDoor(props: SettingsDoorProps) {
           />
           Compact UI preference
         </label>
-        <button type="submit" className="auth-button" data-testid="settings-save">
-          Save settings
-        </button>
+        <div className="auth-actions">
+          <Button type="submit" data-testid="settings-save">
+            Save settings
+          </Button>
+        </div>
       </form>
 
       <form className="auth-form" onSubmit={onAddRelay}>
         <h3>Network (local relay list)</h3>
         <p className="continuity-door-sub">
-          Stored for Continuity T2 export — not a live relay pool claim · ≠ Tor Verified.
+          Stored for Continuity export — not a live relay pool claim · ≠ Tor Verified.
         </p>
-        <label className="auth-label">
-          Relay URL
-          <input
-            className="auth-input"
+        <div className="auth-field">
+          <Label htmlFor="settings-relay-url">Relay URL</Label>
+          <Input
+            id="settings-relay-url"
             type="url"
             data-testid="settings-relay-url"
             value={relayUrl}
             onChange={(event) => setRelayUrl(event.target.value)}
             placeholder="wss://relay.example"
           />
-        </label>
-        <button type="submit" className="auth-button" data-testid="settings-relay-add">
-          Add relay
-        </button>
+        </div>
+        <div className="auth-actions">
+          <Button type="submit" data-testid="settings-relay-add">
+            Add relay
+          </Button>
+        </div>
         <ul data-testid="settings-relay-list">
           {residue.relayList.length === 0 ? (
             <li className="muted">No local relays</li>
@@ -131,13 +138,15 @@ export function SettingsDoor(props: SettingsDoorProps) {
             residue.relayList.map((row) => (
               <li key={row.url}>
                 <span>{row.url}{row.enabled ? "" : " · off"}</span>
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   data-testid={`settings-relay-remove-${row.url}`}
                   onClick={() => onRemoveRelay(row.url)}
                 >
                   Remove
-                </button>
+                </Button>
               </li>
             ))
           )}

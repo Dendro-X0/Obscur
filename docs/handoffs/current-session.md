@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-11T10:50:00Z
-- Session Status: ACTIVE · R5 Published v2.0.0-beta.10 · NSIS L2 Pass · Soft L3 paused · Continuity Pass not claimed
+- Last Updated (UTC): 2026-11-11T14:40:00Z
+- Session Status: ACTIVE · Official Beta OB5 publishing v2.0.0-beta.11 · Soft L3 paused · Continuity Pass not claimed
 - Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,11 +50,14 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-REMASTER BETA + NSIS L2 CLOSED — v2.0.0-beta.10
-  Release: https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.10
-  NSIS L2: docs/handoffs/v2.0.0-beta.10-nsis-install-l2-2026-11-11.md (Pass)
-  Face: Vite apps/desktop-ui · CDP attach via WEBVIEW2 args confirmed remaster title
-NEXT: maintainer-directed only — do not invent Continuity Cut 16+ / Soft L3 Fixed / Continuity Pass
+OFFICIAL BETA BAR — OB0–OB4 CLOSED (= Official Beta Pass) · OB5 cut plan READY
+  Spec: specs/backend/official-beta-bar-2026-11-11.md
+  OB5 plan: specs/backend/official-beta-ob5-cut-plan-2026-11-11.md
+  Draft notes: docs/releases/official-beta-release-notes-draft-2026-11-11.md
+  Suggested tag: v2.0.0-beta.11 · version.json still 2.0.0-beta.10 until ask
+ASK: reply "publish Official Beta" or "publish v2.0.0-beta.11" to cut/tag/package
+  Soft L3 Fixed / Continuity Pass / Tor Verified / Matrix promote NOT claimed
+STOP without that phrase · Do NOT tag from continue · Do NOT silent beta wipe
 ```
 
 ## Landed
@@ -115,7 +118,8 @@ NEXT: maintainer-directed only — do not invent Continuity Cut 16+ / Soft L3 Fi
 | Cut 13 Continuity M6 backfill | **CLOSED 13.0–13.5** — private-home opaque envelope backfill · F-sync C4 NARROW · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
 | Cut 14 Vite Settings NARROW | **CLOSED 14.0–14.5** — SettingsDoor + T2 residue in Continuity M1 · Soft L3 paused · **≠ Continuity Pass** · **≠ live mesh** · **≠ peer grants** |
 | Cut 15 peer history grants | **CLOSED 15.0–15.5** — Ingredient 5 create/accept/list opaque grants · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
-| Remaster foundation R0–R5 | **R0–R4 Pass** · **R5 Published** `v2.0.0-beta.10` (run 42993627086) · **NSIS L2 Pass** 2026-11-11 · Continuity Cut 16+ stopped · Soft L3 / Continuity Pass not claimed |
+| Remaster foundation R0–R5 | **R0–R4 Pass** · **R5 Published** `v2.0.0-beta.10` · **NSIS L2 Pass** · foundation only ≠ Official Beta |
+| Official Beta bar | **OB0–OB4 Pass** · **OB5 cut plan READY** · suggested `v2.0.0-beta.11` · WAITING publish ask · Soft L3/Continuity not claimed |
 | Cut 0 privateTrust glue | **L1+headless Pass** — prepareT3Outbound/completeT3HomeAck · CRM ports · soak 6–8 · Soft L3 **not** claimed |
 | Cut 0.10 lab checklist | **Documented** — cut0-lab-milestone-checklist-2026-11-09.md · ≠ Soft L3 |
 | P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |

@@ -19,6 +19,7 @@ describe("Remaster R4 honesty", () => {
   it("exports remaster honesty strings without Pass claims", () => {
     expect(REMASTER_SHELL_HONESTY).toContain("Private-trust remaster");
     expect(REMASTER_SHELL_HONESTY).toContain("Continuity methods available");
+    expect(REMASTER_SHELL_HONESTY).toContain("product door");
     expect(REMASTER_SHELL_HONESTY).toContain("Continuity Pass not claimed");
     expect(REMASTER_AUTH_META).toContain("unlock ≠ Continuity");
     expect(REMASTER_NON_CLAIMS).toEqual(expect.arrayContaining([

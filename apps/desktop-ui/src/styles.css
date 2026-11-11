@@ -1,18 +1,176 @@
+@import "tailwindcss";
+@source "../../../packages/ui-kit/src";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --gradient-main: var(--gradient-main);
+  --gradient-sidebar: var(--gradient-sidebar);
+  --gradient-card: var(--gradient-card);
+  --gradient-button: var(--gradient-button);
+  --gradient-primary: var(--gradient-primary);
+  --gradient-accent: var(--gradient-accent);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 :root {
-  color-scheme: dark;
+  --font-geist-sans: "Segoe UI Variable Display", "Segoe UI", "Aptos", "Helvetica Neue", Arial, sans-serif;
+  --font-geist-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", "Consolas", monospace;
+  --radius: 0.75rem;
+  --background: oklch(0.99 0.005 280);
+  --foreground: oklch(0.12 0.03 275);
+  --card: oklch(1 0 0 / 0.9);
+  --card-foreground: oklch(0.12 0.03 275);
+  --popover: oklch(1 0 0 / 0.95);
+  --popover-foreground: oklch(0.12 0.03 275);
+  --primary: oklch(0.58 0.24 285);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.96 0.01 270);
+  --secondary-foreground: oklch(0.2 0.04 275);
+  --muted: oklch(0.97 0.01 270);
+  --muted-foreground: oklch(0.35 0.03 275);
+  --accent: oklch(0.92 0.06 280);
+  --accent-foreground: oklch(0.25 0.15 285);
+  --destructive: oklch(0.55 0.22 25);
+  --border: oklch(0 0 0 / 12%);
+  --input: oklch(0 0 0 / 10%);
+  --ring: oklch(0.58 0.24 285);
+  --sidebar: oklch(0.99 0.005 280);
+  --sidebar-foreground: oklch(0.12 0.03 275);
+  --sidebar-primary: oklch(0.58 0.24 285);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.94 0.05 285);
+  --sidebar-accent-foreground: oklch(0.25 0.15 285);
+  --sidebar-border: oklch(0 0 0 / 8%);
+  --sidebar-ring: oklch(0.58 0.24 285);
+  --gradient-main: radial-gradient(circle at 0% 0%, oklch(0.99 0.05 285) 0%, oklch(0.98 0.02 275) 50%, oklch(0.97 0.04 265) 100%);
+  --gradient-sidebar: linear-gradient(180deg, oklch(1 0.01 280) 0%, oklch(0.98 0.03 275) 100%);
+  --gradient-card: linear-gradient(145deg, oklch(1 0 0 / 0.95) 0%, oklch(0.99 0.02 275 / 0.7) 100%);
+  --gradient-button: linear-gradient(135deg, oklch(0.6 0.24 285) 0%, oklch(0.48 0.28 305) 100%);
+  --gradient-primary: linear-gradient(135deg, oklch(0.58 0.24 285) 0%, oklch(0.45 0.28 310) 45%, oklch(0.52 0.22 330) 100%);
+  --gradient-accent: linear-gradient(135deg, oklch(0.94 0.08 285) 0%, oklch(0.92 0.06 275) 100%);
+
+  /* Remaster layout aliases (PrivateTrustHome / Continuity / Settings). */
   --bg0: #0c1014;
   --bg1: #141a22;
   --ink: #e8eef6;
-  --muted: #8b98a8;
-  --accent: #6f9f8a;
   --rule: rgba(232, 238, 246, 0.12);
-  font-family: "Segoe UI", "IBM Plex Sans", system-ui, sans-serif;
-  line-height: 1.45;
-  background:
-    radial-gradient(1200px 600px at 12% -10%, rgba(111, 159, 138, 0.18), transparent 55%),
-    radial-gradient(900px 500px at 90% 10%, rgba(90, 120, 160, 0.16), transparent 50%),
-    linear-gradient(165deg, var(--bg0), var(--bg1));
-  color: var(--ink);
+  --remaster-accent: #6f9f8a;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.14 0.02 270);
+  --foreground: oklch(0.98 0.01 270);
+  --card: oklch(0.18 0.03 270 / 0.4);
+  --card-foreground: oklch(0.98 0.01 270);
+  --popover: oklch(0.16 0.02 270 / 0.9);
+  --popover-foreground: oklch(0.98 0.01 270);
+  --primary: oklch(0.65 0.2 270);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.2 0.03 270);
+  --secondary-foreground: oklch(0.95 0.02 270);
+  --muted: oklch(0.18 0.02 270);
+  --muted-foreground: oklch(0.6 0.03 270);
+  --accent: oklch(0.24 0.04 270);
+  --accent-foreground: oklch(0.98 0.01 270);
+  --destructive: oklch(0.55 0.18 25);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.65 0.2 270);
+  --sidebar: oklch(0.14 0.02 270);
+  --sidebar-foreground: oklch(0.98 0.01 270);
+  --sidebar-primary: oklch(0.65 0.2 270);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.22 0.04 270);
+  --sidebar-accent-foreground: oklch(0.98 0.01 270);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.65 0.2 270);
+  --gradient-main: radial-gradient(circle at 50% -20%, oklch(0.3 0.1 270) 0%, oklch(0.14 0.04 270) 80%);
+  --gradient-sidebar: linear-gradient(180deg, oklch(0.16 0.02 270) 0%, oklch(0.1 0.02 270) 100%);
+  --gradient-card: linear-gradient(145deg, oklch(0.24 0.06 270 / 0.3) 0%, oklch(0.14 0.04 270 / 0.15) 100%);
+  --gradient-button: linear-gradient(135deg, oklch(0.3 0.08 270) 0%, oklch(0.16 0.05 270) 100%);
+  --gradient-primary: linear-gradient(135deg, oklch(0.65 0.2 270) 0%, oklch(0.55 0.2 285) 100%);
+  --gradient-accent: linear-gradient(135deg, oklch(0.28 0.06 270) 0%, oklch(0.2 0.04 270) 100%);
+}
+
+@layer utilities {
+  .bg-gradient-main {
+    background: var(--gradient-main);
+  }
+
+  .bg-gradient-sidebar {
+    background: var(--gradient-sidebar);
+  }
+
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .bg-gradient-button {
+    background: var(--gradient-button);
+  }
+
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+}
+
+@layer components {
+  .btn-enhanced {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+  }
+
+  .btn-enhanced:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  }
+
+  .btn-enhanced:active {
+    transform: translateY(0);
+    transition-duration: 0.1s;
+  }
+
+  .input-enhanced {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+  }
+
+  .input-enhanced:focus {
+    border-color: color-mix(in oklch, var(--ring) 55%, transparent);
+  }
 }
 
 * {
@@ -24,6 +182,13 @@ body,
 #root {
   min-height: 100%;
   margin: 0;
+}
+
+body {
+  font-family: var(--font-geist-sans);
+  line-height: 1.45;
+  background: var(--gradient-main);
+  color: var(--foreground);
 }
 
 .shell {
@@ -47,25 +212,26 @@ body,
   letter-spacing: -0.04em;
 }
 
-h1 {
+.auth-panel h1,
+.shell > h1 {
   margin: 0;
   font-size: 1.15rem;
   font-weight: 550;
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .lede {
   margin: 0.35rem 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   max-width: 34rem;
 }
 
 .meta {
   margin: 1.25rem 0 0;
   padding-top: 0.85rem;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--border);
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   letter-spacing: 0.02em;
 }
 
@@ -78,27 +244,34 @@ h1 {
   display: grid;
   gap: 0.85rem;
   margin-top: 0.75rem;
+  max-width: 22rem;
 }
 
+.auth-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+/* Shared remaster form chrome (Settings / PrivateHome until OB3 ui-kit bind). */
 .auth-label {
   display: grid;
   gap: 0.35rem;
   font-size: 0.85rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .auth-input {
   width: min(100%, 22rem);
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border);
   border-radius: 0.55rem;
-  background: rgba(8, 12, 16, 0.72);
-  color: var(--ink);
+  background: color-mix(in oklch, var(--card) 80%, transparent);
+  color: var(--foreground);
   padding: 0.7rem 0.85rem;
   font: inherit;
 }
 
 .auth-input:focus {
-  outline: 2px solid rgba(111, 159, 138, 0.45);
+  outline: 2px solid color-mix(in oklch, var(--ring) 45%, transparent);
   outline-offset: 1px;
 }
 
@@ -106,8 +279,8 @@ h1 {
   width: fit-content;
   border: 0;
   border-radius: 0.55rem;
-  background: var(--accent);
-  color: #07110d;
+  background: var(--primary);
+  color: var(--primary-foreground);
   font: inherit;
   font-weight: 600;
   padding: 0.65rem 1.1rem;
@@ -121,20 +294,27 @@ h1 {
 
 .auth-button.secondary {
   background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--rule);
+  color: var(--foreground);
+  border: 1px solid var(--border);
 }
 
 .auth-error {
   margin: 0;
-  color: #e59b8b;
+  color: var(--destructive);
   font-size: 0.85rem;
 }
 
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
 code {
-  font-family: "Cascadia Code", "Consolas", monospace;
+  font-family: var(--font-geist-mono);
   font-size: 0.9em;
-  color: var(--ink);
+  color: var(--foreground);
 }
 
 .pt-home {
@@ -156,9 +336,9 @@ code {
 }
 
 .pt-chip {
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border);
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   border-radius: 0.45rem;
   padding: 0.4rem 0.75rem;
   font: inherit;
@@ -166,8 +346,8 @@ code {
 }
 
 .pt-chip.active {
-  color: #07110d;
-  background: var(--accent);
+  color: var(--primary-foreground);
+  background: var(--primary);
   border-color: transparent;
 }
 
@@ -176,19 +356,19 @@ code {
   gap: 0.15rem;
   margin: 0;
   padding: 0.65rem 0.75rem;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--border);
   border-radius: 0.55rem;
-  background: rgba(8, 12, 16, 0.45);
+  background: color-mix(in oklch, var(--card) 80%, transparent);
 }
 
 .pt-transport strong {
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .pt-transport span,
 .pt-transport.muted,
 .muted {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.85rem;
 }
 
@@ -206,41 +386,14 @@ code {
 }
 
 .pt-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   align-content: start;
-  gap: 0.4rem;
-  border-right: 1px solid var(--rule);
-  padding-right: 0.65rem;
-}
-
-.pt-conv {
-  display: grid;
-  gap: 0.15rem;
-  text-align: left;
-  border: 1px solid transparent;
-  border-radius: 0.45rem;
-  background: transparent;
-  color: inherit;
-  padding: 0.55rem 0.6rem;
-  font: inherit;
-  cursor: pointer;
-}
-
-.pt-conv.active {
-  border-color: var(--rule);
-  background: rgba(111, 159, 138, 0.12);
-}
-
-.pt-conv-title {
-  font-weight: 600;
-}
-
-.pt-conv-preview {
-  color: var(--muted);
-  font-size: 0.8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  gap: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 0.35rem;
+  min-height: 22rem;
+  overflow: auto;
 }
 
 .pt-thread {
@@ -251,71 +404,19 @@ code {
 }
 
 .pt-messages {
-  display: grid;
-  align-content: start;
-  gap: 0.55rem;
-  overflow: auto;
-  max-height: 18rem;
-  padding-right: 0.25rem;
-}
-
-.pt-msg {
-  max-width: 85%;
-  border-radius: 0.55rem;
-  padding: 0.55rem 0.7rem;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.pt-msg p {
-  margin: 0;
-}
-
-.pt-msg.out {
-  justify-self: end;
-  background: rgba(111, 159, 138, 0.18);
-}
-
-.pt-msg-meta {
-  display: block;
-  margin-top: 0.25rem;
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
-.pt-composer {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.pt-draft {
-  width: 100%;
-  resize: vertical;
-  min-height: 4.5rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.55rem;
-  background: rgba(8, 12, 16, 0.72);
-  color: var(--ink);
-  padding: 0.7rem 0.85rem;
-  font: inherit;
-}
-
-.pt-composer-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.75rem;
-  align-items: center;
-}
-
-.pt-status {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
+  overflow: auto;
+  max-height: 22rem;
+  padding-right: 0.25rem;
 }
 
 .continuity-door {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--border);
   display: grid;
   gap: 0.65rem;
 }
@@ -329,14 +430,14 @@ code {
 .continuity-honesty,
 .continuity-status {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.85rem;
 }
 
 .continuity-tiers {
   margin: 0;
   padding-left: 1.1rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.8rem;
 }
 
@@ -346,10 +447,42 @@ code {
   gap: 0.55rem;
 }
 
+.product-doors {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.85rem;
+}
+
+.product-doors-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.product-doors-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.product-doors-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.product-doors-panel .settings-door,
+.product-doors-panel .continuity-door,
+.product-doors-panel .home-session-door {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .settings-door {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--border);
   display: grid;
   gap: 0.85rem;
 }
@@ -367,14 +500,14 @@ code {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.9rem;
 }
 
 .settings-door ul {
   margin: 0;
   padding-left: 1.1rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.85rem;
   display: grid;
   gap: 0.35rem;
@@ -387,4 +520,3 @@ code {
   align-items: center;
   justify-content: space-between;
 }
-

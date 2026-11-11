@@ -2,6 +2,9 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { DeviceUnlockPort } from "@dweb/auth/ports/device-unlock-port";
 import type { Passphrase } from "@dweb/crypto/passphrase";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
+import { Button } from "@dweb/ui-kit/button";
+import { Input } from "@dweb/ui-kit/input";
+import { Label } from "@dweb/ui-kit/label";
 import {
   beginAuthDoorUnlock,
   createLockedAuthDoorSession,
@@ -19,8 +22,9 @@ import {
 } from "./vite-passphrase-device-unlock";
 
 /**
- * Cut 3 / 11.2 — Vite AuthDoor (unlock + empty-device create).
+ * Cut 3 / 11.2 / OB2 — Vite AuthDoor (unlock + empty-device create).
  * Soft L3 paused · Continuity Pass not claimed · unlock ≠ Continuity.
+ * OB2: @dweb/ui-kit primitives · remaster DeviceUnlockPort only · no pwa features.
  */
 
 export type AuthDoorProps = Readonly<{
@@ -133,9 +137,11 @@ export function AuthDoor(props: AuthDoorProps) {
           Unlock gate matched AuthGateway (`resolveAuthShellReady`).
         </p>
         <p className="meta">profile · {session.profileId}</p>
-        <button type="button" className="auth-button secondary" onClick={onLock}>
-          Lock
-        </button>
+        <div className="auth-actions">
+          <Button type="button" variant="outline" onClick={onLock}>
+            Lock
+          </Button>
+        </div>
       </section>
     );
   }
@@ -149,13 +155,14 @@ export function AuthDoor(props: AuthDoorProps) {
           Identity unlocked; PDK bind still pending — same Single-door Slice A gate as
           AuthGateway. Shell stays closed until bind clears.
         </p>
-        <button
-          type="button"
-          className="auth-button"
-          onClick={() => setSession((current) => clearAuthDoorBindPending(current))}
-        >
-          Complete bind (lab)
-        </button>
+        <div className="auth-actions">
+          <Button
+            type="button"
+            onClick={() => setSession((current) => clearAuthDoorBindPending(current))}
+          >
+            Complete bind (lab)
+          </Button>
+        </div>
       </section>
     );
   }
@@ -170,10 +177,10 @@ export function AuthDoor(props: AuthDoorProps) {
           Continuity is a separate Plane 3 path.
         </p>
         <form className="auth-form" onSubmit={(event) => void onCreate(event)}>
-          <label className="auth-label">
-            Device passphrase
-            <input
-              className="auth-input"
+          <div className="auth-field">
+            <Label htmlFor="auth-create-passphrase">Device passphrase</Label>
+            <Input
+              id="auth-create-passphrase"
               type="password"
               autoComplete="new-password"
               data-testid="auth-create-passphrase"
@@ -183,11 +190,11 @@ export function AuthDoor(props: AuthDoorProps) {
               required
               minLength={8}
             />
-          </label>
-          <label className="auth-label">
-            Confirm passphrase
-            <input
-              className="auth-input"
+          </div>
+          <div className="auth-field">
+            <Label htmlFor="auth-create-passphrase-confirm">Confirm passphrase</Label>
+            <Input
+              id="auth-create-passphrase-confirm"
               type="password"
               autoComplete="new-password"
               data-testid="auth-create-passphrase-confirm"
@@ -197,27 +204,30 @@ export function AuthDoor(props: AuthDoorProps) {
               required
               minLength={8}
             />
-          </label>
+          </div>
           {createError ? (
             <p className="auth-error" role="alert">{createError}</p>
           ) : null}
-          <button
-            type="submit"
-            className="auth-button"
-            disabled={createBusy || passphrase.length < 8}
-            data-testid="auth-create-submit"
-          >
-            {createBusy ? "Creating…" : "Create account"}
-          </button>
+          <div className="auth-actions">
+            <Button
+              type="submit"
+              disabled={createBusy || passphrase.length < 8}
+              data-testid="auth-create-submit"
+            >
+              {createBusy ? "Creating…" : "Create account"}
+            </Button>
+          </div>
         </form>
         {stored ? (
-          <button
-            type="button"
-            className="auth-button secondary"
-            onClick={() => setMode("unlock")}
-          >
-            Back to unlock
-          </button>
+          <div className="auth-actions">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMode("unlock")}
+            >
+              Back to unlock
+            </Button>
+          </div>
         ) : null}
         <p className="meta">{REMASTER_AUTH_META}</p>
       </section>
@@ -233,10 +243,10 @@ export function AuthDoor(props: AuthDoorProps) {
         a wiped PC — use Continuity after shell ready.
       </p>
       <form className="auth-form" onSubmit={(event) => void onUnlock(event)}>
-        <label className="auth-label">
-          Passphrase
-          <input
-            className="auth-input"
+        <div className="auth-field">
+          <Label htmlFor="auth-unlock-passphrase">Passphrase</Label>
+          <Input
+            id="auth-unlock-passphrase"
             type="password"
             autoComplete="current-password"
             value={passphrase}
@@ -244,26 +254,29 @@ export function AuthDoor(props: AuthDoorProps) {
             disabled={session.phase === "unlocking"}
             required
           />
-        </label>
+        </div>
         {session.errorMessage ? (
           <p className="auth-error" role="alert">{session.errorMessage}</p>
         ) : null}
-        <button
-          type="submit"
-          className="auth-button"
-          disabled={session.phase === "unlocking" || passphrase.length === 0}
-        >
-          {session.phase === "unlocking" ? "Unlocking…" : "Unlock"}
-        </button>
+        <div className="auth-actions">
+          <Button
+            type="submit"
+            disabled={session.phase === "unlocking" || passphrase.length === 0}
+          >
+            {session.phase === "unlocking" ? "Unlocking…" : "Unlock"}
+          </Button>
+        </div>
       </form>
-      <button
-        type="button"
-        className="auth-button secondary"
-        data-testid="auth-switch-create"
-        onClick={() => setMode("create")}
-      >
-        Create new account instead
-      </button>
+      <div className="auth-actions">
+        <Button
+          type="button"
+          variant="outline"
+          data-testid="auth-switch-create"
+          onClick={() => setMode("create")}
+        >
+          Create new account instead
+        </Button>
+      </div>
       <p className="meta">{REMASTER_AUTH_META}</p>
     </section>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { MessageCircle, Search, Wifi, Users } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "../utils/cn";

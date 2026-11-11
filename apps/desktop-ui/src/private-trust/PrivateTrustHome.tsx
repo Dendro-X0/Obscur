@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@dweb/ui-kit/button";
 import {
   isPrivateTrustComposeFace,
   privateTrustComposeTransportCopy,
@@ -7,8 +8,15 @@ import {
 import { ContinuityDoor } from "../continuity/ContinuityDoor";
 import type { ContinuityPorts } from "../continuity/ports";
 import { LAB_AUTH_DOOR_DEFAULTS } from "../auth/lab-device-unlock-port";
+import { ProductDoors } from "../product/ProductDoors";
 import { REMASTER_SHELL_HONESTY } from "../remaster-honesty-copy";
 import { SettingsDoor } from "../settings/SettingsDoor";
+import {
+  ComposerView,
+  ConversationRowView,
+  EmptyThreadView,
+  MessageBubbleView,
+} from "./chrome";
 import { PrivateHomeSessionDoor } from "./PrivateHomeSessionDoor";
 import type {
   PrivateTrustConversationRow,
@@ -16,10 +24,10 @@ import type {
   PrivateTrustMessageRow,
 } from "./ports";
 
+/** OB4 — product protocol chips only · Matrix promote paused · no Matrix lab chip. */
 const PROTOCOL_CHIPS: ReadonlyArray<Readonly<{ id: PrivateTrustProtocolId; label: string }>> = [
   { id: "private_dc", label: "Private DC" },
   { id: "nostr", label: "Obscur-Nostr" },
-  { id: "matrix", label: "Matrix (lab)" },
 ];
 
 export type PrivateTrustHomeProps = Readonly<{
@@ -69,13 +77,22 @@ export function PrivateTrustHome(props: PrivateTrustHomeProps) {
   }, [activeConversationId, refreshThread]);
 
   const selectProtocol = (next: PrivateTrustProtocolId) => {
+    if (next === "matrix") {
+      return;
+    }
     props.ports.setProtocolId(next);
     setProtocolId(props.ports.resolveProtocolId());
     setStatusLine(null);
   };
 
-  const onSend = async (event: FormEvent) => {
-    event.preventDefault();
+  useEffect(() => {
+    if (protocolId === "matrix") {
+      props.ports.setProtocolId("private_dc");
+      setProtocolId(props.ports.resolveProtocolId());
+    }
+  }, [protocolId, props.ports]);
+
+  const onSend = async () => {
     if (!activeConversationId || busy) {
       return;
     }
@@ -104,6 +121,14 @@ export function PrivateTrustHome(props: PrivateTrustHomeProps) {
     }
   };
 
+  const threadEmptyVariant = conversations.length === 0
+    ? "no-conversations"
+    : activeConversationId === null
+      ? "no-selection"
+      : thread.length === 0
+        ? "empty-thread"
+        : null;
+
   return (
     <section className="pt-home" data-testid="private-trust-home">
       <header className="pt-home-header">
@@ -113,9 +138,9 @@ export function PrivateTrustHome(props: PrivateTrustHomeProps) {
           <p className="lede">{REMASTER_SHELL_HONESTY}</p>
         </div>
         {props.onLock ? (
-          <button type="button" className="auth-button secondary" onClick={props.onLock}>
+          <Button type="button" variant="outline" onClick={props.onLock}>
             Lock
-          </button>
+          </Button>
         ) : null}
       </header>
 
@@ -141,72 +166,69 @@ export function PrivateTrustHome(props: PrivateTrustHomeProps) {
         <p className="pt-transport muted">Module face · not private-trust primary chrome</p>
       )}
 
-      <div className="pt-layout">
-        <aside className="pt-list" aria-label="Conversations">
+      <div className="pt-layout" data-testid="pt-shell-layout">
+        <aside className="pt-list" aria-label="Conversations" data-testid="conversation-list">
           {conversations.length === 0 ? (
-            <p className="muted">No conversations</p>
+            <EmptyThreadView variant="no-conversations" />
           ) : (
             conversations.map((row) => (
-              <button
+              <ConversationRowView
                 key={row.id}
-                type="button"
-                className={row.id === activeConversationId ? "pt-conv active" : "pt-conv"}
-                onClick={() => setActiveConversationId(row.id)}
-              >
-                <span className="pt-conv-title">{row.peerLabel}</span>
-                <span className="pt-conv-preview">{row.preview}</span>
-              </button>
+                id={row.id}
+                label={row.peerLabel}
+                preview={row.preview}
+                selected={row.id === activeConversationId}
+                onSelect={setActiveConversationId}
+              />
             ))
           )}
         </aside>
 
         <div className="pt-thread">
-          <div className="pt-messages" aria-live="polite">
-            {thread.map((message) => (
-              <div
-                key={message.id}
-                className={message.direction === "out" ? "pt-msg out" : "pt-msg in"}
-              >
-                <p>{message.body}</p>
-                <span className="pt-msg-meta">{message.deliveryStatus}</span>
-              </div>
-            ))}
+          <div className="pt-messages" aria-live="polite" data-testid="message-thread">
+            {threadEmptyVariant ? (
+              <EmptyThreadView variant={threadEmptyVariant} />
+            ) : (
+              thread.map((message) => (
+                <MessageBubbleView
+                  key={message.id}
+                  id={message.id}
+                  body={message.body}
+                  direction={message.direction}
+                  deliveryStatus={message.deliveryStatus}
+                  sentAtUnixMs={message.sentAtUnixMs}
+                />
+              ))
+            )}
           </div>
 
-          <form className="pt-composer" onSubmit={(event) => void onSend(event)}>
-            <textarea
-              className="pt-draft"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder={privateTrustFace ? "Message (T3 sealed)…" : "Message…"}
-              rows={3}
-              disabled={!activeConversationId || busy}
-            />
-            <div className="pt-composer-actions">
-              <button
-                type="submit"
-                className="auth-button"
-                disabled={!activeConversationId || busy || draft.trim().length === 0}
-              >
-                {busy ? "Sending…" : "Send"}
-              </button>
-              {statusLine ? <p className="pt-status">{statusLine}</p> : null}
-            </div>
-          </form>
+          <ComposerView
+            draft={draft}
+            onDraftChange={setDraft}
+            onSend={onSend}
+            disabled={!activeConversationId}
+            busy={busy}
+            placeholder={privateTrustFace ? "Message (T3 sealed)…" : "Message…"}
+            statusLine={statusLine}
+          />
         </div>
       </div>
 
-      <SettingsDoor
-        profileId={props.profileId ?? LAB_AUTH_DOOR_DEFAULTS.profileId}
+      <ProductDoors
+        settings={(
+          <SettingsDoor
+            profileId={props.profileId ?? LAB_AUTH_DOOR_DEFAULTS.profileId}
+          />
+        )}
+        home={(
+          <PrivateHomeSessionDoor
+            profileId={props.profileId ?? LAB_AUTH_DOOR_DEFAULTS.profileId}
+          />
+        )}
+        continuity={props.continuityPorts
+          ? <ContinuityDoor ports={props.continuityPorts} />
+          : null}
       />
-
-      <PrivateHomeSessionDoor
-        profileId={props.profileId ?? LAB_AUTH_DOOR_DEFAULTS.profileId}
-      />
-
-      {props.continuityPorts ? (
-        <ContinuityDoor ports={props.continuityPorts} />
-      ) : null}
     </section>
   );
 }

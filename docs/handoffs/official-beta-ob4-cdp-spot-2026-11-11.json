@@ -1,0 +1,20 @@
+{
+  "dateUtc": "2026-11-11",
+  "verdict": "attach_pass_title_owed",
+  "exe": "E:\\\\Obscur\\\\obscur_desktop_app.exe",
+  "cdp": "http://127.0.0.1:9230",
+  "jsonVersionHttp": 200,
+  "pageUrl": "http://tauri.localhost/",
+  "cdpPageTitle": "Obscur · desktop-ui lab",
+  "sourceTitle": "Obscur",
+  "sourceTitlePass": true,
+  "packagedTitleProductPass": false,
+  "note": "Installed artifact is foundation beta.10; OB4 source title/product doors Pass; packaged title refresh at OB5 cut",
+  "nonClaims": [
+    "Soft L3 Fixed",
+    "Continuity Pass",
+    "Tor Verified",
+    "Matrix promote",
+    "Official Beta published"
+  ]
+}

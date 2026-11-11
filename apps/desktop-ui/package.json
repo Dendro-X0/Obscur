@@ -71,11 +71,16 @@
     "verify:cut15-4": "vitest run src/cut15-continuity-peer-history-grants.contract.test.ts && pnpm run build",
     "verify:cut15-5": "vitest run src/cut15-lab-checklist.contract.test.ts src/cut15-continuity-peer-history-grants.contract.test.ts src/continuity/continuity-peer-history-grant.test.ts src/continuity/lab-continuity-ports.test.ts src/continuity/resolve-continuity-ports.test.ts && pnpm run build",
     "verify:remaster-r2": "vitest run src/remaster-r1-path.contract.test.ts src/remaster-r2-checklist.contract.test.ts src/remaster-r2-e2e-path.test.ts src/auth/vite-identity-create.test.ts src/private-trust/vite-private-dc-session.test.ts src/private-trust/lab-private-trust-ports.test.ts src/private-trust/native-private-trust-ports.test.ts src/settings/vite-settings-residue.test.ts src/continuity/vite-continuity-m2-home.test.ts && pnpm run build",
-    "verify:remaster-r4": "vitest run src/remaster-r4-honesty.contract.test.ts src/cut6-package-release-honesty.contract.test.ts src/cut11-vite-product-depth.contract.test.ts && pnpm run build"
+    "verify:remaster-r4": "vitest run src/remaster-r4-honesty.contract.test.ts src/cut6-package-release-honesty.contract.test.ts src/cut11-vite-product-depth.contract.test.ts && pnpm run build",
+    "verify:ob2": "vitest run src/official-beta-ob2-auth-ui-kit.contract.test.ts src/official-beta-ob1-inventory.contract.test.ts src/remaster-r1-path.contract.test.ts && pnpm run build",
+    "verify:ob3": "vitest run src/official-beta-ob3-shell-chrome.contract.test.ts src/official-beta-ob2-auth-ui-kit.contract.test.ts src/remaster-r1-path.contract.test.ts && pnpm run build",
+    "verify:ob4": "vitest run src/official-beta-ob4-product-chrome.contract.test.ts src/official-beta-ob3-shell-chrome.contract.test.ts src/remaster-r4-honesty.contract.test.ts src/remaster-r1-path.contract.test.ts && pnpm run build",
+    "verify:ob5": "vitest run src/official-beta-ob5-cut-plan.contract.test.ts src/official-beta-ob4-product-chrome.contract.test.ts"
   },
   "dependencies": {
     "@dweb/auth": "workspace:*",
     "@dweb/crypto": "workspace:*",
+    "@dweb/ui-kit": "workspace:^",
     "@obscur/auth-engine": "workspace:*",
     "@obscur/engine-contracts": "workspace:*",
     "@obscur/private-trust-engine": "workspace:*",
@@ -83,9 +88,11 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "vite": "^6.4.3",
     "vitest": "^4.1.9"

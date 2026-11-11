@@ -6,7 +6,7 @@
 export const REMASTER_FACE_LABEL = "Private-trust remaster";
 
 export const REMASTER_SHELL_HONESTY =
-  "Private-trust remaster · Continuity methods available · Soft L3 paused · Continuity Pass not claimed";
+  "Private-trust remaster · Continuity methods available as a product door · Soft L3 paused · Continuity Pass not claimed";
 
 export const REMASTER_AUTH_META =
   "Soft L3 paused · Continuity Pass not claimed · unlock ≠ Continuity";
