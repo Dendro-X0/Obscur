@@ -56,6 +56,31 @@ pub struct VaultMediaIndexRecord {
     pub size_bytes: i64,
     pub message_event_id: Option<String>,
     pub explicit_chat_save: bool,
+    /// CAS descriptor (hex/sha) — never plaintext media bytes.
+    pub content_hash: Option<String>,
+}
+
+/// Cut 0.9 — vault index stores refs/envelopes only (no inline media payloads).
+pub fn validate_vault_media_ref(record: &VaultMediaIndexRecord) -> std::result::Result<(), String> {
+    if record.remote_url.trim().is_empty() {
+        return Err("vault remote_url empty".to_string());
+    }
+    if record.relative_path.trim().is_empty() {
+        return Err("vault relative_path empty".to_string());
+    }
+    let url = record.remote_url.trim().to_ascii_lowercase();
+    if url.starts_with("data:") || url.starts_with("blob:") {
+        return Err("vault must not store data:/blob: URLs (no plaintext media in DB)".to_string());
+    }
+    if record.relative_path.len() > 1024 || record.relative_path.contains("base64,") {
+        return Err("vault relative_path looks like an inline payload".to_string());
+    }
+    if let Some(hash) = &record.content_hash {
+        if hash.len() > 128 || hash.contains("base64,") {
+            return Err("vault content_hash invalid".to_string());
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -769,11 +794,14 @@ impl Database {
     // -----------------------------------------------------------------------
 
     pub fn upsert_vault_media_index(&self, record: &VaultMediaIndexRecord) -> Result<()> {
+        validate_vault_media_ref(record).map_err(rusqlite::Error::InvalidParameterName)?;
+        self.ensure_profile_slot(&record.profile_id, &record.profile_id)?;
         self.conn.execute(
             "INSERT INTO vault_media_index (
                 remote_url, profile_id, relative_path, saved_at_unix_ms,
-                file_name, content_type, size_bytes, message_event_id, explicit_chat_save
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                file_name, content_type, size_bytes, message_event_id, explicit_chat_save,
+                content_hash
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(remote_url, profile_id) DO UPDATE SET
                relative_path = excluded.relative_path,
                saved_at_unix_ms = excluded.saved_at_unix_ms,
@@ -781,7 +809,8 @@ impl Database {
                content_type = excluded.content_type,
                size_bytes = excluded.size_bytes,
                message_event_id = excluded.message_event_id,
-               explicit_chat_save = excluded.explicit_chat_save",
+               explicit_chat_save = excluded.explicit_chat_save,
+               content_hash = excluded.content_hash",
             params![
                 record.remote_url,
                 record.profile_id,
@@ -792,6 +821,7 @@ impl Database {
                 record.size_bytes,
                 record.message_event_id,
                 if record.explicit_chat_save { 1 } else { 0 },
+                record.content_hash,
             ],
         )?;
         Ok(())
@@ -803,7 +833,8 @@ impl Database {
     ) -> Result<Vec<VaultMediaIndexRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT remote_url, profile_id, relative_path, saved_at_unix_ms,
-                    file_name, content_type, size_bytes, message_event_id, explicit_chat_save
+                    file_name, content_type, size_bytes, message_event_id, explicit_chat_save,
+                    content_hash
              FROM vault_media_index
              WHERE profile_id = ?1
              ORDER BY saved_at_unix_ms DESC",
@@ -819,6 +850,7 @@ impl Database {
                 size_bytes: row.get(6)?,
                 message_event_id: row.get(7)?,
                 explicit_chat_save: row.get::<_, i64>(8)? != 0,
+                content_hash: row.get(9)?,
             })
         })?;
         rows.collect()
@@ -863,6 +895,14 @@ impl Database {
             "call_records",
             "relay_checkpoints",
             "vault_media_index",
+            // Cut 0 spine (SCHEMA_V5)
+            "relationship_edge",
+            "auth_meta",
+            "linked_identity",
+            "home",
+            "outbox",
+            "dr_session",
+            "continuity_cursor",
         ];
 
         let mut rows_deleted: u64 = 0;
@@ -1394,6 +1434,7 @@ mod tests {
             size_bytes: 1024,
             message_event_id: None,
             explicit_chat_save: true,
+            content_hash: Some("deadbeef".to_string()),
         }
     }
 
@@ -1411,6 +1452,22 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].remote_url, "obscur://vault/local/abc");
         assert!(rows[0].explicit_chat_save);
+        assert_eq!(rows[0].content_hash.as_deref(), Some("deadbeef"));
+    }
+
+    /// Cut 0.9 — refuse inline data:/blob: media payloads in the index.
+    #[test]
+    fn test_vault_media_index_rejects_inline_data_url() {
+        let db = Database::new(None).unwrap();
+        seed_profile(&db, "p");
+        let err = db
+            .upsert_vault_media_index(&make_vault_media_index(
+                "p",
+                "data:image/png;base64,AAAA",
+                "vault-media/x.obscurvault",
+            ))
+            .unwrap_err();
+        assert!(err.to_string().contains("data:/blob:"));
     }
 
     // -----------------------------------------------------------------------

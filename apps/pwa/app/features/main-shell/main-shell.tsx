@@ -3952,10 +3952,10 @@ function NostrMessengerContent() {
             setNativeSqliteWriteBlocked(false);
             return;
         }
-        const { ensureNativeSqliteOpenForWrites } = await import(
-            "@/app/features/storage/services/native-storage-at-rest-service"
+        const { rebindNativeSqliteIfSessionOpen } = await import(
+            "@/app/features/storage/services/session-storage-orchestrator"
         );
-        const ready = await ensureNativeSqliteOpenForWrites({
+        const ready = await rebindNativeSqliteIfSessionOpen({
             profileId: getResolvedProfileId(),
         });
         setNativeSqliteWriteBlocked(!ready);
@@ -3963,21 +3963,28 @@ function NostrMessengerContent() {
     const handleUnlock = async (passphrase: string) => {
         setIsUnlocking(true);
         try {
-            const { resolveSoftLockUnlockMode, activateNativeStorageAtRestUnlock } = await import(
-                "@/app/features/storage/services/native-storage-at-rest-service"
+            const {
+                resolveSoftLockUnlockMode,
+                openStorageSessionWithPassphrase,
+                ensureStorageSessionOpenForUnlock,
+            } = await import(
+                "@/app/features/storage/services/session-storage-orchestrator"
             );
             const unlockMode = resolveSoftLockUnlockMode({
                 identityStatus: identity.state.status,
                 nativeSqliteWriteBlocked,
             });
             if (unlockMode === "storage_only") {
-                const activated = await activateNativeStorageAtRestUnlock({
+                const activated = await openStorageSessionWithPassphrase({
                     profileId: getResolvedProfileId(),
                     passphrase: passphrase as Passphrase,
                 });
                 if (!activated) {
                     return false;
                 }
+                await ensureStorageSessionOpenForUnlock({
+                    profileId: getResolvedProfileId(),
+                });
                 unlock();
                 await reprobeNativeSqliteWriteReady();
                 toast.success(t("auth.welcomeBackToast"));
@@ -4223,10 +4230,10 @@ function NostrMessengerContent() {
         }
         let cancelled = false;
         void (async () => {
-            const { ensureNativeSqliteOpenForWrites } = await import(
-                "@/app/features/storage/services/native-storage-at-rest-service"
+            const { rebindNativeSqliteIfSessionOpen } = await import(
+                "@/app/features/storage/services/session-storage-orchestrator"
             );
-            const ready = await ensureNativeSqliteOpenForWrites({
+            const ready = await rebindNativeSqliteIfSessionOpen({
                 profileId: activeProfileId,
             });
             if (!cancelled) {

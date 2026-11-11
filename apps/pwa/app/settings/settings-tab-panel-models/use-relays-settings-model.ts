@@ -21,6 +21,10 @@ import {
   resolveTemplatePrefillUrl,
   shouldConfirmTransportPresetApply,
 } from "@/app/features/transport-kernel/transport-preset-apply-policy";
+import {
+  clearExclusiveTransportPresetIntent,
+  syncExclusiveTransportPresetIntentAfterApply,
+} from "@/app/features/transport-kernel/transport-exclusive-intent";
 import { useConduitMeshTorSettingsState } from "@/app/features/transport-kernel/use-conduit-mesh-tor-settings-state";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
@@ -337,6 +341,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
         relayList.replaceRelays({
             relays: [...buildRelayRowsFromPreset(preset)],
         });
+        syncExclusiveTransportPresetIntentAfterApply(preset, getResolvedProfileId());
         setRelayTransportMode(preset.transportMode);
         void applyRustMeshConfigureFromPreset({
             profileId: getResolvedProfileId(),
@@ -393,6 +398,7 @@ export function useRelaysSettingsModel(): SettingsTabPanelModel {
     }, []);
     const handleResetRelaySection = (): void => {
         relayList.resetRelays();
+        clearExclusiveTransportPresetIntent(getResolvedProfileId());
         setRelayTransportMode(PRODUCT_BOOT_TRANSPORT_PRESET.transportMode);
         void applyRustMeshConfigureFromPreset({
             profileId: getResolvedProfileId(),

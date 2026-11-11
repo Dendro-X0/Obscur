@@ -25,6 +25,15 @@ describe("dm-kernel chat-state I/O authority on native", () => {
     expect(port).toContain("sanitizeChatStateForNativeDmKernelMirror");
   });
 
+  it("message port gates CRM connectionRequests through Cut 1.5 CRM suppress", () => {
+    const port = read("app/features/messaging/services/messaging-chat-state-message-port.ts");
+    expect(port).toContain("isChatStateCrmIoSuppressed");
+    expect(port).toMatch(
+      /updateConnectionRequests[\s\S]*?isChatStateCrmIoSuppressed\(\)[\s\S]*?return;/,
+    );
+  });
+
+
   it("read port projects chat-state loads for dm-kernel authority", () => {
     const port = read("app/features/messaging/services/messaging-chat-state-read-port.ts");
     expect(port).toContain("projectChatStateReadForDmKernelAuthority");

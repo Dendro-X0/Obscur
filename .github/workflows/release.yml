@@ -663,10 +663,11 @@ jobs:
 
       - name: Build Android App (signed if keys exist, otherwise unsigned)
         run: |
+          # Cut 6.1 — mobile PWA overlay (committed desktop conf is Vite).
           if [ "${ANDROID_SIGNING_READY}" = "true" ] && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
-            pnpm -C apps/desktop tauri android build --apk --aab --ci
+            pnpm -C apps/desktop tauri android build --config src-tauri/tauri.mobile.conf.json --apk --aab --ci
           else
-            pnpm -C apps/desktop tauri android build --apk --aab
+            pnpm -C apps/desktop tauri android build --config src-tauri/tauri.mobile.conf.json --apk --aab
           fi
         env:
           TAURI_SHELL_TARGET: mobile

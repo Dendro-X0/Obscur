@@ -1,18 +1,14 @@
 /**
  * DM Message Queue
  *
- * Provides offline resilience and retry logic for unreliable relay conditions.
- * Works alongside the DM Ledger to ensure no messages are lost.
- *
- * Strategy:
- * 1. Messages are queued if all relays fail
- * 2. Retry with exponential backoff (respecting relay rate limits)
- * 3. Queue persists to localStorage for page reloads
- * 4. Ledger records intent immediately, queue handles delivery
+ * Browser-degraded offline retry for Nostr send paths.
+ * Cut 1.3 (K-OUTBOX-LS): native must NOT persist plaintext + private keys to
+ * `dm_message_queue_v1` — kernel SQLite outbox / T3 prepare→ACK owns retries.
  */
 
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 
 export interface QueuedMessage {
   id: string;
@@ -29,12 +25,18 @@ export interface QueuedMessage {
   error?: string;
 }
 
-const QUEUE_KEY = "dm_message_queue_v1";
+/** Product localStorage key — banned on native (Cut 1.3). */
+export const DM_MESSAGE_QUEUE_STORAGE_KEY = "dm_message_queue_v1";
+
+const QUEUE_KEY = DM_MESSAGE_QUEUE_STORAGE_KEY;
 const MAX_ATTEMPTS = 5;
 const BASE_DELAY_MS = 2000; // 2 seconds
 const MAX_DELAY_MS = 60000; // 1 minute
 
-// In-memory queue (synced to localStorage)
+/** True when kernel outbox owns durable retries — LS queue must not run. */
+export const usesKernelOutboxAuthority = (): boolean => requiresSqlitePersistence();
+
+// In-memory queue (synced to localStorage on browser only)
 let messageQueue: QueuedMessage[] = [];
 let isProcessing = false;
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -42,20 +44,38 @@ let retryTimeout: ReturnType<typeof setTimeout> | null = null;
 // Callback for actual send implementation
 let sendImpl: ((msg: QueuedMessage) => Promise<{ success: boolean; error?: string }>) | null = null;
 
+const scrubLegacyQueueKey = (): void => {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+  try {
+    localStorage.removeItem(QUEUE_KEY);
+  } catch {
+    // ignore
+  }
+};
+
 /**
- * Initialize the queue from localStorage
+ * Initialize the queue from localStorage (browser only).
+ * Native: scrub residual secrets; never hydrate from LS.
  */
 export const initMessageQueue = (
   sendImplementation: (msg: QueuedMessage) => Promise<{ success: boolean; error?: string }>,
 ): void => {
   sendImpl = sendImplementation;
 
+  if (usesKernelOutboxAuthority()) {
+    messageQueue = [];
+    scrubLegacyQueueKey();
+    return;
+  }
+
   try {
     const stored = localStorage.getItem(QUEUE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored) as QueuedMessage[];
       // Only keep messages that haven't exceeded max attempts
-      messageQueue = parsed.filter(m => m.attempts < MAX_ATTEMPTS);
+      messageQueue = parsed.filter((m) => m.attempts < MAX_ATTEMPTS);
       if (messageQueue.length > 0) {
         console.log("[dm-queue] loaded", messageQueue.length, "pending messages");
         scheduleRetry();
@@ -67,9 +87,18 @@ export const initMessageQueue = (
 };
 
 /**
- * Add a message to the queue
+ * Add a message to the queue (browser degraded only).
+ * Native: refuse — would retain plaintext + private key (Cut 1.3).
  */
-export const queueMessage = (message: Omit<QueuedMessage, "attempts" | "lastAttemptMs" | "nextAttemptMs">): void => {
+export const queueMessage = (
+  message: Omit<QueuedMessage, "attempts" | "lastAttemptMs" | "nextAttemptMs">,
+): void => {
+  if (usesKernelOutboxAuthority()) {
+    scrubLegacyQueueKey();
+    console.warn("[dm-queue] queueMessage refused on native — kernel outbox owns retries (Cut 1.3)");
+    return;
+  }
+
   const queued: QueuedMessage = {
     ...message,
     attempts: 0,
@@ -90,7 +119,7 @@ export const queueMessage = (message: Omit<QueuedMessage, "attempts" | "lastAtte
  * Check if a message is currently queued (pending send)
  */
 export const isMessageQueued = (messageId: string): boolean => {
-  return messageQueue.some(m => m.id === messageId);
+  return messageQueue.some((m) => m.id === messageId);
 };
 
 /**
@@ -105,6 +134,9 @@ export const getQueueStats = (): { pending: number; maxAttempts: number } => ({
  * Manually trigger queue processing (e.g., when relay comes online)
  */
 export const triggerQueueProcessing = (): void => {
+  if (usesKernelOutboxAuthority()) {
+    return;
+  }
   void processQueue();
 };
 
@@ -121,13 +153,13 @@ const getRetryDelay = (attempt: number): number => {
  * Process the message queue
  */
 const processQueue = async (): Promise<void> => {
-  if (isProcessing || !sendImpl) return;
+  if (usesKernelOutboxAuthority() || isProcessing || !sendImpl) return;
 
   isProcessing = true;
   const now = Date.now();
 
   // Find messages ready to retry
-  const readyMessages = messageQueue.filter(m => m.nextAttemptMs <= now);
+  const readyMessages = messageQueue.filter((m) => m.nextAttemptMs <= now);
 
   if (readyMessages.length === 0) {
     isProcessing = false;
@@ -152,7 +184,7 @@ const processQueue = async (): Promise<void> => {
   results.forEach((res) => {
     if (res.status === "fulfilled") {
       const { msg, result } = res.value;
-      const idx = messageQueue.findIndex(m => m.id === msg.id);
+      const idx = messageQueue.findIndex((m) => m.id === msg.id);
 
       if (idx === -1) return;
 
@@ -198,6 +230,9 @@ const processQueue = async (): Promise<void> => {
  * Schedule the next queue processing attempt
  */
 const scheduleRetry = (): void => {
+  if (usesKernelOutboxAuthority()) {
+    return;
+  }
   if (retryTimeout) {
     clearTimeout(retryTimeout);
   }
@@ -206,7 +241,7 @@ const scheduleRetry = (): void => {
 
   // Find the soonest retry time
   const now = Date.now();
-  const nextRetry = Math.min(...messageQueue.map(m => m.nextAttemptMs));
+  const nextRetry = Math.min(...messageQueue.map((m) => m.nextAttemptMs));
   const delay = Math.max(0, nextRetry - now);
 
   retryTimeout = setTimeout(() => {
@@ -215,9 +250,13 @@ const scheduleRetry = (): void => {
 };
 
 /**
- * Persist queue to localStorage
+ * Persist queue to localStorage (browser only — never on native).
  */
 const persistQueue = (): void => {
+  if (usesKernelOutboxAuthority()) {
+    scrubLegacyQueueKey();
+    return;
+  }
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(messageQueue));
   } catch {
@@ -234,5 +273,17 @@ export const clearQueue = (): void => {
     clearTimeout(retryTimeout);
     retryTimeout = null;
   }
+  if (usesKernelOutboxAuthority()) {
+    scrubLegacyQueueKey();
+    return;
+  }
   persistQueue();
+};
+
+/** Test seam — inspect whether LS persist would be attempted. */
+export const dmMessageQueueInternals = {
+  QUEUE_KEY,
+  persistQueue,
+  scrubLegacyQueueKey,
+  getMessageQueueLength: (): number => messageQueue.length,
 };

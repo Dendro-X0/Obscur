@@ -25,6 +25,8 @@ const seedState = () => ({
     ],
     general: [],
   },
+  /** Cut 9 — opaque Continuity M2 backups keyed by publicKeyHexHint (lowercase). */
+  continuityBackups: /** @type {Record<string, Array<{ id: string; publicKeyHexHint: string; sealedEnvelopeJson: string; acceptedAtUnixMs: number; clientBackupId: string }>>} */ ({}),
 });
 
 const readJson = async (req) => {
@@ -75,8 +77,73 @@ export const startPrivateDcLabServer = (options = {}) => {
         }
       }
 
+      // Cut 0.6 — H-dc v0.1 health
+      if (req.method === "GET" && url.pathname === "/v1/health") {
+        sendJson(res, 200, { ok: true, wire: "hdc-v0.1" });
+        return;
+      }
+
       if (req.method === "GET" && url.pathname === "/v1/conversations") {
         sendJson(res, 200, { conversations: state.conversations });
+        return;
+      }
+
+      // Cut 9 — Continuity M2 opaque sealed backups (never plaintext)
+      if (req.method === "POST" && url.pathname === "/v1/continuity/backups") {
+        const body = await readJson(req);
+        const publicKeyHexHint = typeof body.publicKeyHexHint === "string"
+          ? body.publicKeyHexHint.trim().toLowerCase()
+          : "";
+        const sealedEnvelopeJson = typeof body.sealedEnvelopeJson === "string"
+          ? body.sealedEnvelopeJson.trim()
+          : "";
+        const clientBackupId = typeof body.clientBackupId === "string"
+          ? body.clientBackupId.trim()
+          : "";
+        if (!publicKeyHexHint || !sealedEnvelopeJson || !clientBackupId) {
+          sendJson(res, 400, { error: "continuity_backup_fields_required" });
+          return;
+        }
+        const backup = {
+          id: `cb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          publicKeyHexHint,
+          sealedEnvelopeJson,
+          acceptedAtUnixMs: Date.now(),
+          clientBackupId,
+        };
+        if (!state.continuityBackups[publicKeyHexHint]) {
+          state.continuityBackups[publicKeyHexHint] = [];
+        }
+        state.continuityBackups[publicKeyHexHint].push(backup);
+        sendJson(res, 200, {
+          backup: {
+            id: backup.id,
+            publicKeyHexHint: backup.publicKeyHexHint,
+            acceptedAtUnixMs: backup.acceptedAtUnixMs,
+            status: "accepted",
+          },
+        });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/v1/continuity/backups/latest") {
+        const publicKeyHexHint = (url.searchParams.get("publicKeyHexHint") ?? "").trim().toLowerCase();
+        if (!publicKeyHexHint) {
+          sendJson(res, 400, { error: "publicKeyHexHint_required" });
+          return;
+        }
+        const rows = state.continuityBackups[publicKeyHexHint] ?? [];
+        const latest = rows.length > 0 ? rows[rows.length - 1] : null;
+        sendJson(res, 200, {
+          backup: latest
+            ? {
+              id: latest.id,
+              publicKeyHexHint: latest.publicKeyHexHint,
+              sealedEnvelopeJson: latest.sealedEnvelopeJson,
+              acceptedAtUnixMs: latest.acceptedAtUnixMs,
+            }
+            : null,
+        });
         return;
       }
 
@@ -89,6 +156,10 @@ export const startPrivateDcLabServer = (options = {}) => {
         }
         if (req.method === "GET") {
           let rows = state.messages[conversationId] ?? [];
+          const since = Number(url.searchParams.get("since") ?? "0");
+          if (Number.isFinite(since) && since > 0) {
+            rows = rows.filter((row) => Number(row.sentAtUnixMs) > since);
+          }
           const limit = Number(url.searchParams.get("limit") ?? "0");
           if (Number.isFinite(limit) && limit > 0) {
             rows = rows.slice(-Math.floor(limit));
@@ -98,9 +169,39 @@ export const startPrivateDcLabServer = (options = {}) => {
         }
         if (req.method === "POST") {
           const body = await readJson(req);
+          const envelope = typeof body.envelope === "string" ? body.envelope.trim() : "";
+          const clientMessageId = typeof body.clientMessageId === "string"
+            ? body.clientMessageId.trim()
+            : "";
           const text = typeof body.body === "string" ? body.body.trim() : "";
+
+          // Cut 0.6 — ciphertext path (preferred for private-trust T3)
+          if (envelope) {
+            if (!clientMessageId) {
+              sendJson(res, 400, { error: "client_message_id_required" });
+              return;
+            }
+            const message = {
+              id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              conversationId,
+              envelope,
+              clientMessageId,
+              sentAtUnixMs: Date.now(),
+              direction: "out",
+              // Home ACK → accepted only (never delivered)
+              status: "accepted",
+            };
+            if (!state.messages[conversationId]) {
+              state.messages[conversationId] = [];
+            }
+            state.messages[conversationId].push(message);
+            sendJson(res, 200, { message });
+            return;
+          }
+
+          // P4b v0 plaintext lab path (not T3)
           if (!text) {
-            sendJson(res, 400, { error: "body_required" });
+            sendJson(res, 400, { error: "body_or_envelope_required" });
             return;
           }
           const message = {

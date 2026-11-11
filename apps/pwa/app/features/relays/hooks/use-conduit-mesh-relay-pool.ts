@@ -21,6 +21,10 @@ import type { RelayConnection } from "./relay-connection";
 import type { NostrFilter } from "../types/nostr-filter";
 import type { MeshInterest } from "@obscur/conduit-mesh-contracts/envelope";
 import { workspaceRelayUrlsMatch } from "@/app/features/groups/services/workspace-relay-url";
+import {
+  isLocalDevWorkspaceRelayUrl,
+  isLocalMeshHttpGatewayUrl,
+} from "@/app/features/relays/services/relay-transport-scope";
 import { relayHealthMonitor } from "./relay-health-monitor";
 import { collectRelayHealthMetricsForUrls } from "../services/collect-relay-health-metrics";
 
@@ -38,6 +42,33 @@ const EMPTY_ACTIVITY: RelayTransportActivitySnapshot = {
 export const isHttpMeshPoolUrl = (url: string): boolean => {
   const trimmed = url.trim().toLowerCase();
   return trimmed.startsWith("http://") || trimmed.startsWith("https://");
+};
+
+/**
+ * Soft L3 exclusive / HTTP-only mesh must not expand onto public remotes via
+ * addTransientRelay (H6b defense-in-depth under subscribe fallback priming).
+ */
+export const shouldAcceptMeshTransientRelayUrl = (params: Readonly<{
+  poolUrls: ReadonlyArray<string>;
+  candidateUrl: string;
+}>): boolean => {
+  const target = params.candidateUrl.trim();
+  if (!target) {
+    return false;
+  }
+  const poolUrls = params.poolUrls.map((url) => url.trim()).filter((url) => url.length > 0);
+  if (poolUrls.length === 0) {
+    return true;
+  }
+  const exclusiveSoftL3 = poolUrls.every((poolUrl) => isLocalDevWorkspaceRelayUrl(poolUrl));
+  if (exclusiveSoftL3 && !isLocalDevWorkspaceRelayUrl(target)) {
+    return false;
+  }
+  const httpOnlyMesh = poolUrls.every((poolUrl) => isLocalMeshHttpGatewayUrl(poolUrl));
+  if (httpOnlyMesh && !isLocalMeshHttpGatewayUrl(target)) {
+    return false;
+  }
+  return true;
 };
 
 /** Sync P-evidence overlay — React state alone lags getTransportActivitySnapshot readers. */
@@ -347,7 +378,7 @@ export const useConduitMeshRelayPool = (
     canConnectToRelay: (url) => relayHealthMonitor.canConnect(url),
     addTransientRelay: (url) => {
       const target = url.trim();
-      if (!target) {
+      if (!shouldAcceptMeshTransientRelayUrl({ poolUrls, candidateUrl: target })) {
         return;
       }
       // Invite / discovery lookup primes GLOBAL_DISCOVERY_RELAY_URLS here.
@@ -456,7 +487,7 @@ export const useConduitMeshRelayPool = (
         ...writableRelayUrls,
       ])),
     }),
-    getActiveSubscriptionCount: () => 0,
+    getActiveSubscriptionCount: () => nostrClient.getActiveSubscriptionCount(),
     dispose: () => {
       runtime.dispose();
       // Shared product nostr client stays alive for sibling pool mounts (Slice 2).

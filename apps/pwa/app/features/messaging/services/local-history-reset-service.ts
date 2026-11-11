@@ -15,6 +15,7 @@ import {
 } from "@/app/features/account-sync/services/account-event-store";
 import { writeHistoryResetCutoffUnixMs } from "@/app/features/account-sync/services/history-reset-cutoff-store";
 import { openMessageDb } from "@/app/features/messaging/lib/open-message-db";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { purgeLocalMediaCache } from "@/app/features/vault/services/local-media-store";
 
 type LocalHistoryResetDependencies = Readonly<{
@@ -98,6 +99,10 @@ const clearMessagingStores = async (): Promise<number> => {
 
 const clearLegacyMessageQueueStores = async (): Promise<number> => {
   clearInMemoryIdb(messageDbName);
+  // Cut 1.2: native never opens message IDB — in-memory clear is enough.
+  if (requiresSqlitePersistence()) {
+    return 0;
+  }
   const db = await openMessageDb();
   let cleared = 0;
   try {

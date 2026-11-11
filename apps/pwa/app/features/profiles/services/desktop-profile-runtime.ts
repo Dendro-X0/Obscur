@@ -112,6 +112,8 @@ const setLastKnownWindowProfileId = (windowLabel: string, profileId: string): vo
   }
   try {
     window.localStorage.setItem(lastKnownWindowProfileIdStorageKey(windowLabel), profileId);
+    // Cut 0.2: subtract legacy global oracle (no ::windowLabel) so it cannot outrank window binding.
+    window.localStorage.removeItem(LAST_KNOWN_WINDOW_PROFILE_ID_STORAGE_KEY);
   } catch {
     // Best-effort only.
   }

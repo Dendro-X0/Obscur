@@ -10,6 +10,7 @@ import type {
 import {
   privateDcListConversations,
   privateDcListMessages,
+  privateDcSendEnvelope,
   privateDcSendMessage,
 } from "./private-dc-client";
 import { PRIVATE_DC_CAPABILITIES } from "./private-dc-capabilities";
@@ -18,6 +19,11 @@ import {
   mapPrivateDcMessageToRich,
 } from "./private-dc-rich-map";
 import { hasPrivateDcSession, readPrivateDcSession } from "./private-dc-session";
+import {
+  PRIVATE_DC_T3_PLAINTEXT_REFUSED,
+  privateDcRequiresT3Wire,
+} from "./private-trust-send-policy";
+import type { PrivateDcCipherEnvelope } from "./private-dc-client";
 
 /**
  * P4b/P4g/P4h — private DC carrier with HTTPS JSON wire behind ProtocolAdaptationLayer.
@@ -40,6 +46,12 @@ const requireSession = (profileId?: string) => {
 export const privateDcAdapter: ProtocolAdapter & {
   listDmConversations: (profileId: string) => Promise<ReadonlyArray<DmConversation>>;
   listDmMessages: (params: LoadDmKernelThreadParams) => Promise<ReadonlyArray<Message>>;
+  sendEnvelope: (params: Readonly<{
+    profileId: string;
+    conversationId: string;
+    envelope: string;
+    clientMessageId: string;
+  }>) => Promise<PrivateDcCipherEnvelope>;
 } = {
   id: "private_dc",
 
@@ -69,11 +81,27 @@ export const privateDcAdapter: ProtocolAdapter & {
     }, fetchImpl);
   },
 
+  /**
+   * Cut 1.4 / K-PROTO-PLAIN — refuse plaintext body when T3 wire is required.
+   * Use `sendEnvelope` or `sendPrivateTrustT3Message` for product send.
+   */
   sendMessage: async (params): Promise<CanonicalMessage> => {
+    if (privateDcRequiresT3Wire()) {
+      throw new Error(PRIVATE_DC_T3_PLAINTEXT_REFUSED);
+    }
     const session = requireSession(params.profileId);
     return privateDcSendMessage(session, {
       conversationId: params.conversationId,
       body: params.body,
+    }, fetchImpl);
+  },
+
+  sendEnvelope: async (params): Promise<PrivateDcCipherEnvelope> => {
+    const session = requireSession(params.profileId);
+    return privateDcSendEnvelope(session, {
+      conversationId: params.conversationId,
+      envelope: params.envelope,
+      clientMessageId: params.clientMessageId,
     }, fetchImpl);
   },
 

@@ -9,6 +9,8 @@ import { Textarea } from "@dweb/ui-kit/textarea";
 import { AlertTriangle, Loader2, UserPlus, WifiOff } from "lucide-react";
 import { useRelay } from "@/app/features/relays/providers/relay-provider";
 import { getRelayReadinessBannerCopy, getRelayReadinessTone, getRelayTransportQueueHint, } from "@/app/features/relays/services/relay-readiness-copy";
+import { useActiveProtocolCapabilities } from "@/app/features/protocol-adaptation/use-active-protocol-capabilities";
+import { resolveConnectionRequestInvitePolicy } from "@/app/features/protocol-adaptation/private-trust-invite-policy";
 interface SendRequestDialogProps {
     isOpen: boolean;
     onClose: () => void;
@@ -18,6 +20,8 @@ interface SendRequestDialogProps {
 export function SendRequestDialog({ isOpen, onClose, recipientName, onSend }: SendRequestDialogProps) {
     const { t } = useTranslation();
     const { relayRecovery } = useRelay();
+    const { protocolId } = useActiveProtocolCapabilities();
+    const invitePolicy = resolveConnectionRequestInvitePolicy(protocolId);
     const [introMessage, setIntroMessage] = useState("");
     const [isSending, setIsSending] = useState(false);
     const relayBanner = getRelayReadinessBannerCopy(relayRecovery);
@@ -55,7 +59,19 @@ export function SendRequestDialog({ isOpen, onClose, recipientName, onSend }: Se
             </div>
           </div>
 
-          {relayBanner ? (<div className={cn("rounded-2xl border px-4 py-3 text-sm", getRelayReadinessTone(relayRecovery.readiness))}>
+          {!invitePolicy.allowed ? (
+            <div
+              data-testid="send-request-invite-protocol-honesty"
+              className="rounded-2xl border border-amber-500/25 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/35 dark:bg-amber-950/40 dark:text-amber-100"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0"/>
+                <p>{invitePolicy.userMessage}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {invitePolicy.allowed && relayBanner ? (<div className={cn("rounded-2xl border px-4 py-3 text-sm", getRelayReadinessTone(relayRecovery.readiness))}>
               <div className="flex items-start gap-3">
                 {relayRecovery.readiness === "offline" ? (<WifiOff className="mt-0.5 h-4 w-4 shrink-0"/>) : (<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0"/>)}
                 <p>{relayQueueHint ?? relayBanner}</p>
@@ -66,7 +82,7 @@ export function SendRequestDialog({ isOpen, onClose, recipientName, onSend }: Se
             <Button variant="secondary" className="flex-1 rounded-xl h-12" onClick={onClose} disabled={isSending}>
               {t("common.cancel")}
             </Button>
-            <Button className="flex-1 rounded-xl h-12 gap-2" onClick={handleSend} disabled={isSending}>
+            <Button className="flex-1 rounded-xl h-12 gap-2" onClick={handleSend} disabled={isSending || !invitePolicy.allowed}>
               {isSending ? (<Loader2 className="h-4 w-4 animate-spin"/>) : (<UserPlus className="h-4 w-4"/>)}
               {relayQueueHint
             ? t("network.queueRequest")

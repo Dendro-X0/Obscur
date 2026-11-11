@@ -4,8 +4,8 @@
   "identifier": "app.obscur.desktop",
   "version": "2.0.0",
   "build": {
-    "beforeBuildCommand": "pnpm run build:pwa-shell",
-    "frontendDist": "../../pwa/out"
+    "beforeBuildCommand": "pnpm -C ../desktop-ui build",
+    "frontendDist": "../../desktop-ui/dist"
   },
   "bundle": {
     "active": true,

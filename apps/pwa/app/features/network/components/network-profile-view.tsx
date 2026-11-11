@@ -322,6 +322,11 @@ export default function ConnectionProfileView() {
             const peer = pk as PublicKeyHex;
             const inboxItem = requestsInbox.state.items.find((item) => item.peerPublicKeyHex === peer);
             blocklist.removeBlocked({ publicKeyHex: peer });
+            // Unblock clears the local block gate only — must not mint TRUSTED.
+            // Re-assert unaccept so removedPeers stays sticky against delayed hydrate
+            // (public Default Stable P1-O1 Partial 2026-11-08).
+            peerTrust.unacceptPeer({ publicKeyHex: peer });
+            requestsInbox.remove({ peerPublicKeyHex: peer });
             void requestTransport.notifyPeerUnblocked?.({
                 peerPublicKeyHex: peer,
                 requestEventId: inboxItem?.eventId,

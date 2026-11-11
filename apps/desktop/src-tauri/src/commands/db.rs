@@ -39,19 +39,20 @@ impl DbState {
         Ok(guard.db.is_some())
     }
 
-    /// Reopen plaintext SQLite when closed without an at-rest envelope.
-    /// Encrypted envelopes still require `desktop_storage_at_rest_unlock` (PDK).
+    /// Soft-lock probe only — Cut 0.4 forbids reopening clear durable SQLite.
+    /// Encrypted or leftover plaintext both require `desktop_storage_at_rest_unlock` (PDK).
     pub fn ensure_open_for_writes(&self, app: &AppHandle) -> Result<(), String> {
         if self.is_open()? {
             return Ok(());
         }
+        let (_sqlite_path, _encrypted_path) = sqlite_paths(app)?;
+        Err("Local database is locked. Unlock this profile to continue.".to_string())
+    }
+
+    /// True when a clear `obscur.sqlite3` exists without a `.obscur-enc` sibling.
+    pub fn has_clear_durable_sqlite(&self, app: &AppHandle) -> Result<bool, String> {
         let (sqlite_path, encrypted_path) = sqlite_paths(app)?;
-        if encrypted_path.exists() {
-            return Err(
-                "Local database is locked. Unlock this profile to continue.".to_string(),
-            );
-        }
-        self.open_at_path(sqlite_path)
+        Ok(has_clear_durable_pair(&sqlite_path, &encrypted_path))
     }
 
     pub fn close(&self) -> Result<(), String> {
@@ -88,13 +89,6 @@ impl DbState {
         Ok(())
     }
 
-    pub fn open_plaintext_if_available(&self, app: &AppHandle) -> Result<(), String> {
-        let (sqlite_path, encrypted_path) = sqlite_paths(app)?;
-        if encrypted_path.exists() {
-            return Ok(());
-        }
-        self.open_at_path(sqlite_path)
-    }
 }
 
 fn sqlite_paths(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
@@ -105,12 +99,19 @@ fn sqlite_paths(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
 }
 
 pub fn bootstrap_sqlite_storage(app: &AppHandle, db_state: &DbState) -> Result<(), String> {
-    let (_, encrypted_path) = sqlite_paths(app)?;
+    let (sqlite_path, encrypted_path) = sqlite_paths(app)?;
     if encrypted_path.exists() {
         eprintln!("[STORAGE] SQLite at-rest envelope detected; waiting for unlock.");
         return Ok(());
     }
-    db_state.open_plaintext_if_available(app)
+    // Cut 0.4: do not open clear durable DB at boot — unlock path creates/opens under PDK.
+    if sqlite_path.exists() {
+        eprintln!(
+            "[STORAGE] Clear SQLite present without envelope; waiting for unlock to bind PDK (Cut 0.4)."
+        );
+    }
+    let _ = db_state;
+    Ok(())
 }
 
 /// Close the native SQLite handle before copying the data-root database bundle.
@@ -118,7 +119,7 @@ pub fn quiesce_sqlite_for_data_root_change(db_state: &DbState) -> Result<(), Str
     db_state.close()
 }
 
-/// Soft-lock drift repair: reopen plaintext DB, or report locked when encrypted.
+/// Soft-lock probe — Cut 0.4 always requires PDK unlock (no clear reopen).
 #[tauri::command]
 pub fn desktop_db_ensure_open(
     app: AppHandle,
@@ -126,6 +127,47 @@ pub fn desktop_db_ensure_open(
 ) -> Result<bool, String> {
     db_state.ensure_open_for_writes(&app)?;
     Ok(true)
+}
+
+#[cfg(test)]
+mod cut0_at_rest_tests {
+    use super::has_clear_durable_pair;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_pair() -> (std::path::PathBuf, std::path::PathBuf, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!(
+            "obscur-db-cut0-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("dir");
+        let plain = dir.join("obscur.sqlite3");
+        let enc = libobscur::storage_at_rest::encrypted_sidecar_path(&plain);
+        (dir, plain, enc)
+    }
+
+    #[test]
+    fn clear_durable_detected_without_envelope() {
+        let (dir, plain, enc) = temp_pair();
+        fs::write(&plain, b"x").expect("write");
+        assert!(has_clear_durable_pair(&plain, &enc));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn envelope_means_not_clear_durable() {
+        let (dir, plain, enc) = temp_pair();
+        fs::write(&enc, b"envelope").expect("write");
+        assert!(!has_clear_durable_pair(&plain, &enc));
+        let _ = fs::remove_dir_all(dir);
+    }
+}
+
+fn has_clear_durable_pair(sqlite_path: &std::path::Path, encrypted_path: &std::path::Path) -> bool {
+    sqlite_path.exists() && !encrypted_path.exists()
 }
 
 // ---------------------------------------------------------------------------

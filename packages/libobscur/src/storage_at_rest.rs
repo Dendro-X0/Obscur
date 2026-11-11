@@ -152,4 +152,33 @@ mod tests {
         let restored = decrypt_storage_blob(&key, &envelope).expect("decrypt");
         assert_eq!(restored, b"sqlite-not-plaintext");
     }
+
+    /// Cut 0.4 — whole-file AEAD leaves `.obscur-enc` and removes clear durable source.
+    #[test]
+    fn encrypt_file_in_place_removes_clear_durable() {
+        let key = derive_profile_data_key("Obscur-Phase3-Test-Vector!", "default");
+        let dir = std::env::temp_dir().join(format!(
+            "obscur-cut0-at-rest-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("time")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("temp dir");
+        let plain = dir.join("obscur.sqlite3");
+        fs::write(&plain, b"cut0-clear-sqlite").expect("write plain");
+        let enc = encrypt_file_in_place(&plain, &key).expect("encrypt");
+        assert!(!plain.exists(), "clear durable SQLite must be removed");
+        assert!(enc.exists(), "envelope sidecar must exist");
+        assert!(enc
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .ends_with(SQLITE_AT_REST_SUFFIX));
+        let target = dir.join("obscur.sqlite3");
+        decrypt_file_to_plaintext(&enc, &target, &key).expect("decrypt");
+        assert_eq!(fs::read(&target).expect("read"), b"cut0-clear-sqlite");
+        assert!(!enc.exists(), "envelope removed after decrypt");
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

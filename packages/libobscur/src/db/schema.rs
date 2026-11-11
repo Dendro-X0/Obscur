@@ -1,5 +1,5 @@
 /// Current schema version. Increment when adding new migrations.
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// Version tracking table — always created first.
 pub const SCHEMA_VERSION_TABLE: &str = r#"
@@ -278,4 +278,124 @@ CREATE TABLE IF NOT EXISTS vault_media_index (
 
 CREATE INDEX IF NOT EXISTS idx_vault_media_index_profile_saved
     ON vault_media_index(profile_id, saved_at_unix_ms DESC);
+"#;
+
+/// V5: Cut 0 account spine (NARROW) — additive tables + conversation/message columns.
+/// Does not replace legacy `messages` PK (`event_id`, `profile_id`); ports bind later.
+/// @see specs/backend/cut0-account-spine-design-2026-11-09.md §6
+pub const SCHEMA_V5: &str = r#"
+-- -----------------------------------------------------------------------
+-- Auth meta (KDF / wrap versions — never raw keys)
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS auth_meta (
+    profile_id     TEXT    NOT NULL REFERENCES profiles(id),
+    wrap_version   TEXT    NOT NULL DEFAULT 'pdk.v2',
+    kdf_params_json TEXT,
+    updated_at     INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    PRIMARY KEY (profile_id)
+);
+
+-- -----------------------------------------------------------------------
+-- Linked identities (carrier external ids; secrets live in OS keychain)
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS linked_identity (
+    id                 TEXT    NOT NULL,
+    profile_id         TEXT    NOT NULL REFERENCES profiles(id),
+    carrier            TEXT    NOT NULL,
+    external_id        TEXT    NOT NULL,
+    keychain_secret_ref TEXT,
+    created_at         INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    PRIMARY KEY (id, profile_id),
+    UNIQUE (profile_id, carrier, external_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_linked_identity_profile
+    ON linked_identity(profile_id, carrier);
+
+-- -----------------------------------------------------------------------
+-- Sticky CRM edges (F1) — never invent from message lookback alone
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS relationship_edge (
+    profile_id     TEXT    NOT NULL REFERENCES profiles(id),
+    peer_pubkey    TEXT    NOT NULL,
+    state          TEXT    NOT NULL DEFAULT 'none',
+    trust_tier     TEXT,
+    updated_at     INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    PRIMARY KEY (profile_id, peer_pubkey)
+);
+
+CREATE INDEX IF NOT EXISTS idx_relationship_edge_state
+    ON relationship_edge(profile_id, state);
+
+-- -----------------------------------------------------------------------
+-- Named homes (Cut 0 default kind = hdc)
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS home (
+    id             TEXT    NOT NULL,
+    profile_id     TEXT    NOT NULL REFERENCES profiles(id),
+    kind           TEXT    NOT NULL DEFAULT 'hdc',
+    display_name   TEXT,
+    base_url       TEXT    NOT NULL,
+    keychain_token_ref TEXT,
+    created_at     INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    PRIMARY KEY (id, profile_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_home_profile
+    ON home(profile_id, kind);
+
+-- -----------------------------------------------------------------------
+-- Outbox (durable retry until home ACK → status accepted)
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS outbox (
+    message_event_id TEXT    NOT NULL,
+    profile_id       TEXT    NOT NULL REFERENCES profiles(id),
+    conversation_id  TEXT    NOT NULL,
+    next_attempt_at  INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    attempt_count    INTEGER NOT NULL DEFAULT 0,
+    last_error       TEXT,
+    PRIMARY KEY (message_event_id, profile_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_due
+    ON outbox(profile_id, next_attempt_at);
+
+-- -----------------------------------------------------------------------
+-- T3 Double Ratchet session blobs (opaque)
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dr_session (
+    conversation_id TEXT    NOT NULL,
+    profile_id      TEXT    NOT NULL REFERENCES profiles(id),
+    peer_pubkey     TEXT    NOT NULL,
+    session_blob    BLOB    NOT NULL,
+    updated_at      INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+    PRIMARY KEY (conversation_id, profile_id)
+);
+
+-- -----------------------------------------------------------------------
+-- Continuity cursor stub
+-- -----------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS continuity_cursor (
+    profile_id       TEXT    NOT NULL REFERENCES profiles(id),
+    generation       INTEGER NOT NULL DEFAULT 0,
+    last_backup_at   INTEGER,
+    PRIMARY KEY (profile_id)
+);
+
+-- -----------------------------------------------------------------------
+-- Extend legacy conversations / messages for Cut 0 ports
+-- -----------------------------------------------------------------------
+ALTER TABLE conversations ADD COLUMN kind TEXT NOT NULL DEFAULT 'dm';
+ALTER TABLE conversations ADD COLUMN home_id TEXT;
+ALTER TABLE conversations ADD COLUMN crypto_tier TEXT NOT NULL DEFAULT 'unset';
+
+ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'accepted';
+ALTER TABLE messages ADD COLUMN home_message_id TEXT;
+ALTER TABLE messages ADD COLUMN deleted_at INTEGER;
+"#;
+
+/// V6: Cut 0.9 — vault CAS content hash on media index (refs only; never plaintext bytes).
+/// @see specs/backend/cut0-account-spine-design-2026-11-09.md slice 0.9
+pub const SCHEMA_V6: &str = r#"
+ALTER TABLE vault_media_index ADD COLUMN content_hash TEXT;
 "#;

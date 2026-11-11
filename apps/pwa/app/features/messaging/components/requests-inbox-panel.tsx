@@ -87,76 +87,25 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onSelec
 
     return (
         <div className="flex flex-col h-full overflow-hidden">
-            <div className="p-4 border-b border-black/5 dark:border-white/5 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
-                <div>
+            <div className="flex flex-col gap-3 border-b border-black/5 bg-zinc-50/50 p-4 dark:border-white/5 dark:bg-zinc-900/50">
+                <div className="min-w-0">
                     <h2 className="text-xs font-black uppercase tracking-widest text-zinc-400">
                         {isJunk
                             ? t("messaging.junkInboxTitle", { count: requests.length })
                             : `Requests (${requests.length})`}
                     </h2>
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="mt-1 max-w-prose text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                         {isJunk
                             ? t("messaging.junkInboxDesc")
                             : "Obscur only lists invitations here after incoming relay evidence is received."}
                     </p>
-                    {quarantineSummary.totalSuppressed > 0 && (
-                        <div className="mt-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
-                            <p className="font-black uppercase tracking-[0.14em]">
-                                Anti-spam protection active
-                            </p>
-                            <p className="mt-1 leading-relaxed">
-                                Blocked {quarantineSummary.totalSuppressed} suspicious request attempt{quarantineSummary.totalSuppressed === 1 ? "" : "s"} in the recent window.
-                            </p>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold">
-                                {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited > 0 && (
-                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
-                                        sender rate limit: {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited}
-                                    </span>
-                                )}
-                                {quarantineSummary.byReason.incoming_connection_request_peer_cooldown_active > 0 && (
-                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
-                                        sender cooldown: {quarantineSummary.byReason.incoming_connection_request_peer_cooldown_active}
-                                    </span>
-                                )}
-                                {quarantineSummary.byReason.incoming_connection_request_global_rate_limited > 0 && (
-                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
-                                        global rate limit: {quarantineSummary.byReason.incoming_connection_request_global_rate_limited}
-                                    </span>
-                                )}
-                                {quarantineSummary.byReason.incoming_connection_request_attack_mode_strict_relay_high_risk > 0 && (
-                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
-                                        strict relay risk: {quarantineSummary.byReason.incoming_connection_request_attack_mode_strict_relay_high_risk}
-                                    </span>
-                                )}
-                                {quarantineSummary.byReason.incoming_connection_request_attack_mode_peer_shared_intel_blocked > 0 && (
-                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
-                                        shared-intel peer block: {quarantineSummary.byReason.incoming_connection_request_attack_mode_peer_shared_intel_blocked}
-                                    </span>
-                                )}
-                                {quarantineSummary.byReason.incoming_connection_request_attack_mode_contract_violation > 0 && (
-                                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
-                                        contract boundary: {quarantineSummary.byReason.incoming_connection_request_attack_mode_contract_violation}
-                                    </span>
-                                )}
-                            </div>
-                            {quarantineSummary.recent.length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                    {quarantineSummary.recent.slice(0, 3).map((entry, index) => (
-                                        <p key={`${entry.atUnixMs}-${index}`} className="text-[10px] leading-relaxed opacity-90">
-                                            Identity hidden - {quarantineReasonLabel(entry.reasonCode)} - {formatTime(new Date(entry.atUnixMs), nowMs)}
-                                        </p>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                     {onDismissPendingCount && requests.length > 0 && !pendingCountDismissed ? (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[10px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                            className="h-7 shrink-0 px-2.5 text-[10px] font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
                             onClick={onDismissPendingCount}
                         >
                             Hide tab count
@@ -166,22 +115,73 @@ export function RequestsInboxPanel({ variant = "inbox", requests, nowMs, onSelec
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[10px] font-bold text-zinc-400 hover:text-red-500 hover:bg-red-500/5 transition-colors"
+                            className="h-7 shrink-0 px-2.5 text-[10px] font-bold text-zinc-400 hover:bg-red-500/5 hover:text-red-500 transition-colors"
                             onClick={onClearHistory}
                         >
-                            <Trash2 className="h-3 w-3 mr-1" />
+                            <Trash2 className="mr-1 h-3 w-3" />
                             {t("common.clear")}
                         </Button>
                     )}
-                    <div className="group relative">
+                    <div className="group relative ml-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center">
                         <BadgeInfo className="h-4 w-4 text-zinc-400 cursor-help" />
-                        <div className="absolute top-6 right-0 w-48 p-2 rounded-lg bg-white dark:bg-zinc-800 shadow-xl border border-black/5 dark:border-white/5 text-[10px] text-zinc-500 dark:text-zinc-400 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                        <div className="pointer-events-none absolute top-8 left-0 z-10 w-48 rounded-lg border border-black/5 bg-white p-2 text-[10px] text-zinc-500 opacity-0 shadow-xl transition-opacity group-hover:opacity-100 dark:border-white/5 dark:bg-zinc-800 dark:text-zinc-400">
                             {isJunk
                                 ? t("messaging.junkInboxHelp")
                                 : "Invitations appear here after the app has real incoming evidence, not just a sender-side claim."}
                         </div>
                     </div>
                 </div>
+                {quarantineSummary.totalSuppressed > 0 && (
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                        <p className="font-black uppercase tracking-[0.14em]">
+                            Anti-spam protection active
+                        </p>
+                        <p className="mt-1 leading-relaxed">
+                            Blocked {quarantineSummary.totalSuppressed} suspicious request attempt{quarantineSummary.totalSuppressed === 1 ? "" : "s"} in the recent window.
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-semibold">
+                            {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited > 0 && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                    sender rate limit: {quarantineSummary.byReason.incoming_connection_request_peer_rate_limited}
+                                </span>
+                            )}
+                            {quarantineSummary.byReason.incoming_connection_request_peer_cooldown_active > 0 && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                    sender cooldown: {quarantineSummary.byReason.incoming_connection_request_peer_cooldown_active}
+                                </span>
+                            )}
+                            {quarantineSummary.byReason.incoming_connection_request_global_rate_limited > 0 && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                    global rate limit: {quarantineSummary.byReason.incoming_connection_request_global_rate_limited}
+                                </span>
+                            )}
+                            {quarantineSummary.byReason.incoming_connection_request_attack_mode_strict_relay_high_risk > 0 && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                    strict relay risk: {quarantineSummary.byReason.incoming_connection_request_attack_mode_strict_relay_high_risk}
+                                </span>
+                            )}
+                            {quarantineSummary.byReason.incoming_connection_request_attack_mode_peer_shared_intel_blocked > 0 && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                    shared-intel peer block: {quarantineSummary.byReason.incoming_connection_request_attack_mode_peer_shared_intel_blocked}
+                                </span>
+                            )}
+                            {quarantineSummary.byReason.incoming_connection_request_attack_mode_contract_violation > 0 && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5">
+                                    contract boundary: {quarantineSummary.byReason.incoming_connection_request_attack_mode_contract_violation}
+                                </span>
+                            )}
+                        </div>
+                        {quarantineSummary.recent.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                                {quarantineSummary.recent.slice(0, 3).map((entry, index) => (
+                                    <p key={`${entry.atUnixMs}-${index}`} className="text-[10px] leading-relaxed opacity-90">
+                                        Identity hidden - {quarantineReasonLabel(entry.reasonCode)} - {formatTime(new Date(entry.atUnixMs), nowMs)}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-2">

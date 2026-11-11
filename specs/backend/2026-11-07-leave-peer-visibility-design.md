@@ -53,5 +53,5 @@ Hydrate must not resurrect active roster for terminal-left peers
 | Layer | Command / claim |
 |-------|-----------------|
 | L1 | vitest apply-ingress mark-left · terminal peer left · binder unit |
-| L2 | optional dual CDP A leave → B roster excludes A (not required to land) |
-| Fixed | only after L2 Pass per charter |
+| L2 | **Pass 2026-11-08** dual CDP Soft L3 — A leave → B coordination/ledger/UI exclude A |
+| Fixed | only after L2 Pass per charter — L2 evidence in `docs/handoffs/leave-peer-visibility-l2-soak-2026-11-08.md` |

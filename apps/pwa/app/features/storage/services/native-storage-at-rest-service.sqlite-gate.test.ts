@@ -29,6 +29,8 @@ import { invokeNativeCommand } from "@/app/features/runtime/native-adapters";
 import {
   activateNativeStorageAtRestUnlock,
   ensureNativeSqliteOpenForWrites,
+  probeNativeSqliteWriteReady,
+  rebindNativeSqliteIfSessionOpen,
   restoreNativeVaultEncryptionSessionIfNeeded,
   syncNativeVaultEncryptionSessionAfterIdentityUnlock,
 } from "./native-storage-at-rest-service";
@@ -90,6 +92,43 @@ describe("ensureNativeSqliteOpenForWrites", () => {
       return { ok: false, reason: "failed", message: `unexpected ${command}` };
     });
     await expect(ensureNativeSqliteOpenForWrites()).resolves.toBe(false);
+  });
+});
+
+describe("rebindNativeSqliteIfSessionOpen (Cut 0.3)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(hasNativeRuntime).mockReturnValue(true);
+  });
+
+  it("returns false without invoking unlock when PDK session is closed", async () => {
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValue(false);
+    await expect(rebindNativeSqliteIfSessionOpen({ profileId: "default" })).resolves.toBe(false);
+    expect(invokeNativeCommand).not.toHaveBeenCalled();
+  });
+
+  it("rebinds SQLite when PDK session material is already present", async () => {
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValue(true);
+    vi.mocked(getProfileStorageKeyMaterial).mockReturnValue(new Uint8Array(32) as never);
+    vi.mocked(profileDataKeyMaterialToBase64).mockReturnValue("dGVzdA==");
+    vi.mocked(invokeNativeCommand).mockResolvedValue({ ok: true, value: undefined });
+    await expect(rebindNativeSqliteIfSessionOpen({ profileId: "default" })).resolves.toBe(true);
+    expect(invokeNativeCommand).toHaveBeenCalledWith(
+      "desktop_storage_at_rest_unlock",
+      expect.objectContaining({ profileId: "default" }),
+    );
+    expect(invokeNativeCommand).not.toHaveBeenCalledWith(
+      "desktop_storage_at_rest_restore_keychain",
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("probeNativeSqliteWriteReady mirrors vault session readiness", () => {
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValue(true);
+    expect(probeNativeSqliteWriteReady({ profileId: "default" })).toBe(true);
+    vi.mocked(isVaultWriteEncryptionReady).mockReturnValue(false);
+    expect(probeNativeSqliteWriteReady({ profileId: "default" })).toBe(false);
   });
 });
 

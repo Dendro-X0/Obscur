@@ -120,10 +120,17 @@ describe("private-dc-adapter L2 live HTTP", () => {
       profileId: "default",
       conversationId: "ops",
       body: "adapter-l2",
-    })).resolves.toMatchObject({
-      id: "m-adapter",
-      body: "adapter-l2",
+    })).rejects.toThrow(/private_dc_t3_plaintext_refused/);
+
+    await expect(privateDcAdapter.sendEnvelope({
+      profileId: "default",
       conversationId: "ops",
+      envelope: "adapter-l2-sealed",
+      clientMessageId: "cmid-adapter-l2",
+    })).resolves.toMatchObject({
+      conversationId: "ops",
+      envelope: "adapter-l2-sealed",
+      status: "accepted",
     });
   });
 });

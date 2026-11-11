@@ -17,6 +17,14 @@ import {
   buildRelayRowsFromPreset,
   PRODUCT_BOOT_TRANSPORT_PRESET,
 } from "@/app/features/transport-kernel/transport-preset-catalog";
+import {
+  clearExclusiveIntentIfEnablingNonLabRelay,
+  clearExclusiveTransportPresetIntent,
+  readExclusiveTransportPresetIntent,
+  reenableExclusivePresetRelays,
+  shouldSkipPublicBootMergeForExclusiveIntent,
+} from "@/app/features/transport-kernel/transport-exclusive-intent";
+import { isLocalLabAssistRelayUrl } from "@/app/features/relays/services/relay-local-lab-adapt";
 
 type RelayListItem = Readonly<{
   url: string;
@@ -152,6 +160,17 @@ const resolveLoadedRelayList = (
   publicKeyHex: PublicKeyHex,
   profileId?: string,
 ): ReadonlyArray<RelayListItem> => {
+  const intent = readExclusiveTransportPresetIntent(profileId);
+  if (shouldSkipPublicBootMergeForExclusiveIntent({ intent, relays: parsed })) {
+    if (intent && !parsed.some((relay) => relay.enabled)) {
+      const healed = reenableExclusivePresetRelays({ intent, relays: parsed });
+      if (healed.changed) {
+        saveRelayListToStorage(publicKeyHex, healed.relays, profileId);
+      }
+      return healed.relays;
+    }
+    return parsed;
+  }
   const loopbackMerge = mergePublicBootIntoLoopbackOnlyList(parsed, DEFAULT_RELAYS);
   const noneEnabledHeal = reenableWhenNoRelaysEnabled(loopbackMerge.relays, DEFAULT_RELAYS);
   const merged = noneEnabledHeal.relays;
@@ -236,6 +255,7 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     if (!trustedUrl) {
       return;
     }
+    clearExclusiveIntentIfEnablingNonLabRelay({ url: trustedUrl, enabled: true }, relayListProfileId);
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
       const existing = prev.find((r: RelayListItem): boolean => r.url === trustedUrl);
       if (existing) {
@@ -248,7 +268,7 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
       }
       return [...prev, { url: trustedUrl, enabled: true }];
     });
-  }, []);
+  }, [relayListProfileId]);
   const removeRelay = useCallback((removeParams: Readonly<{ url: string }>): void => {
     const trustedUrl = toTrustedRelayUrl(removeParams.url);
     if (!trustedUrl) {
@@ -263,6 +283,10 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
     if (!trustedUrl) {
       return;
     }
+    clearExclusiveIntentIfEnablingNonLabRelay(
+      { url: trustedUrl, enabled: enabledParams.enabled },
+      relayListProfileId,
+    );
     setRelays((prev: ReadonlyArray<RelayListItem>): ReadonlyArray<RelayListItem> => {
       return prev.map((r: RelayListItem): RelayListItem => {
         if (r.url !== trustedUrl) {
@@ -271,7 +295,7 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
         return { url: r.url, enabled: enabledParams.enabled };
       });
     });
-  }, []);
+  }, [relayListProfileId]);
   const moveRelay = useCallback((moveParams: Readonly<{ url: string; direction: MoveRelayDirection }>): void => {
     const trustedUrl = toTrustedRelayUrl(moveParams.url);
     if (!trustedUrl) {
@@ -294,11 +318,17 @@ export const useRelayList = (params: UseRelayListParams): UseRelayListResult => 
   }, []);
   const replaceRelays = useCallback((replaceParams: Readonly<{ relays: ReadonlyArray<RelayListItem> }>): void => {
     const normalized = sanitizeRelayList(replaceParams.relays);
-    setRelays(normalized.length > 0 ? normalized : DEFAULT_RELAYS);
-  }, []);
+    const next = normalized.length > 0 ? normalized : DEFAULT_RELAYS;
+    // Bulk enable-all / mixed replace that turns on a non-lab remote exits exclusive Soft L3.
+    if (next.some((relay) => relay.enabled && !isLocalLabAssistRelayUrl(relay.url))) {
+      clearExclusiveTransportPresetIntent(relayListProfileId);
+    }
+    setRelays(next);
+  }, [relayListProfileId]);
   const resetRelays = useCallback((): void => {
+    clearExclusiveTransportPresetIntent(relayListProfileId);
     setRelays(DEFAULT_RELAYS);
-  }, []);
+  }, [relayListProfileId]);
   const state: RelayListState = useMemo((): RelayListState => {
     return { relays };
   }, [relays]);

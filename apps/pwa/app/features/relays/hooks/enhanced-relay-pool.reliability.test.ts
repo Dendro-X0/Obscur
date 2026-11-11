@@ -88,6 +88,21 @@ describe("enhanced-relay-pool reliability internals", () => {
     expect(relayReliabilityInternals.shouldReuseRelaySocket(connectingSocket, false)).toBe(true);
   });
 
+  it("does not reuse CONNECTING sockets past the hung budget", () => {
+    const connectingSocket = { readyState: WebSocket.CONNECTING } as WebSocket;
+    const startedAt = 1_000;
+    expect(shouldReuseRelaySocket(connectingSocket, false, {
+      connectingStartedAtUnixMs: startedAt,
+      nowUnixMs: startedAt + 3_000,
+      hungConnectingMs: 4_000,
+    })).toBe(true);
+    expect(shouldReuseRelaySocket(connectingSocket, false, {
+      connectingStartedAtUnixMs: startedAt,
+      nowUnixMs: startedAt + 4_001,
+      hungConnectingMs: 4_000,
+    })).toBe(false);
+  });
+
   it("orders relays deterministically by health score", () => {
     const fastRelay = "wss://fast.example";
     const slowRelay = "wss://slow.example";

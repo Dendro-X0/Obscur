@@ -4,8 +4,17 @@ import { isDmEngineMethod } from "./dm-engine-methods";
 import { isWorkspaceEngineMethod } from "./workspace-engine-methods";
 import { isAuthEngineMethod } from "./auth-engine-methods";
 import { isTransportEngineMethod } from "./transport-engine-methods";
+import { isPrivateTrustEngineMethod } from "./private-trust-engine-methods";
+import { isPersistenceEngineMethod } from "./persistence-engine-methods";
 
-const ENGINE_IDS: ReadonlyArray<EngineId> = ["auth", "dm", "workspace", "transport", "persistence"];
+const ENGINE_IDS: ReadonlyArray<EngineId> = [
+  "auth",
+  "dm",
+  "workspace",
+  "transport",
+  "persistence",
+  "privateTrust",
+];
 
 export const isEngineId = (value: string): value is EngineId => (
   ENGINE_IDS.includes(value as EngineId)
@@ -64,6 +73,28 @@ export const validateEngineInvokeRequest = (
     }
     if (!payload?.payload?.trim()) {
       return { code: "invalid_payload", message: "publishRelayEvent requires payload.payload" };
+    }
+  }
+  if (request.engine === "persistence" && !isPersistenceEngineMethod(request.method)) {
+    return { code: "invalid_method", message: `Unknown persistence method: ${request.method}` };
+  }
+  if (request.engine === "privateTrust" && !isPrivateTrustEngineMethod(request.method)) {
+    return { code: "invalid_method", message: `Unknown privateTrust method: ${request.method}` };
+  }
+  if (request.engine === "privateTrust" && request.method === "prepareT3Outbound") {
+    const payload = request.payload as {
+      conversationId?: string;
+      peerPubkey?: string;
+      plaintext?: string;
+    } | undefined;
+    if (!payload?.conversationId?.trim()) {
+      return { code: "invalid_payload", message: "prepareT3Outbound requires payload.conversationId" };
+    }
+    if (!payload?.peerPubkey?.trim()) {
+      return { code: "invalid_payload", message: "prepareT3Outbound requires payload.peerPubkey" };
+    }
+    if (!payload?.plaintext?.trim()) {
+      return { code: "invalid_payload", message: "prepareT3Outbound requires payload.plaintext" };
     }
   }
   return null;

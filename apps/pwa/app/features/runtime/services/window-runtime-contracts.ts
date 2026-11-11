@@ -1,3 +1,4 @@
+import { isIdentityUnlockedForAppShell } from "@dweb/auth/policy/auth-shell-ready-gate";
 import type { RelayRuntimeSnapshot } from "@/app/features/relays/services/relay-runtime-contracts";
 import type { StartupAuthState } from "@/app/features/auth/services/startup-auth-state-contracts";
 
@@ -98,14 +99,9 @@ export const isProfileWindowUnlockedForAppShell = (params: Readonly<{
   identityStatus: ProfileBoundSessionSnapshot["identityStatus"];
   publicKeyHex?: string | null;
   runtimePhase: WindowRuntimePhase | string;
-}>): boolean => {
-  if (params.runtimePhase === "fatal") {
-    return false;
-  }
+}>): boolean => (
   // Identity lock is authoritative. A stale `ready`/`degraded` phase must not keep
   // the unlocked shell mounted after lockIdentity (manual Lock Now / title-bar lock).
-  if (params.identityStatus !== "unlocked" || !params.publicKeyHex) {
-    return false;
-  }
-  return true;
-};
+  // Shared with Vite lab AuthDoor (Cut 3.2) via @dweb/auth auth-shell-ready-gate.
+  isIdentityUnlockedForAppShell(params)
+);

@@ -4,7 +4,8 @@ export type EngineId =
   | "dm"
   | "workspace"
   | "transport"
-  | "persistence";
+  | "persistence"
+  | "privateTrust";
 
 export type EngineScope = Readonly<{
   profileId: string;

@@ -259,15 +259,42 @@ const moduleEvaluatePublishQuorum = (
   };
 };
 
-/** Reuse an in-flight or open socket instead of opening a duplicate WebSocket to the same URL. */
+/** Soft L3 / Docker lab hung-CONNECTING budget (not wired into dial yet — unlock-safe). */
+export const HUNG_CONNECTING_MS = 8_000;
+export const LOCAL_HUNG_CONNECTING_MS = 4_000;
+
+export type ShouldReuseRelaySocketOptions = Readonly<{
+  connectingStartedAtUnixMs?: number;
+  nowUnixMs?: number;
+  hungConnectingMs?: number;
+}>;
+
+/**
+ * Reuse an in-flight or open socket instead of opening a duplicate WebSocket to the same URL.
+ * Optional hung budget: CONNECTING older than hungConnectingMs is treated as dead (Soft L3 recovery).
+ * Callers that omit options keep legacy CONNECTING reuse (required for public Quiet unlock).
+ */
 export const shouldReuseRelaySocket = (
   existing: WebSocket | undefined,
   forceReconnect: boolean,
+  options?: ShouldReuseRelaySocketOptions,
 ): boolean => {
   if (!existing || forceReconnect) {
     return false;
   }
-  return existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING;
+  if (existing.readyState === WebSocket.OPEN) {
+    return true;
+  }
+  if (existing.readyState !== WebSocket.CONNECTING) {
+    return false;
+  }
+  const startedAtUnixMs = options?.connectingStartedAtUnixMs;
+  const hungMs = options?.hungConnectingMs;
+  if (typeof startedAtUnixMs !== "number" || typeof hungMs !== "number") {
+    return true;
+  }
+  const nowUnixMs = options?.nowUnixMs ?? Date.now();
+  return (nowUnixMs - startedAtUnixMs) < hungMs;
 };
 
 export const resolvePendingOkResolver = (
@@ -1646,18 +1673,23 @@ const addTransientRelay = (url: string, source: TransientRelaySource = "manual")
   ));
 
   if (matchingConfigured) {
+    let changed = false;
     if (!socketsByUrl[matchingConfigured]) {
       healthMonitor.initializeRelay(matchingConfigured);
       const socket = connectToRelay(matchingConfigured);
       if (socket) {
         socketsByUrl = { ...socketsByUrl, [matchingConfigured]: socket };
+        changed = true;
       }
     }
-    publishRelayPoolSnapshot();
+    if (changed) {
+      publishRelayPoolSnapshot();
+    }
     return;
   }
 
   if (transientRelayUrls.has(normalizedUrl)) {
+    let changed = source === "fallback" && !fallbackRelayUrls.has(normalizedUrl);
     if (source === "fallback") {
       fallbackRelayUrls.add(normalizedUrl);
       fallbackActivated = true;
@@ -1666,9 +1698,12 @@ const addTransientRelay = (url: string, source: TransientRelaySource = "manual")
       const socket = connectToRelay(normalizedUrl);
       if (socket) {
         socketsByUrl = { ...socketsByUrl, [normalizedUrl]: socket };
+        changed = true;
       }
     }
-    publishRelayPoolSnapshot();
+    if (changed) {
+      publishRelayPoolSnapshot();
+    }
     return;
   }
 

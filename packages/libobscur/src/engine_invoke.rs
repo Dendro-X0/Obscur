@@ -2,9 +2,10 @@
 
 use crate::db::Database;
 use crate::db::repositories::{
-    ConversationRecord, GroupMessageRecord, GroupRecord, GroupTombstoneRecord, MessageRecord,
-    TombstoneRecord,
+    relationship_state, ConversationRecord, GroupMessageRecord, GroupRecord, GroupTombstoneRecord,
+    MessageRecord, RelationshipEdgeRecord, TombstoneRecord,
 };
+use crate::protocol::e2ee::t3_hdc_pipeline::{complete_t3_home_ack, prepare_t3_outbound};
 
 use crate::protocol::types::{unix_ms_now, QuorumPublishReport, RelayPublishAttempt};
 use crate::protocol::ProtocolRuntime;
@@ -987,6 +988,125 @@ fn dispatch_persistence(
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrivateTrustUpsertEdgePayload {
+    peer_pubkey: String,
+    state: String,
+    trust_tier: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrivateTrustPrepareT3Payload {
+    conversation_id: String,
+    peer_pubkey: String,
+    plaintext: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrivateTrustCompleteAckPayload {
+    client_message_id: String,
+    home_message_id: String,
+}
+
+/// Cut 0 glue — CRM + T3 outbound / home ACK (no network dial).
+fn dispatch_private_trust(
+    db: &Database,
+    method: &str,
+    scope: &EngineScope,
+    payload: Option<Value>,
+) -> EngineInvokeResult {
+    match method {
+        "upsertRelationshipEdge" => {
+            let parsed: PrivateTrustUpsertEdgePayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid upsertRelationshipEdge payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "upsertRelationshipEdge requires payload"),
+            };
+            if !relationship_state::is_valid(&parsed.state) {
+                return err("invalid_payload", "invalid relationship state");
+            }
+            match db.upsert_relationship_edge(&RelationshipEdgeRecord {
+                profile_id: scope.profile_id.clone(),
+                peer_pubkey: parsed.peer_pubkey,
+                state: parsed.state,
+                trust_tier: parsed.trust_tier,
+                updated_at: 0,
+            }) {
+                Ok(()) => ok(serde_json::json!({ "upserted": true })),
+                Err(e) => err("db_error", e.to_string()),
+            }
+        }
+        "listRelationshipEdges" => match db.list_relationship_edges(&scope.profile_id) {
+            Ok(rows) => ok(rows),
+            Err(e) => err("db_error", e.to_string()),
+        },
+        "prepareT3Outbound" => {
+            let parsed: PrivateTrustPrepareT3Payload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid prepareT3Outbound payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "prepareT3Outbound requires payload"),
+            };
+            match prepare_t3_outbound(
+                db,
+                &scope.profile_id,
+                &parsed.conversation_id,
+                &parsed.peer_pubkey,
+                parsed.plaintext.as_bytes(),
+            ) {
+                Ok(prepared) => ok(prepared),
+                Err(e) => err("t3_prepare_failed", e),
+            }
+        }
+        "completeT3HomeAck" => {
+            let parsed: PrivateTrustCompleteAckPayload = match payload {
+                Some(value) => match serde_json::from_value(value) {
+                    Ok(parsed) => parsed,
+                    Err(e) => {
+                        return err(
+                            "invalid_payload",
+                            format!("invalid completeT3HomeAck payload: {e}"),
+                        )
+                    }
+                },
+                None => return err("invalid_payload", "completeT3HomeAck requires payload"),
+            };
+            match complete_t3_home_ack(
+                db,
+                &scope.profile_id,
+                &parsed.client_message_id,
+                &parsed.home_message_id,
+            ) {
+                Ok(()) => ok(serde_json::json!({
+                    "acked": true,
+                    "status": "accepted",
+                })),
+                Err(e) => err("t3_ack_failed", e),
+            }
+        }
+        other => err(
+            "invalid_method",
+            format!("unknown privateTrust method: {other}"),
+        ),
+    }
+}
+
 /// Single owner for typed engine requests against an open SQLite database.
 pub fn dispatch(db: &Database, request: &EngineInvokeRequest) -> EngineInvokeResult {
     if request.scope.profile_id.trim().is_empty() {
@@ -999,6 +1119,9 @@ pub fn dispatch(db: &Database, request: &EngineInvokeRequest) -> EngineInvokeRes
         "transport" => dispatch_transport(db, &request.method, &request.scope, request.payload.clone()),
         "persistence" => {
             dispatch_persistence(db, &request.method, &request.scope, request.payload.clone())
+        }
+        "privateTrust" => {
+            dispatch_private_trust(db, &request.method, &request.scope, request.payload.clone())
         }
         "auth" => err(
             "invalid_engine",
@@ -2025,5 +2148,84 @@ mod tests {
         let after: Vec<crate::db::repositories::TombstoneRecord> =
             serde_json::from_value(empty.data.unwrap()).unwrap();
         assert!(after.is_empty());
+    }
+
+    #[test]
+    fn private_trust_crm_and_t3_ack_round_trip() {
+        let db = Database::new(None).unwrap();
+        let upsert = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "privateTrust".to_string(),
+                method: "upsertRelationshipEdge".to_string(),
+                scope: EngineScope {
+                    profile_id: "pa".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "peerPubkey": "peer1",
+                    "state": "trusted",
+                    "trustTier": "manual"
+                })),
+            },
+        );
+        assert!(upsert.ok, "{:?}", upsert.error_message);
+
+        let listed = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "privateTrust".to_string(),
+                method: "listRelationshipEdges".to_string(),
+                scope: EngineScope {
+                    profile_id: "pa".to_string(),
+                    window_label: None,
+                },
+                payload: None,
+            },
+        );
+        assert!(listed.ok, "{:?}", listed.error_message);
+        let edges: Vec<crate::db::repositories::RelationshipEdgeRecord> =
+            serde_json::from_value(listed.data.unwrap()).unwrap();
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].state, "trusted");
+
+        let prepared = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "privateTrust".to_string(),
+                method: "prepareT3Outbound".to_string(),
+                scope: EngineScope {
+                    profile_id: "pa".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "conversationId": "c1",
+                    "peerPubkey": "peer1",
+                    "plaintext": "lab-t3"
+                })),
+            },
+        );
+        assert!(prepared.ok, "{:?}", prepared.error_message);
+        let body = prepared.data.unwrap();
+        let client_message_id = body["clientMessageId"].as_str().unwrap().to_string();
+        assert!(!body["envelope"].as_str().unwrap().is_empty());
+
+        let acked = dispatch(
+            &db,
+            &EngineInvokeRequest {
+                engine: "privateTrust".to_string(),
+                method: "completeT3HomeAck".to_string(),
+                scope: EngineScope {
+                    profile_id: "pa".to_string(),
+                    window_label: None,
+                },
+                payload: Some(serde_json::json!({
+                    "clientMessageId": client_message_id,
+                    "homeMessageId": "home-lab-1"
+                })),
+            },
+        );
+        assert!(acked.ok, "{:?}", acked.error_message);
+        assert_eq!(acked.data.unwrap()["status"], "accepted");
     }
 }

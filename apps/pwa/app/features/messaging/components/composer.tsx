@@ -24,6 +24,11 @@ import {
 import { isMobileShellProduct } from "@/app/features/runtime/shell-contract";
 import { useActiveProtocolCapabilities } from "@/app/features/protocol-adaptation/use-active-protocol-capabilities";
 import { ProtocolCapabilityChips } from "@/app/features/protocol-adaptation/components/protocol-capability-chips";
+import {
+  isPrivateTrustComposeFace,
+  privateTrustComposeTransportCopy,
+} from "@/app/features/protocol-adaptation/private-trust-compose-policy";
+
 interface ComposerProps {
     messageInput: string;
     setMessageInput: (val: string) => void;
@@ -53,8 +58,10 @@ interface ComposerProps {
     deliveryRisk?: "no_overlap" | "unknown" | "overlap" | null;
 }
 export function Composer({ messageInput, setMessageInput, handleSendMessage, isUploadingAttachment, uploadStage, pendingAttachments, pendingAttachmentPreviewUrls, attachmentError, replyTo, setReplyTo, onPickAttachments, onSelectFiles, removePendingAttachment, clearPendingAttachment, relayStatus, textareaRef, recipientStatus, isPeerAccepted = true, isInitiator = false, contactRequestComposeMode, onSendVoiceNote, isProcessingMedia, mediaProcessingProgress, recipientRemoved = false, deliveryRisk, }: ComposerProps) {
-    const { capabilities } = useActiveProtocolCapabilities();
+    const { capabilities, protocolId } = useActiveProtocolCapabilities();
     const mediaEnabled = capabilities.media;
+    const privateTrustFace = isPrivateTrustComposeFace(protocolId);
+    const privateTrustTransport = privateTrustFace ? privateTrustComposeTransportCopy() : null;
     const mobileComposer = isMobileShellProduct();
     const [isVoiceRecording, setIsVoiceRecording] = React.useState(false);
     const EMOJI_PICKER_DESKTOP_WIDTH_PX = 320;
@@ -469,19 +476,32 @@ export function Composer({ messageInput, setMessageInput, handleSendMessage, isU
             {!mobileComposer ? (
             <div className={MESSAGING_SHELL_BOTTOM_CHROME_STATUS_ROW_CLASS}>
                 <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                    <span className={cn("flex items-center gap-1.5 opacity-50")}>
+                    {privateTrustTransport ? (
+                      <span
+                        data-testid="composer-private-trust-transport"
+                        className={cn("flex items-center gap-1.5 opacity-80")}
+                        title={privateTrustTransport.detail}
+                      >
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500"/>
+                        {privateTrustTransport.label}
+                      </span>
+                    ) : (
+                      <span className={cn("flex items-center gap-1.5 opacity-50")}>
                         <div className={cn("h-1.5 w-1.5 rounded-full", relayStatus.openCount > 0 ? "bg-emerald-500" : "bg-rose-500")}/>
                         {relayStatus.openCount > 0
                             ? t("messaging.connectedToRelays")
                             : `${relayStatus.openCount}/${relayStatus.total} relays active`}
-                    </span>
-                    {deliveryRisk === "no_overlap" && relayStatus.openCount > 0 && (<span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 normal-case tracking-normal font-semibold">
+                      </span>
+                    )}
+                    {!privateTrustFace && deliveryRisk === "no_overlap" && relayStatus.openCount > 0 && (<span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 normal-case tracking-normal font-semibold">
                             <AlertTriangle className="h-3 w-3"/>
                             {t("messaging.deliveryRisk")}
                         </span>)}
                 </div>
                 <div className="text-[9px] font-medium text-zinc-400 uppercase tracking-tight opacity-50">
-                    {t("messaging.e2eEncrypted")} • Ver. {formatAppVersionLabel()}
+                    {privateTrustFace
+                      ? `${privateTrustTransport?.detail ?? "T3"} • Ver. ${formatAppVersionLabel()}`
+                      : `${t("messaging.e2eEncrypted")} • Ver. ${formatAppVersionLabel()}`}
                 </div>
             </div>
             ) : null}

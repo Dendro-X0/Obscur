@@ -3,6 +3,8 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { MessageQueue } from "@/app/features/messaging/lib/message-queue";
 import { messagingDB } from "@dweb/storage/indexed-db";
+import { nativeDmSkipsIndexedDbMessageQueue } from "@/app/features/messaging/services/native-dm-read-policy";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { toDmConversationId } from "@/app/features/messaging/utils/dm-conversation-id";
 import { extractAttachmentsFromContent } from "@/app/features/messaging/utils/logic";
 import { isVoiceCallControlPayload } from "@/app/features/messaging/services/realtime-voice-signaling";
@@ -344,6 +346,10 @@ export const toPersistedMessageFromIndexedRecord = (params: Readonly<{
 const loadMessageQueueRecords = async (
   publicKeyHex: PublicKeyHex
 ): Promise<ReadonlyArray<Readonly<Record<string, unknown>>>> => {
+  // Cut 1.2: native SQLite owns durable messages — do not scan MessageQueue IDB.
+  if (nativeDmSkipsIndexedDbMessageQueue() || requiresSqlitePersistence()) {
+    return [];
+  }
   try {
     const messageQueue = new MessageQueue(publicKeyHex);
     const messages = await withTimeout(
@@ -357,6 +363,10 @@ const loadMessageQueueRecords = async (
 };
 
 const loadIndexedMessageRecords = async (): Promise<ReadonlyArray<Readonly<Record<string, unknown>>>> => {
+  // Cut 1.2: native path never opens message IndexedDB for hydrate.
+  if (nativeDmSkipsIndexedDbMessageQueue() || requiresSqlitePersistence()) {
+    return [];
+  }
   try {
     return await withTimeout(
       messagingDB.getAllByIndex<Readonly<Record<string, unknown>>>(

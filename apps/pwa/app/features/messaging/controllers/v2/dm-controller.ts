@@ -637,6 +637,7 @@ export const useDmController = (params: UseDmControllerParams): UseDmControllerR
       pool: activePool,
       myPublicKeyHex,
       onEvent: handleIncomingEvent,
+      profileId: getResolvedProfileId() || undefined,
     });
     subscribedRef.current = true;
     setActiveSubId(subscriptionRef.current.id);

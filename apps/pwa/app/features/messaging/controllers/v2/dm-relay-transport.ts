@@ -20,6 +20,12 @@ import {
   isLocalDevWorkspaceRelayUrl,
   isLocalMeshHttpGatewayUrl,
 } from "@/app/features/relays/services/relay-transport-scope";
+import { isLocalLabAssistRelayUrl } from "@/app/features/relays/services/relay-local-lab-adapt";
+import {
+  isExclusivePrivateMeshPreset,
+  readExclusiveTransportPresetIntent,
+} from "@/app/features/transport-kernel/transport-exclusive-intent";
+import { getTransportPreset } from "@/app/features/transport-kernel/transport-preset-catalog";
 import { peerRelayEvidenceStore } from "../../services/peer-relay-evidence-store";
 import { resolveDmHybridRelayTargeting } from "../../lib/resolve-dm-hybrid-relay-targets";
 
@@ -202,17 +208,50 @@ export type SubscriptionHandle = Readonly<{
   unsubscribe: () => void;
 }>;
 
+/**
+ * Public delivery fallbacks must not be dialed under Soft L3 exclusive / HTTP-only
+ * mesh (or sticky exclusive intent) — mesh `addTransientRelay` expands setRelayUrls
+ * and bleeds Connected 2/2 onto public remotes (H6b).
+ * @see specs/backend/p1-o4b-soft-l3-exclusive-subscribe-no-public-bleed-design-2026-11-08.md
+ */
+export const shouldPrimeDmDeliveryFallbackRelays = (params: Readonly<{
+  pool: RelayPoolContract;
+  profileId?: string;
+}>): boolean => {
+  const configured = resolveConfiguredSenderRelayUrls(params.pool);
+  const open = resolveSenderOpenRelayUrls(params.pool);
+  if (isHttpOnlyMeshTransportPool(configured) || isExclusiveLocalDevMeshTransportPool(configured)) {
+    return false;
+  }
+  if (isExclusiveLocalDevMeshTransportPool(open)) {
+    return false;
+  }
+  const exclusiveIntent = readExclusiveTransportPresetIntent(params.profileId);
+  if (exclusiveIntent) {
+    const exclusivePreset = getTransportPreset(exclusiveIntent);
+    if (exclusivePreset && isExclusivePrivateMeshPreset(exclusivePreset)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const subscribeToIncomingDMs = (params: Readonly<{
   pool: RelayPoolContract;
   myPublicKeyHex: string;
   onEvent: (event: NostrEvent, relayUrl: string) => void;
+  profileId?: string;
 }>): SubscriptionHandle => {
-  const { pool, myPublicKeyHex, onEvent } = params;
+  const { pool, myPublicKeyHex, onEvent, profileId } = params;
 
   // `resolveTargetRelayUrls` can publish to delivery fallbacks when the peer has
   // no NIP-65 / evidence. REQ must hit those same relays or recipients never see
   // live events while history (restore / other fetches) still shows old traffic.
-  if (typeof pool.addTransientRelay === "function") {
+  // Soft L3 exclusive / HTTP-only: skip — otherwise mesh pool dials public remotes.
+  if (
+    typeof pool.addTransientRelay === "function"
+    && shouldPrimeDmDeliveryFallbackRelays({ pool, profileId })
+  ) {
     for (const url of DM_DELIVERY_FALLBACK_RELAYS) {
       pool.addTransientRelay(url);
     }
@@ -324,6 +363,18 @@ export const isHttpOnlyMeshTransportPool = (
   && configuredRelayUrls.every((url) => isLocalMeshHttpGatewayUrl(url))
 );
 
+/**
+ * Soft L3 exclusive — every configured URL is the local Docker/dev WS lab (:7000).
+ * Mirror HTTP-only mesh: do not hybrid-union peer public evidence / DM fallbacks.
+ * @see specs/backend/p1-o4b-soft-l3-exclusive-cancel-publish-design-2026-11-08.md
+ */
+export const isExclusiveLocalDevMeshTransportPool = (
+  configuredRelayUrls: ReadonlyArray<string>,
+): boolean => (
+  configuredRelayUrls.length > 0
+  && configuredRelayUrls.every((url) => isLocalDevWorkspaceRelayUrl(url))
+);
+
 export const resolveTargetRelayUrls = (params: Readonly<{
   pool: RelayPoolContract;
   peerPublicKeyHex: string;
@@ -341,12 +392,37 @@ export const resolveTargetRelayUrls = (params: Readonly<{
   if (isHttpOnlyMeshTransportPool(configuredSenderRelayUrls)) {
     return dedupeRelayUrlList(configuredSenderRelayUrls);
   }
+  // Soft L3 exclusive Local Dev Mesh — same pin; cancel/invite must land on :7000.
+  // Prefer sole-local configured/writable; also honor sticky exclusive intent when the
+  // engine still lists public remotes beside the lab (P1-O4b L2: engineConfigured bleed).
+  const senderOpenRelayUrlsEarly = resolveSenderOpenRelayUrls(pool);
+  if (isExclusiveLocalDevMeshTransportPool(configuredSenderRelayUrls)) {
+    return dedupeRelayUrlList(configuredSenderRelayUrls);
+  }
+  if (isExclusiveLocalDevMeshTransportPool(senderOpenRelayUrlsEarly)) {
+    return dedupeRelayUrlList(senderOpenRelayUrlsEarly);
+  }
+  const exclusiveIntent = readExclusiveTransportPresetIntent(profileId);
+  if (exclusiveIntent) {
+    const exclusivePreset = getTransportPreset(exclusiveIntent);
+    if (exclusivePreset && isExclusivePrivateMeshPreset(exclusivePreset)) {
+      const localFromConfigured = configuredSenderRelayUrls.filter((url) => (
+        isLocalLabAssistRelayUrl(url)
+      ));
+      if (localFromConfigured.length > 0) {
+        return dedupeRelayUrlList(localFromConfigured);
+      }
+      if (exclusivePreset.relays.length > 0) {
+        return dedupeRelayUrlList(exclusivePreset.relays);
+      }
+    }
+  }
 
   const senderWriteRelayUrls = dedupeRelayUrlList([
     ...nip65Service.getWriteRelays(senderPublicKeyHex as never),
     ...configuredSenderRelayUrls,
   ]);
-  const senderOpenRelayUrls = resolveSenderOpenRelayUrls(pool);
+  const senderOpenRelayUrls = senderOpenRelayUrlsEarly;
 
   const targeting = resolveDmHybridRelayTargeting({
     customTags,

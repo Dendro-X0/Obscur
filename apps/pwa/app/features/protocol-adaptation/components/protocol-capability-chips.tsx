@@ -3,6 +3,7 @@
 import type React from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/utils";
+import { protocolDisplayName } from "../module-display-names";
 import type { ProtocolCapabilities, ProtocolId } from "../types";
 import { useActiveProtocolCapabilities } from "../use-active-protocol-capabilities";
 
@@ -24,6 +25,11 @@ export function ProtocolCapabilityChips(
   const live = useActiveProtocolCapabilities();
   const protocolId = props.snapshot?.protocolId ?? live.protocolId;
   const capabilities = props.snapshot?.capabilities ?? live.capabilities;
+  const protocolLabel = protocolId === "matrix"
+    ? t("protocol.chips.matrix", { defaultValue: "Matrix" })
+    : protocolId === "private_dc"
+      ? t("protocol.chips.private_dc", { defaultValue: protocolDisplayName("private_dc") })
+      : t("protocol.chips.nostr", { defaultValue: "Nostr" });
 
   return (
     <div
@@ -34,9 +40,7 @@ export function ProtocolCapabilityChips(
         data-testid="protocol-capability-protocol"
         className="rounded-md border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-zinc-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
       >
-        {protocolId === "matrix"
-          ? t("protocol.chips.matrix", { defaultValue: "Matrix" })
-          : t("protocol.chips.nostr", { defaultValue: "Nostr" })}
+        {protocolLabel}
       </span>
       {CAPABILITY_KEYS.map((key) => {
         const on = capabilities[key];

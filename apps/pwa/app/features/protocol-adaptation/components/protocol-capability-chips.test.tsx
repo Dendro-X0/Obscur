@@ -31,4 +31,18 @@ describe("ProtocolCapabilityChips", () => {
     expect(screen.getByTestId("protocol-capability-media")).toHaveAttribute("data-capability-on", "0");
     expect(screen.getByTestId("protocol-capability-dms")).toHaveAttribute("data-capability-on", "1");
   });
+
+  it("renders Private DC label for private_dc (Cut 2.2 — not Nostr)", () => {
+    render(
+      <ProtocolCapabilityChips
+        snapshot={{
+          protocolId: "private_dc",
+          capabilities: { dms: true, groups: false, reactions: false, media: false },
+        }}
+      />,
+    );
+    expect(screen.getByTestId("protocol-capability-protocol")).toHaveTextContent("Private DC");
+    expect(screen.getByTestId("protocol-capability-protocol")).not.toHaveTextContent("Nostr");
+  });
 });
+

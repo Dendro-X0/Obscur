@@ -178,8 +178,9 @@ export default async function DownloadPage() {
             <li>Private messaging — identity stays on your device · E2EE</li>
             <li>No account signup · no store listing required</li>
             <li>
-              Open beta feedback cut — not Tor Verified · not Soft L3 Fixed · video calls not
-              claimed usable · Matrix / Private DC are lab optional
+              Remaster face = private-trust (Vite) · Continuity methods available · not Continuity Pass
+              · not Soft L3 Fixed · not Tor Verified · video calls not claimed usable · Matrix /
+              Private DC lab optional
             </li>
             <li>
               DMs: <strong>Hide on this device</strong> (not Telegram-style erase-everywhere).

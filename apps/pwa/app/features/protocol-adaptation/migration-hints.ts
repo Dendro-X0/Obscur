@@ -45,6 +45,11 @@ export const getProtocolMigrationHints = (
         title: "No history bridge",
         body: "Private DC does not import Nostr DMs or Matrix rooms. Switching protocols changes what you see — no dual-write.",
       },
+      {
+        id: "private-dc-invite-obscur-nostr",
+        title: "Invites need Obscur-Nostr",
+        body: "Giftwrap connection invites stay on the Obscur-Nostr module. Private DC compose is T3/H-dc — switch protocol to send invites, or trust locally after out-of-band exchange (≠ Soft L3 Fixed).",
+      },
     ];
   }
   return getObscurNostrMigrationHints();

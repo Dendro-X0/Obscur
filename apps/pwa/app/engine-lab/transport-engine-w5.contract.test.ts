@@ -30,6 +30,9 @@ describe("transport-engine w5 — pool subscribe wiring", () => {
     const hook = read("app/features/relays/hooks/use-transport-engine-pool-subscribe.ts");
     expect(hook).toContain("syncTransportEnginePoolSubscriptions");
     expect(hook).toContain("relay.transport_engine_pool_subscribe");
+    expect(hook).toContain("useRelayPoolRef");
+    expect(hook).toContain("poolRef");
+    expect(hook).toContain("[params.enabled, subscribeUrls, subscribeUrlsKey, poolRef]");
     expect(hook).not.toMatch(/@\/app\/legacy\//);
   });
 

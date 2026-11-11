@@ -141,8 +141,27 @@ export const ensureNativeVaultEncryptionSessionForWrites = async (
 };
 
 /**
- * Soft-lock drift: shell may look unlocked while DbState.db is None.
- * Prefer PDK unlock; otherwise reopen plaintext SQLite when no at-rest envelope.
+ * Cut 0.3 probe — read-only session check for feature modules (chat send, shell banners).
+ * Does **not** activate PDK, restore keychain, or reopen SQLite. Unlock faces must use
+ * `activateNativeStorageAtRestUnlock` / `syncNativeVaultEncryptionSessionAfterIdentityUnlock`
+ * / `ensureNativeSqliteOpenForWrites` instead.
+ */
+export const probeNativeSqliteWriteReady = (
+  params?: Readonly<{ profileId?: string }>,
+): boolean => {
+  if (!hasNativeRuntime()) {
+    return true;
+  }
+  const profileId = resolveStorageProfileId(params?.profileId);
+  if (!profileId) {
+    return false;
+  }
+  return isVaultWriteEncryptionReady(profileId);
+};
+
+/**
+ * Soft-lock / unlock-path repair: open PDK session then SQLite.
+ * Allowlisted to auth + device-password bind only (Cut 0.3) — not chat/feature send paths.
  */
 export const ensureNativeSqliteOpenForWrites = async (
   params?: Readonly<{ profileId?: string }>,
@@ -156,6 +175,31 @@ export const ensureNativeSqliteOpenForWrites = async (
   }
   const reopen = await invokeNativeCommand<boolean>("desktop_db_ensure_open", {}, { timeoutMs: 8_000 });
   return reopen.ok === true;
+};
+
+/**
+ * Cut 0.3 — feature-safe rebind: reopen SQLite only when PDK session already exists in JS.
+ * Does **not** keychain-restore or passphrase-activate (use unlock faces for that).
+ */
+export const rebindNativeSqliteIfSessionOpen = async (
+  params?: Readonly<{ profileId?: string }>,
+): Promise<boolean> => {
+  if (!hasNativeRuntime()) {
+    return true;
+  }
+  const profileId = resolveStorageProfileId(params?.profileId);
+  if (!profileId || !isVaultWriteEncryptionReady(profileId)) {
+    return false;
+  }
+  const keyMaterial = getProfileStorageKeyMaterial(profileId);
+  if (!keyMaterial || keyMaterial.byteLength !== 32) {
+    return false;
+  }
+  const unlockResult = await invokeNativeCommand("desktop_storage_at_rest_unlock", {
+    profileId,
+    keyMaterialB64: profileDataKeyMaterialToBase64(keyMaterial),
+  });
+  return unlockResult.ok === true;
 };
 
 /**

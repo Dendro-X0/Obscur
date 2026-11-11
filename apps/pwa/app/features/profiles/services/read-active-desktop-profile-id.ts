@@ -35,8 +35,9 @@ const readWindowLabelScopedProfileId = (): string | null => {
 };
 
 /**
- * Resolves the profile id for this desktop window before React profile runtime hydrates.
- * Order: Tauri init sync scope → boot payload cache → legacy global last-known → registry default.
+ * Pre-hydrate profile-id oracle for this desktop window (Cut 0.2 single reader).
+ * Order: Tauri sync scope → window-label boot cache → registry active → default.
+ * Legacy global `obscur.desktop.window_profile.last_known.v1` (no `::windowLabel`) is not an oracle.
  */
 export const readActiveDesktopProfileId = (): string => {
   const syncScope = readSyncInjectedProfileScope();
@@ -54,12 +55,6 @@ export const readActiveDesktopProfileId = (): string => {
   }
 
   try {
-    const legacyLastKnown = window.localStorage.getItem(
-      "obscur.desktop.window_profile.last_known.v1",
-    )?.trim();
-    if (legacyLastKnown) {
-      return legacyLastKnown;
-    }
     const registryRaw = window.localStorage.getItem("obscur.profiles.registry.v1");
     if (registryRaw) {
       const registry = JSON.parse(registryRaw) as { activeProfileId?: unknown };

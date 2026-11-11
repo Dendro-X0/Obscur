@@ -1,0 +1,13 @@
+{
+  "name": "@obscur/private-trust-engine",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Private-trust engine CRM port — relationship_edge via HostEnginePort only.",
+  "dependencies": {
+    "@obscur/engine-contracts": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

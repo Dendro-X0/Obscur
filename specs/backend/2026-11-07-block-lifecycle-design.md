@@ -34,4 +34,8 @@ PAUSED: Soft L3 · Tor · Matrix · Continuity · A4
 
 ## Proof
 
-L1 unit Pass. L2 dual CDP optional (A block → B demotes).
+| Layer | Claim |
+|-------|-------|
+| L1 | Unit Pass (classifier + lifecycle + transport tags) |
+| L2 | **Pass 2026-11-08** — Soft L3 dual CDP; A Block user → B demotes (no auto-block on B); A Unblock → no auto-accept ([handoff](../../docs/handoffs/block-lifecycle-l2-soak-2026-11-08.md)) |
+| Fixed / packaged | Not claimed — NSIS CDP still debug-only |

@@ -1,5 +1,8 @@
+import { resolveActiveProtocolIdFromEvidence } from "@obscur/private-trust-engine";
 import { getScopedStorageKey } from "@/app/features/profiles/services/profile-scope";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
+import { hasPrivateDcSession } from "./private-dc-session";
 import type { ProtocolId, TransportId } from "./types";
 import { PHASE0_ACTIVE_TRANSPORT_ID } from "./types";
 
@@ -36,10 +39,13 @@ export const getActiveTransportStorageKey = (profileId?: string): string => (
   getScopedStorageKey(TRANSPORT_STORAGE_KEY, profileId ?? getResolvedProfileId())
 );
 
-/** Phase 0 default + only wired adapter. */
-export const readActiveProtocolId = (profileId?: string): ProtocolId => {
+/**
+ * Explicit user/module selection from storage only (null = never written).
+ * Cut 2.1 — do not treat missing key as Nostr authority on native + H-dc.
+ */
+export const readStoredActiveProtocolId = (profileId?: string): ProtocolId | null => {
   if (typeof window === "undefined") {
-    return "nostr";
+    return null;
   }
   try {
     const raw = window.localStorage.getItem(getActiveProtocolStorageKey(profileId));
@@ -49,8 +55,25 @@ export const readActiveProtocolId = (profileId?: string): ProtocolId => {
   } catch {
     // ignore
   }
-  return "nostr";
+  return null;
 };
+
+/**
+ * Cut 2.1 — resolve product-facing active protocol.
+ * Explicit LS selection wins; else native + H-dc session → private_dc; else nostr.
+ * Does not write a Nostr default when H-dc session is present.
+ */
+export const resolveActiveProtocolId = (profileId?: string): ProtocolId => (
+  resolveActiveProtocolIdFromEvidence({
+    storedProtocolId: readStoredActiveProtocolId(profileId),
+    preferPrivateDcWhenNoStored: requiresSqlitePersistence() && hasPrivateDcSession(profileId),
+  })
+);
+
+/** Product-facing active protocol (Cut 2.1 resolve). */
+export const readActiveProtocolId = (profileId?: string): ProtocolId => (
+  resolveActiveProtocolId(profileId)
+);
 
 export const writeActiveProtocolId = (
   protocolId: ProtocolId,

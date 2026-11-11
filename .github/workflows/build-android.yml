@@ -130,12 +130,16 @@ jobs:
         env:
           TAURI_SHELL_TARGET: mobile
 
-      - name: Verify Tauri beforeBuildCommand wiring
+      - name: Verify Tauri desktop Vite + mobile PWA overlay wiring
         shell: bash
         run: |
           set -euo pipefail
+          # Cut 5/6 — desktop committed conf is Vite; mobile keeps PWA overlay.
+          grep -q '"../../desktop-ui/dist"' apps/desktop/src-tauri/tauri.conf.json
+          grep -q 'pnpm -C ../desktop-ui build' apps/desktop/src-tauri/tauri.conf.json
           grep -q '"build:pwa-shell"' apps/desktop/package.json
-          grep -q 'pnpm run build:pwa-shell' apps/desktop/src-tauri/tauri.conf.json
+          grep -q 'pnpm run build:pwa-shell' apps/desktop/src-tauri/tauri.mobile.conf.json
+          grep -q '"../../pwa/out"' apps/desktop/src-tauri/tauri.mobile.conf.json
           test -f apps/desktop/scripts/run-build-pwa-shell.mjs
           ! grep -q '../../../scripts/build-pwa-shell' apps/desktop/src-tauri/tauri.conf.json
 
@@ -146,9 +150,9 @@ jobs:
             && [ -n "${TAURI_ANDROID_KEYSTORE_PASSWORD}" ] \
             && [ -n "${TAURI_ANDROID_KEY_ALIAS}" ] \
             && [ -n "${TAURI_ANDROID_KEY_PASSWORD}" ]; then
-            pnpm -C apps/desktop tauri android build --apk --aab --ci
+            pnpm -C apps/desktop tauri android build --config src-tauri/tauri.mobile.conf.json --apk --aab --ci
           else
-            pnpm -C apps/desktop tauri android build --apk --aab
+            pnpm -C apps/desktop tauri android build --config src-tauri/tauri.mobile.conf.json --apk --aab
           fi
         env:
           TAURI_SHELL_TARGET: mobile

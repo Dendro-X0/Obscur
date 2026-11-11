@@ -2,6 +2,8 @@
 
 Obscur desktop checks this folder on **`main`** for in-app streaming updates. This replaces GitHub Releases **Latest** and the Full Release workflow for day-to-day distribution.
 
+**Remaster face:** packaged desktop webview defaults to **Vite** (`apps/desktop-ui/dist`) private-trust remaster. Continuity methods available on that face. Next/`apps/pwa` remains rollback + mobile shell — not a silent wipe. Soft L3 Fixed / Continuity Pass / Tor Verified not claimed by channel publish.
+
 ## Files
 
 | File | Role |

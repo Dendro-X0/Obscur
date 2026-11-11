@@ -144,6 +144,10 @@ export class MessageQueue implements IMessageQueue {
   }
 
   private async getDb(): Promise<IDBDatabase> {
+    // Cut 1.2 belt: never open message IDB when native SQLite is authority.
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      throw new Error("MessageQueue IDB disabled on native SQLite authority (Cut 1.2 K-MSG-DUR)");
+    }
     if (this.db) return this.db;
     this.db = await openMessageDb();
     return this.db;
@@ -367,6 +371,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async getMessages(conversationId: string, options: PaginationOptions = {}): Promise<Message[]> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return [];
+    }
     const db = await this.getDb();
 
     return new Promise((resolve, reject) => {
@@ -423,6 +430,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async queueOutgoingMessage(message: OutgoingMessage): Promise<void> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return;
+    }
     const db = await this.getDb();
     const stored = {
       ...message,
@@ -456,6 +466,9 @@ export class MessageQueue implements IMessageQueue {
     if (messageIds.length === 0) {
       return;
     }
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return;
+    }
     const db = await this.getDb();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction("queue", "readwrite");
@@ -469,6 +482,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async getQueuedMessages(): Promise<OutgoingMessage[]> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return [];
+    }
     const db = await this.getDb();
     const now = Date.now();
 
@@ -519,6 +535,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async deleteMessage(messageId: string): Promise<void> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return;
+    }
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction("messages", "readwrite");
@@ -529,6 +548,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async removeFromQueue(messageId: string): Promise<void> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return;
+    }
     const db = await this.getDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction("queue", "readwrite");
@@ -539,6 +561,9 @@ export class MessageQueue implements IMessageQueue {
   }
 
   async getAllMessages(limit: number = 2000): Promise<Message[]> {
+    if (nativeDmSkipsIndexedDbMessageQueue()) {
+      return [];
+    }
     const db = await this.getDb();
 
     return new Promise((resolve, reject) => {

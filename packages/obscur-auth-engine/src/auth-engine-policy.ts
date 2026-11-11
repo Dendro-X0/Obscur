@@ -1,4 +1,3 @@
-import type { AuthBootPhase, AuthBootSnapshot } from "@dweb/auth/contracts/auth-boot-snapshot";
 import type { AuthAssistantPort } from "@dweb/auth/ports/auth-assistant-port";
 import type { DeviceUnlockPort } from "@dweb/auth/ports/device-unlock-port";
 import type { IdentityRootPort } from "@dweb/auth/ports/identity-root-port";

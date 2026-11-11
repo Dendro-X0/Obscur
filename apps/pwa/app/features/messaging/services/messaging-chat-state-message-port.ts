@@ -1,4 +1,6 @@
 import {
+  isChatStateAuthorityIoSuppressed,
+  isChatStateCrmIoSuppressed,
   isDmKernelChatStateMessageIoSuppressed,
   projectChatStateReadForDmKernelAuthority,
   sanitizeChatStateForNativeDmKernelMirror,
@@ -21,7 +23,7 @@ type ChatStateUpdateOptions = Readonly<{
   profileId?: string;
 }>;
 
-/** Message and request mutations on legacy chat-state mirror. */
+/** Message and request mutations on legacy chat-state mirror (non-authoritative on native). */
 export const messagingChatStateMessagePort = {
   load(
     publicKeyHex: string,
@@ -37,7 +39,7 @@ export const messagingChatStateMessagePort = {
     updater: (prev: PersistedChatState) => PersistedChatState,
     options?: ChatStateUpdateOptions,
   ): void {
-    if (isDmKernelChatStateMessageIoSuppressed()) {
+    if (isChatStateAuthorityIoSuppressed()) {
       chatStateStoreService.update(
         publicKeyHex,
         (prev) => sanitizeChatStateForNativeDmKernelMirror(updater(prev)),
@@ -62,6 +64,10 @@ export const messagingChatStateMessagePort = {
     publicKeyHex: PublicKeyHex,
     requests: ReadonlyArray<PersistedConnectionRequest>,
   ): void {
+    // Cut 1.5 — chat-state connectionRequests are not CRM authority on native.
+    if (isChatStateCrmIoSuppressed()) {
+      return;
+    }
     chatStateStoreService.updateConnectionRequests(publicKeyHex, requests);
   },
 

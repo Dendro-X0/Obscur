@@ -5,6 +5,7 @@
  * to potential security issues (impersonation, compromised accounts).
  */
 
+import { requiresSqlitePersistence } from "@/app/features/runtime/native-persistence-policy";
 import { createSecurityAuditLog, type SecurityAuditLog } from "./security-audit-log";
 
 export interface KnownKey {
@@ -45,6 +46,12 @@ export class KeyChangeDetector {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    // Cut 1.2: do not open message IDB on native — keep known keys in-process only.
+    if (requiresSqlitePersistence()) {
+      this.initialized = true;
+      return;
+    }
+
     try {
       const { openMessageDb } = await import("../../messaging/lib/open-message-db");
       const db = await openMessageDb();
@@ -72,6 +79,9 @@ export class KeyChangeDetector {
    * Persist known keys to storage
    */
   private async persist(): Promise<void> {
+    if (requiresSqlitePersistence()) {
+      return;
+    }
     try {
       const { openMessageDb } = await import("../../messaging/lib/open-message-db");
       const db = await openMessageDb();

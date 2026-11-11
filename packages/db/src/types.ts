@@ -98,6 +98,8 @@ export interface VaultMediaIndexRecord {
   size_bytes: number;
   message_event_id?: string | null;
   explicit_chat_save: boolean;
+  /** Cut 0.9 CAS descriptor — never plaintext media bytes. */
+  content_hash?: string | null;
 }
 
 /**

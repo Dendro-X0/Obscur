@@ -1,8 +1,27 @@
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import { appendCanonicalContactEvent } from "@/app/features/account-sync/services/account-event-ingest-bridge";
+import { peerTrustInternals } from "@/app/features/network/hooks/use-peer-trust";
 import type { ConnectionReceiveLifecycleTag } from "./contact-request-receive-classifier";
 import { requestFlowEvidenceStore } from "./request-flow-evidence-store";
 import { getResolvedProfileId } from "@/app/features/profiles/services/profile-runtime-scope";
+
+const normalizePeerKey = (value: string): string => value.trim().toLowerCase();
+
+const isPeerUnderRemovedMask = (
+  accountPublicKeyHex: PublicKeyHex | null | undefined,
+  peerPublicKeyHex: PublicKeyHex,
+  profileId: string,
+): boolean => {
+  if (!accountPublicKeyHex) {
+    return false;
+  }
+  const peer = normalizePeerKey(peerPublicKeyHex);
+  if (!peer) {
+    return false;
+  }
+  const trust = peerTrustInternals.loadFromStorage(accountPublicKeyHex, profileId);
+  return trust.removedPeers.some((entry) => normalizePeerKey(entry) === peer);
+};
 
   type IncomingLifecycleDeps = Readonly<{
   accountPublicKeyHex?: PublicKeyHex | null;
@@ -93,6 +112,18 @@ export const applyIncomingContactLifecycle = async (
   }
 
   if (params.lifecycleTag === "connection-accept") {
+    // Stale lookback / public-relay connection-accept must not lift Block/Remove mask
+    // (Soft L3 REQ history flaps TRUSTED after cancel). Local Connect Accept goes
+    // through requestTransport.acceptPeer directly.
+    if (isPeerUnderRemovedMask(deps.accountPublicKeyHex, params.peerPublicKeyHex, profileId)) {
+      return;
+    }
+    // Remote accept completes OUR outgoing invite only. Soft L3 lookback must not
+    // Accept an incoming pending request / mark TRUSTED without Requests UI Accept.
+    // @see specs/backend/p1-o4b-incoming-accept-no-auto-trust-design-2026-11-08.md
+    if (existing?.isOutgoing !== true) {
+      return;
+    }
     requestFlowEvidenceStore.markAccept({
       peerPublicKeyHex: params.peerPublicKeyHex,
       requestEventId: params.requestEventId,
@@ -102,14 +133,14 @@ export const applyIncomingContactLifecycle = async (
     deps.requestsInbox?.setStatus({
       peerPublicKeyHex: params.peerPublicKeyHex,
       status: "accepted",
-      isOutgoing,
+      isOutgoing: true,
     });
     if (deps.accountPublicKeyHex) {
       await appendCanonicalContactEvent({
         accountPublicKeyHex: deps.accountPublicKeyHex,
         peerPublicKeyHex: params.peerPublicKeyHex,
         type: "CONTACT_ACCEPTED",
-        direction: isOutgoing ? "outgoing" : "incoming",
+        direction: "outgoing",
         requestEventId: params.requestEventId,
         idempotencySuffix: params.requestEventId || params.peerPublicKeyHex,
         source: "legacy_bridge",

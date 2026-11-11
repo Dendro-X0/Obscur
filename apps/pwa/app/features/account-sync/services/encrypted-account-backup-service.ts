@@ -653,17 +653,21 @@ const mergePeerTrust = (
   mutedPeers: uniqueStrings([...current.mutedPeers, ...incoming.mutedPeers]) as ReadonlyArray<PublicKeyHex>,
 });
 
-/** After sparse backup restore, re-accept peers evidenced by local DM thread residue. */
+/**
+ * Cut 7.3 — after sparse backup restore, prefer native SQLite DM residue for T3/T1 bridge.
+ * Refuse inventing TRUSTED from chat-state alone (Soft L3 lookback / M9 failure mode).
+ * Sticky peerTrust in the sealed payload remains authoritative; chatState is T3 bodies only.
+ */
+export const CHAT_STATE_AS_SOLE_CRM_REFUSED = "chat_state_as_sole_crm_refused" as const;
+
 const enrichPeerTrustFromLocalThreadResidue = (params: Readonly<{
   publicKeyHex: PublicKeyHex;
   peerTrust: StoredPeerTrustSnapshot;
   chatState: EncryptedAccountBackupPayload["chatState"];
   nativeSqliteEvidence?: EncryptedAccountBackupPayload["nativeSqliteEvidence"];
 }>): StoredPeerTrustSnapshot => {
-  const fromChat = peerTrustInternals.extractAcceptedPeersFromPersistedChatState(
-    params.chatState,
-    params.publicKeyHex,
-  );
+  // Cut 7.3 — chat-state peer hints are intentionally unused (CHAT_STATE_AS_SOLE_CRM_REFUSED).
+  void params.chatState;
   const account = params.publicKeyHex.trim().toLowerCase();
   const fromSqlite: string[] = [];
   for (const message of params.nativeSqliteEvidence?.dmMessages ?? []) {
@@ -680,7 +684,6 @@ const enrichPeerTrustFromLocalThreadResidue = (params: Readonly<{
     ...params.peerTrust,
     acceptedPeers: uniqueStrings([
       ...params.peerTrust.acceptedPeers,
-      ...fromChat,
       ...fromSqlite,
     ]) as ReadonlyArray<PublicKeyHex>,
   };
@@ -845,7 +848,8 @@ const buildBackupPayloadWithHydratedChatState = async (publicKeyHex: PublicKeyHe
   if (profileIdForHydrate) {
     await messagingClientOperations.hydrateDmTombstonesFromSqlite(profileIdForHydrate);
   }
-  // Tauri DM truth lives in SQLite; merging IndexedDB chatState here resurrects deleted rows during restore.
+  // Cut 7.3 — prefer native/SQLite T3 evidence on Tauri.
+  // Merging IndexedDB chatState here resurrects deleted rows during restore.
   if (!isTauri()) {
     await accountSyncChatStatePort.hydrateMessages(publicKeyHex);
   }

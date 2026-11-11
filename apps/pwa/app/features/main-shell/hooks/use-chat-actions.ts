@@ -398,11 +398,11 @@ export function useChatActions(dmController: UseDmControllerResult | null) {
             return;
         }
 
-        // Soft-lock drift: identity UI can stay up while native SQLite is closed.
-        const { ensureNativeSqliteOpenForWrites } = await import(
-            "@/app/features/storage/services/native-storage-at-rest-service"
+        // Cut 0.3: rebind only if PDK session already open — no silent keychain/passphrase unlock.
+        const { rebindNativeSqliteIfSessionOpen } = await import(
+            "@/app/features/storage/services/session-storage-orchestrator"
         );
-        const sqliteReady = await ensureNativeSqliteOpenForWrites();
+        const sqliteReady = await rebindNativeSqliteIfSessionOpen();
         if (!sqliteReady) {
             toast.error(
                 "Local database is locked. Unlock this profile (device password or Import Key), then retry.",

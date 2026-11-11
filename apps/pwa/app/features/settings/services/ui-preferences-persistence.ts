@@ -16,10 +16,9 @@ export const isThemePreference = (value: unknown): value is ThemePreference => (
 
 /**
  * Resolve which profile's scoped preferences should load at cold boot.
- * Order: desktop last-known window profile → registry active profile → default.
- *
- * Always prefer this over registry `activeProfileId` in multi-window desktop —
- * secondary windows bind to their own profile, not the global registry selection.
+ * Delegates to the Cut 0.2 desktop profile-id oracle (`readActiveDesktopProfileId`):
+ * sync scope → window-label cache → registry active → default.
+ * Does not read the legacy global last-known key (no `::windowLabel`).
  */
 export const resolveBootstrapProfileId = (): string => readActiveDesktopProfileId();
 

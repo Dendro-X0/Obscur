@@ -11,12 +11,22 @@ import { probeJavaMajor, resolveJavaHome } from "../../../scripts/resolve-java-h
 
 const desktopDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const androidDir = path.join(desktopDir, "src-tauri/gen/android");
+const MOBILE_TAURI_CONFIG = "src-tauri/tauri.mobile.conf.json";
 const tauriArgs = process.argv.slice(2);
 
 if (tauriArgs.length === 0) {
   console.error("[run-android-build] Usage: node scripts/run-android-build.mjs <tauri android build args…>");
   process.exit(1);
 }
+
+/** Cut 6.1 — mobile stays on PWA shell overlay (committed desktop conf is Vite). */
+const hasConfigFlag = tauriArgs.some((arg, index) => (
+  arg === "--config" || arg.startsWith("--config=") || (arg === "-c" && index < tauriArgs.length - 1)
+));
+const androidTauriArgs = hasConfigFlag
+  ? tauriArgs
+  : ["--config", MOBILE_TAURI_CONFIG, ...tauriArgs];
+
 
 const javaHome = resolveJavaHome();
 if (!javaHome) {
@@ -54,11 +64,14 @@ if (existsSync(gradlew)) {
   spawnSync(gradlew, ["--stop"], { cwd: androidDir, env, stdio: "ignore", shell: true });
 }
 
-const result = spawnSync("pnpm", ["exec", "tauri", "android", "build", ...tauriArgs], {
+console.log(`[run-android-build] tauri android build ${androidTauriArgs.join(" ")}`);
+
+const result = spawnSync("pnpm", ["exec", "tauri", "android", "build", ...androidTauriArgs], {
   cwd: desktopDir,
   env,
   stdio: "inherit",
   shell: true,
 });
+
 
 process.exit(result.status ?? 1);

@@ -1,8 +1,8 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-08T01:36:53Z
-- Session Status: **ACTIVE** · Social lifecycle Slices 1–3 L1 · **REWRITE BAND SUPERSEDE 2026-11**
-- Active Owner: maintainer (sole) · ENGINE-LAB
+- Last Updated (UTC): 2026-11-11T09:00:00Z
+- Session Status: ACTIVE · R5 publishing v2.0.0-beta.10 · Remaster foundation Pass (R0–R4) · Soft L3 paused · Continuity Pass not claimed
+- Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
 
@@ -31,7 +31,7 @@ Public name stays Obscur. Nostr module working name remains Obscur-Nostr until r
 
 ## Active Objective
 
-**Platform rewrite band (design → first cut):** modular auth / profiles / storage; protocol adaptation layer that can host Nostr today and additional carriers later (Matrix lab, private DC servers, …). Process strangler constraints suspended for this band. Unlock-loop FM1 remains landed L1/L2 (L3 soak still valuable but does not block charter writing).
+**Replacement-style rewrite band (backend-first).** NARROW product cut kept; **code preservation is not a goal** — unviable foundations may be deleted/replaced on named cuts. Cut 0 spine = keepable wedge; dual old owners must die in Cut 1. Soft L3 contact Pass remains paused. Posture: `specs/backend/rewrite-replacement-posture-2026-11-09.md`.
 
 ## Sequencing
 
@@ -50,17 +50,13 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-PLATFORM REWRITE BAND — Social lifecycle Slices 1–3 L1 (2026-11-07)
-  Slice 1 Block: connection-block/unblock · peer demote · dual blocklist · L1 20 Pass
-  Slice 2 Leave peer: gossip markMembersLeft + terminal sticky + ingress binder · L1 8 Pass
-  Slice 3 Invite Fail: classified — empty Connections picker; superseded by trust-directory heal L2;
-    invite candidate helper regression · optional L2 send/accept soak before Fixed
-NEXT: native pool active on ws://localhost:7000 (Docker up; browser WSS Pass; app stays 0/1)
-  · then leave L2 dual CDP · optional invite send/accept L2 · manual packaged Requests/Connections soak
-  · next cut if operators need block/leave sticky in packaged face (bea87116 not in beta.9 NSIS)
-Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publish owner
+R5 PUBLISH IN FLIGHT — v2.0.0-beta.10 (maintainer ask received)
+  Cut plan: docs/releases/v2.0.0-beta.10-cut-plan.md
+  Notes: docs/releases/v2.0.0-beta.10-release.md
+  Sequence: commit remaster → push main → Full Release publish_release=true
+  Soft L3 Fixed / Continuity Pass / Tor Verified / Matrix promote NOT claimed
+Do NOT invent Continuity Cut 16+ · Soft L3 Fixed · Continuity Pass claim · silent beta wipe
 ```
-
 
 ## Landed
 
@@ -78,9 +74,18 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 | Trust directory heal | **L1 Pass 21** · **L2 Pass** Connections/Trusted/Remove (static-dev rebuild) · leave deselect L1 audit · leave L2 optional |
 | Contact remove E2E sticky | **L1 Pass** — hydrate no longer undoes Remove; inbox scrubs connectionRequests · peer notify path unchanged · L2 dual CDP optional |
 | Social relationship lifecycle charter | Specs only — unified contract + inventory · Slice 1 Block · Slice 2 Leave peer · Slice 3 Invite |
-| Block lifecycle Slice 1 | **L1 Pass 20** — connection-block/unblock wire + peer demote · dual blocklist migrate-on-read · L2 optional |
-| Leave peer visibility Slice 2 | **L1 Pass 8** — gossip markMembersLeft + terminal sticky · ingress binder · coordination leave→terminal mirror · **L2 Blocked 2026-11-08** (pool 0/3 · no joined fixture) |
-| Invite Fail Slice 3 | **L1 classified** — Fail = empty Connections (trust heal); candidate helper regression · L2 send/accept optional |
+| Block lifecycle Slice 1 | **L1 Pass 20** · **L2 Pass 2026-11-08** — Soft L3 dual CDP Block→peer demote; Unblock no auto-accept |
+| Soft L3 persist hygiene | **L1+L2 Pass 2026-11-08** — option A exclusive intent; Apply→reload sole `:7000` · not Soft L3 Fixed |
+| Multiparty social sync production gate | **Charter 2026-11-08** — P1–P4 planes · not Pass |
+| Social sync P1 release matrix (WP1) | **Pass 2026-11-08** — Soft L3 block/leave/invite Pass; kick IN SCOPE; packaged Blocked |
+| P1-O1 Block public Default Stable | **L2 Pass 2026-11-08** — demote + Unblock sticky |
+| P1-O1b Unblock trust resurrect | **L1+L2 Pass 2026-11-08** — wire `connection-accept` ignored under `removedPeers` |
+| P1-O2 Leave public Default Stable | **L2 Pass 2026-11-08** — T1 leave → T2 `leftHasT1` / active exclude / UI clear |
+| P1-O3 Invite public Default Stable | **L2 Pass 2026-11-08** — Soft L3 accept → Default Stable both `joined` |
+| P1-O4 Soft L3 contact remove→reconnect | **Partial 2026-11-08** — Remove+delivered Pass; peer demote Fail; Requests Fail |
+| Packaged NSIS lab CDP | **Investigation note 2026-11-08** — release CDP absent; seam options listed · no dual-CDP Pass |
+| Leave peer visibility Slice 2 | **L1 Pass 8** · **L2 Pass 2026-11-08** — Soft L3 dual CDP; T1 leave → T2 coordination/ledger/UI exclude T1 |
+| Invite Fail Slice 3 | **L1 classified** · **L2 Pass 2026-11-08** — Soft L3 dual CDP create→Invite Connections→Tester2 Accept; coordination both members |
 | SUPERSEDE 2026-11 | maintainer confirmed · process gates yield to rewrite band · charter P0 · P1 map written |
 | Security law 2026-11 | censorship/surveillance resistance · hard profiles · sandboxed inbound storage design S0 · impl after P1 |
 | P1 boundary map | Auth/Profiles/Storage/PAL owners named · kill list K1=nostrAdapter bypass in dm-send/delete |
@@ -91,6 +96,29 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 | P3 PAL port freeze | layer-only adapters · sendDmNostrOnly messaging · port catalogs · Pass |
 | P4 private_dc L1 | second carrier = company DC (not Matrix promote) · adapter · Settings configure · Pass |
 | P4b private_dc HTTP | `/v1/conversations` client · adapter wire · fail-closed `private_dc_http_*` · L1 vitest Pass |
+| Cut 0.5 relationship_edge | **L1 Pass** — libobscur upsert/get/list/removed · messages never invent edges · Soft L3 **not** claimed |
+| Cut 0.6 H-dc v0.1 | **L1 Pass** — health/sendEnvelope/listEnvelopes?since · plaintext rows dropped · Soft L3 **not** claimed |
+| Cut 0.7 outbox+ACK | **L1 Pass** — outbox ports · home ACK → accepted≠delivered · Soft L3 **not** claimed |
+| Cut 0.8 T3 DR | **L1 Pass** — seal/open H-dc envelopes · dr_session blob · Soft L3 **not** claimed · NIP-17≠T3 |
+| Cut 0.9 vault refs | **L1 Pass** — SCHEMA_V6 content_hash · reject data:/blob: · Soft L3 **not** claimed |
+| Cut 1 Replacement authority | **CLOSED 1.0–1.6** — CRM/msg/outbox/T3/chat-state demotion L1 + lab checklist · Soft L3 **not** claimed |
+| Cut 2 Private-trust product face | **CLOSED 2.0–2.4** — default `private_dc` · compose honesty · invite policy · lab checklist · Soft L3 **not** claimed |
+| Cut 3 Cut UI (Vite thin shell) | **CLOSED 3.0–3.5** — Vite lab · auth · private-trust home · dual-entry quarantine · lab checklist/soak · Soft L3 / Continuity **not** claimed |
+| Cut 4 Vite native port wire | **CLOSED 4.0–4.4** — prefer-native · passphrase unlock handlers · H-dc session deliver · HostEnginePort/T3 · lab checklist/soak · Soft L3 / Continuity **not** claimed |
+| Cut 5 Vite production cutover | **CLOSED 5.0–5.4** — Vite committed frontendDist · Next rollback · lab checklist/soak · Soft L3 / Continuity **not** claimed |
+| Cut 6 release / CI Vite align | **CLOSED 6.0–6.4** — mobile PWA overlay · CI/package/channel honesty · Soft L3 / Continuity **not** claimed |
+| Cut 7 Continuity M1 (F-sync C0) | **CLOSED 7.0–7.5** — M1 law · inventory · SQLite T3/CRM refuse · Vite Continuity door · Soft L3 paused · **≠ Continuity Pass** |
+| Cut 8 native Continuity M1 | **CLOSED 8.0–8.5** — vite seal + ports · prefer-native · ContinuityDoor passphrase/file · Soft L3 paused · **≠ Continuity Pass** |
+| Cut 9 Continuity M2 auto-DC | **CLOSED 9.0–9.5** — `/v1/continuity/backups` · vite publish/restore · Soft L3 paused · **≠ Continuity Pass** |
+| Cut 10 Continuity M4 pair | **CLOSED 10.0–10.5** — offer/accept + TTL + transfer code · Soft L3 paused · **≠ Continuity Pass** |
+| Cut 11 Vite product-depth | **CLOSED 11.0–11.5** — create identity · PrivateHomeSessionDoor · product honesty · Soft L3 paused · **≠ Continuity Pass** |
+| Cut 12 Continuity M5 registry | **CLOSED 12.0–12.5** — enroll/list/revoke linked devices · F-sync C3 NARROW · Soft L3 paused · **≠ Continuity Pass** · **≠ live sync** |
+| Cut 13 Continuity M6 backfill | **CLOSED 13.0–13.5** — private-home opaque envelope backfill · F-sync C4 NARROW · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
+| Cut 14 Vite Settings NARROW | **CLOSED 14.0–14.5** — SettingsDoor + T2 residue in Continuity M1 · Soft L3 paused · **≠ Continuity Pass** · **≠ live mesh** · **≠ peer grants** |
+| Cut 15 peer history grants | **CLOSED 15.0–15.5** — Ingredient 5 create/accept/list opaque grants · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
+| Remaster foundation R0–R5 | **R0–R4 Pass** · R2 `verify:remaster-r2` · R3 no-gap · R4 honesty + draft notes · **R5 cut plan ready** (publish on ask) · Continuity Cut 16+ stopped |
+| Cut 0 privateTrust glue | **L1+headless Pass** — prepareT3Outbound/completeT3HomeAck · CRM ports · soak 6–8 · Soft L3 **not** claimed |
+| Cut 0.10 lab checklist | **Documented** — cut0-lab-milestone-checklist-2026-11-09.md · ≠ Soft L3 |
 | P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |
 | P6 plane README fences | auth-kernel · auth · storage · PAL owns/does-not-own · contract Pass · no mass rename |
 | K6 SendConfirmation PAL | layer exports via `send-confirmation.ts` · messaging not via nostr-adapter · contract Pass |
@@ -382,4 +410,224 @@ Do NOT Soft L3 / Tor Verified · Do NOT Matrix promote · Do NOT new relay publi
 - Summary: Standard catalog = 4 paths (everyday / hybrid / local / Tor); Advanced keeps full 9-pack catalog
 - Evidence: specs/ui/relays-transport-paths-2026-10.md · vitest transport-preset catalog Pass
 - Next: was positioning decision (done)
+### 2026-11-09T19:49:40Z checkpoint
+- Summary: Cut 0.5 CRM relationship_edge ports L1 Pass (upsert/get/list/removed; messages never invent edges; Soft L3 not claimed)
+- Evidence: cargo test -p libobscur --lib db::repositories::relationships — 5 passed; packages/libobscur/src/db/repositories/relationships.rs; wipe includes Cut 0 tables
+- Uncertainty: TS trust projection still localStorage until later wire; Soft L3 remains paused
+- Next: Cut 0.6 thin H-dc v0.1 ciphertext client + poll receive (L1 mock fetch; extend P4b; no Soft L3 claim)
+### 2026-11-09T19:53:40Z checkpoint
+- Summary: Cut 0.6 thin H-dc v0.1 ciphertext+poll L1 Pass (health/sendEnvelope/listEnvelopes?since; plaintext rows dropped; lab server envelope+health)
+- Evidence: vitest private-dc-hdc-v01 + private-dc-client 10 Pass; private-dc-client.ts; private-dc-lab-server.mjs
+- Uncertainty: Adapter still uses v0 plaintext send until 0.8 DR seal path; Soft L3 paused
+- Next: Cut 0.7 outbox + status machine wired to H-dc ACK (accepted≠delivered; Soft L3 not claimed)
+### 2026-11-09T19:57:38Z checkpoint
+- Summary: Cut 0.7 outbox + home-ACK status L1 Pass (accepted≠delivered; enqueue/due/bump; TS mapHomeAckToStatus)
+- Evidence: cargo test db::repositories::outbox 4 Pass; vitest hdc-outbox-status 3 Pass
+- Uncertainty: Full send pipeline over H-dc still owed in 0.8; Soft L3 paused
+- Next: Cut 0.8 T3 DR send/receive 1:1 over H-dc (single-device first; Soft L3 not claimed)
+### 2026-11-09T20:00:20Z checkpoint
+- Summary: Cut 0.8 T3 DR seal/open over H-dc envelope L1 Pass (dr_session persist; Alice→Bob vectors; NIP-17≠T3)
+- Evidence: cargo test t3_hdc 3 Pass · dr_sessions 1 Pass
+- Uncertainty: L2 dual-profile lab soak still owed; full IPC send path later
+- Next: Cut 0.9 vault envelopes kept; media refs on messages (no plaintext media in DB; Soft L3 not claimed)
+### 2026-11-09T20:05:40Z checkpoint
+- Summary: Cut 0.9–0.10 closed: vault ref L1 (SCHEMA_V6 content_hash; reject inline data URLs) + lab milestone checklist documented
+- Evidence: cargo test vault_media + db::tests Pass; specs/backend/cut0-lab-milestone-checklist-2026-11-09.md
+- Uncertainty: L2 soak not run this turn; Soft L3 paused
+- Next: Maintainer — run Cut 0.10 L2 lab soak OR charter next NARROW cut (UI / S1 compose / IPC glue); Soft L3 remains paused
+### 2026-11-10T03:53:43Z checkpoint
+- Summary: Cut 0 privateTrust glue L1+headless Pass (CRM/T3 prepare→ACK; cut0-lab-hdc-t3-soak steps 6–8)
+- Evidence: cargo test t3_hdc_pipeline + private_trust_crm Pass; node scripts/cut0-lab-hdc-t3-soak.mjs Pass
+- Uncertainty: Desktop unlock/CRM UI soak not run; Soft L3 paused
+- Next: Maintainer — desktop L2 soak (unlock/lock) OR charter next NARROW cut (UI/S1/wire privateTrust to send); Soft L3 paused
+### 2026-11-10T03:56:36Z checkpoint
+- Summary: Maintainer replacement-style rewrite posture recorded (NARROW product cut; kill unviable foundations; Cut 1 = authority cutover)
+- Evidence: specs/backend/rewrite-replacement-posture-2026-11-09.md
+- Uncertainty: Kill list inventory not yet enumerated file-by-file
+- Next: Write Cut 1 design — Replacement authority (kill list of old CRM/DM/durability owners + cutover + proof); Soft L3 paused
+### 2026-11-10T04:03:54Z checkpoint
+- Summary: Cut 1 Replacement authority design draft landed (kill list K-CRM/K-MSG-DUR/K-OUTBOX-LS/K-SEND-FACE/K-CHATSTATE-AUTH/K-PROTO-PLAIN; slices 1.0–1.6)
+- Evidence: specs/backend/cut1-replacement-authority-design-2026-11-09.md
+- Uncertainty: ACK not yet recorded; migration UI vs silent import open
+- Next: Maintainer ACK Cut 1 design (1.0) then impl 1.1 CRM authority cutover; Soft L3 paused
+### 2026-11-10T04:25:14Z checkpoint
+- Summary: Cut 1.0 ACK + Cut 1.1 CRM L1 Pass (K-CRM) — privateTrust CRM TS port; usePeerTrust native writes relationship_edge; peer-trust LS non-authoritative on Tauri
+- Evidence: vitest relationship-edge-authority + owner-uniqueness + use-peer-trust (21 Pass); @obscur/private-trust-engine
+- Uncertainty: Desktop L2 sticky restart not run this turn; Soft L3 paused
+- Next: Cut 1.2 K-MSG-DUR (native message durability SQLite-only) or optional 1.1 L2 desktop soak; Soft L3 paused
+### 2026-11-10T04:34:09Z checkpoint
+- Summary: Cut 1.2 K-MSG-DUR L1 Pass — MessageQueue all I/O gated; openMessageDb rejects on native; restore/reset skip message IDB
+- Evidence: vitest cut1-message-durability.owner-uniqueness + dm-durability-contract (18 Pass); specs/backend/cut1-1.2-message-durability-design-2026-11-09.md
+- Uncertainty: Desktop L2 message-survives-restart not run; Soft L3 paused
+- Next: Cut 1.3 K-OUTBOX-LS (subtract dm_message_queue_v1); Soft L3 paused
+### 2026-11-10T04:45:35Z checkpoint
+- Summary: Cut 1.3 K-OUTBOX-LS L1 Pass — dm_message_queue_v1 never written/read on native; scrub residual; sendDmWithRetry refuses LS queue claim
+- Evidence: vitest cut1-outbox-ls.owner-uniqueness (3 Pass); specs/backend/cut1-1.3-outbox-ls-design-2026-11-09.md
+- Uncertainty: Full prepare→ACK send-face is Cut 1.4; Soft L3 paused
+- Next: Cut 1.4 K-SEND-FACE / K-PROTO-PLAIN; Soft L3 paused
+### 2026-11-10T05:04:59Z checkpoint
+- Summary: Cut 1.4 K-SEND-FACE/K-PROTO-PLAIN L1 Pass — private_dc refuses plaintext; sendDm→prepareT3Outbound→envelope→completeT3HomeAck
+- Evidence: vitest cut1-private-trust-send-face + private-dc-adapter (12 Pass); specs/backend/cut1-1.4-private-trust-send-face-design-2026-11-09.md
+- Uncertainty: Desktop L2 T3 send soak owed; Soft L3 paused
+- Next: Cut 1.5 K-CHATSTATE-AUTH; Soft L3 paused
+### 2026-11-10T05:15:00Z checkpoint
+- Summary: Cut 1.5 K-CHATSTATE-AUTH L1 Pass — chat-state CRM/message writers demoted; sanitize strips connectionRequests+bodies; social/send import boundary
+- Evidence: vitest dm-kernel-chat-state-io-policy + io.contract + cut1-chat-state-demotion.owner-uniqueness (16 Pass); specs/backend/cut1-1.5-chat-state-demotion-design-2026-11-09.md
+- Uncertainty: Desktop L2 soaks still owed under 1.1–1.4; Soft L3 paused
+- Next: Cut 1.6 lab checklist (new path only); Soft L3 paused
+### 2026-11-10T05:30:00Z checkpoint
+- Summary: Cut 1.6 lab checklist + new-path soak — Cut 1 CLOSED (1.0–1.6); old path banned table; Soft L3 not claimed
+- Evidence: specs/backend/cut1-lab-milestone-checklist-2026-11-09.md; node scripts/cut1-lab-new-path-soak.mjs Pass (31 vitest + H-dc wire)
+- Uncertainty: Desktop L2 operator checklist steps 1–8 still owed; Soft L3 paused
+- Next: Maintainer charter next NARROW cut; Soft L3 paused
+### 2026-11-10T07:05:00Z checkpoint
+- Summary: Cut 2 private-trust product face design draft landed (S1 compose; K-DEFAULT-NOSTR/K-COMPOSE-RELAY/K-SEND-FALLBACK/K-INVITE-NOSTR; slices 2.0–2.4)
+- Evidence: specs/backend/cut2-private-trust-product-face-design-2026-11-09.md
+- Uncertainty: ACK not yet recorded; invite copy open; Soft L3 paused
+- Next: Maintainer ACK Cut 2.0 then impl 2.1; Soft L3 paused
+### 2026-11-10T07:12:00Z checkpoint
+- Summary: Cut 2.0 ACK + Cut 2.1 K-DEFAULT-NOSTR L1 Pass — resolveActiveProtocolId prefers private_dc when native+H-dc session; explicit selection wins; no Nostr default write
+- Evidence: vitest preferences.cut2-default + cut2-default-protocol.owner-uniqueness (7 Pass)
+- Uncertainty: Composer honesty / silent Nostr fallback still Cut 2.2; Soft L3 paused
+- Next: Cut 2.2 K-COMPOSE-RELAY / K-SEND-FALLBACK; Soft L3 paused
+### 2026-11-10T07:35:00Z checkpoint
+- Summary: Cut 2.2 K-COMPOSE-RELAY/K-SEND-FALLBACK L1 Pass — Private DC chips; composer H-dc·T3 chrome; sendDmWithRetry refuses silent Nostr
+- Evidence: vitest cut2-compose-honesty + private-trust-compose-policy + chips + dm-send-with-retry.cut2 (10 Pass)
+- Uncertainty: Invite path still throws on private_dc (Cut 2.3); Soft L3 paused
+- Next: Cut 2.3 K-INVITE-NOSTR; Soft L3 paused
+### 2026-11-10T07:55:00Z checkpoint
+- Summary: Cut 2.3 K-INVITE-NOSTR L1 Pass — invite policy refuses private_dc/matrix with Obscur-Nostr honesty; SendResult not throw; dialog banner
+- Evidence: vitest private-trust-invite-policy + cut2-invite-policy.owner-uniqueness (7 Pass)
+- Uncertainty: Desktop L2 compose soak still Cut 2.4; Soft L3 paused
+- Next: Cut 2.4 lab checklist; Soft L3 paused
+### 2026-11-10T08:58:00Z checkpoint
+- Summary: Cut 2.4 lab checklist + product-face soak — Cut 2 CLOSED (2.0–2.4); Soft L3 not claimed
+- Evidence: specs/backend/cut2-lab-milestone-checklist-2026-11-09.md; node scripts/cut2-lab-product-face-soak.mjs Pass (24+31 vitest + H-dc wire)
+- Uncertainty: Desktop L2 operator checklist steps 1–8 still owed; Soft L3 paused
+- Next: Maintainer charter next NARROW cut; Soft L3 paused
+### 2026-11-10T09:05:00Z checkpoint
+- Summary: Cut 3 Cut UI Vite thin-shell design draft landed (K-NEXT-MONOLITH/K-UI-AS-BACKEND/K-DUAL-ENTRY/K-SHELL-INVENT; slices 3.0–3.5; Continuity/F-sync out of scope)
+- Evidence: specs/backend/cut3-ui-vite-thin-shell-design-2026-11-09.md
+- Uncertainty: ACK not yet recorded; package path open; Soft L3 paused
+- Next: Maintainer ACK Cut 3.0 then impl 3.1; Soft L3 paused
+### 2026-11-10T09:15:00Z checkpoint
+- Summary: Cut 3.0 ACK + Cut 3.1 L1 Pass — `apps/desktop-ui` Vite scaffold; Tauri `dev:vite-lab`; K-SHELL-INVENT contract; Next beta path unchanged
+- Evidence: pnpm verify:cut3-1 Pass; apps/desktop/src-tauri/tauri.vite.lab.conf.json; specs/backend/cut3-ui-vite-thin-shell-design-2026-11-09.md
+- Uncertainty: Auth door still 3.2; private-trust compose on Vite still 3.3; Soft L3 paused
+- Next: Cut 3.2 auth door on Vite; Soft L3 paused
+### 2026-11-10T09:25:00Z checkpoint
+- Summary: Cut 3.2 L1 Pass — shared resolveAuthShellReady in @dweb/auth; Vite AuthDoor via DeviceUnlockPort; AuthGateway uses same gate; lab unlock port (no parallel PDK)
+- Evidence: pnpm verify:cut3-2 Pass; packages/dweb-auth/src/policy/auth-shell-ready-gate.ts; apps/desktop-ui/src/auth/*
+- Uncertainty: Native auth-kernel DeviceUnlockPort wire still optional L2; compose still 3.3; Soft L3 paused
+- Next: Cut 3.3 private-trust home on Vite; Soft L3 paused
+### 2026-11-10T09:30:00Z checkpoint
+- Summary: Cut 3.3 L1 Pass — PrivateTrustHome on Vite (protocols + list + composer); shared compose-face in @obscur/private-trust-engine; silent-Nostr refuse; no chat-state authority
+- Evidence: pnpm verify:cut3-3 Pass; apps/desktop-ui/src/private-trust/*; packages/obscur-private-trust-engine/src/private-trust-compose-face.ts
+- Uncertainty: Native PAL/T3 wire L2 still owed; dual-entry quarantine still 3.4; Soft L3 paused
+- Next: Cut 3.4 dual-entry quarantine; Soft L3 paused
+### 2026-11-10T09:50:00Z checkpoint
+- Summary: Cut 3.4 L1 Pass — dual-entry quarantine; lab defaults to Vite via OBSCUR_TAURI_LAB_UI / dev:desktop:lab; production frontendDist stays pwa/out (no silent beta wipe)
+- Evidence: pnpm verify:cut3-4 Pass; specs/backend/cut3-dual-entry-quarantine-2026-11-09.md; scripts/obscur-desktop-lab-entry.mjs
+- Uncertainty: Desktop L2 Vite soak still 3.5; Soft L3 paused
+- Next: Cut 3.5 Vite lab checklist; Soft L3 paused
+### 2026-11-10T09:57:00Z checkpoint
+- Summary: Cut 3.5 lab checklist + vite-shell soak — Cut 3 CLOSED (3.0–3.5); Soft L3 not claimed; production Next intact
+- Evidence: specs/backend/cut3-lab-milestone-checklist-2026-11-09.md; node scripts/cut3-lab-vite-shell-soak.mjs Pass (13 vitest + vite build)
+- Uncertainty: Desktop L2 operator checklist steps 1–8 still owed; native DeviceUnlockPort / live T3 optional; Soft L3 paused
+- Next: Maintainer charter next NARROW cut; Soft L3 paused
+### 2026-11-10T10:02:00Z checkpoint
+- Summary: Cut 4 Vite native port-wire design draft landed (K-LAB-UNLOCK/K-LAB-HOME/K-PWA-MEGA-IMPORT/K-VITE-L2-GAP; slices 4.0–4.4; Soft L3/Continuity out of scope)
+- Evidence: specs/backend/cut4-vite-native-port-wire-design-2026-11-09.md
+- Uncertainty: ACK not yet recorded; unlock extract path open; Soft L3 paused
+- Next: Maintainer ACK Cut 4.0 then impl 4.1; Soft L3 paused
+### 2026-11-10T10:20:00Z checkpoint
+- Summary: Cut 4.0 ACK + Cut 4.1 L1 Pass — package DeviceUnlock adapter + Vite resolve without apps/pwa mega-import; native PRODUCT_READY=false (lab default)
+- Evidence: packages/obscur-auth-engine/src/device-unlock-adapter.ts; apps/desktop-ui verify:cut4-1; specs/backend/cut4-vite-native-port-wire-design-2026-11-09.md
+- Uncertainty: PDK/Tauri unlock handlers + PrivateTrustHome native ports still 4.2+; Soft L3 paused
+- Next: Cut 4.2 native PrivateTrustHomePorts; Soft L3 paused
+### 2026-11-10T10:35:00Z checkpoint
+- Summary: Cut 4.2 L1 Pass — native PrivateTrustHomePorts via HostEnginePort edge/dm list + sendPrivateTrustT3ViaHost (injectable home deliver); silent-Nostr refuse retained; App still lab until 4.3
+- Evidence: packages/obscur-private-trust-engine/src/private-trust-t3-send.ts · private-trust-home-list.ts; apps/desktop-ui verify:cut4-2; Soft L3 not claimed
+- Uncertainty: App prefer-native + PDK unlock PRODUCT_READY still 4.3; Vite L2 soak 4.4; Soft L3 paused
+- Next: Cut 4.3 App prefer-native selection; Soft L3 paused
+### 2026-11-10T11:10:00Z checkpoint
+- Summary: Cut 4.3 L1 Pass — App prefer-native when Tauri present; lab stubs only for OBSCUR_DESKTOP_UI_LAB_STUBS=1 or host absent; unlock handlers + H-dc deliver fail-closed until 4.4
+- Evidence: apps/desktop-ui verify:cut4-3; runtime/desktop-ui-adapter-selection.ts; Soft L3 not claimed
+- Uncertainty: PDK unlock handlers + sessioned H-dc deliver + Vite L2 soak still 4.4; Soft L3 paused
+- Next: Cut 4.4 Vite L2 lab checklist; Soft L3 paused
+### 2026-11-10T12:50:00Z checkpoint
+- Summary: Cut 4 CLOSED (4.0–4.4) — passphrase DeviceUnlock handlers + sessioned H-dc deliver + lab checklist/soak; Soft L3 not claimed; production Next intact
+- Evidence: node scripts/cut4-lab-vite-native-soak.mjs; specs/backend/cut4-lab-milestone-checklist-2026-11-09.md
+- Uncertainty: Operator desktop L2 steps 1–8 still owed; Soft L3 paused
+- Next: Maintainer charter next NARROW cut; Soft L3 paused
+### 2026-11-10T13:05:00Z checkpoint
+- Summary: Cut 5.0 ACK + Cut 5.1 L1 Pass — Vite production cutover readiness/rollback resolver; committed frontendDist still Next; Soft L3/Continuity not claimed
+- Evidence: pnpm verify:cut5-1; specs/backend/cut5-vite-production-cutover-design-2026-11-10.md
+- Uncertainty: 5.2 opt-in recipe wire + 5.3 committed flip still open; Soft L3 paused
+- Next: Cut 5.2 opt-in Vite-as-default recipes; Soft L3 paused
+### 2026-11-10T13:20:00Z checkpoint
+- Summary: Cut 5.2 L1 Pass — desktop dev/build route through run-desktop-production.mjs; OBSCUR_DESKTOP_UI_AS_DEFAULT=1 selects Vite overlay; committed dist still Next
+- Evidence: pnpm verify:cut5-2; Soft L3 not claimed
+- Uncertainty: 5.3 committed frontendDist flip still open; Soft L3 paused
+- Next: Cut 5.3 commit dist flip + Next rollback overlay; Soft L3 paused
+### 2026-11-10T13:35:00Z checkpoint
+- Summary: Cut 5.3 L1 Pass — committed frontendDist ../../desktop-ui/dist; tauri.next.rollback.conf.json; production default Vite; Next via PRODUCTION_ENTRY=next
+- Evidence: pnpm verify:cut5-3; Soft L3 not claimed
+- Uncertainty: 5.4 L2 lab checklist / optional L4 still open; Soft L3 paused
+- Next: Cut 5.4 lab checklist; Soft L3 paused
+### 2026-11-10T13:45:00Z checkpoint
+- Summary: Cut 5 CLOSED (5.0–5.4) — lab checklist + headless soak; Vite production default; Soft L3/Continuity not claimed
+- Evidence: pnpm verify:cut5-4; cut5-lab-milestone-checklist-2026-11-10.md
+- Uncertainty: operator L2 soak + optional packaged L4 still open; Soft L3 paused
+- Next: maintainer next NARROW cut; Soft L3 paused
+### 2026-11-10T14:05:00Z checkpoint
+- Summary: Cut 6.0 ACK + 6.1 L1 Pass — mobile PWA overlay + Android CI no longer asserts Next in committed desktop conf
+- Evidence: pnpm verify:cut6-1; Soft L3 not claimed
+- Uncertainty: 6.2 package/release copy + 6.3 channel honesty still open; Soft L3 paused
+- Next: Cut 6.2; Soft L3 paused
+### 2026-11-10T14:20:00Z checkpoint
+- Summary: Cut 6 CLOSED (6.0–6.4) — release/CI Vite-align + mobile overlay; Soft L3/Continuity not claimed
+- Evidence: pnpm verify:cut6-4; cut6-lab-milestone-checklist-2026-11-10.md
+- Uncertainty: optional packaged L4 + next NARROW charter; Soft L3 paused
+- Next: maintainer next NARROW cut; Soft L3 paused
+### 2026-11-10T15:15:00Z checkpoint
+- Summary: Cut 7.0 ACK — Continuity M1 / F-sync C0 design; Soft L3 paused; Continuity Pass not claimed
+- Evidence: cut7-continuity-m1-sealed-file-design-2026-11-10.md
+- Uncertainty: 7.1+ impl slices open; Soft L3 paused
+- Next: Cut 7.1 law contracts; Soft L3 paused
+### 2026-11-10T15:20:00Z checkpoint
+- Summary: Cut 7.1 L1 Pass — Continuity M1 law contracts; Soft L3 paused; Continuity Pass not claimed
+- Evidence: pnpm run verify:cut7-1
+- Uncertainty: 7.2 sealed snapshot inventory still open; Soft L3 paused
+- Next: Cut 7.2; Soft L3 paused
+### 2026-11-10T15:30:00Z checkpoint
+- Summary: Cut 7.2 L1 Pass — sealed snapshot T0–T2 inventory + honesty classifier; Continuity Pass not claimed
+- Evidence: pnpm run verify:cut7-2
+- Uncertainty: 7.3 SQLite T3 preference still open; Soft L3 paused
+- Next: Cut 7.3; Soft L3 paused
+### 2026-11-10T16:40:00Z checkpoint
+- Summary: Cut 7.3 L1 Pass — prefer SQLite T3; refuse chat-state-as-sole CRM on Continuity restore; Soft L3/Continuity Pass not claimed
+- Evidence: pnpm run verify:cut7-3
+- Uncertainty: 7.4 Vite Continuity door still open; Soft L3 paused
+- Next: Cut 7.4; Soft L3 paused
+### 2026-11-10T16:50:00Z checkpoint
+- Summary: Cut 7 CLOSED (7.0–7.5) — Continuity M1 + Vite door (lab ports); Continuity Pass / Soft L3 not claimed
+- Evidence: pnpm run verify:cut7-5; cut7-lab-milestone-checklist-2026-11-10.md
+- Uncertainty: native M1 adapter + optional Next M1 L2 still open; Soft L3 paused
+- Next: maintainer next NARROW cut; Soft L3 paused
+### 2026-11-10T17:30:00Z checkpoint
+- Summary: Cut 8 CLOSED (8.0–8.5) — Vite-native Continuity M1 seal/ports + prefer-native door; Continuity Pass / Soft L3 not claimed
+- Evidence: pnpm run verify:cut8-5; cut8-lab-milestone-checklist-2026-11-10.md
+- Uncertainty: full EncryptedAccountBackupPayload parity + optional L2 file soak still open; Soft L3 paused
+- Next: maintainer next NARROW cut (M2 / Soft L3 / product-depth); Soft L3 paused
+### 2026-11-10T18:15:00Z checkpoint
+- Summary: Cut 9 CLOSED (9.0–9.5) — Continuity M2 opaque home publish/restore; Continuity Pass / Soft L3 not claimed
+- Evidence: pnpm run verify:cut9-5; cut9-lab-milestone-checklist-2026-11-10.md
+- Uncertainty: background auto-schedule + optional live lab L2 still open; Soft L3 paused
+- Next: maintainer next NARROW cut (Soft L3 / Vite depth / M4); Soft L3 paused
+### 2026-11-10T18:45:00Z checkpoint
+- Summary: Cut 10 CLOSED (10.0–10.5) — Continuity M4 offer/accept (TTL + transfer code); Continuity Pass / Soft L3 not claimed
+- Evidence: pnpm run verify:cut10-5; cut10-lab-milestone-checklist-2026-11-10.md
+- Uncertainty: LAN/WebRTC pipe + M5 linked devices still open; Soft L3 paused
+- Next: maintainer next NARROW cut (Vite product-depth / Soft L3 / M5); Soft L3 paused
 <!-- CONTEXT_CHECKPOINTS_END -->

@@ -153,10 +153,6 @@ export default function RootLayout({
                       activeProfileId = (cachedBootProfile && cachedBootProfile.trim()) || bootProfileId;
                     }
                   } else {
-                  var lastWindowProfile = localStorage.getItem('obscur.desktop.window_profile.last_known.v1');
-                  if (lastWindowProfile && lastWindowProfile.trim().length > 0) {
-                    activeProfileId = lastWindowProfile.trim();
-                  } else {
                     var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
                     if (registryRaw) {
                       try {
@@ -250,19 +246,14 @@ export default function RootLayout({
                         activeProfileId = (cachedBootProfile && cachedBootProfile.trim()) || bootProfileId;
                       }
                     } else {
-                      var lastWindowProfile = localStorage.getItem('obscur.desktop.window_profile.last_known.v1');
-                      if (lastWindowProfile && lastWindowProfile.trim().length > 0) {
-                        activeProfileId = lastWindowProfile.trim();
-                      } else {
-                        var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
-                        if (registryRaw) {
-                          try {
-                            var registry = JSON.parse(registryRaw);
-                            if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
-                              activeProfileId = registry.activeProfileId.trim();
-                            }
-                          } catch (e) {}
-                        }
+                      var registryRaw = localStorage.getItem('obscur.profiles.registry.v1');
+                      if (registryRaw) {
+                        try {
+                          var registry = JSON.parse(registryRaw);
+                          if (registry && typeof registry.activeProfileId === 'string' && registry.activeProfileId.trim().length > 0) {
+                            activeProfileId = registry.activeProfileId.trim();
+                          }
+                        } catch (e) {}
                       }
                     }
                   }

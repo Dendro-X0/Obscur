@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import type { EnhancedRelayPoolResult } from "./enhanced-relay-pool-types";
+import { useRelayPoolRef } from "./use-relay-pool-ref";
 import { logAppEvent } from "@/app/shared/log-app-event";
 import {
   resolveTransportEnginePoolSubscribeUrls,
@@ -33,13 +34,15 @@ export const useTransportEnginePoolSubscribe = (
     ],
   );
   const subscribeUrlsKey = subscribeUrls.join("|");
+  // Keep latest pool without re-running on every snapshot identity churn.
+  const poolRef = useRelayPoolRef(params.pool);
 
   useEffect(() => {
     if (!params.enabled || subscribeUrls.length === 0) {
       return;
     }
     const subscribedCount = syncTransportEnginePoolSubscriptions({
-      pool: params.pool,
+      pool: poolRef.current,
       subscribeUrls,
     });
     if (subscribedCount === 0) {
@@ -54,5 +57,8 @@ export const useTransportEnginePoolSubscribe = (
         subscribeUrls: subscribeUrls.join(","),
       },
     });
-  }, [params.enabled, params.pool, subscribeUrls, subscribeUrlsKey]);
+    // Intentionally omit `params.pool` — pool object identity churns every snapshot
+    // notify (addTransientRelay → publishRelayPoolSnapshot). Including it Max-update-depths
+    // when public NativeRelay flaps (e.g. Cloudflare 502 → browser fallback).
+  }, [params.enabled, subscribeUrls, subscribeUrlsKey, poolRef]);
 };

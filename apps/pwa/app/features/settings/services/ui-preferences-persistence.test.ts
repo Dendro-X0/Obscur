@@ -15,10 +15,14 @@ import {
 describe("ui-preferences-persistence", () => {
   beforeEach(() => {
     localStorage.clear();
+    delete (window as Window & { __OBSCUR_SYNC_PROFILE_SCOPE__?: string }).__OBSCUR_SYNC_PROFILE_SCOPE__;
+    delete (window as Window & { __OBSCUR_WINDOW_BOOT__?: unknown }).__OBSCUR_WINDOW_BOOT__;
   });
 
   afterEach(() => {
     localStorage.clear();
+    delete (window as Window & { __OBSCUR_SYNC_PROFILE_SCOPE__?: string }).__OBSCUR_SYNC_PROFILE_SCOPE__;
+    delete (window as Window & { __OBSCUR_WINDOW_BOOT__?: unknown }).__OBSCUR_WINDOW_BOOT__;
   });
 
   it("loads scoped theme for bootstrap profile from registry", () => {
@@ -36,7 +40,24 @@ describe("ui-preferences-persistence", () => {
     expect(loadThemePreference()).toBe("dark");
   });
 
-  it("prefers desktop last-known window profile over registry active profile", () => {
+  it("prefers window-label last-known over registry active profile", () => {
+    localStorage.setItem(
+      PROFILE_REGISTRY_STORAGE_KEY,
+      JSON.stringify({ activeProfileId: "profile-a", profiles: [] }),
+    );
+    localStorage.setItem(getThemeStorageKey("profile-a"), "light");
+    (window as Window & {
+      __OBSCUR_WINDOW_BOOT__?: { windowLabel: string; profileId: string };
+    }).__OBSCUR_WINDOW_BOOT__ = {
+      windowLabel: "main",
+      profileId: "profile-b",
+    };
+    localStorage.setItem(`${DESKTOP_LAST_WINDOW_PROFILE_STORAGE_KEY}::main`, "profile-b");
+    localStorage.setItem(getThemeStorageKey("profile-b"), "dark");
+    expect(loadThemePreference()).toBe("dark");
+  });
+
+  it("ignores legacy global desktop last-known key without window label", () => {
     localStorage.setItem(
       PROFILE_REGISTRY_STORAGE_KEY,
       JSON.stringify({ activeProfileId: "profile-a", profiles: [] }),
@@ -44,7 +65,7 @@ describe("ui-preferences-persistence", () => {
     localStorage.setItem(getThemeStorageKey("profile-a"), "light");
     localStorage.setItem(DESKTOP_LAST_WINDOW_PROFILE_STORAGE_KEY, "profile-b");
     localStorage.setItem(getThemeStorageKey("profile-b"), "dark");
-    expect(loadThemePreference()).toBe("dark");
+    expect(loadThemePreference()).toBe("light");
   });
 
   it("persists theme to scoped and last-known keys without polluting legacy key for secondary profiles", () => {

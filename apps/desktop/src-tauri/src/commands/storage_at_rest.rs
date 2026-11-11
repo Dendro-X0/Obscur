@@ -82,16 +82,22 @@ pub async fn desktop_storage_at_rest_lock(
         _ => resolve_profile_for_window(&app, &profiles, &window).await?,
     };
     session.clear(Some(&resolved_profile_id)).await;
-    let should_encrypt = {
-        let keys = session.keys.lock().await;
-        keys.is_empty()
-    };
-    if should_encrypt {
-        if let Some(key) = storage_keys.take_key(&resolved_profile_id) {
-            db_state.lock_and_encrypt(&app, &key)?;
-        }
-    } else {
-        let _ = storage_keys.take_key(&resolved_profile_id);
+    // Cut 0.4: always encrypt this profile's DB when PDK is available.
+    // Do not wait for every profile session to clear (previous bug left clear durable SQLite).
+    let key = storage_keys
+        .take_key(&resolved_profile_id)
+        .map(|k| *k)
+        .or_else(|| native_keychain::read_pdk_for_profile(&resolved_profile_id).ok().flatten());
+    if let Some(key) = key {
+        db_state.lock_and_encrypt(&app, &key)?;
+        return Ok(());
+    }
+    db_state.close()?;
+    if db_state.has_clear_durable_sqlite(&app)? {
+        return Err(
+            "Cannot lock: PDK unavailable to encrypt local database (Cut 0.4)."
+                .to_string(),
+        );
     }
     Ok(())
 }

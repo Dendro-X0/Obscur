@@ -35,34 +35,50 @@ describe("private-dc-adapter (P4b HTTP wire)", () => {
     ]);
   });
 
-  it("sends messages via HTTP client", async () => {
+  it("refuses plaintext sendMessage when T3 wire is required (Cut 1.4)", async () => {
     writePrivateDcSession({ baseUrl: "https://dc.example.com", bearerToken: "x" }, "profile-a");
-    setPrivateDcFetchImplForTests(vi.fn(async () => new Response(JSON.stringify({
-      message: {
-        id: "m1",
-        conversationId: "peer-1",
-        body: "hello",
-        sentAtUnixMs: 1,
-        direction: "out",
-        status: "sent",
-      },
-    }), { status: 200 })) as unknown as typeof fetch);
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 })) as unknown as typeof fetch;
+    setPrivateDcFetchImplForTests(fetchImpl);
 
     await expect(privateDcAdapter.sendMessage({
       profileId: "profile-a",
       conversationId: "peer-1",
       body: "hello",
-    })).resolves.toMatchObject({ id: "m1", body: "hello" });
+    })).rejects.toThrow(/private_dc_t3_plaintext_refused/);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("refuses send when profile has no session (P4e)", async () => {
+  it("sends opaque envelopes via sendEnvelope (Cut 1.4)", async () => {
+    writePrivateDcSession({ baseUrl: "https://dc.example.com", bearerToken: "x" }, "profile-a");
+    setPrivateDcFetchImplForTests(vi.fn(async () => new Response(JSON.stringify({
+      message: {
+        id: "m1",
+        conversationId: "peer-1",
+        envelope: "sealed-blob",
+        clientMessageId: "cmid-1",
+        sentAtUnixMs: 1,
+        direction: "out",
+        status: "accepted",
+      },
+    }), { status: 200 })) as unknown as typeof fetch);
+
+    await expect(privateDcAdapter.sendEnvelope({
+      profileId: "profile-a",
+      conversationId: "peer-1",
+      envelope: "sealed-blob",
+      clientMessageId: "cmid-1",
+    })).resolves.toMatchObject({ id: "m1", envelope: "sealed-blob", status: "accepted" });
+  });
+
+  it("refuses sendEnvelope when profile has no session (P4e)", async () => {
     writePrivateDcSession({ baseUrl: "https://dc.example.com" }, "profile-a");
     setPrivateDcFetchImplForTests(vi.fn(async () => new Response("{}", { status: 200 })) as unknown as typeof fetch);
 
-    await expect(privateDcAdapter.sendMessage({
+    await expect(privateDcAdapter.sendEnvelope({
       profileId: "profile-b",
       conversationId: "peer-1",
-      body: "hello",
+      envelope: "sealed",
+      clientMessageId: "c1",
     })).rejects.toThrow(/no session/i);
   });
 
@@ -72,10 +88,11 @@ describe("private-dc-adapter (P4b HTTP wire)", () => {
       status: 500,
     })) as unknown as typeof fetch);
 
-    await expect(privateDcAdapter.sendMessage({
+    await expect(privateDcAdapter.sendEnvelope({
       profileId: "profile-a",
       conversationId: "peer-1",
-      body: "hello",
+      envelope: "sealed",
+      clientMessageId: "c1",
     })).rejects.toThrow(/private_dc_http/);
   });
 

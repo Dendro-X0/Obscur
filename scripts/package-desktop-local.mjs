@@ -76,7 +76,8 @@ const windowsNsisInstallerExists = async () => {
 
 const runDesktopBuild = async (pnpm) => {
   try {
-    run("build PWA shell + Tauri bundle", pnpm, ["build:desktop"], {
+    // Cut 6.2 — desktop build uses committed Vite frontendDist (Cut 5); Next = rollback only.
+    run("build Vite desktop-ui + Tauri bundle", pnpm, ["build:desktop"], {
       env: packageBuildEnv(),
     });
   } catch (error) {

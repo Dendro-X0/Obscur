@@ -12,3 +12,9 @@ export {
   fetchAuthBootSnapshot,
   type AuthBootHostPort,
 } from "./auth-engine-boot";
+export {
+  createDelegatingDeviceUnlockPort,
+  createUnavailableDeviceUnlockPort,
+  mapDeviceUnlockFailure,
+  type DeviceUnlockHandlers,
+} from "./device-unlock-adapter";

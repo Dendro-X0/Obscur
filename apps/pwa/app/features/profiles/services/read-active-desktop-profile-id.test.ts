@@ -26,4 +26,13 @@ describe("readActiveDesktopProfileId", () => {
     );
     expect(readActiveDesktopProfileId()).toBe("profile-2");
   });
+
+  it("ignores legacy global last-known without window label (Cut 0.2)", () => {
+    localStorage.setItem("obscur.desktop.window_profile.last_known.v1", "profile-stale");
+    localStorage.setItem(
+      "obscur.profiles.registry.v1",
+      JSON.stringify({ version: 1, activeProfileId: "profile-registry", profiles: [] }),
+    );
+    expect(readActiveDesktopProfileId()).toBe("profile-registry");
+  });
 });

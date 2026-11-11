@@ -66,4 +66,17 @@ describe("R-SCOPE profile-scope owner contracts", () => {
     });
     expect(offenders.map((f) => relative(APP_ROOT, f).replace(/\\/g, "/"))).toEqual([]);
   });
+
+  /**
+   * Cut 0.2 — legacy global last-known must not be read as a profile-id oracle.
+   * Window-scoped keys (`…last_known.v1::${label}`) remain valid.
+   */
+  it("does not read legacy global window_profile.last_known.v1 without window label", () => {
+    const GLOBAL_READ = /getItem\(\s*(['"`])obscur\.desktop\.window_profile\.last_known\.v1\1\s*\)/;
+    const offenders = runtimeAppSources.filter((file) => {
+      const source = readFileSync(file, "utf8");
+      return GLOBAL_READ.test(source);
+    });
+    expect(offenders.map((f) => relative(APP_ROOT, f).replace(/\\/g, "/"))).toEqual([]);
+  });
 });

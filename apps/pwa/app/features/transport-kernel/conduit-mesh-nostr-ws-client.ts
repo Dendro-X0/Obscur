@@ -27,6 +27,8 @@ export type ConduitMeshNostrWsClient = NostrWsWirePort & ConduitMeshNostrSubscri
   deliverInboundMessage: (relayUrl: string, message: string) => void;
   /** Re-arm REQ for all active filters on every open socket (F-RECV-LIVE). */
   resubscribeAll: () => void;
+  /** Honest live REQ count — Soft L3 supervisor must not stub this to 0 (H6a). */
+  getActiveSubscriptionCount: () => number;
 }>;
 
 export type CreateConduitMeshNostrWsClientParams = Readonly<{
@@ -496,6 +498,8 @@ export const createConduitMeshNostrWsClient = (
     },
 
     resubscribeAll,
+
+    getActiveSubscriptionCount: () => activeSubscriptions.size,
 
     unsubscribe: (subscriptionId) => {
       activeSubscriptions.delete(subscriptionId);

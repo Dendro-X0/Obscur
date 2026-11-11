@@ -235,6 +235,30 @@ describe("conduit-mesh-nostr-ws-client", () => {
     expect(received).toEqual([{ id: "live-dm-1", url: "ws://localhost:7000" }]);
   });
 
+  it("getActiveSubscriptionCount tracks subscribe and unsubscribe (H6a honesty)", async () => {
+    const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
+    const client = createConduitMeshNostrWsClient();
+
+    expect(client.getActiveSubscriptionCount()).toBe(0);
+
+    const first = client.subscribe([{ kinds: [4], "#p": ["a".repeat(64)] }], () => undefined);
+    expect(client.getActiveSubscriptionCount()).toBe(1);
+
+    const second = client.subscribe([{ kinds: [1059], "#p": ["b".repeat(64)] }], () => undefined);
+    expect(client.getActiveSubscriptionCount()).toBe(2);
+
+    client.unsubscribe(first);
+    expect(client.getActiveSubscriptionCount()).toBe(1);
+
+    client.unsubscribe(second);
+    expect(client.getActiveSubscriptionCount()).toBe(0);
+
+    client.subscribe([{ kinds: [4] }], () => undefined);
+    expect(client.getActiveSubscriptionCount()).toBe(1);
+    client.dispose();
+    expect(client.getActiveSubscriptionCount()).toBe(0);
+  });
+
   it("resubscribeAll re-sends REQ to every open socket", async () => {
     const { createConduitMeshNostrWsClient } = await import("./conduit-mesh-nostr-ws-client");
     const client = createConduitMeshNostrWsClient();

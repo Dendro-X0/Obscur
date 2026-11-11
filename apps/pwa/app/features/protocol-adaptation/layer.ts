@@ -12,6 +12,9 @@ import { matrixAdapter } from "./matrix-adapter";
 import { privateDcAdapter } from "./private-dc-adapter";
 import { hasMatrixSession } from "./matrix-session";
 import { hasPrivateDcSession } from "./private-dc-session";
+import { sendPrivateTrustT3Message } from "./private-trust-t3-send";
+import { privateDcRequiresT3Wire } from "./private-trust-send-policy";
+import { resolveConnectionRequestInvitePolicy } from "./private-trust-invite-policy";
 import { PrivacySettingsService } from "@/app/features/settings/services/privacy-settings-service";
 import type {
   CanonicalConversation,
@@ -163,6 +166,42 @@ export const ProtocolAdaptationLayer = {
     const params = args[0];
     const profileId = params.profileId ?? "";
     const activeProtocol = readActiveProtocolId(profileId || undefined);
+    if (activeProtocol === "private_dc" && privateDcRequiresT3Wire()) {
+      const conversationId = params.recipientPublicKeyHex.trim();
+      try {
+        // Cut 1.4 — T3 envelope H-dc; never plaintext body on private_dc.
+        const sent = await sendPrivateTrustT3Message({
+          profileId: profileId || "default",
+          conversationId,
+          peerPubkey: params.recipientPublicKeyHex,
+          plaintext: params.plaintext,
+        });
+        params.onConfirmed?.({
+          success: true,
+          deliveryStatus: "sent_quorum",
+          successCount: 1,
+          totalRelays: 1,
+        });
+        return {
+          success: true,
+          deliveryStatus: "sent_quorum",
+          messageId: sent.id,
+          eventId: sent.id,
+          relayResults: [],
+        };
+      } catch (error) {
+        // Cut 2.2 — fail closed; never fall through to nostrAdapter.sendDm.
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          deliveryStatus: "failed",
+          messageId: "",
+          eventId: "",
+          relayResults: [],
+          error: message,
+        };
+      }
+    }
     if (activeProtocol === "matrix" || activeProtocol === "private_dc") {
       const conversationId = params.recipientPublicKeyHex.trim();
       const adapter = activeProtocol === "matrix" ? matrixAdapter : privateDcAdapter;
@@ -209,9 +248,20 @@ export const ProtocolAdaptationLayer = {
   )) as typeof nostrAdapter.sendDm,
 
   sendConnectionRequest: ((...args: Parameters<typeof nostrAdapter.sendConnectionRequest>) => {
-    const activeProtocol = readActiveProtocolId();
-    if (activeProtocol === "matrix" || activeProtocol === "private_dc") {
-      throw new Error(`${activeProtocol}: connection requests are Nostr-only`);
+    const params = args[0];
+    const profileId = (params as { profileId?: string } | undefined)?.profileId;
+    const activeProtocol = readActiveProtocolId(profileId);
+    const invitePolicy = resolveConnectionRequestInvitePolicy(activeProtocol);
+    if (!invitePolicy.allowed) {
+      // Cut 2.3 — honest refuse (SendResult), never throw that strands UI.
+      return Promise.resolve({
+        success: false,
+        deliveryStatus: "failed" as const,
+        messageId: "",
+        eventId: "",
+        relayResults: [],
+        error: `[${invitePolicy.reasonCode}] ${invitePolicy.userMessage}`,
+      });
     }
     return nostrAdapter.sendConnectionRequest(...args);
   }) as typeof nostrAdapter.sendConnectionRequest,

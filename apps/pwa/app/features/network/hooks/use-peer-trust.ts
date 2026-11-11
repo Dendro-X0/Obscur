@@ -21,6 +21,12 @@ import {
   getPeerTrustStorageKey,
 } from "@/app/features/network/services/peer-trust-storage-key";
 import {
+  isEmptyStickyPeerTrust,
+  loadStickyTrustFromKernel,
+  persistStickyTrustToKernel,
+  usesKernelRelationshipAuthority,
+} from "@/app/features/network/services/relationship-edge-authority";
+import {
   requestFlowEvidenceStore,
   requestFlowEvidenceStoreInternals,
 } from "@/app/features/messaging/services/request-flow-evidence-store";
@@ -116,7 +122,20 @@ const parseStoredPeerTrust = (raw: string, publicKeyHex: PublicKeyHex): StoredPe
   }
 };
 
-const loadFromStorage = (
+type StoredPeerTrustWrite = Readonly<{
+  acceptedPeers: ReadonlyArray<PublicKeyHex>;
+  mutedPeers: ReadonlyArray<PublicKeyHex>;
+  removedPeers?: ReadonlyArray<PublicKeyHex>;
+}>;
+
+const normalizeStoredPeerTrust = (value: StoredPeerTrustWrite): StoredPeerTrust => ({
+  acceptedPeers: value.acceptedPeers,
+  mutedPeers: value.mutedPeers,
+  removedPeers: value.removedPeers ?? [],
+});
+
+/** Browser / one-shot migration cache only — never authority on native. */
+const readPeerTrustLocalCache = (
   publicKeyHex: PublicKeyHex,
   profileId: string = getResolvedProfileId(),
 ): StoredPeerTrust => {
@@ -143,26 +162,14 @@ const loadFromStorage = (
     if (!inherited) {
       return createDefaultState();
     }
-    saveToStorage(publicKeyHex, inherited, profileId);
+    writePeerTrustLocalCache(publicKeyHex, inherited, profileId);
     return inherited;
   } catch {
     return createDefaultState();
   }
 };
 
-type StoredPeerTrustWrite = Readonly<{
-  acceptedPeers: ReadonlyArray<PublicKeyHex>;
-  mutedPeers: ReadonlyArray<PublicKeyHex>;
-  removedPeers?: ReadonlyArray<PublicKeyHex>;
-}>;
-
-const normalizeStoredPeerTrust = (value: StoredPeerTrustWrite): StoredPeerTrust => ({
-  acceptedPeers: value.acceptedPeers,
-  mutedPeers: value.mutedPeers,
-  removedPeers: value.removedPeers ?? [],
-});
-
-const saveToStorage = (
+const writePeerTrustLocalCache = (
   publicKeyHex: PublicKeyHex,
   value: StoredPeerTrustWrite,
   profileId: string = getResolvedProfileId(),
@@ -180,6 +187,31 @@ const saveToStorage = (
   } catch {
     return;
   }
+};
+
+const loadFromStorage = (
+  publicKeyHex: PublicKeyHex,
+  profileId: string = getResolvedProfileId(),
+): StoredPeerTrust => {
+  // Cut 1.1: native cold paint is empty; async hydrate owns relationship_edge truth.
+  if (usesKernelRelationshipAuthority()) {
+    return createDefaultState();
+  }
+  return readPeerTrustLocalCache(publicKeyHex, profileId);
+};
+
+const saveToStorage = (
+  publicKeyHex: PublicKeyHex,
+  value: StoredPeerTrustWrite,
+  profileId: string = getResolvedProfileId(),
+): void => {
+  const normalized = normalizeStoredPeerTrust(value);
+  if (usesKernelRelationshipAuthority()) {
+    // K-CRM: do not write peer-trust localStorage as authority on native.
+    void persistStickyTrustToKernel(profileId, normalized).catch(() => undefined);
+    return;
+  }
+  writePeerTrustLocalCache(publicKeyHex, normalized, profileId);
 };
 
 const extractAcceptedPeersFromPersistedChatState = (
@@ -269,6 +301,10 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   ]);
   const contactMutationNonceRef = useRef(0);
   const hydrateAcceptedPeersFromChatState = useCallback((): void => {
+    // Cut 1.1: chat-state residue must not mint TRUSTED into relationship_edge.
+    if (usesKernelRelationshipAuthority()) {
+      return;
+    }
     const currentPublicKeyHex = publicKeyHexRef.current;
     if (!currentPublicKeyHex) {
       return;
@@ -321,14 +357,38 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
   useEffect((): void => {
     didLoadRef.current = false;
     setHasHydrated(false);
-    queueMicrotask((): void => {
+    let cancelled = false;
+    void (async (): Promise<void> => {
       if (!params.publicKeyHex) {
         return;
       }
+      if (usesKernelRelationshipAuthority()) {
+        let fromKernel = await loadStickyTrustFromKernel(activeProfileId, params.publicKeyHex);
+        if (isEmptyStickyPeerTrust(fromKernel)) {
+          const fromLs = readPeerTrustLocalCache(params.publicKeyHex, activeProfileId);
+          if (!isEmptyStickyPeerTrust(fromLs)) {
+            // One-shot import; LS remains non-authoritative afterward.
+            await persistStickyTrustToKernel(activeProfileId, fromLs).catch(() => undefined);
+            fromKernel = fromLs;
+          }
+        }
+        if (cancelled) {
+          return;
+        }
+        setStored(fromKernel);
+        setHasHydrated(true);
+        return;
+      }
       const loaded = loadFromStorage(params.publicKeyHex, activeProfileId);
+      if (cancelled) {
+        return;
+      }
       setStored(loaded);
       setHasHydrated(true);
-    });
+    })();
+    return (): void => {
+      cancelled = true;
+    };
   }, [activeProfileId, params.publicKeyHex]);
 
   useEffect((): void => {
@@ -565,6 +625,8 @@ export const peerTrustInternals = {
   getStorageKey,
   loadFromStorage,
   saveToStorage,
+  readPeerTrustLocalCache,
+  writePeerTrustLocalCache,
   extractAcceptedPeersFromPersistedChatState,
   extractAcceptedPeersFromRequestEvidence,
 };

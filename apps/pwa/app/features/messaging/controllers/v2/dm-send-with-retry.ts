@@ -13,10 +13,21 @@ import type { PrivateKeyHex } from "@dweb/crypto/private-key-hex";
 import type { PublicKeyHex } from "@dweb/crypto/public-key-hex";
 import type { RelayPoolContract, SendResult } from "./dm-controller-types";
 import {
+  ProtocolAdaptationLayer,
   sendDmNostrOnly,
   type CanonicalSendConfirmation,
 } from "@/app/features/protocol-adaptation/layer";
-import { queueMessage, initMessageQueue, triggerQueueProcessing, getQueueStats } from "../../services/dm-message-queue";
+import {
+  PRIVATE_DC_SILENT_NOSTR_FALLBACK_REFUSED,
+  isPrivateTrustComposeFace,
+} from "@/app/features/protocol-adaptation/private-trust-compose-policy";
+import {
+  queueMessage,
+  initMessageQueue,
+  triggerQueueProcessing,
+  getQueueStats,
+  usesKernelOutboxAuthority,
+} from "../../services/dm-message-queue";
 import { recordDmMessage } from "../../dm-ledger";
 import type { Message } from "../../types";
 import { isBrowserOffline } from "@/app/features/runtime/offline-runtime-policy";
@@ -89,6 +100,21 @@ const queueOutgoingForRetry = (
   }>,
   baseResult?: SendResult,
 ): SendWithRetryResult => {
+  // Cut 1.3: native must not park plaintext+sk in dm_message_queue_v1.
+  // Kernel outbox / T3 prepare→ACK owns durable retry (send-face cutover = 1.4).
+  if (usesKernelOutboxAuthority()) {
+    return {
+      success: false,
+      deliveryStatus: "failed",
+      messageId: params.optimisticId,
+      eventId: baseResult?.eventId ?? "",
+      relayResults: baseResult?.relayResults ?? [],
+      error: baseResult?.error ?? "native_outbox_ls_subtracted",
+      queued: false,
+      needsRetry: true,
+    };
+  }
+
   queueMessage({
     id: params.optimisticId,
     conversationId: params.conversationId,
@@ -141,9 +167,26 @@ export const sendDmWithRetry = async (params: SendWithRetryParams): Promise<Send
     onConfirmed,
   } = params;
 
+  // Cut 2.2 — Nostr-only retry queue must not silently own private_dc send face.
+  if (isPrivateTrustComposeFace(ProtocolAdaptationLayer.getActiveProtocolId())) {
+    return {
+      success: false,
+      deliveryStatus: "failed",
+      messageId: "",
+      eventId: "",
+      relayResults: [],
+      error: PRIVATE_DC_SILENT_NOSTR_FALLBACK_REFUSED,
+      queued: false,
+      needsRetry: false,
+    };
+  }
+
   // Initialize queue on first use
   if (!queueInitialized) {
     initMessageQueue(async (queued) => {
+      if (isPrivateTrustComposeFace(ProtocolAdaptationLayer.getActiveProtocolId())) {
+        return { success: false, error: PRIVATE_DC_SILENT_NOSTR_FALLBACK_REFUSED };
+      }
       const result = await sendDmNostrOnly({
         pool,
         senderPublicKeyHex: queued.senderPubkey,

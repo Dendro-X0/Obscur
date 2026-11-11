@@ -86,6 +86,16 @@ export {
   type PersistenceWipeProfileLocalDataReport,
 } from "./persistence-engine-methods";
 export {
+  PRIVATE_TRUST_ENGINE_METHODS,
+  buildPrivateTrustUpsertRelationshipEdgeRequest,
+  buildPrivateTrustListRelationshipEdgesRequest,
+  buildPrivateTrustPrepareT3OutboundRequest,
+  buildPrivateTrustCompleteT3HomeAckRequest,
+  isPrivateTrustEngineMethod,
+  type PrivateTrustEngineMethod,
+  type PrivateTrustUpsertRelationshipEdgePayload,
+} from "./private-trust-engine-methods";
+export {
   isEngineId,
   validateEngineInvokeRequest,
   type EngineInvokeValidationError,

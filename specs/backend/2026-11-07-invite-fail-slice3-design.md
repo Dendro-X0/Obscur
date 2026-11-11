@@ -36,7 +36,7 @@ Social-core **Invite Fail** is **classified / superseded** by trust-directory he
 ## Explicit non-goals
 
 - New invite publish owner
-- Claiming invite Fixed without optional send/accept L2
+- Claiming invite Fixed without maintainer cut (L2 send/accept already Pass 2026-11-08)
 - Soft L3 / Tor / Matrix
 
 ## Proof
@@ -44,5 +44,5 @@ Social-core **Invite Fail** is **classified / superseded** by trust-directory he
 | Layer | Claim |
 |-------|-------|
 | L1 | Candidate helper + dialog regression Pass |
-| L2 | Optional A invite → B accept (not required to close Fail classification) |
-| Fixed | Only after optional L2 send/accept |
+| L2 | **Pass 2026-11-08** — dual CDP Soft L3; Team create → Invite Connections → Tester2 Accept; coordination `activeMemberPubkeys` includes both ([handoff](../../docs/handoffs/invite-fail-slice3-l2-soak-2026-11-08.md)) |
+| Fixed | Maintainer cut call only — do not auto-promote from L2 |

@@ -34,6 +34,21 @@ pub fn next_outgoing_message_key(state: &mut RatchetChainState) -> Result<String
     Ok(hex::encode(msg_key))
 }
 
+/// Advance receiving chain and return `(counter, message_key_hex)`.
+/// Mirrors [`next_outgoing_message_key`] indexing (use current counter, then increment).
+/// Cut 0.8 L1 — sequential receive (single-device T3 first; skip-window decrypt later).
+pub fn next_incoming_message_key(state: &mut RatchetChainState) -> Result<(u32, String), String> {
+    let counter = state.recv_counter;
+    let chain = decode_hex_32(&state.receiving_chain_key_hex)?;
+    let counter_bytes = counter.to_be_bytes();
+    let msg_key = derive(&[&chain, b"msg", &counter_bytes]);
+    let next_chain = derive(&[&chain, b"chain", &counter_bytes]);
+    state.previous_message_counter = Some(state.recv_counter);
+    state.recv_counter = state.recv_counter.saturating_add(1);
+    state.receiving_chain_key_hex = hex::encode(next_chain);
+    Ok((counter, hex::encode(msg_key)))
+}
+
 pub fn accept_incoming_counter(
     state: &mut RatchetChainState,
     incoming_counter: u32,

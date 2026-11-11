@@ -6,6 +6,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Passphrase } from "@dweb/crypto/passphrase";
+import { resolveAuthShellReady } from "@dweb/auth/policy/auth-shell-ready-gate";
 import { getIdentitySnapshot, useIdentity } from "@/app/features/auth/hooks/use-identity";
 import {
   isDevicePasswordBindPending,
@@ -108,7 +109,12 @@ export const AuthGateway: React.FC<AuthGatewayProps> = ({ children }) => {
     runtimePhase: runtime.snapshot.phase,
   });
   /** Slice A: identity may be unlocked while Auth still collects device-password → PDK bind. */
-  const isShellReady = isUnlocked && !devicePasswordBindPending;
+  const isShellReady = resolveAuthShellReady({
+    identityStatus: identity.state.status,
+    publicKeyHex: identity.state.publicKeyHex,
+    runtimePhase: runtime.snapshot.phase,
+    devicePasswordBindPending,
+  });
   // E20: match AppSessionShell — desktop shell build OR live bridge (bridge flicker remounts heavy UI).
   const isPublicProfileRoute = isAuthPublicProfileRoute(pathname)
     && (isDesktopShellProduct() || hasNativeRuntime());

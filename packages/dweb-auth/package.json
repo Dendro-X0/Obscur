@@ -23,6 +23,7 @@
     "./ports/auth-assistant-port": "./src/ports/auth-assistant-port.ts",
     "./policy/session-credential-policy-contract": "./src/policy/session-credential-policy-contract.ts",
     "./policy/registration-policy-engine": "./src/policy/registration-policy-engine.ts",
-    "./policy/auth-assistant-vault-codec": "./src/policy/auth-assistant-vault-codec.ts"
+    "./policy/auth-assistant-vault-codec": "./src/policy/auth-assistant-vault-codec.ts",
+    "./policy/auth-shell-ready-gate": "./src/policy/auth-shell-ready-gate.ts"
   }
 }
