@@ -354,7 +354,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
     });
   }, []);
 
-  useEffect((): void => {
+  useEffect(() => {
     didLoadRef.current = false;
     setHasHydrated(false);
     let cancelled = false;
@@ -386,7 +386,7 @@ export const usePeerTrust = (params: UsePeerTrustParams): UsePeerTrustResult => 
       setStored(loaded);
       setHasHydrated(true);
     })();
-    return (): void => {
+    return () => {
       cancelled = true;
     };
   }, [activeProfileId, params.publicKeyHex]);
