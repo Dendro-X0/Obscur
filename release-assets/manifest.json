@@ -1,6 +1,6 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-11-11T17:08:12.000Z",
+  "generatedAt": "2026-11-11T18:01:23.000Z",
   "gitCommit": "05e42bab",
   "version": "2.0.0",
   "releaseTag": "2.0.0-beta.11",
@@ -68,13 +68,13 @@
     {
       "platform": "android",
       "kind": "apk-universal-release-unsigned",
-      "buildCommand": "Obscur Full Release CI (mobile-android)",
+      "buildCommand": "Obscur Full Release CI (mobile-android) \u00b7 run 43057355295",
       "path": "release-assets/android/Obscur_2.0.0_app-universal-release-unsigned.apk",
       "fileName": "Obscur_2.0.0_app-universal-release-unsigned.apk",
       "sizeBytes": 68420747,
-      "sha256": "fcc8c1bc6a2eb448ca132e1cf76bb82cfd7285aca5e52bddbe2e0ac6f56fd2b8",
-      "builtAt": "2026-11-11T09:41:08Z",
-      "notes": "Carried from v2.0.0-beta.10 \u2014 Android built on 43057355295 but artifact download egress-limited; re-sync owed.",
+      "sha256": "3a9d589046b508dc1f3448465e104ede7cc50af4ae6b8689cf48a9c265a3beac",
+      "builtAt": "2026-11-11T16:30:00Z",
+      "notes": "v2.0.0-beta.11 Official Beta Android APK from CI run 43057355295 (re-synced after egress retry).",
       "abiFilter": "universal (CI release unsigned)",
       "installHint": "Allow install from this source, then open the APK. Optional: adb install -t -r <apk>",
       "note": "Unsigned; no Play Developer Program / Play Store listing"
@@ -82,13 +82,13 @@
     {
       "platform": "android",
       "kind": "aab-universal-release",
-      "buildCommand": "Obscur Full Release CI (mobile-android)",
+      "buildCommand": "Obscur Full Release CI (mobile-android) \u00b7 run 43057355295",
       "path": "release-assets/android/Obscur_2.0.0_app-universal-release.aab",
       "fileName": "Obscur_2.0.0_app-universal-release.aab",
-      "sizeBytes": 39001263,
-      "sha256": "5e96c135870a015f835c4b350e227d26f95186e019ff9f79e3da8e2110b0d540",
-      "builtAt": "2026-11-11T09:41:08Z",
-      "notes": "Carried from v2.0.0-beta.10 \u2014 Android AAB re-sync owed (egress limit).",
+      "sizeBytes": 39002278,
+      "sha256": "48418bec0c74e48a1fb28f3a65c8e630334a7db320717a0be9db90b116bc35a9",
+      "builtAt": "2026-11-11T16:30:00Z",
+      "notes": "v2.0.0-beta.11 Official Beta Android AAB from CI run 43057355295 (re-synced after egress retry).",
       "abiFilter": "universal",
       "note": "Play Console AAB when keystore ready \u2014 not a sideload APK"
     }

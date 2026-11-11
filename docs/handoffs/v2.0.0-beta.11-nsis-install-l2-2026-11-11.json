@@ -1,24 +1,34 @@
 {
   "dateUtc": "2026-11-11",
-  "verdict": "publish_pass_cdp_partial",
+  "verdict": "publish_pass_title_pass_cdp_attach_partial",
   "releaseTag": "2.0.0-beta.11",
   "githubRelease": "https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.11",
   "ciRun": "43057355295",
   "installer": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
   "installerSha256": "fdcc5da4a92f4260928db46430bab82c829fc74ab32f946c3432d650c5f85707",
   "installerSizeBytes": 7598139,
+  "installDir": "E:\\Obscur",
+  "installedExe": "E:\\Obscur\\obscur_desktop_app.exe",
+  "installedExeSha256": "2416ad4a19cc5adb23b9ebffe1aaf1d97aa591b3dc7b9de00a414d4fda885ac5",
+  "title": {
+    "win32GetWindowText": "Obscur",
+    "sourceHtmlTitle": "Obscur",
+    "verdict": "Pass"
+  },
   "cdp": {
     "attempted": true,
     "port9230": false,
-    "note": "WEBVIEW2 remote-debugging attach failed this session (Access denied / no listener). Source title Obscur Pass; packaged title spot owed."
+    "envWebView2Args": "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9230",
+    "note": "Release build does not set additional_browser_args (debug_assertions only). Env var did not open :9230; title proven via Win32 instead."
   },
-  "linuxCi": "Fail — Azure apt mirror Ign/timeout; AppImage carried from beta.10",
+  "linuxCi": "Fail on publish run — Azure apt; heal landed (Acquire timeouts/retries + archive.ubuntu.com fallback); AppImage/Android carried from beta.10 until next Full Release",
   "nonClaims": [
     "Soft L3 Fixed",
     "Continuity Pass",
     "Tor Verified",
     "Matrix promote",
     "live multi-device sync",
-    "video usable"
+    "video usable",
+    "packaged CDP attach Pass"
   ]
 }

@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-11T17:20:00Z
-- Session Status: ACTIVE · Official Beta v2.0.0-beta.11 Published · Soft L3 paused · Continuity Pass not claimed
+- Last Updated (UTC): 2026-11-11T18:05:00Z
+- Session Status: ACTIVE · Official Beta v2.0.0-beta.11 Published · Title Pass · Soft L3 paused · Continuity Pass not claimed
 - Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,11 +50,12 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-OFFICIAL BETA PUBLISHED — v2.0.0-beta.11
+OFFICIAL BETA CLOSEOUT — v2.0.0-beta.11
   Release: https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.11
-  Notes: docs/releases/v2.0.0-beta.11-release.md
-  version.json releaseTag=2.0.0-beta.11
-NEXT (optional): packaged CDP title Obscur spot · Linux CI apt heal · Android asset re-sync
+  Packaged title Obscur Pass (Win32) · CDP attach Partial (release omits CDP args)
+  Linux apt heal landed (Acquire timeouts + archive.ubuntu.com fallback) — next Full Release owed
+  Android APK/AAB re-synced from run 43057355295
+NEXT (optional): Full Release re-run for Linux AppImage · or rewrite-band next cut
   Soft L3 Fixed / Continuity Pass / Tor Verified / Matrix promote NOT claimed
 Do NOT invent Continuity Cut 16+ · Do NOT silent beta wipe
 ```
