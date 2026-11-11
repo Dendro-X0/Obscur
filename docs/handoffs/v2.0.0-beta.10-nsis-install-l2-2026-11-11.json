@@ -1,0 +1,36 @@
+{
+  "at": "2026-11-11T10:50:00Z",
+  "releaseTag": "2.0.0-beta.10",
+  "sourceRun": "42993627086",
+  "gitCommitPackaged": "90e8b22b",
+  "installDir": "E:\\Obscur",
+  "setup": {
+    "path": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
+    "sha256": "959a41bf6a1ce7266f16113f05e1246df7bc3410572c687cd7e62a061c7799bb",
+    "sizeBytes": 7535773
+  },
+  "installedExe": {
+    "path": "E:\\Obscur\\obscur_desktop_app.exe",
+    "sha256": "dbd788bfc7f248b538611c83d4eacee565ad749e7955524f3467526af14c55b1",
+    "sizeBytes": 11094528
+  },
+  "extractedExeSha256": "dbd788bfc7f248b538611c83d4eacee565ad749e7955524f3467526af14c55b1",
+  "payloadMatch": true,
+  "coldLaunch": {
+    "processStarted": true,
+    "cdpPort9230": true,
+    "cdpVia": "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9230",
+    "cdpJsonVersion": 200,
+    "cdpPageTitle": "Obscur — desktop-ui lab",
+    "cdpPageUrl": "http://tauri.localhost/"
+  },
+  "remasterFace": "Vite apps/desktop-ui (title confirms desktop-ui lab shell)",
+  "requestsConnectionsDualSoak": "not run — Soft L3 paused · Continuity Pass not claimed",
+  "verdict": "Pass — install+payload+cold launch+CDP attach · Soft L3 / Continuity Pass not claimed",
+  "honesty": [
+    "Continuity methods available ≠ Continuity Pass",
+    "Soft L3 Fixed not claimed",
+    "Tor Verified not claimed",
+    "Matrix promote not claimed"
+  ]
+}
