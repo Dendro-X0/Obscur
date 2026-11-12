@@ -1,14 +1,14 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-11-11T18:01:23.000Z",
-  "gitCommit": "05e42bab",
+  "generatedAt": "2026-11-12T04:58:31.000Z",
+  "gitCommit": "96177f93",
   "version": "2.0.0",
   "releaseTag": "2.0.0-beta.11",
   "signingPolicy": "unsigned",
   "signingPolicyDoc": "docs/program/obscur-v2-phase3-signing-policy.md",
   "signingPolicySignedAt": "2026-07-04T10:10:00Z",
-  "sourceRun": "Official Beta publish from Full Release CI artifacts \u00b7 run 43057355295 \u00b7 tag v2.0.0-beta.11 (Linux CI Fail \u2014 Azure apt; Win/macOS/web from that run)",
-  "clientBuildStamp": "shell-from-ci-v2.0.0-beta.11",
+  "sourceRun": "Full Release success run 43147384440 \u00b7 tag v2.0.0-beta.11 \u00b7 Linux AppImage healed (apt YAML fix)",
+  "clientBuildStamp": "shell-from-ci-v2.0.0-beta.11-linux-heal",
   "artifacts": [
     {
       "platform": "windows",
@@ -46,13 +46,13 @@
     {
       "platform": "linux",
       "kind": "appimage",
-      "buildCommand": "Obscur Full Release CI (desktop-linux) \u2014 Fail on 43057355295",
+      "buildCommand": "Obscur Full Release CI (desktop-linux) \u00b7 run 43147384440",
       "path": "release-assets/linux/Obscur_2.0.0_amd64.AppImage",
       "fileName": "Obscur_2.0.0_amd64.AppImage",
-      "sizeBytes": 88001016,
-      "sha256": "2e6143bf0a83226875ed468a20c44714c9f7a4d62d3266444dd9d1b6df891030",
-      "builtAt": "2026-11-11T09:41:08Z",
-      "notes": "Carried from v2.0.0-beta.10 \u2014 Linux matrix Fail on Official Beta cut (Azure apt Ign/timeout). Not a Soft L3/Continuity claim."
+      "sizeBytes": 88050168,
+      "sha256": "c0e0dfdee35cee35485df15a88678e8473d368aa9afab004a167c3efcf3367f9",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 Linux AppImage from Full Release re-run 43147384440 after apt YAML heal. Soft L3/Continuity not claimed."
     },
     {
       "platform": "web",
@@ -97,9 +97,10 @@
     "Public GitHub release tag: v2.0.0-beta.11 (package tree 2.0.0)",
     "Official Beta remaster face = Vite apps/desktop-ui \u00b7 Continuity product door \u00b7 Soft L3 Fixed / Continuity Pass not claimed",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
-    "Windows + macOS (aarch64+x64) + web published on tag; Linux AppImage carried from beta.10 (CI apt Fail); Android carry/re-sync owed",
+    "Windows + macOS + Linux AppImage + Android + web on GitHub release (Full Release 43147384440)",
+    "Local release-assets: Linux AppImage synced from 43147384440; Win/mac local bytes may lag release until egress allows refresh",
     "Unsigned / self-signed \u2014 SmartScreen / Gatekeeper / sideload warnings expected",
     "Installer filenames embed package semver 2.0.0 (not the marketing beta tag)",
-    "Built from main @ 05e42bab \u2014 desktop artifacts from Full Release run 43057355295"
+    "Built from main @ 96177f93 \u2014 Full Release run 43147384440"
   ]
 }

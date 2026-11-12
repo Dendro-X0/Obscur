@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-12T03:20:00Z
-- Session Status: ACTIVE · Full Release re-run for Linux AppImage (apt YAML heal) · Soft L3 paused · Continuity Pass not claimed
+- Last Updated (UTC): 2026-11-12T04:50:00Z
+- Session Status: ACTIVE · Official Beta v2.0.0-beta.11 Full Release Pass (Linux healed) · Soft L3 paused · Continuity Pass not claimed
 - Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -50,13 +50,12 @@ FOCUS — Platform architecture charter → first cut inside REWRITE BAND
 ## Next Atomic Step
 
 ```text
-OFFICIAL BETA CLOSEOUT — v2.0.0-beta.11
+OFFICIAL BETA FULL MATRIX — v2.0.0-beta.11
+  Full Release Pass: https://github.com/Dendro-X0/Obscur/actions/runs/43147384440
   Release: https://github.com/Dendro-X0/Obscur/releases/tag/v2.0.0-beta.11
-  Packaged title Obscur Pass (Win32) · CDP attach Partial (release omits CDP args)
-  Linux apt heal landed (Acquire timeouts + archive.ubuntu.com fallback) — next Full Release owed
-  Android APK/AAB re-synced from run 43057355295
-NEXT (optional): Full Release re-run for Linux AppImage · or rewrite-band next cut
-  Soft L3 Fixed / Continuity Pass / Tor Verified / Matrix promote NOT claimed
+  Linux AppImage on release + local release-assets synced (apt YAML heal)
+  Title Pass · Android on release · Soft L3/Continuity/Tor/Matrix NOT claimed
+NEXT (optional): rewrite-band next cut · or Win/mac local asset byte refresh (egress)
 Do NOT invent Continuity Cut 16+ · Do NOT silent beta wipe
 ```
 
@@ -119,7 +118,7 @@ Do NOT invent Continuity Cut 16+ · Do NOT silent beta wipe
 | Cut 14 Vite Settings NARROW | **CLOSED 14.0–14.5** — SettingsDoor + T2 residue in Continuity M1 · Soft L3 paused · **≠ Continuity Pass** · **≠ live mesh** · **≠ peer grants** |
 | Cut 15 peer history grants | **CLOSED 15.0–15.5** — Ingredient 5 create/accept/list opaque grants · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
 | Remaster foundation R0–R5 | **R0–R4 Pass** · **R5 Published** `v2.0.0-beta.10` · **NSIS L2 Pass** · foundation only ≠ Official Beta |
-| Official Beta bar | **v2.0.0-beta.11 Published** · Title Pass · Android re-synced · Linux apt heal landed · Soft L3/Continuity not claimed |
+| Official Beta bar | **v2.0.0-beta.11 Full Release Pass** · Linux AppImage healed · Title Pass · Soft L3/Continuity not claimed |
 | Cut 0 privateTrust glue | **L1+headless Pass** — prepareT3Outbound/completeT3HomeAck · CRM ports · soak 6–8 · Soft L3 **not** claimed |
 | Cut 0.10 lab checklist | **Documented** — cut0-lab-milestone-checklist-2026-11-09.md · ≠ Soft L3 |
 | P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |
