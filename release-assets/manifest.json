@@ -1,6 +1,6 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-11-12T05:01:19.000Z",
+  "generatedAt": "2026-11-12T05:06:55.000Z",
   "gitCommit": "507f1ad1",
   "version": "2.0.0",
   "releaseTag": "2.0.0-beta.11",
@@ -57,24 +57,24 @@
     {
       "platform": "web",
       "kind": "pwa-static-tarball",
-      "buildCommand": "Obscur Full Release CI (web-pwa)",
+      "buildCommand": "Obscur Full Release CI (web-pwa) \u00b7 run 43147384440",
       "path": "release-assets/web/obscur-pwa-static.tar.gz",
       "fileName": "obscur-pwa-static.tar.gz",
-      "sizeBytes": 2596690,
-      "sha256": "0c6a6187178f84f401957c0cc8f93f5acb6a76bf88733d26adac91ce200f13d3",
-      "builtAt": "2026-11-11T16:30:00Z",
-      "notes": "v2.0.0-beta.11 web from CI run 43057355295."
+      "sizeBytes": 2597353,
+      "sha256": "d996c5b7766ac377c46661f332e657dab2ef235eed107614b4ef1280ef239c20",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 web from Full Release run 43147384440."
     },
     {
       "platform": "android",
       "kind": "apk-universal-release-unsigned",
-      "buildCommand": "Obscur Full Release CI (mobile-android) \u00b7 run 43057355295",
+      "buildCommand": "Obscur Full Release CI (mobile-android) \u00b7 run 43147384440",
       "path": "release-assets/android/Obscur_2.0.0_app-universal-release-unsigned.apk",
       "fileName": "Obscur_2.0.0_app-universal-release-unsigned.apk",
       "sizeBytes": 68420747,
-      "sha256": "3a9d589046b508dc1f3448465e104ede7cc50af4ae6b8689cf48a9c265a3beac",
-      "builtAt": "2026-11-11T16:30:00Z",
-      "notes": "v2.0.0-beta.11 Official Beta Android APK from CI run 43057355295 (re-synced after egress retry).",
+      "sha256": "d989d6c8df72634f436ff185843b94d3823ebcb60dea3b1ba177ef6135c7e750",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 Android APK from Full Release run 43147384440.",
       "abiFilter": "universal (CI release unsigned)",
       "installHint": "Allow install from this source, then open the APK. Optional: adb install -t -r <apk>",
       "note": "Unsigned; no Play Developer Program / Play Store listing"
@@ -82,13 +82,13 @@
     {
       "platform": "android",
       "kind": "aab-universal-release",
-      "buildCommand": "Obscur Full Release CI (mobile-android) \u00b7 run 43057355295",
+      "buildCommand": "Obscur Full Release CI (mobile-android) \u00b7 run 43147384440",
       "path": "release-assets/android/Obscur_2.0.0_app-universal-release.aab",
       "fileName": "Obscur_2.0.0_app-universal-release.aab",
-      "sizeBytes": 39002278,
-      "sha256": "48418bec0c74e48a1fb28f3a65c8e630334a7db320717a0be9db90b116bc35a9",
-      "builtAt": "2026-11-11T16:30:00Z",
-      "notes": "v2.0.0-beta.11 Official Beta Android AAB from CI run 43057355295 (re-synced after egress retry).",
+      "sizeBytes": 39000310,
+      "sha256": "620aa6af4c81fef3ef7885cb48a54775e5e6b7a58733fa8fb8f7d3617980108f",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 Android AAB from Full Release run 43147384440.",
       "abiFilter": "universal",
       "note": "Play Console AAB when keystore ready \u2014 not a sideload APK"
     }
@@ -98,7 +98,7 @@
     "Official Beta remaster face = Vite apps/desktop-ui \u00b7 Continuity product door \u00b7 Soft L3 Fixed / Continuity Pass not claimed",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
     "Windows + macOS + Linux AppImage + Android + web on GitHub release (Full Release 43147384440)",
-    "Local release-assets: Windows + macOS + Linux synced from Full Release run 43147384440",
+    "Local release-assets: Windows + macOS + Linux + Android + web synced from Full Release run 43147384440",
     "Unsigned / self-signed \u2014 SmartScreen / Gatekeeper / sideload warnings expected",
     "Installer filenames embed package semver 2.0.0 (not the marketing beta tag)",
     "Built from main @ 96177f93 \u2014 Full Release run 43147384440"
