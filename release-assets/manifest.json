@@ -1,7 +1,7 @@
 {
   "schema": "obscur.release-assets.manifest@1.0.0",
-  "generatedAt": "2026-11-12T04:58:31.000Z",
-  "gitCommit": "96177f93",
+  "generatedAt": "2026-11-12T05:01:19.000Z",
+  "gitCommit": "507f1ad1",
   "version": "2.0.0",
   "releaseTag": "2.0.0-beta.11",
   "signingPolicy": "unsigned",
@@ -13,35 +13,35 @@
     {
       "platform": "windows",
       "kind": "nsis-installer",
-      "buildCommand": "Obscur Full Release CI (desktop-windows)",
+      "buildCommand": "Obscur Full Release CI (desktop-windows) \u00b7 run 43147384440",
       "path": "release-assets/windows/Obscur_2.0.0_x64-setup.exe",
       "fileName": "Obscur_2.0.0_x64-setup.exe",
-      "sizeBytes": 7598139,
-      "sha256": "fdcc5da4a92f4260928db46430bab82c829fc74ab32f946c3432d650c5f85707",
-      "builtAt": "2026-11-11T16:30:00Z",
-      "notes": "v2.0.0-beta.11 Official Beta Windows NSIS from CI run 43057355295 (Vite desktop-ui product chrome)."
+      "sizeBytes": 7599093,
+      "sha256": "ebeef0a7022ce3d118bde3d60dee9d6dc2a3fdf3032f94924ef471e12cfa5e12",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 Windows NSIS from Full Release run 43147384440 (local re-sync)."
     },
     {
       "platform": "macos",
       "kind": "dmg",
-      "buildCommand": "Obscur Full Release CI (desktop-macos)",
+      "buildCommand": "Obscur Full Release CI (desktop-macos) \u00b7 run 43147384440",
       "path": "release-assets/macos/Obscur_2.0.0_aarch64.dmg",
       "fileName": "Obscur_2.0.0_aarch64.dmg",
-      "sizeBytes": 9163888,
-      "sha256": "01712f645457e8ad63666809e1beee1de78876a7852000cf18357eb5b1c1d872",
-      "builtAt": "2026-11-11T16:30:00Z",
-      "notes": "v2.0.0-beta.11 Apple Silicon DMG from CI run 43057355295."
+      "sizeBytes": 9163902,
+      "sha256": "3d9a123b52e930045e38ce5d6f8e596e7e605817d0e5bd4f152cd42b64d0d873",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 Apple Silicon DMG from Full Release run 43147384440 (local re-sync)."
     },
     {
       "platform": "macos",
       "kind": "dmg",
-      "buildCommand": "Obscur Full Release CI (desktop-macos)",
+      "buildCommand": "Obscur Full Release CI (desktop-macos) \u00b7 run 43147384440",
       "path": "release-assets/macos/Obscur_2.0.0_x64.dmg",
       "fileName": "Obscur_2.0.0_x64.dmg",
-      "sizeBytes": 9617365,
-      "sha256": "8ba7cb42c36a8d14d3989a40689cd38fb093afe4cfeded0c26b5874e66eb87ff",
-      "builtAt": "2026-11-11T16:30:00Z",
-      "notes": "v2.0.0-beta.11 macOS Intel DMG from CI run 43057355295."
+      "sizeBytes": 9617357,
+      "sha256": "6929cab2dbf58ed8c9ae5e2cd0ded25036660138caab89fb471cead8cc56e9a1",
+      "builtAt": "2026-11-12T03:40:00Z",
+      "notes": "v2.0.0-beta.11 macOS Intel DMG from Full Release run 43147384440 (local re-sync)."
     },
     {
       "platform": "linux",
@@ -98,7 +98,7 @@
     "Official Beta remaster face = Vite apps/desktop-ui \u00b7 Continuity product door \u00b7 Soft L3 Fixed / Continuity Pass not claimed",
     "Website /download hrefs resolve to GitHub Releases download URLs for releaseTag",
     "Windows + macOS + Linux AppImage + Android + web on GitHub release (Full Release 43147384440)",
-    "Local release-assets: Linux AppImage synced from 43147384440; Win/mac local bytes may lag release until egress allows refresh",
+    "Local release-assets: Windows + macOS + Linux synced from Full Release run 43147384440",
     "Unsigned / self-signed \u2014 SmartScreen / Gatekeeper / sideload warnings expected",
     "Installer filenames embed package semver 2.0.0 (not the marketing beta tag)",
     "Built from main @ 96177f93 \u2014 Full Release run 43147384440"
