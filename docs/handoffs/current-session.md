@@ -1,7 +1,7 @@
 # Current Session Handoff
 
-- Last Updated (UTC): 2026-11-11T18:05:00Z
-- Session Status: ACTIVE · Official Beta v2.0.0-beta.11 Published · Title Pass · Soft L3 paused · Continuity Pass not claimed
+- Last Updated (UTC): 2026-11-12T03:20:00Z
+- Session Status: ACTIVE · Full Release re-run for Linux AppImage (apt YAML heal) · Soft L3 paused · Continuity Pass not claimed
 - Active Owner: ENGINE-LAB
 
 ## Maintainer instruction (binding)
@@ -119,7 +119,7 @@ Do NOT invent Continuity Cut 16+ · Do NOT silent beta wipe
 | Cut 14 Vite Settings NARROW | **CLOSED 14.0–14.5** — SettingsDoor + T2 residue in Continuity M1 · Soft L3 paused · **≠ Continuity Pass** · **≠ live mesh** · **≠ peer grants** |
 | Cut 15 peer history grants | **CLOSED 15.0–15.5** — Ingredient 5 create/accept/list opaque grants · Soft L3 paused · **≠ Continuity Pass** · **≠ invent CRM** |
 | Remaster foundation R0–R5 | **R0–R4 Pass** · **R5 Published** `v2.0.0-beta.10` · **NSIS L2 Pass** · foundation only ≠ Official Beta |
-| Official Beta bar | **v2.0.0-beta.11 Published** · Win/macOS Official Beta · Linux CI Partial · Soft L3/Continuity not claimed |
+| Official Beta bar | **v2.0.0-beta.11 Published** · Title Pass · Android re-synced · Linux apt heal landed · Soft L3/Continuity not claimed |
 | Cut 0 privateTrust glue | **L1+headless Pass** — prepareT3Outbound/completeT3HomeAck · CRM ports · soak 6–8 · Soft L3 **not** claimed |
 | Cut 0.10 lab checklist | **Documented** — cut0-lab-milestone-checklist-2026-11-09.md · ≠ Soft L3 |
 | P4c private_dc L2 lab | local `/v1` lab server · soak matrix + client live-fetch L2 Pass (not production DC) |

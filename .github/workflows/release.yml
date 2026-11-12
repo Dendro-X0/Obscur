@@ -229,14 +229,15 @@ jobs:
             sleep 20
           done
           # Last resort: pin archive.ubuntu.com (Azure mirror Ign:/timeout path).
+          # Keep every line indented so the workflow YAML `run: |` block stays valid.
           echo "Switching apt sources to archive.ubuntu.com fallback"
           . /etc/os-release
           CODENAME="${VERSION_CODENAME:-noble}"
-          sudo tee /etc/apt/sources.list >/dev/null <<EOF
-deb http://archive.ubuntu.com/ubuntu ${CODENAME} main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu ${CODENAME}-updates main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu ${CODENAME}-security main restricted universe multiverse
-EOF
+          {
+            echo "deb http://archive.ubuntu.com/ubuntu ${CODENAME} main restricted universe multiverse"
+            echo "deb http://archive.ubuntu.com/ubuntu ${CODENAME}-updates main restricted universe multiverse"
+            echo "deb http://archive.ubuntu.com/ubuntu ${CODENAME}-security main restricted universe multiverse"
+          } | sudo tee /etc/apt/sources.list >/dev/null
           try_install "archive-t64" "${PKGS_T64[@]}" && exit 0
           try_install "archive-legacy" "${PKGS_LEGACY[@]}" && exit 0
           echo "Linux apt dependencies failed after retries + archive fallback" >&2
