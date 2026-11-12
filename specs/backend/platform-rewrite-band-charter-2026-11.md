@@ -130,5 +130,6 @@ Do not start P4 before P1–P3 have an accepted design for that cut. P2-S may ru
 - P4h: **private_dc capabilities + rich map L1** — [platform-p4h-private-dc-capabilities-rich-map-2026-11.md](./platform-p4h-private-dc-capabilities-rich-map-2026-11.md)
 - C3: **Matrix lab caps + rich map L1 (not promote)** — [platform-c3-matrix-capabilities-rich-map-2026-11.md](./platform-c3-matrix-capabilities-rich-map-2026-11.md)
 - Feedback readiness: [platform-public-feedback-release-readiness-2026-11.md](./platform-public-feedback-release-readiness-2026-11.md)
-- Next: maintainer-directed cut · Soft L3 / Tor / Matrix promote still PAUSED
+- Official Beta: **v2.0.0-beta.11 Published** · Full Release Pass [43147384440](https://github.com/Dendro-X0/Obscur/actions/runs/43147384440) · Continuity Pass / Soft L3 Fixed **not** claimed
+- Next: maintainer-directed cut (P7d pure leaf · or P7 send/list design · or private_dc operator soak) · Soft L3 / Tor / Matrix promote still PAUSED
 - Impl under rewrite band: **in progress** (not map-only)
